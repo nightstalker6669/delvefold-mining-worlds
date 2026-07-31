@@ -5,6 +5,18 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
 public record ConfigPaths(Path directory, Path ores, Path settings) {
+    public Path profiles() {
+        return directory.resolve("profiles");
+    }
+
+    public Path imports() {
+        return directory.resolve("imports");
+    }
+
+    public Path exports() {
+        return directory.resolve("exports");
+    }
+
     public static ConfigPaths forServer(MinecraftServer server) {
         Path saveRoot = server.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
         Path directory = saveRoot.resolve("serverconfig").resolve("delvefold").normalize();
