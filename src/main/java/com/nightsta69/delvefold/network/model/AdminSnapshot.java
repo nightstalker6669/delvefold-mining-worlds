@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import java.util.List;
@@ -21,6 +22,8 @@ public record AdminSnapshot(
         TerrainMode terrainMode,
         OrePreset orePreset,
         GameplaySettings gameplay,
+        PortalSettings portal,
+        AdminCapabilities capabilities,
         String portalStatus,
         String worldStatus,
         boolean resetPending,
@@ -35,6 +38,8 @@ public record AdminSnapshot(
         terrainMode = terrainMode == null ? TerrainMode.FLAT : terrainMode;
         orePreset = orePreset == null ? OrePreset.VANILLA_BALANCED : orePreset;
         gameplay = gameplay == null ? GameplaySettings.fromPreset(GameplayPreset.SAFE) : gameplay;
+        portal = portal == null ? PortalSettings.defaults() : portal;
+        capabilities = capabilities == null ? AdminCapabilities.none() : capabilities;
         portalStatus = clean(portalStatus, "Portal is not available yet.");
         worldStatus = clean(worldStatus, initialized ? "Mining world ready." : "Mining world is not initialized.");
         diagnostics = limitedStrings(diagnostics, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
@@ -51,12 +56,14 @@ public record AdminSnapshot(
             TerrainMode terrainMode,
             OrePreset orePreset,
             GameplaySettings gameplay,
+            PortalSettings portal,
+            AdminCapabilities capabilities,
             String portalStatus,
             String worldStatus,
             boolean resetPending,
             List<String> diagnostics,
             List<OreRuleDraft> oreRules) {
-        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay,
+        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, capabilities,
                 portalStatus, worldStatus, resetPending, diagnostics,
                 oreRules == null ? 0 : oreRules.size(), 0, oreRules);
     }
@@ -70,6 +77,8 @@ public record AdminSnapshot(
                 TerrainMode.FLAT,
                 OrePreset.VANILLA_BALANCED,
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
+                PortalSettings.defaults(),
+                AdminCapabilities.none(),
                 "Portal disabled until the administration backend is installed.",
                 "Administration backend is not installed.",
                 false,
@@ -82,6 +91,17 @@ public record AdminSnapshot(
     /** A compact display-only revision; writes use the domain-specific values. */
     public long revision() {
         return Math.max(this.oreRevision, this.settingsRevision);
+    }
+
+    public record AdminCapabilities(
+            boolean canView,
+            boolean canConfigure,
+            boolean canManageWorld,
+            boolean canRestoreBackups,
+            boolean canViewDiagnostics) {
+        public static AdminCapabilities none() {
+            return new AdminCapabilities(false, false, false, false, false);
+        }
     }
 
     private static String clean(String value, String fallback) {

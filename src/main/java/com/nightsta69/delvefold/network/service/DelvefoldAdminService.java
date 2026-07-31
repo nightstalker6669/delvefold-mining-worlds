@@ -2,6 +2,7 @@ package com.nightsta69.delvefold.network.service;
 
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
@@ -40,6 +41,8 @@ public interface DelvefoldAdminService {
             ServerPlayer player,
             long expectedRevision,
             GameplaySettings gameplay);
+
+    ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal);
 
     ServiceResult perform(
             ServerPlayer player,

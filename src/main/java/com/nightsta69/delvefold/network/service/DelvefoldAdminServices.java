@@ -2,6 +2,7 @@ package com.nightsta69.delvefold.network.service;
 
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -56,6 +57,11 @@ public final class DelvefoldAdminServices {
 
         @Override
         public ServiceResult updateGameplay(ServerPlayer player, long expectedRevision, GameplaySettings gameplay) {
+            return ServiceResult.unavailable(expectedRevision);
+        }
+
+        @Override
+        public ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal) {
             return ServiceResult.unavailable(expectedRevision);
         }
 

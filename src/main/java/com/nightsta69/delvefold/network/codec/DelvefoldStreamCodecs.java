@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -24,6 +25,8 @@ public final class DelvefoldStreamCodecs {
         writeEnum(buffer, snapshot.terrainMode());
         writeEnum(buffer, snapshot.orePreset());
         writeGameplay(buffer, snapshot.gameplay());
+        writePortal(buffer, snapshot.portal());
+        writeCapabilities(buffer, snapshot.capabilities());
         writeString(buffer, snapshot.portalStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeString(buffer, snapshot.worldStatus(), ProtocolLimits.MESSAGE_LENGTH);
         buffer.writeBoolean(snapshot.resetPending());
@@ -45,6 +48,8 @@ public final class DelvefoldStreamCodecs {
         TerrainMode terrain = readEnum(buffer, TerrainMode.class);
         OrePreset orePreset = readEnum(buffer, OrePreset.class);
         GameplaySettings gameplay = readGameplay(buffer);
+        PortalSettings portal = readPortal(buffer);
+        AdminSnapshot.AdminCapabilities capabilities = readCapabilities(buffer);
         String portalStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         String worldStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         boolean resetPending = buffer.readBoolean();
@@ -63,8 +68,34 @@ public final class DelvefoldStreamCodecs {
         for (int index = 0; index < oreCount; index++) {
             rules.add(readOreRule(buffer));
         }
-        return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay,
+        return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, capabilities,
                 portalStatus, worldStatus, resetPending, diagnostics, oreRuleTotal, orePage, rules);
+    }
+
+    public static void writeCapabilities(RegistryFriendlyByteBuf buffer, AdminSnapshot.AdminCapabilities capabilities) {
+        buffer.writeBoolean(capabilities.canView());
+        buffer.writeBoolean(capabilities.canConfigure());
+        buffer.writeBoolean(capabilities.canManageWorld());
+        buffer.writeBoolean(capabilities.canRestoreBackups());
+        buffer.writeBoolean(capabilities.canViewDiagnostics());
+    }
+
+    public static AdminSnapshot.AdminCapabilities readCapabilities(RegistryFriendlyByteBuf buffer) {
+        return new AdminSnapshot.AdminCapabilities(buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
+                buffer.readBoolean(), buffer.readBoolean());
+    }
+
+    public static void writePortal(RegistryFriendlyByteBuf buffer, PortalSettings portal) {
+        buffer.writeBoolean(portal.enabled());
+        buffer.writeBoolean(portal.allowFromOverworldOnly());
+        buffer.writeBoolean(portal.playerOnly());
+        buffer.writeVarInt(portal.cooldownSeconds());
+        writeFiniteDouble(buffer, portal.coordinateScale(), "portal coordinate scale");
+    }
+
+    public static PortalSettings readPortal(RegistryFriendlyByteBuf buffer) {
+        return new PortalSettings(buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
+                buffer.readVarInt(), readFiniteDouble(buffer, "portal coordinate scale"));
     }
 
     public static void writeGameplay(RegistryFriendlyByteBuf buffer, GameplaySettings gameplay) {

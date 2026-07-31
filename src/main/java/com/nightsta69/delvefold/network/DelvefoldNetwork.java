@@ -12,6 +12,7 @@ import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
+import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.SaveOreRulePayload;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminService;
@@ -29,7 +30,7 @@ import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
-    public static final String PROTOCOL_VERSION = "2";
+    public static final String PROTOCOL_VERSION = "3";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {
@@ -79,6 +80,8 @@ public final class DelvefoldNetwork {
                 DelvefoldNetwork::handleDeleteOreRule);
         registrar.playToServer(GameplayUpdatePayload.TYPE, GameplayUpdatePayload.STREAM_CODEC,
                 DelvefoldNetwork::handleGameplayUpdate);
+        registrar.playToServer(PortalUpdatePayload.TYPE, PortalUpdatePayload.STREAM_CODEC,
+                DelvefoldNetwork::handlePortalUpdate);
         registrar.playToServer(AdminActionPayload.TYPE, AdminActionPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleAdminAction);
 
@@ -142,6 +145,14 @@ public final class DelvefoldNetwork {
         if (player != null) {
             invoke(player, () -> DelvefoldAdminServices.get().updateGameplay(
                     player, payload.expectedRevision(), payload.gameplay()));
+        }
+    }
+
+    private static void handlePortalUpdate(PortalUpdatePayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, 2);
+        if (player != null) {
+            invoke(player, () -> DelvefoldAdminServices.get().updatePortal(
+                    player, payload.expectedRevision(), payload.portal()));
         }
     }
 

@@ -4,14 +4,17 @@ import com.nightsta69.delvefold.client.DelvefoldClientRequests;
 import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
+import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
@@ -26,6 +29,11 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private boolean patrols;
     private boolean phantoms;
     private TerrainMode recreateTerrain;
+    private boolean portalEnabled;
+    private boolean portalOverworldOnly;
+    private String portalCooldown;
+    private String portalScale;
+    private String portalError = "";
     private AdminOperation armedOperation;
     private Button destructiveButton;
     private Button secondaryDestructiveButton;
@@ -44,6 +52,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         this.selectedTab = selectedTab;
         this.orePage = Math.max(0, orePage);
         setGameplay(snapshot.gameplay());
+        setPortal(snapshot.portal());
         this.recreateTerrain = snapshot.terrainMode();
     }
 
@@ -186,6 +195,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                     new AdminSnapshot(this.snapshot.oreRevision(), this.snapshot.settingsRevision(),
                             this.snapshot.backendReady(), this.snapshot.initialized(),
                             this.snapshot.terrainMode(), this.snapshot.orePreset(), currentGameplay(),
+                            this.snapshot.portal(),
+                            this.snapshot.capabilities(),
                             this.snapshot.portalStatus(), this.snapshot.worldStatus(), this.snapshot.resetPending(),
                             this.snapshot.diagnostics(), this.snapshot.oreRuleTotal(), this.snapshot.orePage(),
                             this.snapshot.oreRules()),
@@ -199,10 +210,74 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     }
 
     private void initPortal() {
-        int y = Math.min(bodyTop() + 67, this.contentBottom() - 27);
-        this.addButton(this.contentLeft() + 10, Math.max(bodyTop() + 25, y),
-                Math.min(100, Math.max(1, this.contentWidth() - 20)), 22,
+        int x = this.contentLeft() + 10;
+        int y = bodyTop() + (compactHeight() ? 25 : 31);
+        int innerWidth = Math.max(1, this.contentWidth() - 20);
+        int gap = 6;
+        int half = Math.max(1, (innerWidth - gap) / 2);
+        this.addButton(x, y, half, 22, portalToggleLabel("Portal travel", this.portalEnabled),
+                this.portalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
+                    this.portalEnabled = !this.portalEnabled;
+                    button.setMessage(portalToggleLabel("Portal travel", this.portalEnabled));
+                    setButtonStyle(button, this.portalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+                });
+        this.addButton(x + half + gap, y, innerWidth - half - gap, 22,
+                portalToggleLabel("Overworld entry only", this.portalOverworldOnly),
+                this.portalOverworldOnly ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
+                    this.portalOverworldOnly = !this.portalOverworldOnly;
+                    button.setMessage(portalToggleLabel("Overworld entry only", this.portalOverworldOnly));
+                    setButtonStyle(button, this.portalOverworldOnly ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+                });
+
+        int fieldsY = y + (compactHeight() ? 30 : 38);
+        EditBox cooldown = this.addRenderableWidget(new EditBox(this.font, x, fieldsY, half, 20,
+                Component.literal("Cooldown seconds")));
+        cooldown.setMaxLength(4);
+        cooldown.setValue(this.portalCooldown);
+        cooldown.setHint(Component.literal("Cooldown seconds"));
+        cooldown.setTextColor(TEXT);
+        cooldown.setTextColorUneditable(DIM_TEXT);
+        cooldown.setResponder(value -> this.portalCooldown = value);
+        EditBox scale = this.addRenderableWidget(new EditBox(this.font, x + half + gap, fieldsY,
+                innerWidth - half - gap, 20, Component.literal("Coordinate scale")));
+        scale.setMaxLength(8);
+        scale.setValue(this.portalScale);
+        scale.setHint(Component.literal("Coordinate scale"));
+        scale.setTextColor(TEXT);
+        scale.setTextColorUneditable(DIM_TEXT);
+        scale.setResponder(value -> this.portalScale = value);
+
+        int actionY = fieldsY + (compactHeight() ? 27 : 34);
+        this.addButton(x, actionY, half, 22, Component.literal("Save portal settings"), Style.PRIMARY,
+                button -> savePortal());
+        this.addButton(x + half + gap, actionY, innerWidth - half - gap, 22,
                 Component.translatable("screen.delvefold.refresh"), Style.GHOST, button -> refresh());
+    }
+
+    private void setPortal(PortalSettings portal) {
+        this.portalEnabled = portal.enabled();
+        this.portalOverworldOnly = portal.allowFromOverworldOnly();
+        this.portalCooldown = Integer.toString(portal.cooldownSeconds());
+        this.portalScale = Double.toString(portal.coordinateScale());
+    }
+
+    private void savePortal() {
+        try {
+            int cooldown = Integer.parseInt(this.portalCooldown.trim());
+            double scale = Double.parseDouble(this.portalScale.trim());
+            if (cooldown < 1 || cooldown > 3600 || !Double.isFinite(scale) || scale < 0.01D || scale > 100.0D) {
+                throw new NumberFormatException();
+            }
+            this.portalError = "";
+            DelvefoldClientRequests.send(new PortalUpdatePayload(this.snapshot.settingsRevision(),
+                    new PortalSettings(this.portalEnabled, this.portalOverworldOnly, true, cooldown, scale)));
+        } catch (NumberFormatException exception) {
+            this.portalError = "Cooldown must be 1–3600; scale must be 0.01–100.";
+        }
+    }
+
+    private static Component portalToggleLabel(String label, boolean enabled) {
+        return Component.literal((enabled ? "ON  •  " : "OFF  •  ") + label);
     }
 
     private void initDiagnostics() {
@@ -242,11 +317,14 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         this.secondaryDestructiveButton = this.addButton(x + actionWidth + actionGap, y, secondaryActionWidth, 22,
                 Component.translatable("screen.delvefold.world.recreate"), Style.DANGER,
                 button -> armOrPerform(AdminOperation.RECREATE_WORLD));
+        this.destructiveButton.active = this.snapshot.capabilities().canManageWorld();
+        this.secondaryDestructiveButton.active = this.snapshot.capabilities().canManageWorld();
         if (this.snapshot.resetPending()) {
             this.cancelPendingButton = this.addButton(x, y + (compactHeight() ? 24 : 30), innerWidth, 22,
                     Component.translatable("screen.delvefold.world.cancel_reset"),
                     Style.GHOST,
                     button -> armOrPerform(AdminOperation.CANCEL_PENDING_RESET));
+            this.cancelPendingButton.active = this.snapshot.capabilities().canManageWorld();
         }
         updateDestructiveLabels();
     }
@@ -392,11 +470,17 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             }
             case PORTAL -> {
                 this.drawCard(graphics, x, y, width, height);
-                this.drawSectionTitle(graphics, Component.literal("PORTAL STATUS"), x + 10, y + 7);
+                this.drawSectionTitle(graphics, Component.literal("PORTAL POLICY"), x + 10, y + 7);
                 this.drawBadge(graphics, Component.literal(this.snapshot.initialized() ? "READY" : "NOT READY"),
-                        x + 10, y + 27, this.snapshot.initialized() ? SUCCESS : WARNING);
+                        x + width - (this.snapshot.initialized() ? 57 : 82), y + 6,
+                        this.snapshot.initialized() ? SUCCESS : WARNING);
+                int statusY = y + (compactHeight() ? 112 : 142);
                 graphics.drawWordWrap(this.font, Component.literal(this.snapshot.portalStatus()),
-                        x + 10, y + 49, width - 20, MUTED_TEXT);
+                        x + 10, statusY, width - 20, MUTED_TEXT);
+                if (!this.portalError.isEmpty()) {
+                    graphics.drawString(this.font, this.font.plainSubstrByWidth(this.portalError, width - 20),
+                            x + 10, y + height - 17, DANGER, false);
+                }
             }
             case DIAGNOSTICS -> {
                 this.drawCard(graphics, x, y, width, height);

@@ -11,6 +11,7 @@ import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
@@ -78,6 +79,13 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings.terrainMode(),
                 settings.orePreset(),
                 settings.gameplay(),
+                settings.portal(),
+                new AdminSnapshot.AdminCapabilities(
+                        AdminAccess.canConfigure(player),
+                        AdminAccess.canConfigure(player),
+                        AdminAccess.canManageWorld(player),
+                        AdminAccess.canManageWorld(player),
+                        AdminAccess.canConfigure(player)),
                 portalStatus,
                 worldStatus,
                 WorldOperationService.get().isEntryBlocked(),
@@ -160,6 +168,16 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings -> settings.withGameplay(gameplay)
         );
         return fromWrite(result, "Gameplay settings saved");
+    }
+
+    @Override
+    public ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal) {
+        requireConfigure(player);
+        ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(
+                expectedRevision,
+                settings -> settings.withPortal(portal)
+        );
+        return fromWrite(result, "Portal settings saved");
     }
 
     @Override
