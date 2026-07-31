@@ -88,12 +88,29 @@ public final class OreConfigValidator {
         for (int i = 0; i < rule.targets().size(); i++) {
             OreTarget target = rule.targets().get(i);
             String targetPath = path + ".targets[" + i + "]";
-            if (target.block().length() > MAX_ID_LENGTH || !isResourceLocation(target.block())) {
-                issues.add(ConfigIssue.error("target.invalid_block", targetPath + ".block", "Invalid block registry id: " + target.block()));
-            } else if (!registries.blockExists(target.block())) {
+            boolean exact = !target.block().isBlank();
+            boolean tagged = !target.blockTag().isBlank();
+            if (exact == tagged) {
+                issues.add(ConfigIssue.error("target.source", targetPath,
+                        "Set exactly one of block or block_tag"));
+            } else if (exact) {
+                if (target.block().length() > MAX_ID_LENGTH || !isResourceLocation(target.block())) {
+                    issues.add(ConfigIssue.error("target.invalid_block", targetPath + ".block", "Invalid block registry id: " + target.block()));
+                } else if (!registries.blockExists(target.block())) {
+                    ConfigIssue issue = rule.required()
+                            ? ConfigIssue.error("target.missing_block", targetPath + ".block", "Required block is not registered: " + target.block())
+                            : ConfigIssue.warning("target.missing_block", targetPath + ".block", "Optional block is not installed and will be skipped: " + target.block());
+                    issues.add(issue);
+                }
+            } else if (target.blockTag().length() > MAX_ID_LENGTH || !isResourceLocation(target.blockTag())) {
+                issues.add(ConfigIssue.error("target.invalid_block_tag", targetPath + ".block_tag",
+                        "Invalid output block tag: " + target.blockTag()));
+            } else if (!registries.blockTagExists(target.blockTag())) {
                 ConfigIssue issue = rule.required()
-                        ? ConfigIssue.error("target.missing_block", targetPath + ".block", "Required block is not registered: " + target.block())
-                        : ConfigIssue.warning("target.missing_block", targetPath + ".block", "Optional block is not installed and will be skipped: " + target.block());
+                        ? ConfigIssue.error("target.missing_block_tag", targetPath + ".block_tag",
+                                "Required output block tag is missing or empty: " + target.blockTag())
+                        : ConfigIssue.warning("target.missing_block_tag", targetPath + ".block_tag",
+                                "Optional output block tag is missing or empty and will be skipped: " + target.blockTag());
                 issues.add(issue);
             }
             if (stripHash(target.replaceTag()).length() > MAX_ID_LENGTH
@@ -113,7 +130,7 @@ public final class OreConfigValidator {
                             "Block-state values must be strings of at most " + MAX_ID_LENGTH + " characters"));
                 }
             }
-            String targetKey = target.block() + '|' + target.state() + '|' + target.replaceTag();
+            String targetKey = target.sourceId() + '|' + target.state() + '|' + target.replaceTag();
             if (!targetKeys.add(targetKey)) {
                 issues.add(ConfigIssue.warning("target.duplicate", targetPath, "Duplicate target will perform redundant work"));
             }

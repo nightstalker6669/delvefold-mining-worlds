@@ -10,6 +10,8 @@ import com.nightsta69.delvefold.config.OrePresets;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import com.nightsta69.delvefold.api.DelvefoldApi;
+import com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -38,6 +40,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelResource;
+import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 
 /**
@@ -281,6 +284,13 @@ public final class WorldOperationService {
                     deleteTree(currentApplied.holdingRoot());
                 }
                 archiveOperationRecord(server, currentApplied);
+                ConfigSnapshot after = configs.snapshot();
+                NeoForge.EVENT_BUS.post(new DelvefoldWorldLifecycleEvent(
+                        operation.type() == WorldOperationType.DELETE
+                                ? DelvefoldWorldLifecycleEvent.Action.DELETED
+                                : DelvefoldWorldLifecycleEvent.Action.RECREATED,
+                        DelvefoldApi.worldView(before.settings()), DelvefoldApi.worldView(after.settings()),
+                        operation.operationId()));
                 applied = null;
                 entryBlocked.set(false);
                 LOGGER.info("Completed Delvefold {} operation {}", operation.type(), operation.operationId());

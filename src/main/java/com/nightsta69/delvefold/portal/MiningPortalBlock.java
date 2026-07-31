@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.portal;
 
 import com.mojang.serialization.MapCodec;
+import com.nightsta69.delvefold.api.event.DelvefoldPortalTravelEvent;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -27,6 +28,7 @@ import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.portal.DimensionTransition;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
+import net.neoforged.neoforge.common.NeoForge;
 
 /** Player-only Delvefold portal using the 1.21.1 Portal/DimensionTransition pipeline. */
 public final class MiningPortalBlock extends Block implements Portal {
@@ -97,6 +99,12 @@ public final class MiningPortalBlock extends Block implements Portal {
         PortalAccess.Result access = PortalAccess.forTransition(source, player);
         if (!access.allowed()) {
             PortalAccess.notifyDenied(player, access);
+            player.setPortalCooldown(PortalAccess.cooldownTicks(access.settings()));
+            return null;
+        }
+        DelvefoldPortalTravelEvent event = NeoForge.EVENT_BUS.post(new DelvefoldPortalTravelEvent(
+                player, source.dimension(), access.destination().dimension()));
+        if (event.isCanceled()) {
             player.setPortalCooldown(PortalAccess.cooldownTicks(access.settings()));
             return null;
         }

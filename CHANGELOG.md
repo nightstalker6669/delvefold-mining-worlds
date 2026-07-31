@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 — Modpack Ecosystem
+
+- Added namespaced, read-only ore profiles loaded from datapacks.
+- Added a dependency-free startup-script bridge with deterministic script-over-datapack precedence.
+- Added tag-driven ore outputs for conventional tags such as `c:ores/tin` in JSON, commands, and the GUI.
+- Added native NeoForge permission nodes for configuration, world management, and portal entry.
+- Added an experimental versioned API with immutable world views and lifecycle, profile, and cancellable portal events.
+- Added optional JEI and EMI information pages for portal setup and activation.
+- Added a complete example datapack, integration guide, schemas, validation, and backward-compatibility tests.
+
+Datapack and scripted profiles are read-only in Delvefold and affect newly generated chunks after selection. JEI, EMI, scripting mods, and permission mods remain optional.
+
 ## 0.3.0 — World Identity
 
 - Added Classic and Expansive variants for Flat, Cavern, and Wild terrain.

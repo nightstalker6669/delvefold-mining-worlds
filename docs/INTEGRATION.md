@@ -1,0 +1,85 @@
+# Modpack and Mod Integration
+
+Delvefold 0.4 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is experimental until 1.0; `DelvefoldApi.API_VERSION` is currently `1`.
+
+## Datapack ore profiles
+
+Place canonical schema-2 profile JSON at:
+
+```text
+data/<namespace>/delvefold/ore_profiles/<path>.json
+```
+
+For example, `data/examplepack/delvefold/ore_profiles/tagged_metals.json` becomes profile `examplepack:tagged_metals`. Nested paths are supported. The [complete example datapack](../examples/datapack) can be copied into a world's `datapacks` directory or packaged in a modpack.
+
+Profiles are reloaded with server resources, validated before publication, limited to 256 KiB each, and read-only in Delvefold's GUI. Selection uses the normal profile GUI or:
+
+```text
+/delvefold profile select examplepack:tagged_metals
+```
+
+When resolving the same ID, script registration takes precedence over datapacks. Local per-save profiles use unnamespaced IDs and built-ins remain the final fallback.
+
+## Conventional output tags
+
+Use `block_tag` instead of `block` to support any installed mod that contributes to a conventional block tag:
+
+```json
+{
+  "block_tag": "c:ores/tin",
+  "state": {},
+  "replace_tag": "minecraft:stone_ore_replaceables"
+}
+```
+
+Exactly one output source is required. Members are expanded in registry-ID order. Mark a cross-mod rule `required: false` if a pack should remain valid when no provider is installed.
+
+Commands expose the same model:
+
+```text
+/delvefold ore target add-tag <rule> <block_tag> <replace_tag>
+/delvefold ore target remove-tag <rule> <block_tag>
+```
+
+## Startup scripts
+
+Scripting mods can call the dependency-free Java bridge during server startup. A KubeJS-style example is:
+
+```javascript
+const DelvefoldApi = Java.loadClass('com.nightsta69.delvefold.api.DelvefoldApi')
+DelvefoldApi.registerOreProfileJson('my_pack', 'my_pack:scripted_metals', JSON.stringify(profileObject))
+```
+
+The owner and profile ID are validated, JSON is bounded and strictly decoded, and registrations exist for the current game process. The same owner may remove its own entry with `unregisterOreProfile(owner, profileId)`. Scripts take precedence over a datapack entry with the same ID.
+
+## Permission nodes
+
+NeoForge permission handlers can grant:
+
+| Node | Default fallback | Purpose |
+|---|---:|---|
+| `delvefold.configure` | Operator level 2 | GUI, profiles, ores, gameplay, portal, and identity settings |
+| `delvefold.manage_world` | Operator level 4 | Delete, recreate, renew, restore, and backup management |
+| `delvefold.use_portal` | Everyone | Enter the active mining world |
+
+The integrated singleplayer owner keeps administrative access with cheats disabled. Return travel is never denied, preventing players from being trapped by a permission change.
+
+## Java API and events
+
+`DelvefoldApi.activeWorld()` returns an optional immutable `MiningWorldView`. `DelvefoldApi.worldView(settings)` can convert a known settings snapshot. Never retain internal configuration services.
+
+The NeoForge game bus posts:
+
+- `DelvefoldWorldLifecycleEvent` after initialization, recreation, or deletion commits;
+- `DelvefoldOreProfileActivatedEvent` after profile selection;
+- `DelvefoldPortalTravelEvent` immediately before destination resolution. This event is cancellable.
+
+Listeners should use the immutable values supplied by each event and should not mutate Delvefold configuration from inside a lifecycle callback.
+
+## JEI and EMI
+
+When JEI or EMI is installed, the Portal Frame receives an information page explaining frame size, explicit world initialization, and Flint and Steel activation. The ordinary frame crafting recipe is discovered from vanilla recipe data. Neither recipe viewer is required at runtime.
+
+## Localization
+
+Integration-provided user text should use translatable components. Delvefold's base keys live in `assets/delvefold/lang/en_us.json`; translations can be shipped by resource packs or contributed by adding the matching locale JSON without changing server behavior.

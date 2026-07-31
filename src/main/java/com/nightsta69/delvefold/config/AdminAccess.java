@@ -12,25 +12,29 @@ public final class AdminAccess {
     }
 
     public static boolean canConfigure(CommandSourceStack source) {
-        return source.hasPermission(CONFIGURE_PERMISSION) || isIntegratedOwner(source);
+        return source.getEntity() instanceof ServerPlayer player
+                ? canConfigure(player)
+                : source.hasPermission(CONFIGURE_PERMISSION);
     }
 
     public static boolean canManageWorld(CommandSourceStack source) {
-        return source.hasPermission(WORLD_MANAGEMENT_PERMISSION) || isIntegratedOwner(source);
+        return source.getEntity() instanceof ServerPlayer player
+                ? canManageWorld(player)
+                : source.hasPermission(WORLD_MANAGEMENT_PERMISSION);
     }
 
     public static boolean canConfigure(ServerPlayer player) {
-        return player.hasPermissions(CONFIGURE_PERMISSION)
-                || player.getServer().isSingleplayerOwner(player.getGameProfile());
+        return player.getServer().isSingleplayerOwner(player.getGameProfile())
+                || DelvefoldPermissions.granted(player, DelvefoldPermissions.CONFIGURE);
     }
 
     public static boolean canManageWorld(ServerPlayer player) {
-        return player.hasPermissions(WORLD_MANAGEMENT_PERMISSION)
-                || player.getServer().isSingleplayerOwner(player.getGameProfile());
+        return player.getServer().isSingleplayerOwner(player.getGameProfile())
+                || DelvefoldPermissions.granted(player, DelvefoldPermissions.MANAGE_WORLD);
     }
 
-    private static boolean isIntegratedOwner(CommandSourceStack source) {
-        return source.getEntity() instanceof ServerPlayer player
-                && source.getServer().isSingleplayerOwner(player.getGameProfile());
+    public static boolean canUsePortal(ServerPlayer player) {
+        return DelvefoldPermissions.granted(player, DelvefoldPermissions.USE_PORTAL);
     }
+
 }

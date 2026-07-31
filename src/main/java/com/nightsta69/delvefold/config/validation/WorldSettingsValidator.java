@@ -33,9 +33,10 @@ public final class WorldSettingsValidator {
             issues.add(ConfigIssue.error("settings.operation_id.too_long", "$.last_world_operation_id",
                     "The last world operation ID cannot exceed 128 characters"));
         }
-        if (!settings.activeProfileId().matches("[a-z0-9_.-]{1,128}")) {
+        if (settings.activeProfileId().length() > 128
+                || !settings.activeProfileId().matches("(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+")) {
             issues.add(ConfigIssue.error("settings.profile.invalid", "$.active_profile_id",
-                    "Active profile ID may contain lowercase letters, digits, _, . and - only"));
+                    "Active profile ID must be a lowercase path and may include a namespace"));
         }
         var identity = settings.identity();
         if (identity.displayName().isBlank() || identity.displayName().length() > 64) {

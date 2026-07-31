@@ -50,6 +50,18 @@ Top-level fields:
 
 `state` may set valid properties exposed by the selected block. The GUI normally leaves it empty, which uses the block's default state.
 
+An output can instead resolve every installed block in a conventional tag. Set exactly one of `block` and `block_tag`:
+
+```json
+{
+  "block_tag": "c:ores/tin",
+  "state": {},
+  "replace_tag": "minecraft:stone_ore_replaceables"
+}
+```
+
+Tag members are expanded in registry-ID order for deterministic generation. A missing optional output tag warns and skips; a missing required output tag rejects the profile.
+
 Common host tags are:
 
 - `minecraft:stone_ore_replaceables`
@@ -125,4 +137,4 @@ Gameplay presets are live settings:
 
 Spawn eggs, commands, breeding, and mob spawners are not treated as natural spawning and remain usable.
 
-`settings.json` records `active_profile_id`, which must match the active ore document. Portal settings are validated. Cooldown is 1–3600 seconds, and coordinate scale must be finite and between 0.01 and 100. The one-second minimum prevents immediate partner-portal bounce loops. Portal travel is player-only; the default policy allows Overworld entry with a five-second cooldown and 1:1 coordinates.
+`settings.json` records `active_profile_id`, which must match the active ore document. Local profile IDs are simple lowercase names; datapack and script entries use namespaced paths such as `examplepack:metals/rich_tin`. Portal settings are validated. Cooldown is 1–3600 seconds, and coordinate scale must be finite and between 0.01 and 100. The one-second minimum prevents immediate partner-portal bounce loops. Portal travel is player-only; the default policy allows Overworld entry with a five-second cooldown and 1:1 coordinates.

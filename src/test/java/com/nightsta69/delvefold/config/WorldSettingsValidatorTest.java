@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.config;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
@@ -41,5 +42,16 @@ class WorldSettingsValidatorTest {
                         true, true, true, new RenewalSettings(true, 0, 10081, -1L)));
 
         assertFalse(WorldSettingsValidator.validate(settings).valid());
+    }
+
+    @Test
+    void acceptsNamespacedProfilesButEnforcesTotalLength() {
+        WorldSettingsDocument valid = WorldSettingsDocument.uninitialized()
+                .withActiveProfile("examplepack:metals/rich_tin");
+        assertTrue(WorldSettingsValidator.validate(valid).valid());
+
+        WorldSettingsDocument tooLong = WorldSettingsDocument.uninitialized()
+                .withActiveProfile("pack:" + "a".repeat(124));
+        assertFalse(WorldSettingsValidator.validate(tooLong).valid());
     }
 }

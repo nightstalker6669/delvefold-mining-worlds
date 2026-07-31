@@ -26,7 +26,7 @@
     "ore_preset": { "enum": ["vanilla_balanced", "rich", "empty"] },
     "active_profile_id": {
       "type": "string",
-      "pattern": "^[a-z0-9_.-]+$",
+      "pattern": "^(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+$",
       "minLength": 1,
       "maxLength": 128
     },

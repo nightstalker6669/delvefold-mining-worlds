@@ -2,7 +2,7 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
-> **0.3 compatibility:** Delvefold 0.3 continues to use configuration schema 2. Existing schema-2 saves gain safe identity defaults without being rewritten merely by loading. Schema-1 saves remain in non-destructive read-only compatibility mode.
+> **0.4 compatibility:** Delvefold 0.4 continues to use configuration schema 2. Existing schema-2 saves and exact-block ore targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode.
 
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
@@ -19,6 +19,9 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
 - Three-page ore-rule wizard for stone/deepslate or other variants, replacement hosts, block-state properties, biome include/exclude selectors, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
+- Read-only ore profiles supplied by datapacks or startup scripts, including tag-driven outputs such as `c:ores/tin`.
+- Native NeoForge permission nodes, public lifecycle events, and an experimental versioned integration API.
+- Optional JEI and EMI portal guidance with no required recipe-viewer dependency.
 - Safe, Hostile, and Normal gameplay presets with individual spawn-category toggles.
 - Dedicated Delvefold creative tab with the Portal Frame and room for future content.
 - Iron-tier framed portal ignited with vanilla Flint and Steel.
@@ -101,6 +104,8 @@ Ore targets and spawn bands:
 ```text
 /delvefold ore target add <rule> <block_id> <replace_tag>
 /delvefold ore target remove <rule> <block_id>
+/delvefold ore target add-tag <rule> <block_tag> <replace_tag>
+/delvefold ore target remove-tag <rule> <block_tag>
 /delvefold ore band add <rule> <band_id> <common|uncommon|rare|very_rare>
 /delvefold ore band remove <rule> <band_id>
 /delvefold ore band set <rule> <band_id> <field> <value>
@@ -161,6 +166,8 @@ Each save owns its configuration:
 
 Editing JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), and the [JSON Schema](schemas/ores.schema.json).
 
+Modpack authors can provide namespaced, read-only profiles under `data/<namespace>/delvefold/ore_profiles/`, register profiles from startup scripts, and use NeoForge events and permission nodes. See [Integration](docs/INTEGRATION.md) and the [example datapack](examples/datapack).
+
 ## Recreating or deleting the mining world
 
 Use the **World Management** GUI tab or commands documented in [Commands](docs/COMMANDS.md). Delvefold never deletes a loaded dimension. A confirmed operation:
@@ -182,6 +189,6 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-0.3.0.jar`.
+The release JAR is written to `build/libs/delvefold-1.21.1-0.4.0.jar`.
 
 License: MIT.

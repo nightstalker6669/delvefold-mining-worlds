@@ -425,7 +425,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
     static OreRule fromDraft(AdminSnapshot.OreRuleDraft draft) {
         List<OreTarget> targets = draft.variants().stream().map(variant -> {
             String tag = stripHash(variant.replaceTag());
-            return new OreTarget(variant.blockId(), variant.state(), tag);
+            return new OreTarget(variant.blockId(), variant.blockTag(), variant.state(), tag);
         }).toList();
         List<SpawnBand> bands = draft.bands().stream().map(DefaultDelvefoldAdminService::fromDraft).toList();
         Set<TerrainMode> terrainModes = Set.copyOf(draft.terrainModes());
@@ -451,7 +451,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
     }
 
     private static AdminSnapshot.OreRuleDraft toDraft(OreRule rule) {
-        String primary = rule.targets().isEmpty() ? "minecraft:air" : rule.targets().getFirst().block();
+        String primary = rule.targets().stream().map(OreTarget::block).filter(block -> !block.isBlank())
+                .findFirst().orElse("minecraft:air");
         return new AdminSnapshot.OreRuleDraft(
                 rule.id(),
                 rule.enabled(),
@@ -459,7 +460,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 primary,
                 rule.targets().stream()
                         .map(target -> new AdminSnapshot.OreVariantDraft(
-                                target.block(), target.replaceTag(), target.state()))
+                                target.block(), target.blockTag(), target.replaceTag(), target.state()))
                         .toList(),
                 List.copyOf(rule.terrainModes()),
                 rule.biomes().include(),

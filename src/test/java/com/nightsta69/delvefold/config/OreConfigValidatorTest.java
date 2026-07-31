@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.validation.OreConfigValidator;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
@@ -90,5 +91,26 @@ class OreConfigValidatorTest {
         var report = OreConfigValidator.validate(new OreProfileDocument(1, 0, "stress", rules), RegistryLookup.SKIP);
         assertFalse(report.valid());
         assertTrue(report.issues().stream().anyMatch(issue -> "budget.too_many_attempts".equals(issue.code())));
+    }
+
+    @Test
+    void acceptsTagDrivenOutputsAndRejectsAmbiguousTargets() {
+        var original = OrePresets.balanced().rules().getFirst();
+        var tagged = new com.nightsta69.delvefold.config.model.OreRule(
+                "tagged_tin", true, false, original.terrainModes(),
+                List.of(OreTarget.ofTag("c:ores/tin", "minecraft:stone_ore_replaceables")),
+                original.biomes(), original.bands());
+        var valid = OreConfigValidator.validate(
+                new OreProfileDocument(2, 0, "tagged", List.of(tagged)), RegistryLookup.SKIP);
+        assertTrue(valid.valid(), () -> valid.issues().toString());
+
+        var ambiguous = new com.nightsta69.delvefold.config.model.OreRule(
+                "ambiguous", true, false, original.terrainModes(),
+                List.of(new OreTarget("minecraft:iron_ore", "c:ores/iron", java.util.Map.of(),
+                        "minecraft:stone_ore_replaceables")), original.biomes(), original.bands());
+        var invalid = OreConfigValidator.validate(
+                new OreProfileDocument(2, 0, "ambiguous", List.of(ambiguous)), RegistryLookup.SKIP);
+        assertFalse(invalid.valid());
+        assertTrue(invalid.issues().stream().anyMatch(issue -> "target.source".equals(issue.code())));
     }
 }

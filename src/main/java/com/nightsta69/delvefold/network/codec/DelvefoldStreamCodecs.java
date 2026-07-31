@@ -194,7 +194,8 @@ public final class DelvefoldStreamCodecs {
 
         writeCount(buffer, rule.variants().size(), ProtocolLimits.MAX_VARIANTS, "ore variants");
         for (AdminSnapshot.OreVariantDraft variant : rule.variants()) {
-            writeResourceId(buffer, variant.blockId());
+            buffer.writeBoolean(!variant.blockTag().isBlank());
+            writeResourceId(buffer, variant.blockTag().isBlank() ? variant.blockId() : variant.blockTag());
             writeResourceId(buffer, variant.replaceTag());
             writeCount(buffer, variant.state().size(), ProtocolLimits.MAX_STATE_PROPERTIES, "state properties");
             for (var property : variant.state().entrySet()) {
@@ -228,7 +229,8 @@ public final class DelvefoldStreamCodecs {
         int variantCount = readCount(buffer, ProtocolLimits.MAX_VARIANTS, "ore variants");
         List<AdminSnapshot.OreVariantDraft> variants = new ArrayList<>(variantCount);
         for (int index = 0; index < variantCount; index++) {
-            String blockId = readResourceId(buffer);
+            boolean tagDriven = buffer.readBoolean();
+            String sourceId = readResourceId(buffer);
             String replaceTag = readResourceId(buffer);
             int stateCount = readCount(buffer, ProtocolLimits.MAX_STATE_PROPERTIES, "state properties");
             java.util.Map<String, String> state = new java.util.LinkedHashMap<>();
@@ -239,7 +241,8 @@ public final class DelvefoldStreamCodecs {
                     throw new IllegalArgumentException("Duplicate block-state property: " + key);
                 }
             }
-            variants.add(new AdminSnapshot.OreVariantDraft(blockId, replaceTag, state));
+            variants.add(new AdminSnapshot.OreVariantDraft(
+                    tagDriven ? "" : sourceId, tagDriven ? sourceId : "", replaceTag, state));
         }
 
         int terrainCount = readCount(buffer, ProtocolLimits.MAX_TERRAIN_MODES, "terrain modes");

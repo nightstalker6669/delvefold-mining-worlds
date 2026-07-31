@@ -211,7 +211,7 @@ public record AdminSnapshot(
                     true,
                     false,
                     normalizedBlock,
-                    List.of(new OreVariantDraft(normalizedBlock, replaceTag, java.util.Map.of())),
+                    List.of(new OreVariantDraft(normalizedBlock, "", replaceTag, java.util.Map.of())),
                     List.of(TerrainMode.values()),
                     List.of("#delvefold:mining_biomes"),
                     List.of(),
@@ -224,9 +224,14 @@ public record AdminSnapshot(
         }
     }
 
-    public record OreVariantDraft(String blockId, String replaceTag, java.util.Map<String, String> state) {
+    public record OreVariantDraft(
+            String blockId, String blockTag, String replaceTag, java.util.Map<String, String> state) {
         public OreVariantDraft {
-            blockId = cleanId(blockId, "minecraft:iron_ore");
+            blockId = blockId == null ? "" : blockId.trim();
+            blockTag = blockTag == null ? "" : stripHash(blockTag.trim());
+            if (blockId.isBlank() && blockTag.isBlank()) {
+                blockId = "minecraft:iron_ore";
+            }
             replaceTag = cleanId(replaceTag, "minecraft:stone_ore_replaceables");
             if (state == null || state.isEmpty()) {
                 state = java.util.Map.of();
@@ -236,6 +241,14 @@ public record AdminSnapshot(
                         .forEach(entry -> sanitized.put(entry.getKey(), entry.getValue()));
                 state = java.util.Collections.unmodifiableMap(sanitized);
             }
+        }
+
+        public String sourceId() {
+            return blockTag.isBlank() ? blockId : '#' + blockTag;
+        }
+
+        private static String stripHash(String value) {
+            return value.startsWith("#") ? value.substring(1) : value;
         }
     }
 
