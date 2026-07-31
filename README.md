@@ -191,7 +191,7 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-1.0.0.jar`. Pull requests run a clean Java 21 build, unit tests, JSON validation, and translation-key validation. Version tags publish the JAR and SHA-256 checksum automatically.
+The release JAR is written to `build/libs/delvefold-1.21.1-1.0.1.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, and translation-key validation. Version tags publish the JAR and SHA-256 checksum automatically.
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
 

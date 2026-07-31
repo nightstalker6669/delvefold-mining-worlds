@@ -125,7 +125,7 @@ The optional `identity` object is additive to schema 2. A schema-2 settings file
 }
 ```
 
-`terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat doubles the mineable depth, Expansive Cavern creates amplified subterranean ranges, and Expansive Wild uses amplified Overworld terrain. `landmark_preset` is `pure_mining`, `balanced`, or `abundant`. Pure Mining disables Delvefold landmarks. The individual landmark booleans can further narrow which bounded landmark types appear in newly generated chunks.
+`terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat adds substantially more mineable depth while keeping its surface safely below the cloud layer, Expansive Cavern creates amplified subterranean ranges, and Expansive Wild uses amplified Overworld terrain. `landmark_preset` is `pure_mining`, `balanced`, or `abundant`. Pure Mining disables Delvefold landmarks. The individual landmark booleans can further narrow which bounded landmark types appear in newly generated chunks.
 
 Scheduled renewal is disabled by default. When enabled, `interval_days` is 1–3650 and `warning_minutes` is 1–10080. The server announces the configured warning plus ten- and one-minute warnings when applicable. At the due time it blocks entry, evacuates players, schedules a restart-safe recreation, and always retains a timestamped backup. Singleplayer users apply it by exiting to title and reopening the save; dedicated servers apply it on restart.
 

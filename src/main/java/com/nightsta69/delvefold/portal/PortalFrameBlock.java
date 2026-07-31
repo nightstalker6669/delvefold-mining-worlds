@@ -2,9 +2,10 @@ package com.nightsta69.delvefold.portal;
 
 import com.mojang.serialization.MapCodec;
 import java.util.Optional;
-import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -25,6 +26,8 @@ import net.minecraft.world.phys.BlockHitResult;
 /** A Delvefold frame block ignited with vanilla Flint and Steel. */
 public final class PortalFrameBlock extends Block {
     public static final MapCodec<PortalFrameBlock> CODEC = simpleCodec(PortalFrameBlock::new);
+    private static final ResourceLocation ACTIVATE_PORTAL_ADVANCEMENT =
+            ResourceLocation.fromNamespaceAndPath("delvefold", "activate_portal");
 
     public PortalFrameBlock(BlockBehaviour.Properties properties) {
         super(properties);
@@ -99,10 +102,17 @@ public final class PortalFrameBlock extends Block {
                 0.35D,
                 0.08D);
         serverLevel.gameEvent(serverPlayer, GameEvent.BLOCK_CHANGE, position);
-        CriteriaTriggers.ITEM_USED_ON_BLOCK.trigger(serverPlayer, position, stack);
+        awardActivationAdvancement(serverLevel, serverPlayer);
         stack.hurtAndBreak(1, serverPlayer, LivingEntity.getSlotForHand(hand));
         serverPlayer.sendSystemMessage(
                 net.minecraft.network.chat.Component.translatable("message.delvefold.portal.activated"), true);
         return ItemInteractionResult.CONSUME;
+    }
+
+    private static void awardActivationAdvancement(ServerLevel level, ServerPlayer player) {
+        AdvancementHolder advancement = level.getServer().getAdvancements().get(ACTIVATE_PORTAL_ADVANCEMENT);
+        if (advancement != null) {
+            player.getAdvancements().award(advancement, "activate");
+        }
     }
 }

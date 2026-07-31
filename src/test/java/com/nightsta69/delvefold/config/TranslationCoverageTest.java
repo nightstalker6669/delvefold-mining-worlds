@@ -47,6 +47,7 @@ class TranslationCoverageTest {
             }
             for (LandmarkPreset value : LandmarkPreset.values()) {
                 assertKey(language, "option.delvefold.landmark." + value.serializedName());
+                assertKey(language, "screen.delvefold.setup.landmark_help." + value.serializedName());
             }
         }
     }

@@ -18,6 +18,13 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.network.chat.Component;
 
 public final class DelvefoldSetupScreen extends DelvefoldScreen {
+    private static final int RESOURCE_OPTIONS_TOP = 39;
+    private static final int RESOURCE_GAMEPLAY_OPTIONS_TOP = 115;
+    private static final int RESOURCE_GAMEPLAY_HELP_TOP = 153;
+    private static final int RESOURCE_LANDMARK_TITLE_TOP = 176;
+    private static final int RESOURCE_LANDMARK_OPTIONS_TOP = 191;
+    private static final int RESOURCE_LANDMARK_HELP_TOP = 225;
+
     private TerrainMode terrainMode;
     private OrePreset orePreset;
     private GameplayPreset gameplayPreset;
@@ -115,13 +122,13 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
 
     private void initResources() {
         int x = this.contentLeft() + 12;
-        int y = bodyTop() + 39;
+        int y = bodyTop();
         int width = this.contentWidth() - 24;
         int gap = 8;
         int optionWidth = (width - gap * 2) / 3;
         for (OrePreset preset : OrePreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
-            this.addButton(optionX, y, optionWidth, 32,
+            this.addButton(optionX, y + RESOURCE_OPTIONS_TOP, optionWidth, 32,
                     DelvefoldText.option("ore_preset", preset.serializedName()),
                     this.orePreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
@@ -130,7 +137,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                         rebuildWidgets();
                     });
         }
-        int gameplayY = y + 76;
+        int gameplayY = y + RESOURCE_GAMEPLAY_OPTIONS_TOP;
         for (GameplayPreset preset : GameplayPreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
             this.addButton(optionX, gameplayY, optionWidth, 32,
@@ -142,7 +149,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                         rebuildWidgets();
                     });
         }
-        int landmarkY = y + 124;
+        int landmarkY = y + RESOURCE_LANDMARK_OPTIONS_TOP;
         for (LandmarkPreset preset : LandmarkPreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
             this.addButton(optionX, landmarkY, optionWidth, 28,
@@ -251,8 +258,12 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.resources.ores"), x + 10, y + 8);
         graphics.drawString(this.font, oreDescription(), x + 12, y + 76, MUTED_TEXT, false);
         this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.resources.gameplay"), x + 10, y + 99);
-        this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.resources.landmarks"), x + 10, y + 150);
-        graphics.drawString(this.font, gameplayDescription(), x + 12, y + 185, DIM_TEXT, false);
+        graphics.drawWordWrap(this.font, gameplayDescription(), x + 12, y + RESOURCE_GAMEPLAY_HELP_TOP,
+                width - 24, DIM_TEXT);
+        this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.resources.landmarks"),
+                x + 10, y + RESOURCE_LANDMARK_TITLE_TOP);
+        graphics.drawWordWrap(this.font, landmarkDescription(), x + 12, y + RESOURCE_LANDMARK_HELP_TOP,
+                width - 24, DIM_TEXT);
     }
 
     private void renderReview(GuiGraphics graphics, int x, int y, int width) {
@@ -294,6 +305,14 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
             case SAFE -> Component.translatable("screen.delvefold.setup.gameplay_help.safe");
             case HOSTILE -> Component.translatable("screen.delvefold.setup.gameplay_help.hostile");
             case NORMAL -> Component.translatable("screen.delvefold.setup.gameplay_help.normal");
+        };
+    }
+
+    private Component landmarkDescription() {
+        return switch (this.landmarkPreset) {
+            case PURE_MINING -> Component.translatable("screen.delvefold.setup.landmark_help.pure_mining");
+            case BALANCED -> Component.translatable("screen.delvefold.setup.landmark_help.balanced");
+            case ABUNDANT -> Component.translatable("screen.delvefold.setup.landmark_help.abundant");
         };
     }
 
