@@ -11,7 +11,7 @@ Delvefold has one canonical configuration model. The GUI, commands, and JSON all
 - Disk writes use temporary sibling files, forced flush, and atomic replacement where the filesystem supports it. A small transaction journal makes the two JSON documents restart-recoverable if a write is interrupted between them.
 - Files larger than 4 MiB are rejected as a safety limit.
 
-Use `/miningworlds config validate` before reloading, then `/miningworlds config reload`. A reload affects future chunks only.
+Use `/delvefold config validate` before reloading, then `/delvefold config reload`. A reload affects future chunks only.
 
 ## Ore profile
 
@@ -82,7 +82,7 @@ Nether quartz, ancient debris, and End-specific ores are intentionally excluded.
 
 ## Settings and initialization
 
-`settings.json` begins with `initialized: false`. Initialization happens only through the setup GUI or `/miningworlds initialize`; using a mining key never initializes a world.
+`settings.json` begins with `initialized: false`. Initialization happens only through the setup GUI or `/delvefold initialize`; portal activation never initializes a world.
 
 The `generation_epoch` increments on initialization, recreation, and deletion. Portal links and generation caches use the epoch to avoid reusing stale state.
 

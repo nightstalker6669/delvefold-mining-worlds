@@ -49,7 +49,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         }
         String portalStatus;
         if (!settings.initialized()) {
-            portalStatus = "Inactive. Initialize Delvefold through this GUI or /miningworlds initialize; portal use never initializes a world.";
+            portalStatus = "Inactive. Initialize Delvefold through this GUI or /delvefold initialize; portal use never initializes a world.";
         } else if (WorldOperationService.get().isEntryBlocked()) {
             portalStatus = "Temporarily blocked because a world operation is pending.";
         } else if (!settings.portal().enabled()) {

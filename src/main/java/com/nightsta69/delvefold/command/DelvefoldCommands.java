@@ -50,8 +50,9 @@ public final class DelvefoldCommands {
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(root("miningworlds"));
-        dispatcher.register(root("delvefold"));
+        for (String name : DelvefoldCommandNames.REGISTERED_ROOTS) {
+            dispatcher.register(root(name));
+        }
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> root(String name) {
@@ -462,7 +463,7 @@ public final class DelvefoldCommands {
         context.getSource().sendSuccess(() -> Component.literal(
                 preview.message() + ". Estimated size: " + humanBytes(preview.estimatedBytes())
                         + "; players to evacuate: " + preview.playersToEvacuate()
-                        + ". Confirm with /miningworlds world confirm " + preview.confirmationToken()), false);
+                        + ". Confirm with /delvefold world confirm " + preview.confirmationToken()), false);
         return 1;
     }
 

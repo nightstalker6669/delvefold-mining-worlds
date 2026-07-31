@@ -56,7 +56,7 @@ public final class DelvefoldNetwork {
         clientResultHandler = Objects.requireNonNull(resultHandler, "resultHandler");
     }
 
-    /** Server/command integration hook for /miningworlds gui and config. */
+    /** Server/command integration hook for /delvefold gui and config. */
     public static boolean openFor(ServerPlayer player) {
         if (!requirePermission(player, 2)) {
             return false;
