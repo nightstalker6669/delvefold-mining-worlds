@@ -218,6 +218,9 @@ public final class WorldOperationService {
                     ensureBackupCapacity(holdingRoot, estimateSize(targets));
                 }
                 ensureHoldingMarker(holdingRoot, operation);
+                if (operation.backupMode() == BackupMode.KEEP_BACKUP) {
+                    captureConfiguration(server, holdingRoot);
+                }
                 List<MoveRecord> moves = moveIntoHolding(server, targets, holdingRoot);
                 applied = new Applied(operation, pending, holdingRoot, moves);
                 LOGGER.info("Prepared Delvefold {} operation {} with {} moved dimension folder(s)", operation.type(), operation.operationId(), moves.size());
@@ -457,6 +460,51 @@ public final class WorldOperationService {
             Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
         } catch (AtomicMoveNotSupportedException ignored) {
             Files.move(source, destination);
+        }
+    }
+
+    private static void captureConfiguration(MinecraftServer server, Path holdingRoot) throws IOException {
+        Path source = ConfigPaths.forServer(server).directory();
+        Path destination = holdingRoot.resolve("config/serverconfig/delvefold").normalize();
+        if (!destination.startsWith(holdingRoot)) {
+            throw new IOException("Backup configuration path escaped its holding directory");
+        }
+        if (Files.exists(destination)) {
+            if (Files.isSymbolicLink(destination) || !Files.isDirectory(destination)) {
+                throw new IOException("Existing backup configuration failed safety checks");
+            }
+            return;
+        }
+        if (Files.isSymbolicLink(source) || !Files.isDirectory(source)) {
+            throw new IOException("Active Delvefold configuration directory failed safety checks");
+        }
+        copyTree(source, destination, Set.of(
+                "pending_world_operation.json", "config_transaction.json"));
+    }
+
+    private static void copyTree(Path sourceRoot, Path destinationRoot, Set<String> excludedNames) throws IOException {
+        try (Stream<Path> paths = Files.walk(sourceRoot)) {
+            for (Path source : paths.toList()) {
+                if (Files.isSymbolicLink(source)) {
+                    throw new IOException("Refusing symbolic link while copying backup: " + source.getFileName());
+                }
+                Path relative = sourceRoot.relativize(source);
+                if (relative.getNameCount() > 0 && excludedNames.contains(relative.getName(0).toString())) {
+                    continue;
+                }
+                Path destination = destinationRoot.resolve(relative).normalize();
+                if (!destination.startsWith(destinationRoot)) {
+                    throw new IOException("Copied backup path escaped its destination");
+                }
+                if (Files.isDirectory(source)) {
+                    Files.createDirectories(destination);
+                } else if (Files.isRegularFile(source)) {
+                    Files.createDirectories(destination.getParent());
+                    Files.copy(source, destination, StandardCopyOption.COPY_ATTRIBUTES);
+                } else {
+                    throw new IOException("Refusing non-regular file while copying backup: " + source.getFileName());
+                }
+            }
         }
     }
 
