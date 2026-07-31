@@ -2,7 +2,9 @@ package com.nightsta69.delvefold.client.gui;
 
 import com.nightsta69.delvefold.client.DelvefoldClientRequests;
 import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
+import com.nightsta69.delvefold.config.analysis.OreDistributionAnalysis;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
+import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.ActionStatus;
@@ -623,14 +625,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
 
             if (!compact) {
                 int helpY = y + 151;
-                graphics.fill(x + 12, helpY, x + width - 12, helpY + 34, 0xCC142127);
-                graphics.fill(x + 12, helpY, x + 15, helpY + 34, ACCENT_DARK);
-                Component help = switch (band.distribution()) {
-                    case UNIFORM -> Component.literal("Uniform: every height in the range has equal weight.");
-                    case TRIANGLE -> Component.literal("Triangle: generation rises toward Peak Y, then falls away.");
-                    case TRAPEZOID -> Component.literal("Trapezoid: maximum weight is held between the plateau values.");
-                };
-                graphics.drawWordWrap(this.font, help, x + 21, helpY + 8, width - 45, MUTED_TEXT);
+                drawBandPreview(graphics, band, x + 12, helpY, width - 24, 34);
             }
         }
         if (!this.validationMessage.isEmpty()) {
@@ -640,6 +635,37 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             graphics.fill(messageX - 4, y + 5, x + width - 8, y + 18, 0xD9111A20);
             graphics.drawString(this.font, clipped, messageX, y + 7, this.validationColor, false);
         }
+    }
+
+    private void drawBandPreview(
+            GuiGraphics graphics, AdminSnapshot.OreBandDraft draft, int x, int y, int width, int height) {
+        SpawnBand band = new SpawnBand(draft.id(), draft.veinSize(), draft.attemptsPerChunk(),
+                draft.distribution(), draft.minY(), draft.maxY(), draft.peakY(),
+                draft.plateauMinY(), draft.plateauMaxY(), draft.discardOnAirExposure());
+        OreDistributionAnalysis.Summary analysis = OreDistributionAnalysis.analyze(band);
+        graphics.fill(x, y, x + width, y + height, 0xCC142127);
+        graphics.renderOutline(x, y, width, height, CARD_BORDER);
+        int graphLeft = x + 5;
+        int graphRight = x + Math.max(36, width * 3 / 5);
+        int graphBottom = y + height - 4;
+        double maximum = analysis.maximumProbability();
+        if (maximum > 0.0D && !analysis.samples().isEmpty()) {
+            for (int pixel = graphLeft; pixel < graphRight; pixel++) {
+                int sampleIndex = (pixel - graphLeft) * analysis.samples().size()
+                        / Math.max(1, graphRight - graphLeft);
+                double normalized = analysis.samples().get(Math.min(sampleIndex, analysis.samples().size() - 1)).probability()
+                        / maximum;
+                int barHeight = Math.max(1, (int) Math.round(normalized * (height - 9)));
+                graphics.fill(pixel, graphBottom - barHeight, pixel + 1, graphBottom, ACCENT);
+            }
+        }
+        String lineOne = String.format(java.util.Locale.ROOT, "%.2f attempts  •  %.1f work", analysis.attemptsPerChunk(), analysis.workUnits());
+        String lineTwo = pretty(analysis.density().name()) + "  •  Y " + draft.minY() + "…" + draft.maxY();
+        int textX = graphRight + 8;
+        graphics.drawString(this.font, this.font.plainSubstrByWidth(lineOne, x + width - textX - 4),
+                textX, y + 7, TEXT, false);
+        graphics.drawString(this.font, this.font.plainSubstrByWidth(lineTwo, x + width - textX - 4),
+                textX, y + 19, analysis.density() == OreDistributionAnalysis.Density.EXTREME ? WARNING : MUTED_TEXT, false);
     }
 
     @Override
