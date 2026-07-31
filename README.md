@@ -138,6 +138,6 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-0.1.0.jar`.
+The release JAR is written to `build/libs/delvefold-1.21.1-0.1.0.jar`.
 
 License: MIT.
