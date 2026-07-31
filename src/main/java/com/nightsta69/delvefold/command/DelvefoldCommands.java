@@ -302,7 +302,7 @@ public final class DelvefoldCommands {
             ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document -> {
                 List<OreRule> rules = new ArrayList<>(document.rules());
                 rules.add(rule);
-                return document.nextRevision(rules, "custom");
+                return document.nextRevision(rules, document.profile());
             });
             return reportWrite(context.getSource(), result, "Added ore rule " + rule.id());
         } catch (IllegalArgumentException exception) {
@@ -324,7 +324,8 @@ public final class DelvefoldCommands {
             return 0;
         }
         ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document ->
-                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(id)).toList(), "custom"));
+                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(id)).toList(),
+                        document.profile()));
         return reportWrite(context.getSource(), result, "Removed ore rule " + id);
     }
 
@@ -491,7 +492,7 @@ public final class DelvefoldCommands {
             ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document ->
                     document.nextRevision(document.rules().stream()
                             .map(rule -> rule.id().equals(id) ? mutation.apply(rule) : rule)
-                            .toList(), "custom"));
+                            .toList(), document.profile()));
             return reportWrite(context.getSource(), result, successMessage);
         } catch (IllegalArgumentException exception) {
             context.getSource().sendFailure(Component.literal(exception.getMessage()));

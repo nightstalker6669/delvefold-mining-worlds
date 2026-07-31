@@ -156,7 +156,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return rejected(expectedRevision, "Unknown ore rule: " + ruleId);
         }
         ConfigWriteResult result = DelvefoldConfigService.get().updateOres(expectedRevision, document ->
-                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(ruleId)).toList(), "custom"));
+                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(ruleId)).toList(),
+                        document.profile()));
         return fromWrite(result, "Deleted ore rule " + ruleId);
     }
 
