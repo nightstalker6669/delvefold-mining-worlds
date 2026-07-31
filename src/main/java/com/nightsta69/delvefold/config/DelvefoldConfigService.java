@@ -321,6 +321,21 @@ public final class DelvefoldConfigService {
         }
     }
 
+    public OreProfileCatalog.ProfileWriteResult importProfileJson(
+            String id, String json, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            return profileCatalog.importJson(id, json, overwrite);
+        }
+    }
+
+    public String exportProfileJson(String id) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            return profileCatalog.exportJson(id);
+        }
+    }
+
     public java.nio.file.Path exportProfile(String id, String fileName) throws IOException {
         synchronized (mutationLock) {
             ensureStarted();

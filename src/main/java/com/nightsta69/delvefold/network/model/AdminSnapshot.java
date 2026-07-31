@@ -24,6 +24,8 @@ public record AdminSnapshot(
         GameplaySettings gameplay,
         PortalSettings portal,
         AdminCapabilities capabilities,
+        String activeProfileId,
+        List<ProfileDraft> profiles,
         String portalStatus,
         String worldStatus,
         boolean resetPending,
@@ -40,6 +42,8 @@ public record AdminSnapshot(
         gameplay = gameplay == null ? GameplaySettings.fromPreset(GameplayPreset.SAFE) : gameplay;
         portal = portal == null ? PortalSettings.defaults() : portal;
         capabilities = capabilities == null ? AdminCapabilities.none() : capabilities;
+        activeProfileId = cleanId(activeProfileId, "vanilla_balanced");
+        profiles = limitedCopy(profiles, ProtocolLimits.MAX_PROFILES);
         portalStatus = clean(portalStatus, "Portal is not available yet.");
         worldStatus = clean(worldStatus, initialized ? "Mining world ready." : "Mining world is not initialized.");
         diagnostics = limitedStrings(diagnostics, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
@@ -58,12 +62,15 @@ public record AdminSnapshot(
             GameplaySettings gameplay,
             PortalSettings portal,
             AdminCapabilities capabilities,
+            String activeProfileId,
+            List<ProfileDraft> profiles,
             String portalStatus,
             String worldStatus,
             boolean resetPending,
             List<String> diagnostics,
             List<OreRuleDraft> oreRules) {
         this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, capabilities,
+                activeProfileId, profiles,
                 portalStatus, worldStatus, resetPending, diagnostics,
                 oreRules == null ? 0 : oreRules.size(), 0, oreRules);
     }
@@ -79,6 +86,8 @@ public record AdminSnapshot(
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
                 PortalSettings.defaults(),
                 AdminCapabilities.none(),
+                "vanilla_balanced",
+                List.of(),
                 "Portal disabled until the administration backend is installed.",
                 "Administration backend is not installed.",
                 false,
@@ -101,6 +110,15 @@ public record AdminSnapshot(
             boolean canViewDiagnostics) {
         public static AdminCapabilities none() {
             return new AdminCapabilities(false, false, false, false, false);
+        }
+    }
+
+    public record ProfileDraft(
+            String id, boolean builtIn, boolean localOverride, int ruleCount, long revision, boolean valid) {
+        public ProfileDraft {
+            id = cleanId(id, "invalid");
+            ruleCount = Math.max(0, Math.min(ruleCount, ProtocolLimits.MAX_ORE_RULES));
+            revision = Math.max(0, revision);
         }
     }
 

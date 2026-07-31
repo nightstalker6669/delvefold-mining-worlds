@@ -19,6 +19,7 @@ import com.nightsta69.delvefold.config.validation.ValidationReport;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.ProfileOperation;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminService;
 import com.nightsta69.delvefold.reset.BackupMode;
@@ -71,6 +72,18 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         List<AdminSnapshot.OreRuleDraft> pageRules = snapshot.ores().rules().subList(start, end).stream()
                 .map(DefaultDelvefoldAdminService::toDraft)
                 .toList();
+        List<AdminSnapshot.ProfileDraft> profiles;
+        try {
+            profiles = DelvefoldConfigService.get().listProfiles().stream()
+                    .map(profile -> new AdminSnapshot.ProfileDraft(profile.id(), profile.builtIn(),
+                            profile.localOverride(), profile.ruleCount(), profile.revision(),
+                            profile.issues().stream().noneMatch(issue -> issue.severity()
+                                    == com.nightsta69.delvefold.config.validation.IssueSeverity.ERROR)))
+                    .toList();
+        } catch (IOException exception) {
+            diagnostics.add("Profile catalog: " + exception.getMessage());
+            profiles = List.of();
+        }
         return new AdminSnapshot(
                 snapshot.ores().revision(),
                 settings.revision(),
@@ -86,6 +99,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                         AdminAccess.canManageWorld(player),
                         AdminAccess.canManageWorld(player),
                         AdminAccess.canConfigure(player)),
+                snapshot.ores().profile(),
+                profiles,
                 portalStatus,
                 worldStatus,
                 WorldOperationService.get().isEntryBlocked(),
@@ -179,6 +194,40 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings -> settings.withPortal(portal)
         );
         return fromWrite(result, "Portal settings saved");
+    }
+
+    @Override
+    public ServiceResult performProfile(ServerPlayer player, long expectedOreRevision, ProfileOperation operation,
+            String sourceId, String targetId, String json, boolean overwrite) {
+        requireConfigure(player);
+        try {
+            return switch (operation) {
+                case SELECT -> fromWrite(DelvefoldConfigService.get().activateProfile(expectedOreRevision, sourceId),
+                        "Activated profile '" + sourceId + "'. Existing chunks are unchanged.");
+                case SAVE_CURRENT -> fromProfileWrite(
+                        DelvefoldConfigService.get().saveCurrentProfileAs(targetId, overwrite));
+                case DUPLICATE -> fromProfileWrite(
+                        DelvefoldConfigService.get().duplicateProfile(sourceId, targetId, overwrite));
+                case IMPORT_CLIPBOARD -> fromProfileWrite(
+                        DelvefoldConfigService.get().importProfileJson(targetId, json, overwrite));
+                case DELETE -> {
+                    var result = DelvefoldConfigService.get().deleteProfile(sourceId);
+                    yield new ServiceResult(result.deleted() ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
+                            expectedOreRevision, result.message(), result.deleted());
+                }
+            };
+        } catch (IOException | IllegalArgumentException exception) {
+            return new ServiceResult(ActionStatus.ERROR, expectedOreRevision,
+                    "Profile operation failed: " + exception.getMessage(), false);
+        }
+    }
+
+    private static ServiceResult fromProfileWrite(
+            com.nightsta69.delvefold.config.OreProfileCatalog.ProfileWriteResult result) {
+        String issues = result.issues().stream().map(issue -> issue.message()).findFirst().orElse("");
+        String message = issues.isBlank() ? result.message() : result.message() + ": " + issues;
+        return new ServiceResult(result.saved() ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
+                DelvefoldConfigService.get().snapshot().ores().revision(), message, result.saved());
     }
 
     @Override

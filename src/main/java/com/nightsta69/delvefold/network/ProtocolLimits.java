@@ -15,6 +15,9 @@ public final class ProtocolLimits {
     public static final int MAX_BANDS = 16;
     public static final int MAX_TERRAIN_MODES = 3;
     public static final int MAX_DIAGNOSTICS = 64;
+    public static final int MAX_PROFILES = 128;
+    public static final int MAX_PROFILE_JSON_BYTES = 256 * 1024;
+    public static final int MAX_PROFILE_CLIPBOARD_CHARS = 24 * 1024;
 
     private ProtocolLimits() {
     }

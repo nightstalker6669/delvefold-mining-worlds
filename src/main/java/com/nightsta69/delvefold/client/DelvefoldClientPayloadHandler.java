@@ -7,6 +7,7 @@ import com.nightsta69.delvefold.client.gui.DelvefoldSetupScreen;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
+import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
@@ -40,5 +41,14 @@ public final class DelvefoldClientPayloadHandler {
             delvefoldScreen.handleActionResult(payload);
         }
         minecraft.player.displayClientMessage(message, payload.status() == ActionStatus.ACCEPTED);
+    }
+
+    public static void copyProfileExport(ProfileExportPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.keyboardHandler.setClipboard(payload.json());
+        if (minecraft.player != null) {
+            minecraft.player.displayClientMessage(
+                    Component.literal("Copied profile '" + payload.profileId() + "' JSON to the clipboard."), true);
+        }
     }
 }

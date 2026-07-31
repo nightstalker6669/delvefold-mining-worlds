@@ -27,6 +27,16 @@ public final class DelvefoldStreamCodecs {
         writeGameplay(buffer, snapshot.gameplay());
         writePortal(buffer, snapshot.portal());
         writeCapabilities(buffer, snapshot.capabilities());
+        writeString(buffer, snapshot.activeProfileId(), ProtocolLimits.ID_LENGTH);
+        writeCount(buffer, snapshot.profiles().size(), ProtocolLimits.MAX_PROFILES, "ore profiles");
+        for (AdminSnapshot.ProfileDraft profile : snapshot.profiles()) {
+            writeString(buffer, profile.id(), ProtocolLimits.ID_LENGTH);
+            buffer.writeBoolean(profile.builtIn());
+            buffer.writeBoolean(profile.localOverride());
+            buffer.writeVarInt(profile.ruleCount());
+            buffer.writeLong(profile.revision());
+            buffer.writeBoolean(profile.valid());
+        }
         writeString(buffer, snapshot.portalStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeString(buffer, snapshot.worldStatus(), ProtocolLimits.MESSAGE_LENGTH);
         buffer.writeBoolean(snapshot.resetPending());
@@ -50,6 +60,14 @@ public final class DelvefoldStreamCodecs {
         GameplaySettings gameplay = readGameplay(buffer);
         PortalSettings portal = readPortal(buffer);
         AdminSnapshot.AdminCapabilities capabilities = readCapabilities(buffer);
+        String activeProfileId = readString(buffer, ProtocolLimits.ID_LENGTH);
+        int profileCount = readCount(buffer, ProtocolLimits.MAX_PROFILES, "ore profiles");
+        List<AdminSnapshot.ProfileDraft> profiles = new ArrayList<>(profileCount);
+        for (int index = 0; index < profileCount; index++) {
+            profiles.add(new AdminSnapshot.ProfileDraft(readString(buffer, ProtocolLimits.ID_LENGTH),
+                    buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(), buffer.readLong(),
+                    buffer.readBoolean()));
+        }
         String portalStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         String worldStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         boolean resetPending = buffer.readBoolean();
@@ -69,6 +87,7 @@ public final class DelvefoldStreamCodecs {
             rules.add(readOreRule(buffer));
         }
         return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, capabilities,
+                activeProfileId, profiles,
                 portalStatus, worldStatus, resetPending, diagnostics, oreRuleTotal, orePage, rules);
     }
 

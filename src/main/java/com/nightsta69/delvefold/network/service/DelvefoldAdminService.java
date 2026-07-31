@@ -7,6 +7,7 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.ProfileOperation;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -43,6 +44,15 @@ public interface DelvefoldAdminService {
             GameplaySettings gameplay);
 
     ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal);
+
+    ServiceResult performProfile(
+            ServerPlayer player,
+            long expectedOreRevision,
+            ProfileOperation operation,
+            String sourceId,
+            String targetId,
+            String json,
+            boolean overwrite);
 
     ServiceResult perform(
             ServerPlayer player,
