@@ -7,15 +7,21 @@ import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
+import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
+import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
+import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
+import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
+import com.nightsta69.delvefold.network.payload.ProfileExportRequestPayload;
 import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.SaveOreRulePayload;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminService;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminServices;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.function.Consumer;
 import net.minecraft.network.chat.Component;
@@ -29,12 +35,14 @@ import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
-    public static final String PROTOCOL_VERSION = "2";
+    public static final String PROTOCOL_VERSION = "4";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {
     };
     private static volatile Consumer<ActionResultPayload> clientResultHandler = payload -> {
+    };
+    private static volatile Consumer<ProfileExportPayload> clientProfileExportHandler = payload -> {
     };
 
     private DelvefoldNetwork() {
@@ -51,9 +59,11 @@ public final class DelvefoldNetwork {
      */
     public static void installClientHandlers(
             Consumer<OpenGuiPayload> openHandler,
-            Consumer<ActionResultPayload> resultHandler) {
+            Consumer<ActionResultPayload> resultHandler,
+            Consumer<ProfileExportPayload> profileExportHandler) {
         clientOpenHandler = Objects.requireNonNull(openHandler, "openHandler");
         clientResultHandler = Objects.requireNonNull(resultHandler, "resultHandler");
+        clientProfileExportHandler = Objects.requireNonNull(profileExportHandler, "profileExportHandler");
     }
 
     /** Server/command integration hook for /delvefold gui and config. */
@@ -79,6 +89,14 @@ public final class DelvefoldNetwork {
                 DelvefoldNetwork::handleDeleteOreRule);
         registrar.playToServer(GameplayUpdatePayload.TYPE, GameplayUpdatePayload.STREAM_CODEC,
                 DelvefoldNetwork::handleGameplayUpdate);
+        registrar.playToServer(PortalUpdatePayload.TYPE, PortalUpdatePayload.STREAM_CODEC,
+                DelvefoldNetwork::handlePortalUpdate);
+        registrar.playToServer(ProfileActionPayload.TYPE, ProfileActionPayload.STREAM_CODEC,
+                DelvefoldNetwork::handleProfileAction);
+        registrar.playToServer(ProfileExportRequestPayload.TYPE, ProfileExportRequestPayload.STREAM_CODEC,
+                DelvefoldNetwork::handleProfileExportRequest);
+        registrar.playToServer(BackupActionPayload.TYPE, BackupActionPayload.STREAM_CODEC,
+                DelvefoldNetwork::handleBackupAction);
         registrar.playToServer(AdminActionPayload.TYPE, AdminActionPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleAdminAction);
 
@@ -86,6 +104,8 @@ public final class DelvefoldNetwork {
                 (payload, context) -> clientOpenHandler.accept(payload));
         registrar.playToClient(ActionResultPayload.TYPE, ActionResultPayload.STREAM_CODEC,
                 (payload, context) -> clientResultHandler.accept(payload));
+        registrar.playToClient(ProfileExportPayload.TYPE, ProfileExportPayload.STREAM_CODEC,
+                (payload, context) -> clientProfileExportHandler.accept(payload));
     }
 
     private static void handleOpenRequest(OpenGuiRequestPayload payload, IPayloadContext context) {
@@ -142,6 +162,52 @@ public final class DelvefoldNetwork {
         if (player != null) {
             invoke(player, () -> DelvefoldAdminServices.get().updateGameplay(
                     player, payload.expectedRevision(), payload.gameplay()));
+        }
+    }
+
+    private static void handlePortalUpdate(PortalUpdatePayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, 2);
+        if (player != null) {
+            invoke(player, () -> DelvefoldAdminServices.get().updatePortal(
+                    player, payload.expectedRevision(), payload.portal()));
+        }
+    }
+
+    private static void handleProfileAction(ProfileActionPayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, 2);
+        if (player != null) {
+            invoke(player, () -> DelvefoldAdminServices.get().performProfile(player,
+                    payload.expectedOreRevision(), payload.operation(), payload.sourceId(), payload.targetId(),
+                    payload.json(), payload.overwrite()));
+        }
+    }
+
+    private static void handleProfileExportRequest(ProfileExportRequestPayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, 2);
+        if (player == null) {
+            return;
+        }
+        try {
+            String json = com.nightsta69.delvefold.config.DelvefoldConfigService.get()
+                    .exportProfileJson(payload.profileId());
+            if (json.length() > ProtocolLimits.MAX_PROFILE_CLIPBOARD_CHARS) {
+                finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.REJECTED,
+                        com.nightsta69.delvefold.config.DelvefoldConfigService.get().snapshot().ores().revision(),
+                        "Profile is too large for clipboard transfer; use /delvefold profile export instead.", false));
+                return;
+            }
+            PacketDistributor.sendToPlayer(player, new ProfileExportPayload(payload.profileId(), json));
+        } catch (IOException | IllegalArgumentException exception) {
+            finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.ERROR, 0,
+                    "Profile export failed: " + exception.getMessage(), false));
+        }
+    }
+
+    private static void handleBackupAction(BackupActionPayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, AdminAccess.WORLD_MANAGEMENT_PERMISSION);
+        if (player != null) {
+            invoke(player, () -> DelvefoldAdminServices.get().performBackup(player,
+                    payload.expectedSettingsRevision(), payload.operation(), payload.backupId()));
         }
     }
 

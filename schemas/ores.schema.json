@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "revision", "profile", "rules"],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "revision": { "type": "integer", "minimum": 0 },
     "profile": { "type": "string", "minLength": 1, "maxLength": 128 },
     "rules": {

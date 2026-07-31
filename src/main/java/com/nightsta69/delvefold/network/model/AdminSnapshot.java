@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import java.util.List;
@@ -21,6 +22,11 @@ public record AdminSnapshot(
         TerrainMode terrainMode,
         OrePreset orePreset,
         GameplaySettings gameplay,
+        PortalSettings portal,
+        AdminCapabilities capabilities,
+        String activeProfileId,
+        List<ProfileDraft> profiles,
+        List<BackupDraft> backups,
         String portalStatus,
         String worldStatus,
         boolean resetPending,
@@ -35,6 +41,11 @@ public record AdminSnapshot(
         terrainMode = terrainMode == null ? TerrainMode.FLAT : terrainMode;
         orePreset = orePreset == null ? OrePreset.VANILLA_BALANCED : orePreset;
         gameplay = gameplay == null ? GameplaySettings.fromPreset(GameplayPreset.SAFE) : gameplay;
+        portal = portal == null ? PortalSettings.defaults() : portal;
+        capabilities = capabilities == null ? AdminCapabilities.none() : capabilities;
+        activeProfileId = cleanId(activeProfileId, "vanilla_balanced");
+        profiles = limitedCopy(profiles, ProtocolLimits.MAX_PROFILES);
+        backups = limitedCopy(backups, ProtocolLimits.MAX_BACKUPS);
         portalStatus = clean(portalStatus, "Portal is not available yet.");
         worldStatus = clean(worldStatus, initialized ? "Mining world ready." : "Mining world is not initialized.");
         diagnostics = limitedStrings(diagnostics, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
@@ -51,12 +62,19 @@ public record AdminSnapshot(
             TerrainMode terrainMode,
             OrePreset orePreset,
             GameplaySettings gameplay,
+            PortalSettings portal,
+            AdminCapabilities capabilities,
+            String activeProfileId,
+            List<ProfileDraft> profiles,
+            List<BackupDraft> backups,
             String portalStatus,
             String worldStatus,
             boolean resetPending,
             List<String> diagnostics,
             List<OreRuleDraft> oreRules) {
-        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay,
+        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, capabilities,
+                activeProfileId, profiles,
+                backups,
                 portalStatus, worldStatus, resetPending, diagnostics,
                 oreRules == null ? 0 : oreRules.size(), 0, oreRules);
     }
@@ -70,6 +88,11 @@ public record AdminSnapshot(
                 TerrainMode.FLAT,
                 OrePreset.VANILLA_BALANCED,
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
+                PortalSettings.defaults(),
+                AdminCapabilities.none(),
+                "vanilla_balanced",
+                List.of(),
+                List.of(),
                 "Portal disabled until the administration backend is installed.",
                 "Administration backend is not installed.",
                 false,
@@ -82,6 +105,44 @@ public record AdminSnapshot(
     /** A compact display-only revision; writes use the domain-specific values. */
     public long revision() {
         return Math.max(this.oreRevision, this.settingsRevision);
+    }
+
+    public record AdminCapabilities(
+            boolean canView,
+            boolean canConfigure,
+            boolean canManageWorld,
+            boolean canRestoreBackups,
+            boolean canViewDiagnostics) {
+        public static AdminCapabilities none() {
+            return new AdminCapabilities(false, false, false, false, false);
+        }
+    }
+
+    public record ProfileDraft(
+            String id, boolean builtIn, boolean localOverride, int ruleCount, long revision, boolean valid) {
+        public ProfileDraft {
+            id = cleanId(id, "invalid");
+            ruleCount = Math.max(0, Math.min(ruleCount, ProtocolLimits.MAX_ORE_RULES));
+            revision = Math.max(0, revision);
+        }
+    }
+
+    public record BackupDraft(
+            String id,
+            long createdAtEpochMillis,
+            String operation,
+            String terrain,
+            long sizeBytes,
+            boolean pinned,
+            boolean restorable,
+            boolean valid) {
+        public BackupDraft {
+            id = cleanId(id, "invalid");
+            operation = clean(operation, "unknown");
+            terrain = clean(terrain, "unknown");
+            createdAtEpochMillis = Math.max(0, createdAtEpochMillis);
+            sizeBytes = Math.max(-1, sizeBytes);
+        }
     }
 
     private static String clean(String value, String fallback) {
@@ -120,6 +181,8 @@ public record AdminSnapshot(
             String primaryBlockId,
             List<OreVariantDraft> variants,
             List<TerrainMode> terrainModes,
+            List<String> biomeIncludes,
+            List<String> biomeExcludes,
             List<OreBandDraft> bands) {
 
         public OreRuleDraft {
@@ -127,6 +190,10 @@ public record AdminSnapshot(
             primaryBlockId = cleanId(primaryBlockId, "minecraft:iron_ore");
             variants = limitedCopy(variants, ProtocolLimits.MAX_VARIANTS);
             terrainModes = limitedCopy(terrainModes, ProtocolLimits.MAX_TERRAIN_MODES);
+            biomeIncludes = limitedStrings(biomeIncludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                    ProtocolLimits.ID_LENGTH + 1);
+            biomeExcludes = limitedStrings(biomeExcludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                    ProtocolLimits.ID_LENGTH + 1);
             bands = limitedCopy(bands, ProtocolLimits.MAX_BANDS);
         }
 
@@ -139,20 +206,31 @@ public record AdminSnapshot(
                     true,
                     false,
                     normalizedBlock,
-                    List.of(new OreVariantDraft(normalizedBlock, replaceTag)),
+                    List.of(new OreVariantDraft(normalizedBlock, replaceTag, java.util.Map.of())),
                     List.of(TerrainMode.values()),
+                    List.of("#delvefold:mining_biomes"),
+                    List.of(),
                     List.of(OreBandDraft.defaultBand()));
         }
 
         public OreRuleDraft withEnabled(boolean value) {
-            return new OreRuleDraft(id, value, required, primaryBlockId, variants, terrainModes, bands);
+            return new OreRuleDraft(id, value, required, primaryBlockId, variants, terrainModes,
+                    biomeIncludes, biomeExcludes, bands);
         }
     }
 
-    public record OreVariantDraft(String blockId, String replaceTag) {
+    public record OreVariantDraft(String blockId, String replaceTag, java.util.Map<String, String> state) {
         public OreVariantDraft {
             blockId = cleanId(blockId, "minecraft:iron_ore");
             replaceTag = cleanId(replaceTag, "minecraft:stone_ore_replaceables");
+            if (state == null || state.isEmpty()) {
+                state = java.util.Map.of();
+            } else {
+                java.util.TreeMap<String, String> sanitized = new java.util.TreeMap<>();
+                state.entrySet().stream().limit(ProtocolLimits.MAX_STATE_PROPERTIES)
+                        .forEach(entry -> sanitized.put(entry.getKey(), entry.getValue()));
+                state = java.util.Collections.unmodifiableMap(sanitized);
+            }
         }
     }
 

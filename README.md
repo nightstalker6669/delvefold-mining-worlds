@@ -2,6 +2,8 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
+> **0.2 compatibility:** Delvefold 0.2 uses configuration schema 2 and is intended for new Minecraft saves. Schema-1 saves open in non-destructive read-only compatibility mode; their configuration and mining dimensions are never rewritten automatically.
+
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
 ## Core features
@@ -9,13 +11,16 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Explicit initialization through `/delvefold gui` or `/delvefold initialize`; portal activation never chooses settings.
 - Flat, roofed cavern, and overworld-shaped mining terrain.
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
+- Named per-save ore profiles with safe duplication, selection, and JSON import/export.
+- Visual height-distribution and generation-workload previews in the ore editor.
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
-- Wizard for stone/deepslate or other variants, replacement hosts, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
+- Three-page ore-rule wizard for stone/deepslate or other variants, replacement hosts, block-state properties, biome include/exclude selectors, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
 - Safe, Hostile, and Normal gameplay presets with individual spawn-category toggles.
 - Dedicated Delvefold creative tab with the Portal Frame and room for future content.
 - Iron-tier framed portal ignited with vanilla Flint and Steel.
 - Safe world deletion/recreation on restart, with a timestamped backup by default.
+- In-game backup browser with pinning, confirmed deletion, and restart-safe restoration.
 - Atomic per-save JSON, validation, stale-edit protection, and last-known-good runtime snapshots.
 
 ## Requirements
@@ -56,6 +61,19 @@ Setup, status, and JSON:
 /delvefold config reload
 ```
 
+Named profiles:
+
+```text
+/delvefold profile list
+/delvefold profile create <id> <balanced|rich|empty> [overwrite]
+/delvefold profile duplicate <source> <id> [overwrite]
+/delvefold profile save-current <id> [overwrite]
+/delvefold profile select <id>
+/delvefold profile delete <id>
+/delvefold profile import <file.json> <id> [overwrite]
+/delvefold profile export <id> <file.json>
+```
+
 Ore discovery and rules:
 
 ```text
@@ -92,6 +110,18 @@ Safe world deletion and recreation:
 /delvefold world cancel
 ```
 
+Backup management:
+
+```text
+/delvefold backup list
+/delvefold backup pin <backup>
+/delvefold backup unpin <backup>
+/delvefold backup delete <backup> confirm
+/delvefold backup restore request <backup>
+/delvefold backup restore confirm <token>
+/delvefold backup restore cancel
+```
+
 World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. See [Commands](docs/COMMANDS.md) for behavior and permission details.
 
 ## Portal recipe and activation
@@ -113,6 +143,9 @@ Each save owns its configuration:
 ```text
 <save>/serverconfig/delvefold/ores.json
 <save>/serverconfig/delvefold/settings.json
+<save>/serverconfig/delvefold/profiles/*.json
+<save>/serverconfig/delvefold/imports/*.json
+<save>/serverconfig/delvefold/exports/*.json
 ```
 
 Editing JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), and the [JSON Schema](schemas/ores.schema.json).
@@ -138,6 +171,6 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-0.1.0.jar`.
+The release JAR is written to `build/libs/delvefold-1.21.1-0.2.0.jar`.
 
 License: MIT.

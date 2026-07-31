@@ -3,6 +3,7 @@ package com.nightsta69.delvefold.server;
 import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.reset.WorldOperationService;
+import com.nightsta69.delvefold.reset.WorldRestoreService;
 import java.io.IOException;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
@@ -26,13 +27,17 @@ public final class DelvefoldServerLifecycle {
         registered = true;
         IEventBus gameBus = NeoForge.EVENT_BUS;
         gameBus.addListener(EventPriority.HIGHEST, ServerAboutToStartEvent.class,
-                event -> WorldOperationService.get().prepareStartup(event.getServer()));
+                event -> {
+                    WorldRestoreService.get().prepareStartup(event.getServer());
+                    WorldOperationService.get().prepareStartup(event.getServer());
+                });
         gameBus.addListener(EventPriority.NORMAL, ServerAboutToStartEvent.class,
                 DelvefoldServerLifecycle::loadConfiguration);
         gameBus.addListener(EventPriority.LOWEST, ServerAboutToStartEvent.class,
                 event -> WorldOperationService.get().finishStartup(event.getServer()));
         gameBus.addListener(ServerStoppingEvent.class, event -> {
             WorldOperationService.get().stop(event.getServer());
+            WorldRestoreService.get().stop();
             DelvefoldConfigService.get().stop(event.getServer());
         });
     }

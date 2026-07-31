@@ -22,10 +22,12 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.reset.BackupMode;
+import com.nightsta69.delvefold.reset.WorldBackupCatalog;
 import com.nightsta69.delvefold.reset.WorldOperationPreview;
 import com.nightsta69.delvefold.reset.WorldOperationRequest;
 import com.nightsta69.delvefold.reset.WorldOperationResult;
 import com.nightsta69.delvefold.reset.WorldOperationService;
+import com.nightsta69.delvefold.reset.WorldRestoreService;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +40,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /** Brigadier and console parity for every administration path exposed by the GUI. */
@@ -75,8 +78,88 @@ public final class DelvefoldCommands {
                                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("safe", "hostile", "normal"), builder))
                                                 .executes(DelvefoldCommands::initialize)))))
                 .then(Commands.literal("status").executes(DelvefoldCommands::status))
+                .then(profileCommands())
+                .then(backupCommands())
                 .then(oreCommands())
                 .then(worldCommands());
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> backupCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> backup = Commands.literal("backup");
+        backup.requires(AdminAccess::canManageWorld);
+        backup.then(Commands.literal("list").executes(DelvefoldCommands::listBackups));
+        backup.then(Commands.literal("pin").then(backupArgument().executes(context -> pinBackup(context, true))));
+        backup.then(Commands.literal("unpin").then(backupArgument().executes(context -> pinBackup(context, false))));
+        backup.then(Commands.literal("delete").then(backupArgument()
+                .then(Commands.literal("confirm").executes(DelvefoldCommands::deleteBackup))));
+        backup.then(Commands.literal("restore")
+                .then(Commands.literal("request").then(backupArgument().executes(DelvefoldCommands::requestRestore)))
+                .then(Commands.literal("confirm").then(Commands.argument("token", StringArgumentType.word())
+                        .executes(DelvefoldCommands::confirmRestore)))
+                .then(Commands.literal("cancel").executes(DelvefoldCommands::cancelRestore)));
+        return backup;
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> backupArgument() {
+        return Commands.argument("backup", StringArgumentType.word()).suggests((context, builder) -> {
+            try {
+                return SharedSuggestionProvider.suggest(backups(context).stream().map(backup -> backup.id()), builder);
+            } catch (IOException exception) {
+                return builder.buildFuture();
+            }
+        });
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> profileCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> profile = Commands.literal("profile");
+        profile.requires(AdminAccess::canConfigure);
+        profile.then(Commands.literal("list").executes(DelvefoldCommands::listProfiles));
+        profile.then(Commands.literal("create")
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .then(Commands.argument("preset", StringArgumentType.word())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                        List.of("balanced", "rich", "empty"), builder))
+                                .executes(context -> createProfile(context, false))
+                                .then(Commands.literal("overwrite")
+                                        .executes(context -> createProfile(context, true))))));
+        profile.then(Commands.literal("duplicate")
+                .then(profileArgument("source")
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> duplicateProfile(context, false))
+                                .then(Commands.literal("overwrite")
+                                        .executes(context -> duplicateProfile(context, true))))));
+        profile.then(Commands.literal("save-current")
+                .then(Commands.argument("id", StringArgumentType.word())
+                        .executes(context -> saveCurrentProfile(context, false))
+                        .then(Commands.literal("overwrite")
+                                .executes(context -> saveCurrentProfile(context, true)))));
+        profile.then(Commands.literal("select")
+                .then(profileArgument("id").executes(DelvefoldCommands::selectProfile)));
+        profile.then(Commands.literal("delete")
+                .then(profileArgument("id").executes(DelvefoldCommands::deleteProfile)));
+        profile.then(Commands.literal("import")
+                .then(Commands.argument("file", StringArgumentType.word())
+                        .then(Commands.argument("id", StringArgumentType.word())
+                                .executes(context -> importProfile(context, false))
+                                .then(Commands.literal("overwrite")
+                                        .executes(context -> importProfile(context, true))))));
+        profile.then(Commands.literal("export")
+                .then(profileArgument("id")
+                        .then(Commands.argument("file", StringArgumentType.word())
+                                .executes(DelvefoldCommands::exportProfile))));
+        return profile;
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> profileArgument(
+            String name) {
+        return Commands.argument(name, StringArgumentType.word()).suggests((context, builder) -> {
+            try {
+                return SharedSuggestionProvider.suggest(
+                        DelvefoldConfigService.get().listProfiles().stream().map(profile -> profile.id()), builder);
+            } catch (IOException exception) {
+                return builder.buildFuture();
+            }
+        });
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> oreCommands() {
@@ -219,6 +302,193 @@ public final class DelvefoldCommands {
         }
     }
 
+    private static int listProfiles(CommandContext<CommandSourceStack> context) {
+        try {
+            var profiles = DelvefoldConfigService.get().listProfiles();
+            String active = DelvefoldConfigService.get().snapshot().ores().profile();
+            context.getSource().sendSuccess(() -> Component.literal(
+                    "Ore profiles (active: " + active + "):"), false);
+            for (var profile : profiles) {
+                String flags = (profile.id().equals(active) ? "active" : "")
+                        + (profile.builtIn() ? (profile.id().equals(active) ? ", built-in" : "built-in") : "")
+                        + (profile.localOverride() ? ", local" : "");
+                context.getSource().sendSystemMessage(Component.literal("  " + profile.id() + " — "
+                        + profile.ruleCount() + " rule(s)" + (flags.isBlank() ? "" : " [" + flags + "]")));
+            }
+            return profiles.size();
+        } catch (IOException exception) {
+            return profileFailure(context, exception);
+        }
+    }
+
+    private static int createProfile(CommandContext<CommandSourceStack> context, boolean overwrite) {
+        try {
+            String id = StringArgumentType.getString(context, "id");
+            OrePreset preset = OrePreset.parse(StringArgumentType.getString(context, "preset"));
+            return reportProfile(context, DelvefoldConfigService.get().createProfileFromPreset(id, preset, overwrite));
+        } catch (IOException | IllegalArgumentException exception) {
+            return profileFailure(context, exception);
+        }
+    }
+
+    private static int duplicateProfile(CommandContext<CommandSourceStack> context, boolean overwrite) {
+        try {
+            return reportProfile(context, DelvefoldConfigService.get().duplicateProfile(
+                    StringArgumentType.getString(context, "source"),
+                    StringArgumentType.getString(context, "id"), overwrite));
+        } catch (IOException | IllegalArgumentException exception) {
+            return profileFailure(context, exception);
+        }
+    }
+
+    private static int saveCurrentProfile(CommandContext<CommandSourceStack> context, boolean overwrite) {
+        try {
+            return reportProfile(context, DelvefoldConfigService.get().saveCurrentProfileAs(
+                    StringArgumentType.getString(context, "id"), overwrite));
+        } catch (IOException | IllegalArgumentException exception) {
+            return profileFailure(context, exception);
+        }
+    }
+
+    private static int selectProfile(CommandContext<CommandSourceStack> context) {
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        String id = StringArgumentType.getString(context, "id");
+        ConfigWriteResult result = DelvefoldConfigService.get().activateProfile(snapshot.ores().revision(), id);
+        return reportWrite(context.getSource(), result,
+                "Activated ore profile '" + id + "'. Existing chunks are unchanged.");
+    }
+
+    private static int deleteProfile(CommandContext<CommandSourceStack> context) {
+        var result = DelvefoldConfigService.get().deleteProfile(StringArgumentType.getString(context, "id"));
+        if (!result.deleted()) {
+            context.getSource().sendFailure(Component.literal(result.message()));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(result.message()), true);
+        return 1;
+    }
+
+    private static int importProfile(CommandContext<CommandSourceStack> context, boolean overwrite) {
+        try {
+            return reportProfile(context, DelvefoldConfigService.get().importProfile(
+                    StringArgumentType.getString(context, "file"),
+                    StringArgumentType.getString(context, "id"), overwrite));
+        } catch (IOException | IllegalArgumentException exception) {
+            return profileFailure(context, exception);
+        }
+    }
+
+    private static int exportProfile(CommandContext<CommandSourceStack> context) {
+        try {
+            var exported = DelvefoldConfigService.get().exportProfile(
+                    StringArgumentType.getString(context, "id"),
+                    StringArgumentType.getString(context, "file"));
+            context.getSource().sendSuccess(() -> Component.literal(
+                    "Exported profile to serverconfig/delvefold/exports/" + exported.getFileName()), false);
+            return 1;
+        } catch (IOException | IllegalArgumentException exception) {
+            return profileFailure(context, exception);
+        }
+    }
+
+    private static int reportProfile(
+            CommandContext<CommandSourceStack> context, com.nightsta69.delvefold.config.OreProfileCatalog.ProfileWriteResult result) {
+        for (ConfigIssue issue : result.issues()) {
+            context.getSource().sendSystemMessage(Component.literal(
+                    issue.severity() + " " + issue.path() + ": " + issue.message()));
+        }
+        if (!result.saved()) {
+            context.getSource().sendFailure(Component.literal(result.message()));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(result.message()), true);
+        return 1;
+    }
+
+    private static int profileFailure(CommandContext<CommandSourceStack> context, Exception exception) {
+        context.getSource().sendFailure(Component.literal("Profile operation failed: " + exception.getMessage()));
+        return 0;
+    }
+
+    private static int listBackups(CommandContext<CommandSourceStack> context) {
+        try {
+            var backups = backups(context);
+            context.getSource().sendSuccess(() -> Component.literal(
+                    backups.isEmpty() ? "No Delvefold backups found." : "Delvefold backups:"), false);
+            for (var backup : backups) {
+                context.getSource().sendSystemMessage(Component.literal("  " + backup.id() + " — "
+                        + backup.operation() + ", " + backup.terrain() + ", " + humanBytes(backup.sizeBytes())
+                        + (backup.pinned() ? " [pinned]" : "")
+                        + (backup.restorable() ? " [restorable]" : " [archive only]")));
+            }
+            return backups.size();
+        } catch (IOException exception) {
+            context.getSource().sendFailure(Component.literal("Could not list backups: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int pinBackup(CommandContext<CommandSourceStack> context, boolean pinned) {
+        try {
+            backupCatalog(context).setPinned(StringArgumentType.getString(context, "backup"), pinned);
+            context.getSource().sendSuccess(() -> Component.literal(
+                    (pinned ? "Pinned " : "Unpinned ") + StringArgumentType.getString(context, "backup")), true);
+            return 1;
+        } catch (IOException exception) {
+            context.getSource().sendFailure(Component.literal("Backup update failed: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int deleteBackup(CommandContext<CommandSourceStack> context) {
+        String id = StringArgumentType.getString(context, "backup");
+        try {
+            if (!backupCatalog(context).delete(id)) {
+                context.getSource().sendFailure(Component.literal("Backup was not deleted: " + id));
+                return 0;
+            }
+            context.getSource().sendSuccess(() -> Component.literal(
+                    "Permanently deleted Delvefold backup " + id), true);
+            return 1;
+        } catch (IOException exception) {
+            context.getSource().sendFailure(Component.literal("Backup deletion failed: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int requestRestore(CommandContext<CommandSourceStack> context) {
+        String id = StringArgumentType.getString(context, "backup");
+        WorldOperationPreview preview = WorldRestoreService.get().request(
+                context.getSource().getServer(), id, context.getSource().getTextName());
+        if (!preview.accepted()) {
+            context.getSource().sendFailure(Component.literal(preview.message()));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(preview.message()
+                + ". Estimated copy: " + humanBytes(preview.estimatedBytes())
+                + ". Confirm with /delvefold backup restore confirm " + preview.confirmationToken()), false);
+        return 1;
+    }
+
+    private static int confirmRestore(CommandContext<CommandSourceStack> context) {
+        return reportOperation(context.getSource(), WorldRestoreService.get().confirm(
+                context.getSource().getServer(), StringArgumentType.getString(context, "token")));
+    }
+
+    private static int cancelRestore(CommandContext<CommandSourceStack> context) {
+        return reportOperation(context.getSource(), WorldRestoreService.get().cancel(context.getSource().getServer()));
+    }
+
+    private static List<WorldBackupCatalog.BackupSummary> backups(CommandContext<CommandSourceStack> context)
+            throws IOException {
+        return backupCatalog(context).list();
+    }
+
+    private static WorldBackupCatalog backupCatalog(CommandContext<CommandSourceStack> context) {
+        return new WorldBackupCatalog(context.getSource().getServer()
+                .getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize());
+    }
+
     private static int validateConfig(CommandContext<CommandSourceStack> context) {
         try {
             ConfigLoadResult result = DelvefoldConfigService.get().validateDisk();
@@ -302,7 +572,7 @@ public final class DelvefoldCommands {
             ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document -> {
                 List<OreRule> rules = new ArrayList<>(document.rules());
                 rules.add(rule);
-                return document.nextRevision(rules, "custom");
+                return document.nextRevision(rules, document.profile());
             });
             return reportWrite(context.getSource(), result, "Added ore rule " + rule.id());
         } catch (IllegalArgumentException exception) {
@@ -324,7 +594,8 @@ public final class DelvefoldCommands {
             return 0;
         }
         ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document ->
-                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(id)).toList(), "custom"));
+                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(id)).toList(),
+                        document.profile()));
         return reportWrite(context.getSource(), result, "Removed ore rule " + id);
     }
 
@@ -491,7 +762,7 @@ public final class DelvefoldCommands {
             ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document ->
                     document.nextRevision(document.rules().stream()
                             .map(rule -> rule.id().equals(id) ? mutation.apply(rule) : rule)
-                            .toList(), "custom"));
+                            .toList(), document.profile()));
             return reportWrite(context.getSource(), result, successMessage);
         } catch (IllegalArgumentException exception) {
             context.getSource().sendFailure(Component.literal(exception.getMessage()));

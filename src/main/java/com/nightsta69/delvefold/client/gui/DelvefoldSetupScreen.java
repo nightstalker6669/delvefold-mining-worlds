@@ -18,10 +18,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private TerrainMode terrainMode;
     private OrePreset orePreset;
     private GameplayPreset gameplayPreset;
+    private Step step = Step.TERRAIN;
     private boolean lockConfirmed;
-    private Button terrainButton;
-    private Button orePresetButton;
-    private Button gameplayButton;
     private Button confirmationButton;
     private Button initializeButton;
     private String localStatus = "";
@@ -38,54 +36,104 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     protected void initPanel() {
         int x = this.contentLeft();
         int width = this.contentWidth();
-        boolean compact = this.panelHeight < 350;
-        int cardY = this.contentTop() + (compact ? 24 : 30);
-        int optionOffset = Math.min(Math.min(150, Math.max(90, width / 3)), Math.max(60, width - 92));
-        int optionX = x + optionOffset;
-        int optionWidth = x + width - 12 - optionX;
-        int firstOptionY = cardY + (compact ? 20 : 22);
-        int optionStep = compact ? 27 : 32;
+        int gap = 6;
+        int tabWidth = (width - gap * 2) / 3;
+        for (Step value : Step.values()) {
+            int tabX = x + value.ordinal() * (tabWidth + gap);
+            this.addButton(tabX, this.contentTop(), tabWidth, 22,
+                    Component.literal((value.ordinal() + 1) + "  •  " + value.label),
+                    this.step == value ? Style.TAB_SELECTED : Style.GHOST,
+                    button -> moveTo(value));
+        }
 
-        this.terrainButton = this.addButton(optionX, firstOptionY, optionWidth, compact ? 20 : 24,
-                terrainLabel(), Style.SECONDARY, button -> cycleTerrain());
-        this.orePresetButton = this.addButton(optionX, firstOptionY + optionStep, optionWidth, compact ? 20 : 24,
-                orePresetLabel(), Style.SECONDARY, button -> cycleOrePreset());
-        this.gameplayButton = this.addButton(optionX, firstOptionY + optionStep * 2, optionWidth, compact ? 20 : 24,
-                gameplayLabel(), Style.SECONDARY, button -> cycleGameplay());
-
-        int confirmationY = cardY + (compact ? 112 : 132);
-        this.confirmationButton = this.addButton(x + 10, confirmationY, width - 20, compact ? 20 : 24,
-                confirmationLabel(), Style.TOGGLE_OFF, button -> toggleConfirmation());
+        switch (this.step) {
+            case TERRAIN -> initTerrain();
+            case RESOURCES -> initResources();
+            case REVIEW -> initReview();
+        }
 
         int footerY = this.panelTop + this.panelHeight - 29;
-        int initializeWidth = Math.min(172, Math.max(86, width - 84));
-        this.initializeButton = this.addButton(this.contentRight() - initializeWidth, footerY, initializeWidth, 22,
-                Component.translatable("screen.delvefold.setup.initialize"), Style.PRIMARY, button -> initialize());
-        this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
+        if (this.step == Step.TERRAIN) {
+            this.addButton(x, footerY, 76, 22, Component.translatable("gui.cancel"), Style.GHOST,
+                    button -> this.onClose());
+        } else {
+            this.addButton(x, footerY, 76, 22, Component.literal("‹  Back"), Style.GHOST,
+                    button -> moveTo(Step.values()[this.step.ordinal() - 1]));
+        }
 
-        this.addButton(x, footerY, 76, 22,
-                Component.translatable("gui.cancel"), Style.GHOST, button -> this.onClose());
+        if (this.step != Step.REVIEW) {
+            this.addButton(this.contentRight() - 104, footerY, 104, 22,
+                    Component.literal("Continue  ›"), Style.PRIMARY,
+                    button -> moveTo(Step.values()[this.step.ordinal() + 1]));
+        } else {
+            this.initializeButton = this.addButton(this.contentRight() - 172, footerY, 172, 22,
+                    Component.translatable("screen.delvefold.setup.initialize"), Style.PRIMARY,
+                    button -> initialize());
+            this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
+        }
     }
 
-    private void cycleTerrain() {
-        TerrainMode[] values = TerrainMode.values();
-        this.terrainMode = values[(this.terrainMode.ordinal() + 1) % values.length];
-        this.terrainButton.setMessage(terrainLabel());
-        resetConfirmation();
+    private void initTerrain() {
+        int x = this.contentLeft() + 12;
+        int y = bodyTop() + 38;
+        int width = this.contentWidth() - 24;
+        int gap = 8;
+        int optionWidth = (width - gap * 2) / 3;
+        for (TerrainMode mode : TerrainMode.values()) {
+            int optionX = x + mode.ordinal() * (optionWidth + gap);
+            this.addButton(optionX, y, optionWidth, 42,
+                    Component.literal(pretty(mode.name())),
+                    this.terrainMode == mode ? Style.TOGGLE_ON : Style.SECONDARY,
+                    button -> {
+                        this.terrainMode = mode;
+                        resetConfirmation();
+                        rebuildWidgets();
+                    });
+        }
     }
 
-    private void cycleOrePreset() {
-        OrePreset[] values = OrePreset.values();
-        this.orePreset = values[(this.orePreset.ordinal() + 1) % values.length];
-        this.orePresetButton.setMessage(orePresetLabel());
-        resetConfirmation();
+    private void initResources() {
+        int x = this.contentLeft() + 12;
+        int y = bodyTop() + 39;
+        int width = this.contentWidth() - 24;
+        int gap = 8;
+        int optionWidth = (width - gap * 2) / 3;
+        for (OrePreset preset : OrePreset.values()) {
+            int optionX = x + preset.ordinal() * (optionWidth + gap);
+            this.addButton(optionX, y, optionWidth, 32,
+                    Component.literal(oreName(preset)), this.orePreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
+                    button -> {
+                        this.orePreset = preset;
+                        resetConfirmation();
+                        rebuildWidgets();
+                    });
+        }
+        int gameplayY = y + 76;
+        for (GameplayPreset preset : GameplayPreset.values()) {
+            int optionX = x + preset.ordinal() * (optionWidth + gap);
+            this.addButton(optionX, gameplayY, optionWidth, 32,
+                    Component.literal(pretty(preset.name())),
+                    this.gameplayPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
+                    button -> {
+                        this.gameplayPreset = preset;
+                        resetConfirmation();
+                        rebuildWidgets();
+                    });
+        }
     }
 
-    private void cycleGameplay() {
-        GameplayPreset[] values = GameplayPreset.values();
-        this.gameplayPreset = values[(this.gameplayPreset.ordinal() + 1) % values.length];
-        this.gameplayButton.setMessage(gameplayLabel());
-        resetConfirmation();
+    private void initReview() {
+        int x = this.contentLeft() + 10;
+        int y = bodyTop() + 102;
+        int width = this.contentWidth() - 20;
+        this.confirmationButton = this.addButton(x, y, width, 24,
+                confirmationLabel(), this.lockConfirmed ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> toggleConfirmation());
+    }
+
+    private void moveTo(Step requested) {
+        this.step = requested;
+        rebuildWidgets();
     }
 
     private void toggleConfirmation() {
@@ -97,13 +145,6 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
 
     private void resetConfirmation() {
         this.lockConfirmed = false;
-        if (this.confirmationButton != null) {
-            this.confirmationButton.setMessage(confirmationLabel());
-            setButtonStyle(this.confirmationButton, Style.TOGGLE_OFF);
-        }
-        if (this.initializeButton != null) {
-            this.initializeButton.active = false;
-        }
     }
 
     private void initialize() {
@@ -114,99 +155,97 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.localStatus = "Sending initialization request to the server…";
         this.localStatusColor = ACCENT;
         DelvefoldClientRequests.send(new InitializeWorldPayload(
-                this.snapshot.oreRevision(),
-                this.snapshot.settingsRevision(),
-                this.terrainMode,
-                this.orePreset,
-                GameplaySettings.fromPreset(this.gameplayPreset),
-                true));
-    }
-
-    private Component terrainLabel() {
-        return Component.literal(display(this.terrainMode.name()) + "  ›");
-    }
-
-    private Component orePresetLabel() {
-        String name = this.orePreset == OrePreset.VANILLA_BALANCED ? "Vanilla-balanced" : display(this.orePreset.name());
-        return Component.literal(name + "  ›");
-    }
-
-    private Component gameplayLabel() {
-        return Component.literal(display(this.gameplayPreset.name()) + "  ›");
+                this.snapshot.oreRevision(), this.snapshot.settingsRevision(), this.terrainMode, this.orePreset,
+                GameplaySettings.fromPreset(this.gameplayPreset), true));
     }
 
     private Component confirmationLabel() {
         return Component.literal((this.lockConfirmed ? "CONFIRMED  •  " : "CONFIRM  •  ")
-                + "Lock these generation choices");
+                + "I understand terrain changes require recreation");
     }
 
-    private static String display(String enumName) {
+    private int bodyTop() {
+        return this.contentTop() + 31;
+    }
+
+    private static String pretty(String enumName) {
         String normalized = enumName.toLowerCase().replace('_', ' ');
         return Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1);
+    }
+
+    private static String oreName(OrePreset preset) {
+        return preset == OrePreset.VANILLA_BALANCED ? "Vanilla-balanced" : pretty(preset.name());
     }
 
     @Override
     protected void renderPanelContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         int x = this.contentLeft();
+        int y = bodyTop();
         int width = this.contentWidth();
-        boolean compact = this.panelHeight < 350;
-        int cardY = this.contentTop() + (compact ? 24 : 30);
-        graphics.drawWordWrap(this.font,
-                Component.translatable("screen.delvefold.setup.description"),
-                x, this.contentTop(), width, MUTED_TEXT);
-
-        this.drawCard(graphics, x, cardY, width, compact ? 104 : 116);
-        this.drawSectionTitle(graphics, Component.literal("WORLD PROFILE"), x + 12, cardY + 6);
-        int firstLabelY = cardY + (compact ? 23 : 25);
-        int labelStep = compact ? 27 : 32;
-        drawOptionLabel(graphics, "Terrain", terrainDescription(), x + 14, firstLabelY, compact);
-        drawOptionLabel(graphics, "Ore profile", oreDescription(), x + 14, firstLabelY + labelStep, compact);
-        drawOptionLabel(graphics, "Gameplay", gameplayDescription(), x + 14, firstLabelY + labelStep * 2, compact);
-
-        int statusY = compact ? this.contentBottom() - 27 : cardY + 164;
-        int statusColor = WARNING;
-        Component status = Component.translatable("screen.delvefold.setup.warning");
-        if (!this.snapshot.backendReady()) {
-            status = Component.literal(this.snapshot.worldStatus());
-            statusColor = DANGER;
-        } else if (!this.localStatus.isEmpty()) {
-            status = Component.literal(this.localStatus);
-            statusColor = this.localStatusColor;
-        }
-        graphics.fill(x, statusY - 5, x + width, statusY + 27, 0xCC171F24);
-        graphics.fill(x, statusY - 5, x + 3, statusY + 27, statusColor);
-        graphics.drawWordWrap(this.font, status, x + 10, statusY + 1, width - 18, statusColor);
-    }
-
-    private void drawOptionLabel(
-            GuiGraphics graphics, String label, String description, int x, int y, boolean compact) {
-        graphics.drawString(this.font, Component.literal(label), x, y, TEXT, false);
-        if (!compact && this.contentWidth() >= 420) {
-            graphics.drawString(this.font, Component.literal(description), x, y + 10, DIM_TEXT, false);
+        int height = this.contentBottom() - y;
+        this.drawCard(graphics, x, y, width, height);
+        switch (this.step) {
+            case TERRAIN -> renderTerrain(graphics, x, y, width);
+            case RESOURCES -> renderResources(graphics, x, y, width);
+            case REVIEW -> renderReview(graphics, x, y, width);
         }
     }
 
-    private String terrainDescription() {
-        return switch (this.terrainMode) {
-            case FLAT -> "Layered and predictable";
-            case CAVERN -> "Enclosed cave network";
-            case WILD -> "Overworld-shaped terrain";
+    private void renderTerrain(GuiGraphics graphics, int x, int y, int width) {
+        this.drawSectionTitle(graphics, Component.literal("CHOOSE THE WORLD SHAPE"), x + 10, y + 8);
+        graphics.drawWordWrap(this.font, Component.literal(
+                "Terrain is the permanent foundation of this mining world. You can change it later only through a confirmed recreation."),
+                x + 12, y + 23, width - 24, MUTED_TEXT);
+        String detail = switch (this.terrainMode) {
+            case FLAT -> "Flat — layered, predictable geology for efficient branch mining and automation.";
+            case CAVERN -> "Cavern — an enclosed cave network with a solid roof and underground atmosphere.";
+            case WILD -> "Wild — hills, valleys, caves, and an Overworld-like exploration experience.";
         };
+        drawNotice(graphics, x + 12, y + 91, width - 24, detail, ACCENT);
+    }
+
+    private void renderResources(GuiGraphics graphics, int x, int y, int width) {
+        this.drawSectionTitle(graphics, Component.literal("STARTING ORE PROFILE"), x + 10, y + 8);
+        graphics.drawString(this.font, Component.literal(oreDescription()), x + 12, y + 76, MUTED_TEXT, false);
+        this.drawSectionTitle(graphics, Component.literal("GAMEPLAY & MOB SPAWNING"), x + 10, y + 99);
+        graphics.drawString(this.font, Component.literal(gameplayDescription()), x + 12, y + 167, MUTED_TEXT, false);
+    }
+
+    private void renderReview(GuiGraphics graphics, int x, int y, int width) {
+        this.drawSectionTitle(graphics, Component.literal("REVIEW BEFORE INITIALIZATION"), x + 10, y + 8);
+        graphics.drawString(this.font, Component.literal("Terrain"), x + 14, y + 29, MUTED_TEXT, false);
+        graphics.drawString(this.font, Component.literal(pretty(this.terrainMode.name())), x + width / 2, y + 29, TEXT, false);
+        graphics.drawString(this.font, Component.literal("Ore profile"), x + 14, y + 45, MUTED_TEXT, false);
+        graphics.drawString(this.font, Component.literal(oreName(this.orePreset)), x + width / 2, y + 45, TEXT, false);
+        graphics.drawString(this.font, Component.literal("Gameplay"), x + 14, y + 61, MUTED_TEXT, false);
+        graphics.drawString(this.font, Component.literal(pretty(this.gameplayPreset.name())), x + width / 2, y + 61, TEXT, false);
+
+        String status = !this.snapshot.backendReady() ? this.snapshot.worldStatus() : this.localStatus;
+        int color = !this.snapshot.backendReady() ? DANGER : this.localStatusColor;
+        if (!status.isEmpty()) {
+            drawNotice(graphics, x + 10, y + 138, width - 20, status, color);
+        }
+    }
+
+    private void drawNotice(GuiGraphics graphics, int x, int y, int width, String message, int color) {
+        graphics.fill(x, y, x + width, y + 34, 0xCC111A20);
+        graphics.fill(x, y, x + 3, y + 34, color);
+        graphics.drawWordWrap(this.font, Component.literal(message), x + 9, y + 7, width - 16, color);
     }
 
     private String oreDescription() {
         return switch (this.orePreset) {
-            case VANILLA_BALANCED -> "Familiar vanilla balance";
-            case RICH -> "Twice the ore attempts";
-            case EMPTY -> "Start with no ore rules";
+            case VANILLA_BALANCED -> "Familiar vanilla-style heights and rarity; edit or replace the profile later.";
+            case RICH -> "The balanced layout with twice the placement attempts for resource-heavy play.";
+            case EMPTY -> "No ore rules at initialization; build the complete profile yourself.";
         };
     }
 
     private String gameplayDescription() {
         return switch (this.gameplayPreset) {
-            case SAFE -> "No natural mob spawning";
-            case HOSTILE -> "Hostile and ambient mobs";
-            case NORMAL -> "All natural categories";
+            case SAFE -> "No natural mob spawning; commands, eggs, breeding, and spawners still work.";
+            case HOSTILE -> "Hostile and ambient natural spawning only.";
+            case NORMAL -> "All supported natural spawn categories are enabled.";
         };
     }
 
@@ -216,6 +255,18 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.localStatusColor = payload.status() == ActionStatus.ACCEPTED ? SUCCESS : DANGER;
         if (payload.status() != ActionStatus.ACCEPTED && this.initializeButton != null) {
             this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
+        }
+    }
+
+    private enum Step {
+        TERRAIN("TERRAIN"),
+        RESOURCES("RESOURCES"),
+        REVIEW("REVIEW");
+
+        private final String label;
+
+        Step(String label) {
+            this.label = label;
         }
     }
 }

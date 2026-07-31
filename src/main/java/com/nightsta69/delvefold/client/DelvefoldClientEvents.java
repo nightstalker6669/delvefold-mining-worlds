@@ -15,6 +15,7 @@ public final class DelvefoldClientEvents {
     public static void onClientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> DelvefoldNetwork.installClientHandlers(
                 DelvefoldClientPayloadHandler::open,
-                DelvefoldClientPayloadHandler::showResult));
+                DelvefoldClientPayloadHandler::showResult,
+                DelvefoldClientPayloadHandler::copyProfileExport));
     }
 }

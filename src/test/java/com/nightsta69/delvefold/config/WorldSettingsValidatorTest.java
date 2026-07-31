@@ -15,7 +15,7 @@ class WorldSettingsValidatorTest {
     @Test
     void rejectsUnsafePortalAndUninitializedTerrainSettings() {
         WorldSettingsDocument settings = new WorldSettingsDocument(
-                1,
+                WorldSettingsDocument.CURRENT_SCHEMA_VERSION,
                 0,
                 0,
                 "",
@@ -23,7 +23,8 @@ class WorldSettingsValidatorTest {
                 TerrainMode.FLAT,
                 OrePreset.VANILLA_BALANCED,
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
-                new PortalSettings(true, true, false, 0, 1.0D));
+                new PortalSettings(true, true, 0, 1.0D),
+                "vanilla_balanced");
 
         assertFalse(WorldSettingsValidator.validate(settings).valid());
     }

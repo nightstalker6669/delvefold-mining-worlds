@@ -11,6 +11,7 @@ import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
@@ -18,6 +19,8 @@ import com.nightsta69.delvefold.config.validation.ValidationReport;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.BackupOperation;
+import com.nightsta69.delvefold.network.model.ProfileOperation;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminService;
 import com.nightsta69.delvefold.reset.BackupMode;
@@ -25,13 +28,14 @@ import com.nightsta69.delvefold.reset.WorldOperationPreview;
 import com.nightsta69.delvefold.reset.WorldOperationRequest;
 import com.nightsta69.delvefold.reset.WorldOperationResult;
 import com.nightsta69.delvefold.reset.WorldOperationService;
+import com.nightsta69.delvefold.reset.WorldBackupCatalog;
+import com.nightsta69.delvefold.reset.WorldRestoreService;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.LevelResource;
 
 /** Connects the bounded GUI protocol to the same config/reset services used by commands. */
 public final class DefaultDelvefoldAdminService implements DelvefoldAdminService {
@@ -39,11 +43,15 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
     public AdminSnapshot snapshot(ServerPlayer player, int requestedOrePage, int requestedOrePageSize) {
         requireConfigure(player);
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        boolean compatible = !DelvefoldConfigService.get().isReadOnlyIncompatible();
         var settings = snapshot.settings();
         List<String> diagnostics = new ArrayList<>();
         diagnostics.add("Config hash: " + snapshot.diskHash());
         diagnostics.add("Loaded: " + snapshot.loadedAt());
         diagnostics.add("Generation epoch: " + settings.generationEpoch());
+        if (!compatible) {
+            diagnostics.add(DelvefoldConfigService.get().compatibilityMessage());
+        }
         for (ConfigIssue issue : snapshot.validation().issues()) {
             diagnostics.add(issue.severity() + " " + issue.path() + ": " + issue.message());
         }
@@ -70,14 +78,47 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         List<AdminSnapshot.OreRuleDraft> pageRules = snapshot.ores().rules().subList(start, end).stream()
                 .map(DefaultDelvefoldAdminService::toDraft)
                 .toList();
+        List<AdminSnapshot.ProfileDraft> profiles;
+        try {
+            profiles = DelvefoldConfigService.get().listProfiles().stream()
+                    .map(profile -> new AdminSnapshot.ProfileDraft(profile.id(), profile.builtIn(),
+                            profile.localOverride(), profile.ruleCount(), profile.revision(),
+                            profile.issues().stream().noneMatch(issue -> issue.severity()
+                                    == com.nightsta69.delvefold.config.validation.IssueSeverity.ERROR)))
+                    .toList();
+        } catch (IOException exception) {
+            diagnostics.add("Profile catalog: " + exception.getMessage());
+            profiles = List.of();
+        }
+        List<AdminSnapshot.BackupDraft> backups;
+        try {
+            backups = new WorldBackupCatalog(player.getServer().getWorldPath(LevelResource.ROOT)).list().stream()
+                    .map(backup -> new AdminSnapshot.BackupDraft(backup.id(), backup.createdAtEpochMillis(),
+                            backup.operation(), backup.terrain(), backup.sizeBytes(), backup.pinned(),
+                            backup.restorable(), backup.valid()))
+                    .toList();
+        } catch (IOException exception) {
+            diagnostics.add("Backup catalog: " + exception.getMessage());
+            backups = List.of();
+        }
         return new AdminSnapshot(
                 snapshot.ores().revision(),
                 settings.revision(),
-                true,
+                compatible,
                 settings.initialized(),
                 settings.terrainMode(),
                 settings.orePreset(),
                 settings.gameplay(),
+                settings.portal(),
+                new AdminSnapshot.AdminCapabilities(
+                        AdminAccess.canConfigure(player),
+                        compatible && AdminAccess.canConfigure(player),
+                        compatible && AdminAccess.canManageWorld(player),
+                        compatible && AdminAccess.canManageWorld(player),
+                        AdminAccess.canConfigure(player)),
+                snapshot.ores().profile(),
+                profiles,
+                backups,
                 portalStatus,
                 worldStatus,
                 WorldOperationService.get().isEntryBlocked(),
@@ -129,12 +170,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             AdminSnapshot.OreRuleDraft draft,
             boolean createOnly) {
         requireConfigure(player);
-        ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
-        OreRule existing = before.ores().rules().stream()
-                .filter(rule -> rule.id().equals(draft.id()))
-                .findFirst()
-                .orElse(null);
-        OreRule replacement = fromDraft(draft, existing);
+        OreRule replacement = fromDraft(draft);
         ConfigWriteResult result = DelvefoldConfigService.get().saveOreRule(
                 expectedRevision, replacement, createOnly);
         return fromWrite(result, "Saved ore rule " + replacement.id());
@@ -148,7 +184,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return rejected(expectedRevision, "Unknown ore rule: " + ruleId);
         }
         ConfigWriteResult result = DelvefoldConfigService.get().updateOres(expectedRevision, document ->
-                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(ruleId)).toList(), "custom"));
+                document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(ruleId)).toList(),
+                        document.profile()));
         return fromWrite(result, "Deleted ore rule " + ruleId);
     }
 
@@ -160,6 +197,98 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings -> settings.withGameplay(gameplay)
         );
         return fromWrite(result, "Gameplay settings saved");
+    }
+
+    @Override
+    public ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal) {
+        requireConfigure(player);
+        ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(
+                expectedRevision,
+                settings -> settings.withPortal(portal)
+        );
+        return fromWrite(result, "Portal settings saved");
+    }
+
+    @Override
+    public ServiceResult performProfile(ServerPlayer player, long expectedOreRevision, ProfileOperation operation,
+            String sourceId, String targetId, String json, boolean overwrite) {
+        requireConfigure(player);
+        try {
+            return switch (operation) {
+                case SELECT -> fromWrite(DelvefoldConfigService.get().activateProfile(expectedOreRevision, sourceId),
+                        "Activated profile '" + sourceId + "'. Existing chunks are unchanged.");
+                case SAVE_CURRENT -> fromProfileWrite(
+                        DelvefoldConfigService.get().saveCurrentProfileAs(targetId, overwrite));
+                case DUPLICATE -> fromProfileWrite(
+                        DelvefoldConfigService.get().duplicateProfile(sourceId, targetId, overwrite));
+                case IMPORT_CLIPBOARD -> fromProfileWrite(
+                        DelvefoldConfigService.get().importProfileJson(targetId, json, overwrite));
+                case DELETE -> {
+                    var result = DelvefoldConfigService.get().deleteProfile(sourceId);
+                    yield new ServiceResult(result.deleted() ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
+                            expectedOreRevision, result.message(), result.deleted());
+                }
+            };
+        } catch (IOException | IllegalArgumentException exception) {
+            return new ServiceResult(ActionStatus.ERROR, expectedOreRevision,
+                    "Profile operation failed: " + exception.getMessage(), false);
+        }
+    }
+
+    private static ServiceResult fromProfileWrite(
+            com.nightsta69.delvefold.config.OreProfileCatalog.ProfileWriteResult result) {
+        String issues = result.issues().stream().map(issue -> issue.message()).findFirst().orElse("");
+        String message = issues.isBlank() ? result.message() : result.message() + ": " + issues;
+        return new ServiceResult(result.saved() ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
+                DelvefoldConfigService.get().snapshot().ores().revision(), message, result.saved());
+    }
+
+    @Override
+    public ServiceResult performBackup(ServerPlayer player, long expectedSettingsRevision,
+            BackupOperation operation, String backupId) {
+        requireWorldManagement(player);
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        if (snapshot.settings().revision() != expectedSettingsRevision) {
+            return stale(snapshot.settings().revision());
+        }
+        try {
+            if (operation == BackupOperation.RESTORE) {
+                WorldOperationPreview preview = WorldRestoreService.get().request(
+                        player.getServer(), backupId, player.getGameProfile().getName());
+                if (!preview.accepted()) {
+                    return rejected(expectedSettingsRevision, preview.message());
+                }
+                WorldOperationResult confirmed = WorldRestoreService.get().confirm(
+                        player.getServer(), preview.confirmationToken());
+                return new ServiceResult(confirmed.success() ? ActionStatus.ACCEPTED : ActionStatus.ERROR,
+                        expectedSettingsRevision, confirmed.message(), true);
+            }
+            if (operation == BackupOperation.CANCEL_RESTORE) {
+                WorldOperationResult cancelled = WorldRestoreService.get().cancel(player.getServer());
+                return new ServiceResult(cancelled.success() ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
+                        expectedSettingsRevision, cancelled.message(), true);
+            }
+            WorldBackupCatalog catalog = new WorldBackupCatalog(
+                    player.getServer().getWorldPath(LevelResource.ROOT));
+            return switch (operation) {
+                case PIN -> {
+                    catalog.setPinned(backupId, true);
+                    yield accepted(expectedSettingsRevision, "Pinned backup " + backupId, true);
+                }
+                case UNPIN -> {
+                    catalog.setPinned(backupId, false);
+                    yield accepted(expectedSettingsRevision, "Unpinned backup " + backupId, true);
+                }
+                case DELETE -> {
+                    catalog.delete(backupId);
+                    yield accepted(expectedSettingsRevision, "Permanently deleted backup " + backupId, true);
+                }
+                case RESTORE, CANCEL_RESTORE -> throw new IllegalStateException("Handled above");
+            };
+        } catch (IOException | IllegalArgumentException exception) {
+            return new ServiceResult(ActionStatus.ERROR, expectedSettingsRevision,
+                    "Backup operation failed: " + exception.getMessage(), false);
+        }
     }
 
     @Override
@@ -256,17 +385,10 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         }
     }
 
-    private static OreRule fromDraft(AdminSnapshot.OreRuleDraft draft, OreRule existing) {
-        Map<String, OreTarget> oldTargets = new LinkedHashMap<>();
-        if (existing != null) {
-            for (OreTarget target : existing.targets()) {
-                oldTargets.put(target.block(), target);
-            }
-        }
+    static OreRule fromDraft(AdminSnapshot.OreRuleDraft draft) {
         List<OreTarget> targets = draft.variants().stream().map(variant -> {
-            OreTarget old = oldTargets.get(variant.blockId());
             String tag = stripHash(variant.replaceTag());
-            return new OreTarget(variant.blockId(), old == null ? Map.of() : old.state(), tag);
+            return new OreTarget(variant.blockId(), variant.state(), tag);
         }).toList();
         List<SpawnBand> bands = draft.bands().stream().map(DefaultDelvefoldAdminService::fromDraft).toList();
         Set<TerrainMode> terrainModes = Set.copyOf(draft.terrainModes());
@@ -276,7 +398,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 draft.required(),
                 terrainModes,
                 targets,
-                existing == null ? BiomeFilter.ALL_MINING_BIOMES : existing.biomes(),
+                new BiomeFilter(draft.biomeIncludes(), draft.biomeExcludes()),
                 bands
         );
     }
@@ -299,9 +421,12 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 rule.required(),
                 primary,
                 rule.targets().stream()
-                        .map(target -> new AdminSnapshot.OreVariantDraft(target.block(), target.replaceTag()))
+                        .map(target -> new AdminSnapshot.OreVariantDraft(
+                                target.block(), target.replaceTag(), target.state()))
                         .toList(),
                 List.copyOf(rule.terrainModes()),
+                rule.biomes().include(),
+                rule.biomes().exclude(),
                 rule.bands().stream().map(DefaultDelvefoldAdminService::toDraft).toList()
         );
     }

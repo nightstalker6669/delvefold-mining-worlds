@@ -22,6 +22,21 @@ The integrated singleplayer owner may administer Delvefold even with cheats disa
 /delvefold config reload
 ```
 
+## Named ore profiles
+
+```text
+/delvefold profile list
+/delvefold profile create <id> <balanced|rich|empty> [overwrite]
+/delvefold profile duplicate <source> <id> [overwrite]
+/delvefold profile save-current <id> [overwrite]
+/delvefold profile select <id>
+/delvefold profile delete <id>
+/delvefold profile import <file.json> <id> [overwrite]
+/delvefold profile export <id> <file.json>
+```
+
+Profiles are stored per save. Selecting one changes generation in future chunks only. Import reads only from `serverconfig/delvefold/imports/`, and export writes only to `serverconfig/delvefold/exports/`. Built-in profiles remain available even when a local override is removed; the active profile cannot be deleted.
+
 ## Ore rules
 
 ```text
@@ -73,3 +88,17 @@ To explicitly discard the old dimension without retaining its timestamped backup
 ```
 
 Permanent mode still stages the old folders until the settings transaction commits. It is then deleted. Delvefold never modifies a loaded mining dimension.
+
+## Backups and restore
+
+```text
+/delvefold backup list
+/delvefold backup pin <backup>
+/delvefold backup unpin <backup>
+/delvefold backup delete <backup> confirm
+/delvefold backup restore request <backup>
+/delvefold backup restore confirm <token>
+/delvefold backup restore cancel
+```
+
+Only backups created by versions that capture both dimension and configuration data are restorable; older entries remain visible as archive-only. Restore preserves the selected backup, creates a pre-restore backup of the current mining world, evacuates players, and applies during the next restart. Pinned backups must be unpinned before deletion.

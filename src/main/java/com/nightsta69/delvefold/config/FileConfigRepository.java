@@ -53,17 +53,23 @@ public final class FileConfigRepository {
         try {
             ensureSafeRegularFile(paths.ores());
             ensureSafeRegularFile(paths.settings());
+            if (!supportedSchemas(paths.ores(), paths.settings(), issues)) {
+                return fallback(lastGood, issues, "Configuration schema is incompatible");
+            }
             OreProfileDocument ores = readJson(paths.ores(), OreProfileDocument.class);
             WorldSettingsDocument settings = readJson(paths.settings(), WorldSettingsDocument.class);
             ValidationReport report = OreConfigValidator.validate(ores, registryLookup);
             issues.addAll(report.issues());
             ValidationReport settingsReport = WorldSettingsValidator.validate(settings);
             issues.addAll(settingsReport.issues());
-            if (!report.valid() || !settingsReport.valid()) {
+            ValidationReport consistencyReport = profileConsistency(ores, settings);
+            issues.addAll(consistencyReport.issues());
+            if (!report.valid() || !settingsReport.valid() || !consistencyReport.valid()) {
                 return fallback(lastGood, issues, "Ore configuration did not pass validation");
             }
             String hash = hash(paths.ores(), paths.settings());
-            ConfigSnapshot snapshot = new ConfigSnapshot(ores, settings, combined(report, settingsReport), Instant.now(), hash);
+            ConfigSnapshot snapshot = new ConfigSnapshot(ores, settings,
+                    combined(combined(report, settingsReport), consistencyReport), Instant.now(), hash);
             return new ConfigLoadResult(snapshot, false, issues);
         } catch (IOException | RuntimeException exception) {
             issues.add(ConfigIssue.error("json.invalid", "$", exception.getMessage()));
@@ -74,7 +80,8 @@ public final class FileConfigRepository {
     public ConfigSnapshot save(OreProfileDocument ores, WorldSettingsDocument settings) throws IOException {
         ValidationReport report = OreConfigValidator.validate(ores, registryLookup);
         ValidationReport settingsReport = WorldSettingsValidator.validate(settings);
-        if (!report.valid() || !settingsReport.valid()) {
+        ValidationReport consistencyReport = profileConsistency(ores, settings);
+        if (!report.valid() || !settingsReport.valid() || !consistencyReport.valid()) {
             throw new IllegalArgumentException("Refusing to save invalid Delvefold configuration");
         }
         Files.createDirectories(paths.directory());
@@ -89,7 +96,8 @@ public final class FileConfigRepository {
         writeJsonAtomically(paths.ores(), ores);
         writeJsonAtomically(paths.settings(), settings);
         Files.delete(transactionPath);
-        return new ConfigSnapshot(ores, settings, combined(report, settingsReport), Instant.now(), hash(paths.ores(), paths.settings()));
+        return new ConfigSnapshot(ores, settings, combined(combined(report, settingsReport), consistencyReport),
+                Instant.now(), hash(paths.ores(), paths.settings()));
     }
 
     /** Reads and validates the current files without creating, recovering, replacing, or publishing anything. */
@@ -107,17 +115,23 @@ public final class FileConfigRepository {
             }
             ensureSafeRegularFile(paths.ores());
             ensureSafeRegularFile(paths.settings());
+            if (!supportedSchemas(paths.ores(), paths.settings(), issues)) {
+                return fallback(lastGood, issues, "Configuration schema is incompatible");
+            }
             OreProfileDocument ores = readJson(paths.ores(), OreProfileDocument.class);
             WorldSettingsDocument settings = readJson(paths.settings(), WorldSettingsDocument.class);
             ValidationReport oresReport = OreConfigValidator.validate(ores, registryLookup);
             ValidationReport settingsReport = WorldSettingsValidator.validate(settings);
+            ValidationReport consistencyReport = profileConsistency(ores, settings);
             issues.addAll(oresReport.issues());
             issues.addAll(settingsReport.issues());
-            if (!oresReport.valid() || !settingsReport.valid()) {
+            issues.addAll(consistencyReport.issues());
+            if (!oresReport.valid() || !settingsReport.valid() || !consistencyReport.valid()) {
                 return fallback(lastGood, issues, "Configuration files did not pass validation");
             }
             ConfigSnapshot candidate = new ConfigSnapshot(
-                    ores, settings, combined(oresReport, settingsReport), Instant.now(), hash(paths.ores(), paths.settings()));
+                    ores, settings, combined(combined(oresReport, settingsReport), consistencyReport),
+                    Instant.now(), hash(paths.ores(), paths.settings()));
             return new ConfigLoadResult(candidate, false, issues);
         } catch (IOException | RuntimeException exception) {
             issues.add(ConfigIssue.error("json.invalid", "$", exception.getMessage()));
@@ -145,6 +159,39 @@ public final class FileConfigRepository {
 
     private static <T> T readJson(Path path, Class<T> type) throws IOException {
         return readJson(path, type, MAX_CONFIG_BYTES);
+    }
+
+    private static boolean supportedSchemas(Path ores, Path settings, List<ConfigIssue> issues) throws IOException {
+        int oreSchema = schemaVersion(ores);
+        int settingsSchema = schemaVersion(settings);
+        if (oreSchema != OreProfileDocument.CURRENT_SCHEMA_VERSION) {
+            issues.add(ConfigIssue.error("schema.unsupported", "$.schema_version",
+                    "Expected ore schema " + OreProfileDocument.CURRENT_SCHEMA_VERSION + " but found " + oreSchema));
+        }
+        if (settingsSchema != WorldSettingsDocument.CURRENT_SCHEMA_VERSION) {
+            issues.add(ConfigIssue.error("settings.schema.unsupported", "$.schema_version",
+                    "Expected settings schema " + WorldSettingsDocument.CURRENT_SCHEMA_VERSION
+                            + " but found " + settingsSchema));
+        }
+        return oreSchema == OreProfileDocument.CURRENT_SCHEMA_VERSION
+                && settingsSchema == WorldSettingsDocument.CURRENT_SCHEMA_VERSION;
+    }
+
+    private static int schemaVersion(Path path) throws IOException {
+        if (Files.size(path) > MAX_CONFIG_BYTES) {
+            throw new IOException(path.getFileName() + " exceeds the configuration size limit");
+        }
+        try {
+            JsonElement root = com.google.gson.JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
+            if (!root.isJsonObject() || !root.getAsJsonObject().has("schema_version")
+                    || !root.getAsJsonObject().get("schema_version").isJsonPrimitive()
+                    || !root.getAsJsonObject().get("schema_version").getAsJsonPrimitive().isNumber()) {
+                throw new IOException(path.getFileName() + " has no numeric schema_version");
+            }
+            return root.getAsJsonObject().get("schema_version").getAsInt();
+        } catch (RuntimeException exception) {
+            throw new IOException(path.getFileName() + " schema could not be read", exception);
+        }
     }
 
     private static <T> T readJson(Path path, Class<T> type, long maximumBytes) throws IOException {
@@ -226,7 +273,8 @@ public final class FileConfigRepository {
         }
         ValidationReport oresReport = OreConfigValidator.validate(transaction.ores(), registryLookup);
         ValidationReport settingsReport = WorldSettingsValidator.validate(transaction.settings());
-        if (!oresReport.valid() || !settingsReport.valid()) {
+        ValidationReport consistencyReport = profileConsistency(transaction.ores(), transaction.settings());
+        if (!oresReport.valid() || !settingsReport.valid() || !consistencyReport.valid()) {
             throw new IOException("Configuration transaction failed validation and was not applied");
         }
         writeJsonAtomically(paths.ores(), transaction.ores());
@@ -243,6 +291,15 @@ public final class FileConfigRepository {
         issues.addAll(first.issues());
         issues.addAll(second.issues());
         return new ValidationReport(issues);
+    }
+
+    private static ValidationReport profileConsistency(OreProfileDocument ores, WorldSettingsDocument settings) {
+        if (ores.profile().equals(settings.activeProfileId())) {
+            return new ValidationReport(List.of());
+        }
+        return new ValidationReport(List.of(ConfigIssue.error("profile.active_mismatch", "$.active_profile_id",
+                "settings active_profile_id '" + settings.activeProfileId()
+                        + "' does not match the active ore profile '" + ores.profile() + "'")));
     }
 
     private record ConfigTransaction(

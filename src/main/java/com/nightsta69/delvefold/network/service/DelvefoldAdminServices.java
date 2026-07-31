@@ -2,9 +2,12 @@ package com.nightsta69.delvefold.network.service;
 
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.BackupOperation;
+import com.nightsta69.delvefold.network.model.ProfileOperation;
 import java.util.Objects;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -57,6 +60,23 @@ public final class DelvefoldAdminServices {
         @Override
         public ServiceResult updateGameplay(ServerPlayer player, long expectedRevision, GameplaySettings gameplay) {
             return ServiceResult.unavailable(expectedRevision);
+        }
+
+        @Override
+        public ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal) {
+            return ServiceResult.unavailable(expectedRevision);
+        }
+
+        @Override
+        public ServiceResult performProfile(ServerPlayer player, long expectedOreRevision, ProfileOperation operation,
+                String sourceId, String targetId, String json, boolean overwrite) {
+            return ServiceResult.unavailable(expectedOreRevision);
+        }
+
+        @Override
+        public ServiceResult performBackup(ServerPlayer player, long expectedSettingsRevision,
+                BackupOperation operation, String backupId) {
+            return ServiceResult.unavailable(expectedSettingsRevision);
         }
 
         @Override

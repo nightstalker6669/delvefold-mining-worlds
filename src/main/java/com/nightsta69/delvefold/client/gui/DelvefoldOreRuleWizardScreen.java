@@ -2,7 +2,9 @@ package com.nightsta69.delvefold.client.gui;
 
 import com.nightsta69.delvefold.client.DelvefoldClientRequests;
 import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
+import com.nightsta69.delvefold.config.analysis.OreDistributionAnalysis;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
+import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.ActionStatus;
@@ -31,7 +33,10 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private final String primaryBlockId;
     private final List<String> candidateVariants;
     private final LinkedHashMap<String, String> selectedVariants;
+    private final LinkedHashMap<String, Map<String, String>> variantStates;
     private final List<TerrainMode> terrainModes;
+    private final List<String> biomeIncludes;
+    private final List<String> biomeExcludes;
     private final List<AdminSnapshot.OreBandDraft> bands;
     private final Page page;
     private int bandIndex;
@@ -47,6 +52,9 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
 
     private EditBox ruleIdBox;
     private EditBox hostTagBox;
+    private EditBox statePropertiesBox;
+    private EditBox biomeIncludesBox;
+    private EditBox biomeExcludesBox;
     private EditBox bandIdBox;
     private EditBox veinSizeBox;
     private EditBox attemptsBox;
@@ -68,6 +76,9 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private String rawPlateauMin;
     private String rawPlateauMax;
     private String rawAirDiscard;
+    private String rawStateProperties;
+    private String rawBiomeIncludes;
+    private String rawBiomeExcludes;
 
     public DelvefoldOreRuleWizardScreen(Screen parent, AdminSnapshot snapshot, AdminSnapshot.OreRuleDraft draft) {
         this(parent, snapshot, draft, Page.TARGETS, 0,
@@ -99,16 +110,21 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         this.enabled = draft.enabled();
         this.required = draft.required();
         this.selectedVariants = new LinkedHashMap<>();
+        this.variantStates = new LinkedHashMap<>();
         for (AdminSnapshot.OreVariantDraft variant : draft.variants()) {
             this.selectedVariants.put(variant.blockId(), variant.replaceTag());
+            this.variantStates.put(variant.blockId(), variant.state());
         }
         if (this.selectedVariants.isEmpty()) {
             this.selectedVariants.put(this.primaryBlockId, inferredHost(this.primaryBlockId));
+            this.variantStates.put(this.primaryBlockId, Map.of());
         }
         this.terrainModes = new ArrayList<>(draft.terrainModes());
         if (this.terrainModes.isEmpty()) {
             this.terrainModes.addAll(List.of(TerrainMode.values()));
         }
+        this.biomeIncludes = new ArrayList<>(draft.biomeIncludes());
+        this.biomeExcludes = new ArrayList<>(draft.biomeExcludes());
         this.bands = new ArrayList<>(draft.bands());
         if (this.bands.isEmpty()) {
             this.bands.add(AdminSnapshot.OreBandDraft.defaultBand());
@@ -119,14 +135,17 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         this.candidateVariants = inheritedCandidates == null
                 ? detectVariants(this.primaryBlockId, this.selectedVariants.keySet())
                 : new ArrayList<>(inheritedCandidates);
+        this.rawStateProperties = formatState(this.variantStates.getOrDefault(this.focusedVariant, Map.of()));
+        this.rawBiomeIncludes = String.join(", ", this.biomeIncludes);
+        this.rawBiomeExcludes = String.join(", ", this.biomeExcludes);
     }
 
     @Override
     protected void initPanel() {
         int tabY = this.contentTop();
-        int tabWidth = (this.contentWidth() - 6) / 2;
+        int tabWidth = (this.contentWidth() - 12) / 3;
         this.addButton(this.contentLeft(), tabY, tabWidth, 24,
-                Component.literal("1  •  BLOCK VARIANTS"),
+                Component.literal("1  •  BLOCKS"),
                 this.page == Page.TARGETS ? Style.TAB_SELECTED : Style.GHOST,
                 button -> {
                     if (this.page != Page.TARGETS) {
@@ -134,7 +153,15 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                     }
                 });
         this.addButton(this.contentLeft() + tabWidth + 6, tabY, tabWidth, 24,
-                Component.literal("2  •  SPAWN BANDS"),
+                Component.literal("2  •  FILTERS"),
+                this.page == Page.FILTERS ? Style.TAB_SELECTED : Style.GHOST,
+                button -> {
+                    if (this.page != Page.FILTERS) {
+                        openPage(Page.FILTERS, this.bandIndex);
+                    }
+                });
+        this.addButton(this.contentLeft() + (tabWidth + 6) * 2, tabY, tabWidth, 24,
+                Component.literal("3  •  BANDS"),
                 this.page == Page.BANDS ? Style.TAB_SELECTED : Style.GHOST,
                 button -> {
                     if (this.page != Page.BANDS) {
@@ -144,6 +171,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
 
         if (this.page == Page.TARGETS) {
             initTargets();
+        } else if (this.page == Page.FILTERS) {
+            initFilters();
         } else {
             initBands();
         }
@@ -154,6 +183,21 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         this.saveButton = this.addButton(this.contentRight() - 106, footerY, 106, 22,
                 Component.translatable("screen.delvefold.ore_wizard.save"), Style.PRIMARY, button -> save());
         this.saveButton.active = this.snapshot.backendReady();
+    }
+
+    private void initFilters() {
+        int x = this.contentLeft() + 12;
+        int y = bodyTop() + 39;
+        int width = this.contentWidth() - 24;
+        this.statePropertiesBox = addWideEditBox(x, y, width, this.rawStateProperties,
+                "property=value, property=value");
+        this.statePropertiesBox.setResponder(value -> this.rawStateProperties = value);
+        this.biomeIncludesBox = addWideEditBox(x, y + 48, width, this.rawBiomeIncludes,
+                "#delvefold:mining_biomes");
+        this.biomeIncludesBox.setResponder(value -> this.rawBiomeIncludes = value);
+        this.biomeExcludesBox = addWideEditBox(x, y + 96, width, this.rawBiomeExcludes,
+                "minecraft:plains, #namespace:tag");
+        this.biomeExcludesBox.setResponder(value -> this.rawBiomeExcludes = value);
     }
 
     private void initTargets() {
@@ -195,12 +239,16 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             int column = pageIndex % variantColumns;
             int row = pageIndex / variantColumns;
             boolean selected = this.selectedVariants.containsKey(blockId);
-            String prefix = selected ? "ON  •  " : "OFF  •  ";
+            ResourceLocation registryId = ResourceLocation.tryParse(blockId);
+            boolean missing = registryId == null || BuiltInRegistries.BLOCK.getOptional(registryId).isEmpty();
+            String prefix = missing ? "MISSING  •  " : selected ? "ON  •  " : "OFF  •  ";
             Button button = this.addButton(x + column * (variantWidth + variantGap), variantY + row * 22,
                     variantWidth, 20, Component.literal(prefix + blockId),
-                    selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF, ignored -> toggleVariant(blockId));
+                    missing ? Style.DANGER : selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                    ignored -> toggleVariant(blockId));
             if (blockId.equals(this.focusedVariant)) {
-                button.setMessage(Component.literal((selected ? "ON" : "OFF") + "  ›  " + blockId));
+                button.setMessage(Component.literal((missing ? "MISSING" : selected ? "ON" : "OFF")
+                        + "  ›  " + blockId));
             }
         }
         if (pageCount > 1) {
@@ -315,6 +363,12 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         return box;
     }
 
+    private EditBox addWideEditBox(int x, int y, int width, String value, String hint) {
+        EditBox box = addEditBox(x, y, width, value, hint);
+        box.setMaxLength(ProtocolLimits.SHORT_TEXT_LENGTH);
+        return box;
+    }
+
     private void primeBandInputs(AdminSnapshot.OreBandDraft band) {
         if (this.rawBandIndex == this.bandIndex && this.rawBandId != null) {
             return;
@@ -351,9 +405,11 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             }
             if (this.selectedVariants.size() > 1) {
                 this.selectedVariants.remove(blockId);
+                this.variantStates.remove(blockId);
             }
         } else if (this.selectedVariants.size() < ProtocolLimits.MAX_VARIANTS) {
             this.selectedVariants.put(blockId, inferredHost(blockId));
+            this.variantStates.put(blockId, Map.of());
         }
         this.focusedVariant = this.selectedVariants.containsKey(blockId)
                 ? blockId
@@ -464,6 +520,9 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         if (this.page == Page.BANDS && !commitBand()) {
             return;
         }
+        if (this.page == Page.FILTERS && !commitAdvanced()) {
+            return;
+        }
         reopen(requestedPage, requestedBand);
     }
 
@@ -485,7 +544,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
 
     private AdminSnapshot.OreRuleDraft currentDraft() {
         List<AdminSnapshot.OreVariantDraft> variants = this.selectedVariants.entrySet().stream()
-                .map(entry -> new AdminSnapshot.OreVariantDraft(entry.getKey(), entry.getValue()))
+                .map(entry -> new AdminSnapshot.OreVariantDraft(entry.getKey(), entry.getValue(),
+                        this.variantStates.getOrDefault(entry.getKey(), Map.of())))
                 .toList();
         return new AdminSnapshot.OreRuleDraft(
                 this.ruleId,
@@ -494,11 +554,13 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 this.primaryBlockId,
                 variants,
                 this.terrainModes,
+                this.biomeIncludes,
+                this.biomeExcludes,
                 this.bands);
     }
 
     private void save() {
-        if (!commitBand() || !validateRule()) {
+        if (!commitBand() || !commitAdvanced() || !validateRule()) {
             return;
         }
         this.saveButton.active = false;
@@ -550,6 +612,76 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         return true;
     }
 
+    private boolean commitAdvanced() {
+        if (this.page != Page.FILTERS && this.statePropertiesBox == null) {
+            return true;
+        }
+        try {
+            Map<String, String> state = parseState(this.rawStateProperties);
+            List<String> includes = parseSelectors(this.rawBiomeIncludes);
+            List<String> excludes = parseSelectors(this.rawBiomeExcludes);
+            if (state.size() > ProtocolLimits.MAX_STATE_PROPERTIES
+                    || includes.size() > ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST
+                    || excludes.size() > ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST) {
+                throw new IllegalArgumentException("Too many state properties or biome selectors");
+            }
+            this.variantStates.put(this.focusedVariant, state);
+            this.biomeIncludes.clear();
+            this.biomeIncludes.addAll(includes);
+            this.biomeExcludes.clear();
+            this.biomeExcludes.addAll(excludes);
+            this.validationMessage = "";
+            return true;
+        } catch (IllegalArgumentException exception) {
+            this.validationMessage = exception.getMessage();
+            this.validationColor = DANGER;
+            return false;
+        }
+    }
+
+    private static Map<String, String> parseState(String text) {
+        LinkedHashMap<String, String> result = new LinkedHashMap<>();
+        if (text == null || text.isBlank()) {
+            return result;
+        }
+        for (String pair : text.split(",")) {
+            String[] parts = pair.trim().split("=", 2);
+            if (parts.length != 2 || !parts[0].matches("[a-z0-9_]+") || parts[1].isBlank()
+                    || parts[1].length() > ProtocolLimits.ID_LENGTH) {
+                throw new IllegalArgumentException("State properties must use property=value pairs.");
+            }
+            if (result.putIfAbsent(parts[0], parts[1].trim()) != null) {
+                throw new IllegalArgumentException("Duplicate state property: " + parts[0]);
+            }
+        }
+        return result;
+    }
+
+    private static List<String> parseSelectors(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (String value : text.split("[,\\s]+")) {
+            if (value.isBlank()) {
+                continue;
+            }
+            String id = value.startsWith("#") ? value.substring(1) : value;
+            if (ResourceLocation.tryParse(id) == null) {
+                throw new IllegalArgumentException("Biome selectors must be namespace:path IDs or #tags.");
+            }
+            if (!result.contains(value)) {
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
+    private static String formatState(Map<String, String> state) {
+        return state.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
     private void delete() {
         if (!this.deleteArmed) {
             this.deleteArmed = true;
@@ -593,6 +725,15 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             this.drawFieldLabel(graphics,
                     Component.literal(focusLabel), x + 12, hostY - 12);
             this.drawFieldLabel(graphics, Component.literal("GENERATE IN TERRAIN"), x + 12, terrainY - 12);
+        } else if (this.page == Page.FILTERS) {
+            this.drawSectionTitle(graphics, Component.literal("BLOCK STATE & BIOME FILTERS"), x + 10, y + 7);
+            int fieldY = y + 39;
+            this.drawFieldLabel(graphics, Component.literal("STATE FOR " + this.focusedVariant), x + 12, fieldY - 12);
+            this.drawFieldLabel(graphics, Component.literal("INCLUDE BIOMES OR #TAGS"), x + 12, fieldY + 36);
+            this.drawFieldLabel(graphics, Component.literal("EXCLUDE BIOMES OR #TAGS"), x + 12, fieldY + 84);
+            graphics.drawWordWrap(this.font, Component.literal(
+                    "Separate selectors and property=value pairs with commas. Leave state empty to use the block default."),
+                    x + 12, fieldY + 121, width - 24, DIM_TEXT);
         } else {
             AdminSnapshot.OreBandDraft band = this.bands.get(this.bandIndex);
             int fieldY = y + (compact ? 31 : 39);
@@ -623,14 +764,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
 
             if (!compact) {
                 int helpY = y + 151;
-                graphics.fill(x + 12, helpY, x + width - 12, helpY + 34, 0xCC142127);
-                graphics.fill(x + 12, helpY, x + 15, helpY + 34, ACCENT_DARK);
-                Component help = switch (band.distribution()) {
-                    case UNIFORM -> Component.literal("Uniform: every height in the range has equal weight.");
-                    case TRIANGLE -> Component.literal("Triangle: generation rises toward Peak Y, then falls away.");
-                    case TRAPEZOID -> Component.literal("Trapezoid: maximum weight is held between the plateau values.");
-                };
-                graphics.drawWordWrap(this.font, help, x + 21, helpY + 8, width - 45, MUTED_TEXT);
+                drawBandPreview(graphics, band, x + 12, helpY, width - 24, 34);
             }
         }
         if (!this.validationMessage.isEmpty()) {
@@ -640,6 +774,37 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             graphics.fill(messageX - 4, y + 5, x + width - 8, y + 18, 0xD9111A20);
             graphics.drawString(this.font, clipped, messageX, y + 7, this.validationColor, false);
         }
+    }
+
+    private void drawBandPreview(
+            GuiGraphics graphics, AdminSnapshot.OreBandDraft draft, int x, int y, int width, int height) {
+        SpawnBand band = new SpawnBand(draft.id(), draft.veinSize(), draft.attemptsPerChunk(),
+                draft.distribution(), draft.minY(), draft.maxY(), draft.peakY(),
+                draft.plateauMinY(), draft.plateauMaxY(), draft.discardOnAirExposure());
+        OreDistributionAnalysis.Summary analysis = OreDistributionAnalysis.analyze(band);
+        graphics.fill(x, y, x + width, y + height, 0xCC142127);
+        graphics.renderOutline(x, y, width, height, CARD_BORDER);
+        int graphLeft = x + 5;
+        int graphRight = x + Math.max(36, width * 3 / 5);
+        int graphBottom = y + height - 4;
+        double maximum = analysis.maximumProbability();
+        if (maximum > 0.0D && !analysis.samples().isEmpty()) {
+            for (int pixel = graphLeft; pixel < graphRight; pixel++) {
+                int sampleIndex = (pixel - graphLeft) * analysis.samples().size()
+                        / Math.max(1, graphRight - graphLeft);
+                double normalized = analysis.samples().get(Math.min(sampleIndex, analysis.samples().size() - 1)).probability()
+                        / maximum;
+                int barHeight = Math.max(1, (int) Math.round(normalized * (height - 9)));
+                graphics.fill(pixel, graphBottom - barHeight, pixel + 1, graphBottom, ACCENT);
+            }
+        }
+        String lineOne = String.format(java.util.Locale.ROOT, "%.2f attempts  •  %.1f work", analysis.attemptsPerChunk(), analysis.workUnits());
+        String lineTwo = pretty(analysis.density().name()) + "  •  Y " + draft.minY() + "…" + draft.maxY();
+        int textX = graphRight + 8;
+        graphics.drawString(this.font, this.font.plainSubstrByWidth(lineOne, x + width - textX - 4),
+                textX, y + 7, TEXT, false);
+        graphics.drawString(this.font, this.font.plainSubstrByWidth(lineTwo, x + width - textX - 4),
+                textX, y + 19, analysis.density() == OreDistributionAnalysis.Density.EXTREME ? WARNING : MUTED_TEXT, false);
     }
 
     @Override
@@ -699,6 +864,9 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         refreshed.rawPlateauMin = this.rawPlateauMin;
         refreshed.rawPlateauMax = this.rawPlateauMax;
         refreshed.rawAirDiscard = this.rawAirDiscard;
+        refreshed.rawStateProperties = this.rawStateProperties;
+        refreshed.rawBiomeIncludes = this.rawBiomeIncludes;
+        refreshed.rawBiomeExcludes = this.rawBiomeExcludes;
         refreshed.validationMessage = this.validationMessage;
         refreshed.validationColor = this.validationColor;
         return refreshed;
@@ -775,6 +943,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
 
     private enum Page {
         TARGETS,
+        FILTERS,
         BANDS
     }
 }

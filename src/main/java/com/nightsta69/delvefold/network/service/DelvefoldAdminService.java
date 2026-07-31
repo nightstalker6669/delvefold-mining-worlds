@@ -2,10 +2,13 @@ package com.nightsta69.delvefold.network.service;
 
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.BackupOperation;
+import com.nightsta69.delvefold.network.model.ProfileOperation;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -40,6 +43,20 @@ public interface DelvefoldAdminService {
             ServerPlayer player,
             long expectedRevision,
             GameplaySettings gameplay);
+
+    ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal);
+
+    ServiceResult performProfile(
+            ServerPlayer player,
+            long expectedOreRevision,
+            ProfileOperation operation,
+            String sourceId,
+            String targetId,
+            String json,
+            boolean overwrite);
+
+    ServiceResult performBackup(
+            ServerPlayer player, long expectedSettingsRevision, BackupOperation operation, String backupId);
 
     ServiceResult perform(
             ServerPlayer player,

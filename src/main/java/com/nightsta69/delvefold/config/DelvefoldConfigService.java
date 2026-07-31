@@ -31,6 +31,9 @@ public final class DelvefoldConfigService {
     private final Object mutationLock = new Object();
     private volatile MinecraftServer server;
     private volatile FileConfigRepository repository;
+    private volatile OreProfileCatalog profileCatalog;
+    private volatile boolean readOnlyIncompatible;
+    private volatile String compatibilityMessage = "";
 
     private DelvefoldConfigService() {
     }
@@ -42,8 +45,12 @@ public final class DelvefoldConfigService {
     public ConfigLoadResult start(MinecraftServer minecraftServer) throws IOException {
         synchronized (mutationLock) {
             server = Objects.requireNonNull(minecraftServer, "minecraftServer");
-            repository = new FileConfigRepository(ConfigPaths.forServer(minecraftServer), new MinecraftRegistryLookup());
+            ConfigPaths paths = ConfigPaths.forServer(minecraftServer);
+            MinecraftRegistryLookup registryLookup = new MinecraftRegistryLookup();
+            repository = new FileConfigRepository(paths, registryLookup);
+            profileCatalog = new OreProfileCatalog(paths, registryLookup);
             ConfigLoadResult result = repository.loadOrCreate(current.get());
+            updateCompatibility(result);
             current.set(result.snapshot());
             logIssues("load", result.issues());
             return result;
@@ -55,7 +62,10 @@ public final class DelvefoldConfigService {
             if (server == minecraftServer) {
                 server = null;
                 repository = null;
+                profileCatalog = null;
                 current.set(null);
+                readOnlyIncompatible = false;
+                compatibilityMessage = "";
             }
         }
     }
@@ -72,6 +82,7 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             ensureStarted();
             ConfigLoadResult result = repository.loadOrCreate(current.get());
+            updateCompatibility(result);
             if (!result.usedFallback() || current.get() == null) {
                 current.set(result.snapshot());
             }
@@ -98,6 +109,7 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             try {
                 ensureStarted();
+                ensureWritable();
                 ConfigSnapshot before = snapshot();
                 if (before.settings().revision() != expectedSettingsRevision) {
                     return stale(before, "settings", expectedSettingsRevision, before.settings().revision());
@@ -131,6 +143,7 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             try {
                 ensureStarted();
+                ensureWritable();
                 ConfigSnapshot before = snapshot();
                 if (before.ores().revision() != expectedRevision) {
                     return stale(before, "ores", expectedRevision, before.ores().revision());
@@ -168,6 +181,7 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             try {
                 ensureStarted();
+                ensureWritable();
                 ConfigSnapshot before = snapshot();
                 if (before.ores().revision() != expectedRevision) {
                     return stale(before, "ores", expectedRevision, before.ores().revision());
@@ -183,7 +197,7 @@ public final class DelvefoldConfigService {
                                     + "' already exists. Open that rule from the ore list to edit it.");
                 }
 
-                OreProfileDocument candidate = before.ores().nextRevision(plan.rules(), "custom");
+                OreProfileDocument candidate = before.ores().nextRevision(plan.rules(), before.ores().profile());
                 candidate = new OreProfileDocument(
                         OreProfileDocument.CURRENT_SCHEMA_VERSION,
                         before.ores().revision() + 1,
@@ -208,6 +222,7 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             try {
                 ensureStarted();
+                ensureWritable();
                 ConfigSnapshot before = snapshot();
                 if (before.settings().revision() != expectedRevision) {
                     return stale(before, "settings", expectedRevision, before.settings().revision());
@@ -222,7 +237,8 @@ public final class DelvefoldConfigService {
                         candidate.terrainMode(),
                         candidate.orePreset(),
                         candidate.gameplay(),
-                        candidate.portal()
+                        candidate.portal(),
+                        candidate.activeProfileId()
                 );
                 ConfigSnapshot saved = repository.save(before.ores(), candidate);
                 current.set(saved);
@@ -238,10 +254,158 @@ public final class DelvefoldConfigService {
         return server;
     }
 
+    public List<OreProfileCatalog.ProfileSummary> listProfiles() throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            return profileCatalog.list();
+        }
+    }
+
+    public OreProfileCatalog.ProfileWriteResult saveCurrentProfileAs(String id, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            ensureWritable();
+            return profileCatalog.saveAs(id, snapshot().ores(), overwrite);
+        }
+    }
+
+    public OreProfileCatalog.ProfileWriteResult createProfileFromPreset(
+            String id, OrePreset preset, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            ensureWritable();
+            return profileCatalog.saveAs(id, OrePresets.create(preset), overwrite);
+        }
+    }
+
+    public OreProfileCatalog.ProfileWriteResult duplicateProfile(
+            String sourceId, String targetId, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            ensureWritable();
+            return profileCatalog.saveAs(targetId, profileCatalog.load(sourceId), overwrite);
+        }
+    }
+
+    public ConfigWriteResult activateProfile(long expectedOreRevision, String id) {
+        synchronized (mutationLock) {
+            try {
+                ensureStarted();
+                ensureWritable();
+                ConfigSnapshot before = snapshot();
+                if (before.ores().revision() != expectedOreRevision) {
+                    return stale(before, "ores", expectedOreRevision, before.ores().revision());
+                }
+                OreProfileDocument selected = profileCatalog.load(id);
+                OreProfileDocument active = new OreProfileDocument(
+                        OreProfileDocument.CURRENT_SCHEMA_VERSION,
+                        before.ores().revision() + 1,
+                        selected.profile(),
+                        selected.rules());
+                WorldSettingsDocument settings = new WorldSettingsDocument(
+                        WorldSettingsDocument.CURRENT_SCHEMA_VERSION,
+                        before.settings().revision() + 1,
+                        before.settings().generationEpoch(),
+                        before.settings().lastWorldOperationId(),
+                        before.settings().initialized(),
+                        before.settings().terrainMode(),
+                        before.settings().orePreset(),
+                        before.settings().gameplay(),
+                        before.settings().portal(),
+                        selected.profile());
+                ConfigSnapshot saved = repository.save(active, settings);
+                current.set(saved);
+                return new ConfigWriteResult(true, saved, List.of());
+            } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
+                LOGGER.error("Could not activate Delvefold ore profile {}", id, exception);
+                return rejected(current.get(), "profile.activate_failed", exception.getMessage());
+            }
+        }
+    }
+
+    public ProfileDeleteResult deleteProfile(String id) {
+        synchronized (mutationLock) {
+            try {
+                ensureStarted();
+                ensureWritable();
+                if (snapshot().ores().profile().equals(id)) {
+                    return new ProfileDeleteResult(false, "The active profile cannot be deleted");
+                }
+                boolean deleted = profileCatalog.deleteLocal(id);
+                return new ProfileDeleteResult(deleted,
+                        deleted ? "Deleted profile '" + id + "'" : "No local profile named '" + id + "' exists");
+            } catch (IOException | IllegalArgumentException exception) {
+                return new ProfileDeleteResult(false, exception.getMessage());
+            }
+        }
+    }
+
+    public OreProfileCatalog.ProfileWriteResult importProfile(
+            String fileName, String id, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            ensureWritable();
+            return profileCatalog.importFile(fileName, id, overwrite);
+        }
+    }
+
+    public OreProfileCatalog.ProfileWriteResult importProfileJson(
+            String id, String json, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            ensureWritable();
+            return profileCatalog.importJson(id, json, overwrite);
+        }
+    }
+
+    public String exportProfileJson(String id) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            return profileCatalog.exportJson(id);
+        }
+    }
+
+    public java.nio.file.Path exportProfile(String id, String fileName) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            ensureWritable();
+            return profileCatalog.exportFile(id, fileName);
+        }
+    }
+
+    public record ProfileDeleteResult(boolean deleted, String message) {
+    }
+
+    public boolean isReadOnlyIncompatible() {
+        return readOnlyIncompatible;
+    }
+
+    public String compatibilityMessage() {
+        return compatibilityMessage;
+    }
+
     private void ensureStarted() {
-        if (repository == null || server == null) {
+        if (repository == null || profileCatalog == null || server == null) {
             throw new IllegalStateException("Delvefold configuration is not loaded");
         }
+    }
+
+    private void ensureWritable() {
+        if (readOnlyIncompatible) {
+            throw new IllegalStateException(compatibilityMessage);
+        }
+    }
+
+    private void updateCompatibility(ConfigLoadResult result) {
+        var incompatible = result.issues().stream()
+                .filter(issue -> "schema.unsupported".equals(issue.code())
+                        || "settings.schema.unsupported".equals(issue.code()))
+                .findFirst();
+        readOnlyIncompatible = incompatible.isPresent();
+        compatibilityMessage = incompatible
+                .map(issue -> "This save uses an incompatible pre-0.2 Delvefold schema. Its files and dimensions "
+                        + "were left untouched; use Delvefold 0.2+ in a new Minecraft save.")
+                .orElse("");
     }
 
     private static ConfigWriteResult stale(ConfigSnapshot snapshot, String document, long expected, long actual) {

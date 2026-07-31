@@ -54,7 +54,7 @@ class OreConfigValidatorTest {
             }
         };
         var report = OreConfigValidator.validate(
-                new OreProfileDocument(1, 0, "test", List.of(optional)), missingBlocks);
+                new OreProfileDocument(OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, "test", List.of(optional)), missingBlocks);
         assertTrue(report.valid(), () -> report.issues().toString());
         assertTrue(report.warningCount() > 0);
     }

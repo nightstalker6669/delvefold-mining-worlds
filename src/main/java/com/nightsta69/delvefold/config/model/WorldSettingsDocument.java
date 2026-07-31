@@ -9,15 +9,18 @@ public record WorldSettingsDocument(
         TerrainMode terrainMode,
         OrePreset orePreset,
         GameplaySettings gameplay,
-        PortalSettings portal
+        PortalSettings portal,
+        String activeProfileId
 ) {
-    public static final int CURRENT_SCHEMA_VERSION = 1;
+    public static final int CURRENT_SCHEMA_VERSION = 2;
 
     public WorldSettingsDocument {
         lastWorldOperationId = lastWorldOperationId == null ? "" : lastWorldOperationId;
         orePreset = orePreset == null ? OrePreset.VANILLA_BALANCED : orePreset;
         gameplay = gameplay == null ? GameplaySettings.fromPreset(GameplayPreset.SAFE) : gameplay;
         portal = portal == null ? PortalSettings.defaults() : portal;
+        activeProfileId = activeProfileId == null || activeProfileId.isBlank()
+                ? orePreset.serializedName() : activeProfileId.trim();
         if (initialized && terrainMode == null) {
             throw new IllegalArgumentException("An initialized world requires a terrain mode");
         }
@@ -33,7 +36,8 @@ public record WorldSettingsDocument(
                 null,
                 OrePreset.VANILLA_BALANCED,
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
-                PortalSettings.defaults()
+                PortalSettings.defaults(),
+                OrePreset.VANILLA_BALANCED.serializedName()
         );
     }
 
@@ -50,7 +54,8 @@ public record WorldSettingsDocument(
                 mode,
                 preset,
                 GameplaySettings.fromPreset(gameplayPreset),
-                portal
+                portal,
+                preset.serializedName()
         );
     }
 
@@ -68,7 +73,8 @@ public record WorldSettingsDocument(
                 null,
                 orePreset,
                 gameplay,
-                portal
+                portal,
+                activeProfileId
         );
     }
 
@@ -89,7 +95,8 @@ public record WorldSettingsDocument(
                 mode,
                 preset == null ? orePreset : preset,
                 gameplayPreset == null ? gameplay : GameplaySettings.fromPreset(gameplayPreset),
-                portal
+                portal,
+                activeProfileId
         );
     }
 
@@ -103,7 +110,8 @@ public record WorldSettingsDocument(
                 terrainMode,
                 orePreset,
                 replacement,
-                portal
+                portal,
+                activeProfileId
         );
     }
 
@@ -117,7 +125,13 @@ public record WorldSettingsDocument(
                 terrainMode,
                 orePreset,
                 gameplay,
-                replacement
+                replacement,
+                activeProfileId
         );
+    }
+
+    public WorldSettingsDocument withActiveProfile(String replacement) {
+        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, lastWorldOperationId,
+                initialized, terrainMode, orePreset, gameplay, portal, replacement);
     }
 }

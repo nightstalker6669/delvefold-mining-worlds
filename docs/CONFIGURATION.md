@@ -1,5 +1,7 @@
 # Configuration
 
+Schema 2 is a deliberate pre-1.0 redesign for new Minecraft saves. If schema-1 files are detected, Delvefold leaves them and all existing dimension data untouched, disables configuration mutations and portal entry, and reports that a new save is required.
+
 Delvefold has one canonical configuration model. The GUI, commands, and JSON all validate and write the same immutable server snapshot.
 
 ## Save scope and loading
@@ -19,7 +21,7 @@ Top-level fields:
 
 | Field | Meaning |
 |---|---|
-| `schema_version` | Currently `1`. Unknown future schemas are rejected. |
+| `schema_version` | Currently `2`. Other schemas are rejected without overwriting them. |
 | `revision` | Optimistic-concurrency revision. Do not decrease it. |
 | `profile` | Descriptive profile name such as `vanilla_balanced`, `rich`, or `custom`. |
 | `rules` | Ordered array of at most 512 ore rules. |
@@ -96,4 +98,4 @@ Gameplay presets are live settings:
 
 Spawn eggs, commands, breeding, and mob spawners are not treated as natural spawning and remain usable.
 
-Portal settings are validated. Cooldown is 1–3600 seconds, and coordinate scale must be finite and between 0.01 and 100. The one-second minimum prevents immediate partner-portal bounce loops. The default is player-only, Overworld-only source access, five seconds, and 1:1 coordinates.
+`settings.json` records `active_profile_id`, which must match the active ore document. Portal settings are validated. Cooldown is 1–3600 seconds, and coordinate scale must be finite and between 0.01 and 100. The one-second minimum prevents immediate partner-portal bounce loops. Portal travel is player-only; the default policy allows Overworld entry with a five-second cooldown and 1:1 coordinates.
