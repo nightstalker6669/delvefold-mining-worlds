@@ -22,6 +22,21 @@ The integrated singleplayer owner may administer Delvefold even with cheats disa
 /delvefold config reload
 ```
 
+## Named ore profiles
+
+```text
+/delvefold profile list
+/delvefold profile create <id> <balanced|rich|empty> [overwrite]
+/delvefold profile duplicate <source> <id> [overwrite]
+/delvefold profile save-current <id> [overwrite]
+/delvefold profile select <id>
+/delvefold profile delete <id>
+/delvefold profile import <file.json> <id> [overwrite]
+/delvefold profile export <id> <file.json>
+```
+
+Profiles are stored per save. Selecting one changes generation in future chunks only. Import reads only from `serverconfig/delvefold/imports/`, and export writes only to `serverconfig/delvefold/exports/`. Built-in profiles remain available even when a local override is removed; the active profile cannot be deleted.
+
 ## Ore rules
 
 ```text

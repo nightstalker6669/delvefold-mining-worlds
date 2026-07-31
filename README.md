@@ -9,6 +9,8 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Explicit initialization through `/delvefold gui` or `/delvefold initialize`; portal activation never chooses settings.
 - Flat, roofed cavern, and overworld-shaped mining terrain.
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
+- Named per-save ore profiles with safe duplication, selection, and JSON import/export.
+- Visual height-distribution and generation-workload previews in the ore editor.
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
 - Wizard for stone/deepslate or other variants, replacement hosts, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
@@ -54,6 +56,19 @@ Setup, status, and JSON:
 /delvefold status
 /delvefold config validate
 /delvefold config reload
+```
+
+Named profiles:
+
+```text
+/delvefold profile list
+/delvefold profile create <id> <balanced|rich|empty> [overwrite]
+/delvefold profile duplicate <source> <id> [overwrite]
+/delvefold profile save-current <id> [overwrite]
+/delvefold profile select <id>
+/delvefold profile delete <id>
+/delvefold profile import <file.json> <id> [overwrite]
+/delvefold profile export <id> <file.json>
 ```
 
 Ore discovery and rules:
@@ -113,6 +128,9 @@ Each save owns its configuration:
 ```text
 <save>/serverconfig/delvefold/ores.json
 <save>/serverconfig/delvefold/settings.json
+<save>/serverconfig/delvefold/profiles/*.json
+<save>/serverconfig/delvefold/imports/*.json
+<save>/serverconfig/delvefold/exports/*.json
 ```
 
 Editing JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), and the [JSON Schema](schemas/ores.schema.json).

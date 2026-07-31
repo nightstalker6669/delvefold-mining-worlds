@@ -257,6 +257,22 @@ public final class DelvefoldConfigService {
         }
     }
 
+    public OreProfileCatalog.ProfileWriteResult createProfileFromPreset(
+            String id, OrePreset preset, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            return profileCatalog.saveAs(id, OrePresets.create(preset), overwrite);
+        }
+    }
+
+    public OreProfileCatalog.ProfileWriteResult duplicateProfile(
+            String sourceId, String targetId, boolean overwrite) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            return profileCatalog.saveAs(targetId, profileCatalog.load(sourceId), overwrite);
+        }
+    }
+
     public ConfigWriteResult activateProfile(long expectedOreRevision, String id) {
         synchronized (mutationLock) {
             try {
