@@ -48,4 +48,21 @@ class ConfigJsonTest {
         assertEquals(3, deleted.generationEpoch());
         assertEquals("operation-2", deleted.lastWorldOperationId());
     }
+
+    @Test
+    void schemaTwoExactTargetsRemainBackwardCompatible() {
+        String json = """
+                {"schema_version":2,"revision":0,"profile":"legacy","rules":[{
+                  "id":"tin","enabled":true,"required":false,"terrain_modes":["wild"],
+                  "targets":[{"block":"example:tin_ore","state":{},"replace_tag":"minecraft:stone_ore_replaceables"}],
+                  "biomes":{"include":[],"exclude":[]},
+                  "bands":[{"id":"main","vein_size":4,"attempts_per_chunk":2.0,"distribution":"uniform",
+                    "min_y":-32,"max_y":64,"peak_y":null,"plateau_min_y":null,"plateau_max_y":null,
+                    "discard_on_air_exposure":0.0}]
+                }]}
+                """;
+        OreProfileDocument decoded = ConfigJson.GSON.fromJson(json, OreProfileDocument.class);
+        assertEquals("example:tin_ore", decoded.rules().getFirst().targets().getFirst().block());
+        assertEquals("", decoded.rules().getFirst().targets().getFirst().blockTag());
+    }
 }

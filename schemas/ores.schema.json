@@ -63,15 +63,20 @@
     "target": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["block", "state", "replace_tag"],
+      "required": ["state", "replace_tag"],
       "properties": {
         "block": { "$ref": "#/$defs/resource_location" },
+        "block_tag": { "$ref": "#/$defs/resource_location" },
         "state": {
           "type": "object",
           "additionalProperties": { "type": "string", "maxLength": 128 }
         },
         "replace_tag": { "$ref": "#/$defs/resource_location" }
-      }
+      },
+      "oneOf": [
+        { "required": ["block"], "not": { "required": ["block_tag"] } },
+        { "required": ["block_tag"], "not": { "required": ["block"] } }
+      ]
     },
     "biome_filter": {
       "type": "object",

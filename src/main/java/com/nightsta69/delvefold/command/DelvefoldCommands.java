@@ -225,10 +225,19 @@ public final class DelvefoldCommands {
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.BLOCK.keySet(), builder))
                                 .then(Commands.argument("replace_tag", ResourceLocationArgument.id())
                                         .executes(DelvefoldCommands::addTarget)))));
+        target.then(Commands.literal("add-tag")
+                .then(ruleArgument()
+                        .then(Commands.argument("block_tag", ResourceLocationArgument.id())
+                                .then(Commands.argument("replace_tag", ResourceLocationArgument.id())
+                                        .executes(DelvefoldCommands::addTagTarget)))));
         target.then(Commands.literal("remove")
                 .then(ruleArgument()
                         .then(Commands.argument("block", ResourceLocationArgument.id())
                                 .executes(DelvefoldCommands::removeTarget))));
+        target.then(Commands.literal("remove-tag")
+                .then(ruleArgument()
+                        .then(Commands.argument("block_tag", ResourceLocationArgument.id())
+                                .executes(DelvefoldCommands::removeTagTarget))));
         ore.then(target);
 
         LiteralArgumentBuilder<CommandSourceStack> band = Commands.literal("band");
@@ -675,7 +684,8 @@ public final class DelvefoldCommands {
         }
         context.getSource().sendSuccess(() -> Component.literal(rule.id() + " enabled=" + rule.enabled() + " required=" + rule.required()), false);
         for (OreTarget target : rule.targets()) {
-            context.getSource().sendSystemMessage(Component.literal("  target " + target.block() + " -> #" + target.replaceTag()));
+            context.getSource().sendSystemMessage(Component.literal(
+                    "  target " + target.sourceId() + " -> #" + target.replaceTag()));
         }
         for (SpawnBand band : rule.bands()) {
             context.getSource().sendSystemMessage(Component.literal(
@@ -748,6 +758,27 @@ public final class DelvefoldCommands {
                 rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
                 rule.targets().stream().filter(target -> !target.block().equals(block)).toList(),
                 rule.biomes(), rule.bands()), "Removed target from " + ruleId);
+    }
+
+    private static int addTagTarget(CommandContext<CommandSourceStack> context) {
+        String ruleId = StringArgumentType.getString(context, "rule");
+        String blockTag = ResourceLocationArgument.getId(context, "block_tag").toString();
+        String replaceTag = ResourceLocationArgument.getId(context, "replace_tag").toString();
+        return mutateRule(context, ruleId, rule -> {
+            List<OreTarget> targets = new ArrayList<>(rule.targets());
+            targets.add(OreTarget.ofTag(blockTag, replaceTag));
+            return new OreRule(rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
+                    targets, rule.biomes(), rule.bands());
+        }, "Added output tag #" + blockTag + " to " + ruleId);
+    }
+
+    private static int removeTagTarget(CommandContext<CommandSourceStack> context) {
+        String ruleId = StringArgumentType.getString(context, "rule");
+        String blockTag = ResourceLocationArgument.getId(context, "block_tag").toString();
+        return mutateRule(context, ruleId, rule -> new OreRule(
+                rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
+                rule.targets().stream().filter(target -> !target.blockTag().equals(blockTag)).toList(),
+                rule.biomes(), rule.bands()), "Removed output tag from " + ruleId);
     }
 
     private static int addBand(CommandContext<CommandSourceStack> context) {

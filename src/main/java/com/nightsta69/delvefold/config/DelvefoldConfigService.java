@@ -10,12 +10,16 @@ import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import com.nightsta69.delvefold.config.validation.OreConfigValidator;
 import com.nightsta69.delvefold.config.validation.ValidationReport;
+import com.nightsta69.delvefold.api.DelvefoldApi;
+import com.nightsta69.delvefold.api.event.DelvefoldOreProfileActivatedEvent;
+import com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import net.minecraft.server.MinecraftServer;
+import net.neoforged.neoforge.common.NeoForge;
 import org.slf4j.Logger;
 
 /**
@@ -131,6 +135,9 @@ public final class DelvefoldConfigService {
                 WorldSettingsDocument settings = before.settings().initialize(terrain, orePreset, gameplayPreset);
                 ConfigSnapshot saved = repository.save(ores, settings);
                 current.set(saved);
+                NeoForge.EVENT_BUS.post(new DelvefoldWorldLifecycleEvent(
+                        DelvefoldWorldLifecycleEvent.Action.INITIALIZED,
+                        DelvefoldApi.worldView(before.settings()), DelvefoldApi.worldView(saved.settings()), ""));
                 return new ConfigWriteResult(true, saved, List.of());
             } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
                 LOGGER.error("Could not initialize Delvefold", exception);
@@ -317,6 +324,8 @@ public final class DelvefoldConfigService {
                         before.settings().identity());
                 ConfigSnapshot saved = repository.save(active, settings);
                 current.set(saved);
+                NeoForge.EVENT_BUS.post(new DelvefoldOreProfileActivatedEvent(
+                        before.settings().activeProfileId(), selected.profile()));
                 return new ConfigWriteResult(true, saved, List.of());
             } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
                 LOGGER.error("Could not activate Delvefold ore profile {}", id, exception);

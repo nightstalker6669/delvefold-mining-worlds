@@ -46,6 +46,13 @@ public final class OreProfileCatalog {
             OreProfileDocument document = OrePresets.create(builtIn.getValue());
             summaries.put(builtIn.getKey(), summary(document, true, false));
         }
+        for (Map.Entry<String, EcosystemProfileRegistry.RegisteredProfile> entry
+                : EcosystemProfileRegistry.profiles().entrySet()) {
+            OreProfileDocument document = entry.getValue().document();
+            ValidationReport report = OreConfigValidator.validate(document, registryLookup);
+            summaries.put(entry.getKey(), new ProfileSummary(entry.getKey(), true, false,
+                    document.rules().size(), document.revision(), report.issues()));
+        }
         try (var files = Files.list(paths.profiles())) {
             for (Path file : files.filter(path -> path.getFileName().toString().endsWith(".json")).toList()) {
                 if (Files.isSymbolicLink(file) || !Files.isRegularFile(file)) {
@@ -70,8 +77,8 @@ public final class OreProfileCatalog {
 
     public OreProfileDocument load(String id) throws IOException {
         String safeId = validateId(id);
-        Path local = localPath(safeId);
-        if (Files.exists(local)) {
+        Path local = isLocalId(safeId) ? localPath(safeId) : null;
+        if (local != null && Files.exists(local)) {
             ensureSafeFile(local);
             OreProfileDocument document = read(local);
             ValidationReport report = OreConfigValidator.validate(document, registryLookup);
@@ -80,15 +87,23 @@ public final class OreProfileCatalog {
             }
             return document;
         }
-        OrePreset preset = BUILT_INS.get(safeId);
-        if (preset == null) {
-            throw new IOException("Unknown ore profile: " + safeId);
+        EcosystemProfileRegistry.RegisteredProfile ecosystem = EcosystemProfileRegistry.find(safeId);
+        if (ecosystem != null) {
+            ValidationReport report = OreConfigValidator.validate(ecosystem.document(), registryLookup);
+            if (!report.valid()) {
+                throw new IOException("Profile '" + safeId + "' failed validation: " + report.issues());
+            }
+            return ecosystem.document();
         }
-        return OrePresets.create(preset);
+        OrePreset preset = BUILT_INS.get(safeId);
+        if (preset != null) {
+            return OrePresets.create(preset);
+        }
+        throw new IOException("Unknown ore profile: " + safeId);
     }
 
     public ProfileWriteResult saveAs(String id, OreProfileDocument source, boolean overwrite) throws IOException {
-        String safeId = validateId(id);
+        String safeId = validateLocalId(id);
         Path target = localPath(safeId);
         if (!overwrite && Files.exists(target)) {
             return ProfileWriteResult.rejected("A local profile named '" + safeId + "' already exists");
@@ -138,7 +153,7 @@ public final class OreProfileCatalog {
     }
 
     public boolean deleteLocal(String id) throws IOException {
-        Path target = localPath(validateId(id));
+        Path target = localPath(validateLocalId(id));
         if (Files.notExists(target)) {
             return false;
         }
@@ -175,11 +190,20 @@ public final class OreProfileCatalog {
     }
 
     private static String validateId(String id) {
+        return EcosystemProfileRegistry.validateProfileId(id);
+    }
+
+    private static String validateLocalId(String id) {
         String normalized = id == null ? "" : id.trim();
-        if (!normalized.matches("[a-z0-9_.-]{1," + MAX_PROFILE_ID_LENGTH + "}")) {
-            throw new IllegalArgumentException("Profile ID may contain lowercase letters, digits, _, . and - only");
+        if (!isLocalId(normalized) || normalized.length() > MAX_PROFILE_ID_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Local profile ID may contain lowercase letters, digits, _, . and - only");
         }
         return normalized;
+    }
+
+    private static boolean isLocalId(String id) {
+        return id != null && id.matches("[a-z0-9_.-]+");
     }
 
     private OreProfileDocument read(Path path) throws IOException {

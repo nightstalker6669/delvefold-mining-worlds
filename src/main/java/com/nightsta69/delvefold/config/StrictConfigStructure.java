@@ -14,7 +14,8 @@ final class StrictConfigStructure {
     private static final Set<String> ORE_DOCUMENT = Set.of("schema_version", "revision", "profile", "rules");
     private static final Set<String> ORE_RULE = Set.of(
             "id", "enabled", "required", "terrain_modes", "targets", "biomes", "bands");
-    private static final Set<String> ORE_TARGET = Set.of("block", "state", "replace_tag");
+    private static final Set<String> ORE_TARGET = Set.of("block", "block_tag", "state", "replace_tag");
+    private static final Set<String> REQUIRED_ORE_TARGET = Set.of("state", "replace_tag");
     private static final Set<String> BIOME_FILTER = Set.of("include", "exclude");
     private static final Set<String> SPAWN_BAND = Set.of(
             "id", "vein_size", "attempts_per_chunk", "distribution", "min_y", "max_y",
@@ -71,8 +72,9 @@ final class StrictConfigStructure {
             for (int targetIndex = 0; targetIndex < targets.size(); targetIndex++) {
                 String targetPath = rulePath + ".targets[" + targetIndex + ']';
                 JsonObject target = object(targets.get(targetIndex), targetPath);
-                fields(target, ORE_TARGET, ORE_TARGET, targetPath);
-                string(target.get("block"), targetPath + ".block", false);
+                fields(target, ORE_TARGET, REQUIRED_ORE_TARGET, targetPath);
+                if (target.has("block")) string(target.get("block"), targetPath + ".block", false);
+                if (target.has("block_tag")) string(target.get("block_tag"), targetPath + ".block_tag", false);
                 JsonObject state = object(target.get("state"), targetPath + ".state");
                 for (String property : state.keySet()) {
                     string(state.get(property), targetPath + ".state." + property, false);

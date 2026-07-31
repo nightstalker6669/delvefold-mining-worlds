@@ -40,6 +40,9 @@ final class PortalAccess {
                     ? Component.translatable("message.delvefold.portal.uninitialized_admin")
                     : Component.translatable("message.delvefold.portal.uninitialized_player"));
         }
+        if (!AdminAccess.canUsePortal(player)) {
+            return Result.denied(Component.translatable("message.delvefold.portal.permission_denied"));
+        }
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
@@ -62,6 +65,9 @@ final class PortalAccess {
             return Result.denied(AdminAccess.canConfigure(player)
                     ? Component.translatable("message.delvefold.portal.uninitialized_admin")
                     : Component.translatable("message.delvefold.portal.uninitialized_player"));
+        }
+        if (!AdminAccess.canUsePortal(player)) {
+            return Result.denied(Component.translatable("message.delvefold.portal.permission_denied"));
         }
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));

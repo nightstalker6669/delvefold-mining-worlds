@@ -83,7 +83,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     public DelvefoldOreRuleWizardScreen(Screen parent, AdminSnapshot snapshot, AdminSnapshot.OreRuleDraft draft) {
         this(parent, snapshot, draft, Page.TARGETS, 0,
                 snapshot.oreRules().stream().anyMatch(rule -> rule.id().equals(draft.id())),
-                draft.id(), draft.variants().isEmpty() ? draft.primaryBlockId() : draft.variants().get(0).blockId(),
+                draft.id(), draft.variants().isEmpty() ? draft.primaryBlockId() : draft.variants().get(0).sourceId(),
                 null, 0);
     }
 
@@ -112,8 +112,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         this.selectedVariants = new LinkedHashMap<>();
         this.variantStates = new LinkedHashMap<>();
         for (AdminSnapshot.OreVariantDraft variant : draft.variants()) {
-            this.selectedVariants.put(variant.blockId(), variant.replaceTag());
-            this.variantStates.put(variant.blockId(), variant.state());
+            this.selectedVariants.put(variant.sourceId(), variant.replaceTag());
+            this.variantStates.put(variant.sourceId(), variant.state());
         }
         if (this.selectedVariants.isEmpty()) {
             this.selectedVariants.put(this.primaryBlockId, inferredHost(this.primaryBlockId));
@@ -240,7 +240,12 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             int row = pageIndex / variantColumns;
             boolean selected = this.selectedVariants.containsKey(blockId);
             ResourceLocation registryId = ResourceLocation.tryParse(blockId);
-            boolean missing = registryId == null || BuiltInRegistries.BLOCK.getOptional(registryId).isEmpty();
+            boolean outputTag = blockId.startsWith("#");
+            ResourceLocation tagId = ResourceLocation.tryParse(outputTag ? blockId.substring(1) : blockId);
+            boolean missing = outputTag
+                    ? tagId == null || BuiltInRegistries.BLOCK.getTag(
+                            net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK, tagId)).isEmpty()
+                    : registryId == null || BuiltInRegistries.BLOCK.getOptional(registryId).isEmpty();
             String prefix = missing ? "MISSING  •  " : selected ? "ON  •  " : "OFF  •  ";
             Button button = this.addButton(x + column * (variantWidth + variantGap), variantY + row * 22,
                     variantWidth, 20, Component.literal(prefix + blockId),
@@ -544,8 +549,10 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
 
     private AdminSnapshot.OreRuleDraft currentDraft() {
         List<AdminSnapshot.OreVariantDraft> variants = this.selectedVariants.entrySet().stream()
-                .map(entry -> new AdminSnapshot.OreVariantDraft(entry.getKey(), entry.getValue(),
-                        this.variantStates.getOrDefault(entry.getKey(), Map.of())))
+                .map(entry -> new AdminSnapshot.OreVariantDraft(
+                        entry.getKey().startsWith("#") ? "" : entry.getKey(),
+                        entry.getKey().startsWith("#") ? entry.getKey().substring(1) : "",
+                        entry.getValue(), this.variantStates.getOrDefault(entry.getKey(), Map.of())))
                 .toList();
         return new AdminSnapshot.OreRuleDraft(
                 this.ruleId,
@@ -587,7 +594,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             if (replacementTag.startsWith("#")) {
                 replacementTag = replacementTag.substring(1);
             }
-            if (ResourceLocation.tryParse(entry.getKey()) == null || ResourceLocation.tryParse(replacementTag) == null) {
+            String outputId = entry.getKey().startsWith("#") ? entry.getKey().substring(1) : entry.getKey();
+            if (ResourceLocation.tryParse(outputId) == null || ResourceLocation.tryParse(replacementTag) == null) {
                 this.validationMessage = "Every block and replacement tag must be a valid namespace:path ID.";
                 this.validationColor = DANGER;
                 return false;

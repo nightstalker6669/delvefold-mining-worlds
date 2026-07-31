@@ -103,25 +103,46 @@ final class RuntimeOreProfile {
     }
 
     private static List<OreConfiguration.TargetBlockState> compileTargets(OreRule rule) {
-        List<OreConfiguration.TargetBlockState> targets = new ArrayList<>(rule.targets().size());
+        List<OreConfiguration.TargetBlockState> targets = new ArrayList<>();
         for (OreTarget target : rule.targets()) {
-            ResourceLocation blockId = ResourceLocation.tryParse(target.block());
             ResourceLocation tagId = ResourceLocation.tryParse(stripHash(target.replaceTag()));
-            Block block = blockId == null ? null : BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
-            if (block == null || tagId == null) {
+            if (tagId == null) {
                 warnOnce(
-                        rule.id() + '|' + target.block() + '|' + target.replaceTag(),
-                        "Skipping ore rule {} target {} because its block or replacement tag ID is unavailable",
+                        rule.id() + '|' + target.sourceId() + '|' + target.replaceTag(),
+                        "Skipping ore rule {} target {} because its replacement tag ID is unavailable",
                         rule.id(),
-                        target.block());
+                        target.sourceId());
                 continue;
             }
-
-            BlockState state = applyProperties(rule.id(), blockId, block.defaultBlockState(), target.state());
             TagKey<Block> replaceable = TagKey.create(Registries.BLOCK, tagId);
-            targets.add(OreConfiguration.target(new TagMatchTest(replaceable), state));
+            for (Map.Entry<ResourceLocation, Block> output : outputBlocks(target)) {
+                BlockState state = applyProperties(
+                        rule.id(), output.getKey(), output.getValue().defaultBlockState(), target.state());
+                targets.add(OreConfiguration.target(new TagMatchTest(replaceable), state));
+            }
         }
         return targets;
+    }
+
+    private static List<Map.Entry<ResourceLocation, Block>> outputBlocks(OreTarget target) {
+        if (!target.tagDriven()) {
+            ResourceLocation id = ResourceLocation.tryParse(target.block());
+            Block block = id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
+            if (block == null) {
+                return List.of();
+            }
+            return List.of(Map.entry(id, block));
+        }
+        ResourceLocation id = ResourceLocation.tryParse(target.blockTag());
+        if (id == null) {
+            return List.of();
+        }
+        TagKey<Block> tag = TagKey.create(Registries.BLOCK, id);
+        return BuiltInRegistries.BLOCK.getTag(tag).stream()
+                .flatMap(holders -> holders.stream())
+                .map(holder -> Map.entry(BuiltInRegistries.BLOCK.getKey(holder.value()), holder.value()))
+                .sorted(Map.Entry.comparingByKey())
+                .toList();
     }
 
     private static BlockState applyProperties(

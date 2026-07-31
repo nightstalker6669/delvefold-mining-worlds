@@ -2,7 +2,7 @@
 
 All administration commands use the `/delvefold` root.
 
-The integrated singleplayer owner may administer Delvefold even with cheats disabled. On dedicated servers, configuration requires operator level 2 and world deletion/recreation requires level 4.
+The integrated singleplayer owner may administer Delvefold even with cheats disabled. On dedicated servers, configuration falls back to operator level 2 and world deletion/recreation falls back to level 4. Permission mods may grant `delvefold.configure`, `delvefold.manage_world`, and `delvefold.use_portal` independently.
 
 ## Setup and GUI
 
@@ -49,7 +49,7 @@ The integrated singleplayer owner may administer Delvefold even with cheats disa
 /delvefold profile export <id> <file.json>
 ```
 
-Profiles are stored per save. Selecting one changes generation in future chunks only. Import reads only from `serverconfig/delvefold/imports/`, and export writes only to `serverconfig/delvefold/exports/`. Built-in profiles remain available even when a local override is removed; the active profile cannot be deleted.
+Local profiles are stored per save. Datapack and scripted profiles appear as namespaced read-only entries. Selecting one changes generation in future chunks only. Import reads only from `serverconfig/delvefold/imports/`, and export writes only to `serverconfig/delvefold/exports/`. Built-in profiles remain available even when a local override is removed; the active profile cannot be deleted.
 
 ## Ore rules
 
@@ -70,6 +70,8 @@ Targets and bands:
 ```text
 /delvefold ore target add <rule> <block_id> <replace_tag>
 /delvefold ore target remove <rule> <block_id>
+/delvefold ore target add-tag <rule> <block_tag> <replace_tag>
+/delvefold ore target remove-tag <rule> <block_tag>
 /delvefold ore band add <rule> <band_id> <common|uncommon|rare|very_rare>
 /delvefold ore band remove <rule> <band_id>
 /delvefold ore band set <rule> <band_id> <field> <value>

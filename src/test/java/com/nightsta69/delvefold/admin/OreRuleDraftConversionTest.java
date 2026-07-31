@@ -17,7 +17,7 @@ class OreRuleDraftConversionTest {
                 false,
                 "example:tin_ore",
                 List.of(new AdminSnapshot.OreVariantDraft(
-                        "example:tin_ore", "minecraft:stone_ore_replaceables", Map.of("lit", "true"))),
+                        "example:tin_ore", "", "minecraft:stone_ore_replaceables", Map.of("lit", "true"))),
                 List.of(TerrainMode.CAVERN),
                 List.of("#delvefold:mining_biomes", "example:deep_caves"),
                 List.of("minecraft:plains"),

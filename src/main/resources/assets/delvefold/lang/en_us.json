@@ -30,6 +30,7 @@
   "message.delvefold.portal.uninitialized_admin": "No mining world has been initialized. Use /delvefold gui or /delvefold initialize <terrain> <ore_preset> <gameplay_preset> first.",
   "message.delvefold.portal.uninitialized_player": "No mining world has been initialized. Ask an administrator to use /delvefold gui or the initialize command.",
   "message.delvefold.portal.disabled": "Mining-world portal travel is disabled.",
+  "message.delvefold.portal.permission_denied": "You do not have permission to enter the Delvefold mining world.",
   "message.delvefold.portal.reset_blocked": "Mining-world entry is blocked while a world operation is pending.",
   "message.delvefold.portal.wrong_source": "Mining-world entry is only allowed from the Overworld.",
   "message.delvefold.portal.destination_missing": "The active mining dimension is unavailable. Ask an administrator to check the server configuration.",
@@ -44,5 +45,14 @@
   "advancement.delvefold.activate.title": "Strike the Seam",
   "advancement.delvefold.activate.description": "Activate a configured Delvefold portal with Flint and Steel.",
   "advancement.delvefold.enter.title": "Beyond the Overworld",
-  "advancement.delvefold.enter.description": "Enter your Delvefold mining world for the first time."
+  "advancement.delvefold.enter.description": "Enter your Delvefold mining world for the first time.",
+  "permission.delvefold.configure.name": "Configure Delvefold",
+  "permission.delvefold.configure.description": "Open and change Delvefold ore, gameplay, portal, and identity settings.",
+  "permission.delvefold.manage_world.name": "Manage Delvefold worlds",
+  "permission.delvefold.manage_world.description": "Delete, recreate, renew, restore, and permanently manage mining-world data.",
+  "permission.delvefold.use_portal.name": "Use Delvefold portals",
+  "permission.delvefold.use_portal.description": "Enter the active Delvefold mining world through a portal.",
+  "compat.delvefold.recipe_viewer.portal.1": "Build a complete rectangular frame with a 2x3 through 21x21 interior.",
+  "compat.delvefold.recipe_viewer.portal.2": "Initialize the mining world with /delvefold gui, then ignite the frame with Flint and Steel.",
+  "compat.delvefold.recipe_viewer.portal.3": "Portal activation never creates or selects a mining-world configuration."
 }
