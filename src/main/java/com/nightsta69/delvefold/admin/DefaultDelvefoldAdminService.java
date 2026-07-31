@@ -110,6 +110,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings.orePreset(),
                 settings.gameplay(),
                 settings.portal(),
+                settings.identity(),
                 new AdminSnapshot.AdminCapabilities(
                         AdminAccess.canConfigure(player),
                         compatible && AdminAccess.canConfigure(player),
@@ -136,7 +137,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             long expectedSettingsRevision,
             TerrainMode terrainMode,
             OrePreset orePreset,
-            GameplaySettings gameplay
+            GameplaySettings gameplay,
+            com.nightsta69.delvefold.config.model.WorldIdentitySettings identity
     ) {
         requireConfigure(player);
         ConfigWriteResult initialized = DelvefoldConfigService.get().initialize(
@@ -150,10 +152,10 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return fromWrite(initialized, "Initialization was rejected");
         }
         ConfigSnapshot after = DelvefoldConfigService.get().snapshot();
-        if (!after.settings().gameplay().equals(gameplay)) {
+        if (!after.settings().gameplay().equals(gameplay) || !after.settings().identity().equals(identity)) {
             ConfigWriteResult customized = DelvefoldConfigService.get().updateSettings(
                     after.settings().revision(),
-                    settings -> settings.withGameplay(gameplay)
+                    settings -> settings.withGameplay(gameplay).withIdentity(identity)
             );
             if (!customized.saved()) {
                 return fromWrite(customized, "Initialized, but custom gameplay toggles were rejected");
@@ -207,6 +209,21 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings -> settings.withPortal(portal)
         );
         return fromWrite(result, "Portal settings saved");
+    }
+
+    @Override
+    public ServiceResult updateIdentity(ServerPlayer player, long expectedRevision,
+            com.nightsta69.delvefold.config.model.WorldIdentitySettings identity) {
+        requireConfigure(player);
+        ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
+        if (before.settings().initialized()
+                && before.settings().identity().terrainVariant() != identity.terrainVariant()) {
+            return rejected(expectedRevision,
+                    "Terrain scale is locked for the active world; change it through world recreation.");
+        }
+        ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(expectedRevision,
+                settings -> settings.withIdentity(identity));
+        return fromWrite(result, "World identity and renewal settings saved");
     }
 
     @Override
@@ -314,7 +331,9 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             case RELOAD_CONFIG -> reload(snapshot);
             case DELETE_WORLD -> scheduleAndConfirm(player, WorldOperationRequest.delete());
             case RECREATE_WORLD -> scheduleAndConfirm(player,
-                    WorldOperationRequest.recreate(recreateTerrain(confirmation, snapshot.settings().terrainMode())));
+                    WorldOperationRequest.recreate(
+                            recreateTerrain(confirmation, snapshot.settings().terrainMode()),
+                            recreateVariant(confirmation, snapshot.settings().identity().terrainVariant())));
             case CANCEL_PENDING_RESET -> fromOperation(
                     WorldOperationService.get().cancelConfirmed(player.getServer()), snapshot.settings().revision());
         };
@@ -324,7 +343,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         WorldOperationPreview preview = WorldOperationService.get().request(
                 player.getServer(),
                 new WorldOperationRequest(
-                        request.type(), request.targetTerrain(), request.targetOrePreset(), request.targetGameplayPreset(),
+                        request.type(), request.targetTerrain(), request.targetVariant(), request.targetOrePreset(), request.targetGameplayPreset(),
                         BackupMode.KEEP_BACKUP, request.resetOreConfiguration()),
                 player.getGameProfile().getName()
         );
@@ -351,7 +370,25 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return fallback;
         }
         try {
-            return TerrainMode.parse(confirmation.substring(separator + 1));
+            String value = confirmation.substring(separator + 1).split(":", 2)[0];
+            return TerrainMode.parse(value);
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
+    }
+
+    private static com.nightsta69.delvefold.config.model.TerrainVariant recreateVariant(
+            String confirmation, com.nightsta69.delvefold.config.model.TerrainVariant fallback) {
+        if (confirmation == null) {
+            return fallback;
+        }
+        String[] parts = confirmation.split(":");
+        if (parts.length < 3) {
+            return fallback;
+        }
+        try {
+            return com.nightsta69.delvefold.config.model.TerrainVariant.valueOf(
+                    parts[2].toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException ignored) {
             return fallback;
         }

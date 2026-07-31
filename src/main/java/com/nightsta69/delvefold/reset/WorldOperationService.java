@@ -26,7 +26,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -56,7 +55,9 @@ public final class WorldOperationService {
     private static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter
             .ofPattern("uuuuMMdd-HHmmss", Locale.ROOT)
             .withZone(ZoneOffset.UTC);
-    private static final Set<String> DIMENSION_PATHS = Set.of("delve_flat", "delve_cavern", "delve_wild");
+    private static final Set<String> DIMENSION_PATHS = Set.of(
+            "delve_flat", "delve_cavern", "delve_wild",
+            "delve_flat_expansive", "delve_cavern_expansive", "delve_wild_expansive");
 
     private final Object lock = new Object();
     private final AtomicBoolean entryBlocked = new AtomicBoolean(false);
@@ -96,6 +97,7 @@ public final class WorldOperationService {
                     request.type(),
                     snapshot.settings().terrainMode(),
                     request.targetTerrain(),
+                    request.targetVariant(),
                     request.targetOrePreset(),
                     request.targetGameplayPreset(),
                     request.backupMode(),
@@ -251,6 +253,7 @@ public final class WorldOperationService {
                         case DELETE -> settings.markDeleted(operation.operationId());
                         case RECREATE -> settings.recreate(
                                 operation.targetTerrain(),
+                                operation.targetVariant(),
                                 operation.targetOrePreset(),
                                 operation.targetGameplayPreset(),
                                 operation.operationId()
@@ -322,27 +325,12 @@ public final class WorldOperationService {
 
     private static List<Path> resolveTargets(MinecraftServer server, PendingWorldOperation operation) {
         Path root = dimensionsRoot(server);
-        Set<TerrainMode> modes = EnumSet.noneOf(TerrainMode.class);
-        if (operation.type() == WorldOperationType.DELETE) {
-            modes.addAll(EnumSet.allOf(TerrainMode.class));
-        } else {
-            modes.add(operation.sourceTerrain());
-            modes.add(operation.targetTerrain());
-        }
-        return modes.stream().map(mode -> root.resolve(dimensionPath(mode)).normalize()).toList();
+        return DIMENSION_PATHS.stream().sorted().map(path -> root.resolve(path).normalize()).toList();
     }
 
     private static Path dimensionsRoot(MinecraftServer server) {
         Path saveRoot = saveRoot(server);
         return saveRoot.resolve("dimensions").resolve("delvefold").normalize();
-    }
-
-    private static String dimensionPath(TerrainMode mode) {
-        return switch (mode) {
-            case FLAT -> "delve_flat";
-            case CAVERN -> "delve_cavern";
-            case WILD -> "delve_wild";
-        };
     }
 
     private static Path holdingRoot(MinecraftServer server, PendingWorldOperation operation) {

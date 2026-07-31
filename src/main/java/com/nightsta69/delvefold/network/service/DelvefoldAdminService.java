@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -29,7 +30,8 @@ public interface DelvefoldAdminService {
             long expectedSettingsRevision,
             TerrainMode terrainMode,
             OrePreset orePreset,
-            GameplaySettings gameplay);
+            GameplaySettings gameplay,
+            WorldIdentitySettings identity);
 
     ServiceResult saveOreRule(
             ServerPlayer player,
@@ -45,6 +47,8 @@ public interface DelvefoldAdminService {
             GameplaySettings gameplay);
 
     ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal);
+
+    ServiceResult updateIdentity(ServerPlayer player, long expectedRevision, WorldIdentitySettings identity);
 
     ServiceResult performProfile(
             ServerPlayer player,

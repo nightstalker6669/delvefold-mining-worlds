@@ -2,14 +2,17 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
-> **0.2 compatibility:** Delvefold 0.2 uses configuration schema 2 and is intended for new Minecraft saves. Schema-1 saves open in non-destructive read-only compatibility mode; their configuration and mining dimensions are never rewritten automatically.
+> **0.3 compatibility:** Delvefold 0.3 continues to use configuration schema 2. Existing schema-2 saves gain safe identity defaults without being rewritten merely by loading. Schema-1 saves remain in non-destructive read-only compatibility mode.
 
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
 ## Core features
 
 - Explicit initialization through `/delvefold gui` or `/delvefold initialize`; portal activation never chooses settings.
-- Flat, roofed cavern, and overworld-shaped mining terrain.
+- Flat, roofed cavern, and overworld-shaped mining terrain, each with Classic and Expansive scale variants.
+- Optional survey stations, ore motherlodes, and fault-line landmarks with Pure Mining, Balanced, and Abundant presets.
+- A configurable world name and opt-in scheduled renewal with player warnings and mandatory backups.
+- An onboarding advancement path for building, activating, and entering the mining world.
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
 - Named per-save ore profiles with safe duplication, selection, and JSON import/export.
 - Visual height-distribution and generation-workload previews in the ore editor.
@@ -34,7 +37,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 
 1. Start or open a world with Delvefold installed.
 2. Run `/delvefold gui`.
-3. Choose terrain, ore, and gameplay presets.
+3. Choose terrain shape and scale, ore, gameplay, and landmark presets.
 4. Check the lock confirmation and click **Initialize**.
 5. Build and activate a Delvefold portal.
 
@@ -59,6 +62,13 @@ Setup, status, and JSON:
 /delvefold status
 /delvefold config validate
 /delvefold config reload
+/delvefold identity
+/delvefold identity name <name>
+/delvefold identity landmarks <pure_mining|balanced|abundant>
+/delvefold identity variant <classic|expansive>
+/delvefold renewal
+/delvefold renewal configure <interval_days> <warning_minutes>
+/delvefold renewal disable
 ```
 
 Named profiles:
@@ -104,6 +114,7 @@ Safe world deletion and recreation:
 /delvefold world recreate request
 /delvefold world recreate request <flat|cavern|wild>
 /delvefold world recreate request <flat|cavern|wild> <keep_backup|permanent>
+/delvefold world recreate request <flat|cavern|wild> <classic|expansive> [keep_backup|permanent]
 /delvefold world delete request
 /delvefold world delete request <keep_backup|permanent>
 /delvefold world confirm <token>
@@ -134,7 +145,7 @@ Polished Deepslate  Obsidian             Polished Deepslate
 Iron Ingot          Polished Deepslate   Iron Ingot
 ```
 
-Build a complete rectangular frame, then right-click any Portal Frame block with vanilla Flint and Steel. A failed activation does not consume durability. The portal interior may be 2–21 blocks wide and 3–21 blocks tall.
+Build a complete rectangular frame, then right-click any Portal Frame block with vanilla Flint and Steel. A failed activation does not consume durability. The portal interior may be 2–21 blocks wide and 3–21 blocks tall. Delvefold portals have distinct reverse-fold particles, crystalline resonance, and activation effects.
 
 ## JSON locations
 
@@ -171,6 +182,6 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-0.2.0.jar`.
+The release JAR is written to `build/libs/delvefold-1.21.1-0.3.0.jar`.
 
 License: MIT.

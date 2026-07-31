@@ -1,0 +1,21 @@
+{
+  "parent": "delvefold:activate_portal",
+  "display": {
+    "icon": { "id": "minecraft:diamond_pickaxe" },
+    "title": { "translate": "advancement.delvefold.enter.title" },
+    "description": { "translate": "advancement.delvefold.enter.description" },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "flat": { "trigger": "minecraft:changed_dimension", "conditions": { "to": "delvefold:delve_flat" } },
+    "cavern": { "trigger": "minecraft:changed_dimension", "conditions": { "to": "delvefold:delve_cavern" } },
+    "wild": { "trigger": "minecraft:changed_dimension", "conditions": { "to": "delvefold:delve_wild" } },
+    "flat_expansive": { "trigger": "minecraft:changed_dimension", "conditions": { "to": "delvefold:delve_flat_expansive" } },
+    "cavern_expansive": { "trigger": "minecraft:changed_dimension", "conditions": { "to": "delvefold:delve_cavern_expansive" } },
+    "wild_expansive": { "trigger": "minecraft:changed_dimension", "conditions": { "to": "delvefold:delve_wild_expansive" } }
+  },
+  "requirements": [["flat", "cavern", "wild", "flat_expansive", "cavern_expansive", "wild_expansive"]]
+}

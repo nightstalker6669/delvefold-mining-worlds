@@ -7,6 +7,20 @@
   "terrain_mode": null,
   "ore_preset": "vanilla_balanced",
   "active_profile_id": "vanilla_balanced",
+  "identity": {
+    "display_name": "Delvefold Mining World",
+    "terrain_variant": "classic",
+    "landmark_preset": "balanced",
+    "survey_stations": true,
+    "motherlodes": true,
+    "fault_lines": true,
+    "renewal": {
+      "enabled": false,
+      "interval_days": 30,
+      "warning_minutes": 30,
+      "next_renewal_at_epoch_millis": 0
+    }
+  },
   "gameplay": {
     "preset": "safe",
     "monsters": false,

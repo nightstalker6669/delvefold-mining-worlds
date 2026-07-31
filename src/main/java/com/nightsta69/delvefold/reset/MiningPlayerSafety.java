@@ -2,7 +2,6 @@ package com.nightsta69.delvefold.reset;
 
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
-import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
@@ -51,7 +50,8 @@ public final class MiningPlayerSafety {
         boolean epochMatches = player.getPersistentData().contains(GENERATION_EPOCH_TAG, Tag.TAG_LONG)
                 && player.getPersistentData().getLong(GENERATION_EPOCH_TAG) == settings.generationEpoch();
         boolean activeDimension = settings.initialized()
-                && player.level().dimension().equals(levelFor(settings.terrainMode()));
+                && player.level().dimension().equals(DelvefoldWorldgen.levelFor(
+                        settings.terrainMode(), settings.identity().terrainVariant()));
         if (WorldOperationService.get().isEntryBlocked() || !activeDimension || !epochMatches) {
             evacuate(player, "message.delvefold.player_safety.evacuated");
         }
@@ -78,17 +78,7 @@ public final class MiningPlayerSafety {
         }
     }
 
-    private static ResourceKey<Level> levelFor(TerrainMode terrainMode) {
-        return switch (terrainMode) {
-            case FLAT -> DelvefoldWorldgen.FLAT_LEVEL;
-            case CAVERN -> DelvefoldWorldgen.CAVERN_LEVEL;
-            case WILD -> DelvefoldWorldgen.WILD_LEVEL;
-        };
-    }
-
     private static boolean isMiningLevel(ResourceKey<Level> key) {
-        return key.equals(DelvefoldWorldgen.FLAT_LEVEL)
-                || key.equals(DelvefoldWorldgen.CAVERN_LEVEL)
-                || key.equals(DelvefoldWorldgen.WILD_LEVEL);
+        return DelvefoldWorldgen.isMiningLevel(key);
     }
 }

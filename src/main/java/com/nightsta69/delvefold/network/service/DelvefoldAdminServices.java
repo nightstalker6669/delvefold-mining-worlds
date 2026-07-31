@@ -39,7 +39,8 @@ public final class DelvefoldAdminServices {
 
         @Override
         public ServiceResult initialize(ServerPlayer player, long expectedOreRevision, long expectedSettingsRevision, TerrainMode terrainMode,
-                OrePreset orePreset, GameplaySettings gameplay) {
+                OrePreset orePreset, GameplaySettings gameplay,
+                com.nightsta69.delvefold.config.model.WorldIdentitySettings identity) {
             return ServiceResult.unavailable(Math.max(expectedOreRevision, expectedSettingsRevision));
         }
 
@@ -64,6 +65,12 @@ public final class DelvefoldAdminServices {
 
         @Override
         public ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal) {
+            return ServiceResult.unavailable(expectedRevision);
+        }
+
+        @Override
+        public ServiceResult updateIdentity(ServerPlayer player, long expectedRevision,
+                com.nightsta69.delvefold.config.model.WorldIdentitySettings identity) {
             return ServiceResult.unavailable(expectedRevision);
         }
 

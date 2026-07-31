@@ -37,6 +37,24 @@ public final class WorldSettingsValidator {
             issues.add(ConfigIssue.error("settings.profile.invalid", "$.active_profile_id",
                     "Active profile ID may contain lowercase letters, digits, _, . and - only"));
         }
+        var identity = settings.identity();
+        if (identity.displayName().isBlank() || identity.displayName().length() > 64) {
+            issues.add(ConfigIssue.error("settings.identity.name", "$.identity.display_name",
+                    "World display name must contain 1-64 characters"));
+        }
+        var renewal = identity.renewal();
+        if (renewal.intervalDays() < 1 || renewal.intervalDays() > 3650) {
+            issues.add(ConfigIssue.error("settings.renewal.interval", "$.identity.renewal.interval_days",
+                    "Renewal interval must be 1-3650 days"));
+        }
+        if (renewal.warningMinutes() < 1 || renewal.warningMinutes() > 10080) {
+            issues.add(ConfigIssue.error("settings.renewal.warning", "$.identity.renewal.warning_minutes",
+                    "Renewal warning must be 1-10080 minutes"));
+        }
+        if (renewal.nextRenewalAtEpochMillis() < 0) {
+            issues.add(ConfigIssue.error("settings.renewal.time", "$.identity.renewal.next_renewal_at_epoch_millis",
+                    "Next renewal time cannot be negative"));
+        }
         int cooldown = settings.portal().cooldownSeconds();
         if (cooldown < 1 || cooldown > 3600) {
             issues.add(ConfigIssue.error("settings.portal.invalid_cooldown", "$.portal.cooldown_seconds",

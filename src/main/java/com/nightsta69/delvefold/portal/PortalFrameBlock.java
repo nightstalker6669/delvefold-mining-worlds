@@ -4,6 +4,7 @@ import com.mojang.serialization.MapCodec;
 import java.util.Optional;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -81,6 +82,22 @@ public final class PortalFrameBlock extends Block {
                 SoundSource.BLOCKS,
                 1.0F,
                 0.8F + serverLevel.getRandom().nextFloat() * 0.4F);
+        serverLevel.playSound(null, position, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS,
+                0.85F, 1.35F);
+        serverLevel.playSound(null, position, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS,
+                0.7F, 0.75F);
+        BlockPos center = shape.bottomLeft()
+                .relative(PortalFrameShape.positiveDirection(shape.axis()), (shape.width() - 1) / 2)
+                .above((shape.height() - 1) / 2);
+        serverLevel.sendParticles(ParticleTypes.REVERSE_PORTAL,
+                center.getX() + 0.5D,
+                center.getY() + 0.5D,
+                center.getZ() + 0.5D,
+                Math.min(120, shape.width() * shape.height() * 3),
+                shape.width() * 0.35D,
+                shape.height() * 0.35D,
+                0.35D,
+                0.08D);
         serverLevel.gameEvent(serverPlayer, GameEvent.BLOCK_CHANGE, position);
         CriteriaTriggers.ITEM_USED_ON_BLOCK.trigger(serverPlayer, position, stack);
         stack.hurtAndBreak(1, serverPlayer, LivingEntity.getSlotForHand(hand));

@@ -38,5 +38,11 @@
   "message.delvefold.portal.already_active": "That Delvefold portal is already active.",
   "message.delvefold.portal.activated": "Delvefold portal activated.",
   "message.delvefold.player_safety.config_unavailable": "You were returned to the Overworld because Delvefold configuration was unavailable.",
-  "message.delvefold.player_safety.evacuated": "You were returned to the Overworld because this mining world was deleted, recreated, or is no longer active."
+  "message.delvefold.player_safety.evacuated": "You were returned to the Overworld because this mining world was deleted, recreated, or is no longer active.",
+  "advancement.delvefold.root.title": "Open the Fold",
+  "advancement.delvefold.root.description": "Craft a Delvefold Portal Frame and prepare a renewable mining world.",
+  "advancement.delvefold.activate.title": "Strike the Seam",
+  "advancement.delvefold.activate.description": "Activate a configured Delvefold portal with Flint and Steel.",
+  "advancement.delvefold.enter.title": "Beyond the Overworld",
+  "advancement.delvefold.enter.description": "Enter your Delvefold mining world for the first time."
 }

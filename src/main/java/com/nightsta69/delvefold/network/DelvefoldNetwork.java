@@ -11,6 +11,7 @@ import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
+import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
@@ -35,7 +36,7 @@ import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
-    public static final String PROTOCOL_VERSION = "4";
+    public static final String PROTOCOL_VERSION = "5";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {
@@ -83,6 +84,8 @@ public final class DelvefoldNetwork {
                 DelvefoldNetwork::handleOrePageRequest);
         registrar.playToServer(InitializeWorldPayload.TYPE, InitializeWorldPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleInitialize);
+        registrar.playToServer(IdentityUpdatePayload.TYPE, IdentityUpdatePayload.STREAM_CODEC,
+                DelvefoldNetwork::handleIdentityUpdate);
         registrar.playToServer(SaveOreRulePayload.TYPE, SaveOreRulePayload.STREAM_CODEC,
                 DelvefoldNetwork::handleSaveOreRule);
         registrar.playToServer(DeleteOreRulePayload.TYPE, DeleteOreRulePayload.STREAM_CODEC,
@@ -138,7 +141,8 @@ public final class DelvefoldNetwork {
                 payload.expectedSettingsRevision(),
                 payload.terrainMode(),
                 payload.orePreset(),
-                payload.gameplay()));
+                payload.gameplay(),
+                payload.identity()));
     }
 
     private static void handleSaveOreRule(SaveOreRulePayload payload, IPayloadContext context) {
@@ -146,6 +150,14 @@ public final class DelvefoldNetwork {
         if (player != null) {
             invoke(player, () -> DelvefoldAdminServices.get().saveOreRule(
                     player, payload.expectedRevision(), payload.rule(), payload.createOnly()));
+        }
+    }
+
+    private static void handleIdentityUpdate(IdentityUpdatePayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, 2);
+        if (player != null) {
+            invoke(player, () -> DelvefoldAdminServices.get().updateIdentity(
+                    player, payload.expectedRevision(), payload.identity()));
         }
     }
 

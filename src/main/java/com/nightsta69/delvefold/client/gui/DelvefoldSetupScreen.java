@@ -6,6 +6,9 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
+import com.nightsta69.delvefold.config.model.LandmarkPreset;
+import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
@@ -18,6 +21,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private TerrainMode terrainMode;
     private OrePreset orePreset;
     private GameplayPreset gameplayPreset;
+    private TerrainVariant terrainVariant;
+    private LandmarkPreset landmarkPreset;
     private Step step = Step.TERRAIN;
     private boolean lockConfirmed;
     private Button confirmationButton;
@@ -30,6 +35,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.terrainMode = snapshot.terrainMode();
         this.orePreset = snapshot.orePreset();
         this.gameplayPreset = snapshot.gameplay().preset();
+        this.terrainVariant = snapshot.identity().terrainVariant();
+        this.landmarkPreset = snapshot.identity().landmarkPreset();
     }
 
     @Override
@@ -90,6 +97,19 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                         rebuildWidgets();
                     });
         }
+        int variantY = y + 54;
+        int variantWidth = (width - gap) / 2;
+        for (TerrainVariant variant : TerrainVariant.values()) {
+            int optionX = x + variant.ordinal() * (variantWidth + gap);
+            this.addButton(optionX, variantY, variantWidth, 24,
+                    Component.literal(pretty(variant.name())),
+                    this.terrainVariant == variant ? Style.TOGGLE_ON : Style.SECONDARY,
+                    button -> {
+                        this.terrainVariant = variant;
+                        resetConfirmation();
+                        rebuildWidgets();
+                    });
+        }
     }
 
     private void initResources() {
@@ -120,11 +140,23 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                         rebuildWidgets();
                     });
         }
+        int landmarkY = y + 124;
+        for (LandmarkPreset preset : LandmarkPreset.values()) {
+            int optionX = x + preset.ordinal() * (optionWidth + gap);
+            this.addButton(optionX, landmarkY, optionWidth, 28,
+                    Component.literal(pretty(preset.name())),
+                    this.landmarkPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
+                    button -> {
+                        this.landmarkPreset = preset;
+                        resetConfirmation();
+                        rebuildWidgets();
+                    });
+        }
     }
 
     private void initReview() {
         int x = this.contentLeft() + 10;
-        int y = bodyTop() + 102;
+        int y = bodyTop() + 118;
         int width = this.contentWidth() - 20;
         this.confirmationButton = this.addButton(x, y, width, 24,
                 confirmationLabel(), this.lockConfirmed ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
@@ -156,7 +188,15 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.localStatusColor = ACCENT;
         DelvefoldClientRequests.send(new InitializeWorldPayload(
                 this.snapshot.oreRevision(), this.snapshot.settingsRevision(), this.terrainMode, this.orePreset,
-                GameplaySettings.fromPreset(this.gameplayPreset), true));
+                GameplaySettings.fromPreset(this.gameplayPreset), selectedIdentity(), true));
+    }
+
+    private WorldIdentitySettings selectedIdentity() {
+        WorldIdentitySettings source = this.snapshot.identity();
+        boolean enabled = this.landmarkPreset != LandmarkPreset.PURE_MINING;
+        return new WorldIdentitySettings(source.displayName(), this.terrainVariant, this.landmarkPreset,
+                enabled && source.surveyStations(), enabled && source.motherlodes(),
+                enabled && source.faultLines(), source.renewal());
     }
 
     private Component confirmationLabel() {
@@ -201,14 +241,18 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
             case CAVERN -> "Cavern — an enclosed cave network with a solid roof and underground atmosphere.";
             case WILD -> "Wild — hills, valleys, caves, and an Overworld-like exploration experience.";
         };
-        drawNotice(graphics, x + 12, y + 91, width - 24, detail, ACCENT);
+        graphics.drawString(this.font, Component.literal("TERRAIN SCALE"), x + 12, y + 83, MUTED_TEXT, false);
+        drawNotice(graphics, x + 12, y + 121, width - 24,
+                detail + (this.terrainVariant == TerrainVariant.EXPANSIVE
+                        ? " Expansive uses deeper or amplified generation." : " Classic uses the original scale."), ACCENT);
     }
 
     private void renderResources(GuiGraphics graphics, int x, int y, int width) {
         this.drawSectionTitle(graphics, Component.literal("STARTING ORE PROFILE"), x + 10, y + 8);
         graphics.drawString(this.font, Component.literal(oreDescription()), x + 12, y + 76, MUTED_TEXT, false);
         this.drawSectionTitle(graphics, Component.literal("GAMEPLAY & MOB SPAWNING"), x + 10, y + 99);
-        graphics.drawString(this.font, Component.literal(gameplayDescription()), x + 12, y + 167, MUTED_TEXT, false);
+        this.drawSectionTitle(graphics, Component.literal("LANDMARK DENSITY"), x + 10, y + 150);
+        graphics.drawString(this.font, Component.literal(gameplayDescription()), x + 12, y + 185, DIM_TEXT, false);
     }
 
     private void renderReview(GuiGraphics graphics, int x, int y, int width) {
@@ -219,11 +263,15 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         graphics.drawString(this.font, Component.literal(oreName(this.orePreset)), x + width / 2, y + 45, TEXT, false);
         graphics.drawString(this.font, Component.literal("Gameplay"), x + 14, y + 61, MUTED_TEXT, false);
         graphics.drawString(this.font, Component.literal(pretty(this.gameplayPreset.name())), x + width / 2, y + 61, TEXT, false);
+        graphics.drawString(this.font, Component.literal("Terrain scale"), x + 14, y + 77, MUTED_TEXT, false);
+        graphics.drawString(this.font, Component.literal(pretty(this.terrainVariant.name())), x + width / 2, y + 77, TEXT, false);
+        graphics.drawString(this.font, Component.literal("Landmarks"), x + 14, y + 93, MUTED_TEXT, false);
+        graphics.drawString(this.font, Component.literal(pretty(this.landmarkPreset.name())), x + width / 2, y + 93, TEXT, false);
 
         String status = !this.snapshot.backendReady() ? this.snapshot.worldStatus() : this.localStatus;
         int color = !this.snapshot.backendReady() ? DANGER : this.localStatusColor;
         if (!status.isEmpty()) {
-            drawNotice(graphics, x + 10, y + 138, width - 20, status, color);
+            drawNotice(graphics, x + 10, y + 154, width - 20, status, color);
         }
     }
 

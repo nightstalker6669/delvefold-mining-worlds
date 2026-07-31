@@ -5,6 +5,7 @@ import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
+import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
 import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
@@ -23,6 +24,10 @@ public final class DelvefoldClientRequests {
     }
 
     public static void send(InitializeWorldPayload payload) {
+        send((CustomPacketPayload) payload);
+    }
+
+    public static void send(IdentityUpdatePayload payload) {
         send((CustomPacketPayload) payload);
     }
 

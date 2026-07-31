@@ -1,7 +1,10 @@
 package com.nightsta69.delvefold.world;
 
 import com.nightsta69.delvefold.Delvefold;
+import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.world.feature.MiningOreFeature;
+import com.nightsta69.delvefold.world.feature.MiningLandmarkFeature;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -28,14 +31,23 @@ public final class DelvefoldWorldgen {
 
     public static final DeferredHolder<Feature<?>, MiningOreFeature> MINING_ORE_FEATURE =
             FEATURES.register("mining_ores", MiningOreFeature::new);
+    public static final DeferredHolder<Feature<?>, MiningLandmarkFeature> MINING_LANDMARK_FEATURE =
+            FEATURES.register("mining_landmark",
+                    () -> new MiningLandmarkFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
 
     public static final ResourceKey<Level> FLAT_LEVEL = levelKey("delve_flat");
     public static final ResourceKey<Level> CAVERN_LEVEL = levelKey("delve_cavern");
     public static final ResourceKey<Level> WILD_LEVEL = levelKey("delve_wild");
+    public static final ResourceKey<Level> FLAT_EXPANSIVE_LEVEL = levelKey("delve_flat_expansive");
+    public static final ResourceKey<Level> CAVERN_EXPANSIVE_LEVEL = levelKey("delve_cavern_expansive");
+    public static final ResourceKey<Level> WILD_EXPANSIVE_LEVEL = levelKey("delve_wild_expansive");
 
     public static final ResourceKey<LevelStem> FLAT_LEVEL_STEM = levelStemKey("delve_flat");
     public static final ResourceKey<LevelStem> CAVERN_LEVEL_STEM = levelStemKey("delve_cavern");
     public static final ResourceKey<LevelStem> WILD_LEVEL_STEM = levelStemKey("delve_wild");
+    public static final ResourceKey<LevelStem> FLAT_EXPANSIVE_LEVEL_STEM = levelStemKey("delve_flat_expansive");
+    public static final ResourceKey<LevelStem> CAVERN_EXPANSIVE_LEVEL_STEM = levelStemKey("delve_cavern_expansive");
+    public static final ResourceKey<LevelStem> WILD_EXPANSIVE_LEVEL_STEM = levelStemKey("delve_wild_expansive");
 
     public static final ResourceKey<Biome> MINING_FLAT_BIOME = biomeKey("mining_flat");
     public static final ResourceKey<Biome> MINING_CAVERN_BIOME = biomeKey("mining_cavern");
@@ -45,6 +57,10 @@ public final class DelvefoldWorldgen {
             Registries.CONFIGURED_FEATURE, id("mining_ores"));
     public static final ResourceKey<PlacedFeature> MINING_ORES_PLACED = ResourceKey.create(
             Registries.PLACED_FEATURE, id("mining_ores"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> MINING_LANDMARK_CONFIGURED = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, id("mining_landmark"));
+    public static final ResourceKey<PlacedFeature> MINING_LANDMARK_PLACED = ResourceKey.create(
+            Registries.PLACED_FEATURE, id("mining_landmark"));
 
     private DelvefoldWorldgen() {
     }
@@ -55,6 +71,38 @@ public final class DelvefoldWorldgen {
 
     public static ResourceLocation id(String path) {
         return ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, path);
+    }
+
+    public static ResourceKey<Level> levelFor(TerrainMode mode, TerrainVariant variant) {
+        boolean expansive = variant == TerrainVariant.EXPANSIVE;
+        return switch (mode) {
+            case FLAT -> expansive ? FLAT_EXPANSIVE_LEVEL : FLAT_LEVEL;
+            case CAVERN -> expansive ? CAVERN_EXPANSIVE_LEVEL : CAVERN_LEVEL;
+            case WILD -> expansive ? WILD_EXPANSIVE_LEVEL : WILD_LEVEL;
+        };
+    }
+
+    public static boolean isMiningLevel(ResourceKey<Level> key) {
+        return key.equals(FLAT_LEVEL) || key.equals(CAVERN_LEVEL) || key.equals(WILD_LEVEL)
+                || key.equals(FLAT_EXPANSIVE_LEVEL) || key.equals(CAVERN_EXPANSIVE_LEVEL)
+                || key.equals(WILD_EXPANSIVE_LEVEL);
+    }
+
+    public static boolean isCavernLevel(ResourceKey<Level> key) {
+        return key.equals(CAVERN_LEVEL) || key.equals(CAVERN_EXPANSIVE_LEVEL);
+    }
+
+    public static TerrainMode terrainFor(ResourceKey<Level> key) {
+        if (key.equals(FLAT_LEVEL) || key.equals(FLAT_EXPANSIVE_LEVEL)) {
+            return TerrainMode.FLAT;
+        }
+        if (key.equals(CAVERN_LEVEL) || key.equals(CAVERN_EXPANSIVE_LEVEL)) {
+            return TerrainMode.CAVERN;
+        }
+        if (key.equals(WILD_LEVEL) || key.equals(WILD_EXPANSIVE_LEVEL)) {
+            return TerrainMode.WILD;
+        }
+        return null;
     }
 
     private static ResourceKey<Level> levelKey(String path) {

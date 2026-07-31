@@ -6,6 +6,10 @@ import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
+import com.nightsta69.delvefold.config.model.LandmarkPreset;
+import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import java.util.ArrayList;
@@ -26,6 +30,7 @@ public final class DelvefoldStreamCodecs {
         writeEnum(buffer, snapshot.orePreset());
         writeGameplay(buffer, snapshot.gameplay());
         writePortal(buffer, snapshot.portal());
+        writeIdentity(buffer, snapshot.identity());
         writeCapabilities(buffer, snapshot.capabilities());
         writeString(buffer, snapshot.activeProfileId(), ProtocolLimits.ID_LENGTH);
         writeCount(buffer, snapshot.profiles().size(), ProtocolLimits.MAX_PROFILES, "ore profiles");
@@ -70,6 +75,7 @@ public final class DelvefoldStreamCodecs {
         OrePreset orePreset = readEnum(buffer, OrePreset.class);
         GameplaySettings gameplay = readGameplay(buffer);
         PortalSettings portal = readPortal(buffer);
+        WorldIdentitySettings identity = readIdentity(buffer);
         AdminSnapshot.AdminCapabilities capabilities = readCapabilities(buffer);
         String activeProfileId = readString(buffer, ProtocolLimits.ID_LENGTH);
         int profileCount = readCount(buffer, ProtocolLimits.MAX_PROFILES, "ore profiles");
@@ -105,7 +111,7 @@ public final class DelvefoldStreamCodecs {
         for (int index = 0; index < oreCount; index++) {
             rules.add(readOreRule(buffer));
         }
-        return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, capabilities,
+        return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, identity, capabilities,
                 activeProfileId, profiles,
                 backups,
                 portalStatus, worldStatus, resetPending, diagnostics, oreRuleTotal, orePage, rules);
@@ -134,6 +140,29 @@ public final class DelvefoldStreamCodecs {
     public static PortalSettings readPortal(RegistryFriendlyByteBuf buffer) {
         return new PortalSettings(buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(),
                 readFiniteDouble(buffer, "portal coordinate scale"));
+    }
+
+    public static void writeIdentity(RegistryFriendlyByteBuf buffer, WorldIdentitySettings identity) {
+        writeString(buffer, identity.displayName(), 64);
+        writeEnum(buffer, identity.terrainVariant());
+        writeEnum(buffer, identity.landmarkPreset());
+        buffer.writeBoolean(identity.surveyStations());
+        buffer.writeBoolean(identity.motherlodes());
+        buffer.writeBoolean(identity.faultLines());
+        RenewalSettings renewal = identity.renewal();
+        buffer.writeBoolean(renewal.enabled());
+        buffer.writeVarInt(renewal.intervalDays());
+        buffer.writeVarInt(renewal.warningMinutes());
+        buffer.writeLong(renewal.nextRenewalAtEpochMillis());
+    }
+
+    public static WorldIdentitySettings readIdentity(RegistryFriendlyByteBuf buffer) {
+        return new WorldIdentitySettings(
+                readString(buffer, 64),
+                readEnum(buffer, TerrainVariant.class),
+                readEnum(buffer, LandmarkPreset.class),
+                buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
+                new RenewalSettings(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt(), buffer.readLong()));
     }
 
     public static void writeGameplay(RegistryFriendlyByteBuf buffer, GameplaySettings gameplay) {

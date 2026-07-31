@@ -43,7 +43,8 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
-        return resolveDestination(source, snapshot.settings().terrainMode(), snapshot.settings().portal(), true);
+        return resolveDestination(source, snapshot.settings().terrainMode(),
+                snapshot.settings().identity().terrainVariant(), snapshot.settings().portal(), true);
     }
 
     static Result forTransition(ServerLevel source, ServerPlayer player) {
@@ -65,7 +66,8 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
-        return resolveDestination(source, snapshot.settings().terrainMode(), snapshot.settings().portal(), true);
+        return resolveDestination(source, snapshot.settings().terrainMode(),
+                snapshot.settings().identity().terrainVariant(), snapshot.settings().portal(), true);
     }
 
     static int cooldownTicks(PortalSettings settings) {
@@ -96,14 +98,13 @@ final class PortalAccess {
     }
 
     static boolean isMiningLevel(ResourceKey<Level> dimension) {
-        return dimension.equals(DelvefoldWorldgen.FLAT_LEVEL)
-                || dimension.equals(DelvefoldWorldgen.CAVERN_LEVEL)
-                || dimension.equals(DelvefoldWorldgen.WILD_LEVEL);
+        return DelvefoldWorldgen.isMiningLevel(dimension);
     }
 
     private static Result resolveDestination(
             ServerLevel source,
             TerrainMode activeTerrain,
+            com.nightsta69.delvefold.config.model.TerrainVariant terrainVariant,
             PortalSettings settings,
             boolean enforceEntryBlock) {
         if (isMiningLevel(source.dimension())) {
@@ -116,19 +117,11 @@ final class PortalAccess {
             return Result.denied(Component.translatable("message.delvefold.portal.reset_blocked"));
         }
 
-        ServerLevel target = source.getServer().getLevel(levelFor(activeTerrain));
+        ServerLevel target = source.getServer().getLevel(DelvefoldWorldgen.levelFor(activeTerrain, terrainVariant));
         if (target == null) {
             return Result.denied(Component.translatable("message.delvefold.portal.destination_missing"));
         }
         return Result.allowed(target, settings, false);
-    }
-
-    private static ResourceKey<Level> levelFor(TerrainMode terrainMode) {
-        return switch (terrainMode) {
-            case FLAT -> DelvefoldWorldgen.FLAT_LEVEL;
-            case CAVERN -> DelvefoldWorldgen.CAVERN_LEVEL;
-            case WILD -> DelvefoldWorldgen.WILD_LEVEL;
-        };
     }
 
     @Nullable

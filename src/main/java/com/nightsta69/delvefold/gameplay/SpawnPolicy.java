@@ -64,8 +64,6 @@ public final class SpawnPolicy {
     }
 
     private static boolean isDelvefold(ResourceKey<Level> dimension) {
-        return dimension.equals(DelvefoldWorldgen.FLAT_LEVEL)
-                || dimension.equals(DelvefoldWorldgen.CAVERN_LEVEL)
-                || dimension.equals(DelvefoldWorldgen.WILD_LEVEL);
+        return DelvefoldWorldgen.isMiningLevel(dimension);
     }
 }

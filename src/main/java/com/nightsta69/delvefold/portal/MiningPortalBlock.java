@@ -116,6 +116,17 @@ public final class MiningPortalBlock extends Block implements Portal {
                     0.9F + random.nextFloat() * 0.2F,
                     false);
         }
+        if (random.nextInt(180) == 0) {
+            level.playLocalSound(
+                    position.getX() + 0.5D,
+                    position.getY() + 0.5D,
+                    position.getZ() + 0.5D,
+                    SoundEvents.AMETHYST_BLOCK_CHIME,
+                    SoundSource.BLOCKS,
+                    0.22F,
+                    0.65F + random.nextFloat() * 0.2F,
+                    false);
+        }
         for (int count = 0; count < 3; count++) {
             double x = position.getX() + random.nextDouble();
             double y = position.getY() + random.nextDouble();
@@ -123,7 +134,8 @@ public final class MiningPortalBlock extends Block implements Portal {
             double dx = (random.nextDouble() - 0.5D) * 0.25D;
             double dy = (random.nextDouble() - 0.5D) * 0.25D;
             double dz = (random.nextDouble() - 0.5D) * 0.25D;
-            level.addParticle(ParticleTypes.PORTAL, x, y, z, dx, dy, dz);
+            level.addParticle(count == 0 ? ParticleTypes.REVERSE_PORTAL : ParticleTypes.PORTAL,
+                    x, y, z, dx, dy, dz);
         }
     }
 

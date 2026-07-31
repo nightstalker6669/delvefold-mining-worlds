@@ -8,6 +8,7 @@ import com.nightsta69.delvefold.config.ConfigJson;
 import com.nightsta69.delvefold.config.OrePresets;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,6 +35,7 @@ class WorldBackupCatalogTest {
                 WorldOperationType.RECREATE,
                 TerrainMode.FLAT,
                 TerrainMode.CAVERN,
+                TerrainVariant.EXPANSIVE,
                 null,
                 null,
                 BackupMode.KEEP_BACKUP,
@@ -54,5 +56,24 @@ class WorldBackupCatalogTest {
         assertThrows(java.io.IOException.class, () -> catalog.delete(id));
         assertTrue(catalog.setPinned(id, false));
         assertTrue(catalog.delete(id));
+    }
+
+    @Test
+    void legacyPendingRecreateDefaultsToClassicTerrainScale() {
+        PendingWorldOperation operation = ConfigJson.GSON.fromJson("""
+                {
+                  "schema_version": 1,
+                  "operation_id": "11111111-1111-1111-1111-111111111111",
+                  "type": "RECREATE",
+                  "source_terrain": "flat",
+                  "target_terrain": "cavern",
+                  "backup_mode": "KEEP_BACKUP",
+                  "reset_ore_configuration": false,
+                  "created_at_epoch_millis": 1234,
+                  "requested_by": "tester"
+                }
+                """, PendingWorldOperation.class);
+
+        assertEquals(TerrainVariant.CLASSIC, operation.targetVariant());
     }
 }
