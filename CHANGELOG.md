@@ -3,6 +3,8 @@
 ## 0.2.0 — Control and Confidence
 
 - Added visual ore height-distribution and workload previews.
+- Reworked setup into a guided terrain, resources, and review workflow.
+- Added GUI editing for biome selectors and output block-state properties.
 - Added named ore profiles with GUI and command management.
 - Added bounded clipboard and server-directory JSON import/export.
 - Added editable portal policy and capability-aware administration controls.

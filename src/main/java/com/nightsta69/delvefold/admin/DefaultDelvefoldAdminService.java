@@ -32,9 +32,7 @@ import com.nightsta69.delvefold.reset.WorldBackupCatalog;
 import com.nightsta69.delvefold.reset.WorldRestoreService;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -172,12 +170,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             AdminSnapshot.OreRuleDraft draft,
             boolean createOnly) {
         requireConfigure(player);
-        ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
-        OreRule existing = before.ores().rules().stream()
-                .filter(rule -> rule.id().equals(draft.id()))
-                .findFirst()
-                .orElse(null);
-        OreRule replacement = fromDraft(draft, existing);
+        OreRule replacement = fromDraft(draft);
         ConfigWriteResult result = DelvefoldConfigService.get().saveOreRule(
                 expectedRevision, replacement, createOnly);
         return fromWrite(result, "Saved ore rule " + replacement.id());
@@ -392,17 +385,10 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         }
     }
 
-    private static OreRule fromDraft(AdminSnapshot.OreRuleDraft draft, OreRule existing) {
-        Map<String, OreTarget> oldTargets = new LinkedHashMap<>();
-        if (existing != null) {
-            for (OreTarget target : existing.targets()) {
-                oldTargets.put(target.block(), target);
-            }
-        }
+    static OreRule fromDraft(AdminSnapshot.OreRuleDraft draft) {
         List<OreTarget> targets = draft.variants().stream().map(variant -> {
-            OreTarget old = oldTargets.get(variant.blockId());
             String tag = stripHash(variant.replaceTag());
-            return new OreTarget(variant.blockId(), old == null ? Map.of() : old.state(), tag);
+            return new OreTarget(variant.blockId(), variant.state(), tag);
         }).toList();
         List<SpawnBand> bands = draft.bands().stream().map(DefaultDelvefoldAdminService::fromDraft).toList();
         Set<TerrainMode> terrainModes = Set.copyOf(draft.terrainModes());
@@ -412,7 +398,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 draft.required(),
                 terrainModes,
                 targets,
-                existing == null ? BiomeFilter.ALL_MINING_BIOMES : existing.biomes(),
+                new BiomeFilter(draft.biomeIncludes(), draft.biomeExcludes()),
                 bands
         );
     }
@@ -435,9 +421,12 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 rule.required(),
                 primary,
                 rule.targets().stream()
-                        .map(target -> new AdminSnapshot.OreVariantDraft(target.block(), target.replaceTag()))
+                        .map(target -> new AdminSnapshot.OreVariantDraft(
+                                target.block(), target.replaceTag(), target.state()))
                         .toList(),
                 List.copyOf(rule.terrainModes()),
+                rule.biomes().include(),
+                rule.biomes().exclude(),
                 rule.bands().stream().map(DefaultDelvefoldAdminService::toDraft).toList()
         );
     }

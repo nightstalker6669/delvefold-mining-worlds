@@ -167,12 +167,22 @@ public final class DelvefoldStreamCodecs {
         for (AdminSnapshot.OreVariantDraft variant : rule.variants()) {
             writeResourceId(buffer, variant.blockId());
             writeResourceId(buffer, variant.replaceTag());
+            writeCount(buffer, variant.state().size(), ProtocolLimits.MAX_STATE_PROPERTIES, "state properties");
+            for (var property : variant.state().entrySet()) {
+                writeString(buffer, property.getKey(), ProtocolLimits.ID_LENGTH);
+                writeString(buffer, property.getValue(), ProtocolLimits.ID_LENGTH);
+            }
         }
 
         writeCount(buffer, rule.terrainModes().size(), ProtocolLimits.MAX_TERRAIN_MODES, "terrain modes");
         for (TerrainMode terrainMode : rule.terrainModes()) {
             writeEnum(buffer, terrainMode);
         }
+
+        writeStringList(buffer, rule.biomeIncludes(), ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                ProtocolLimits.ID_LENGTH + 1);
+        writeStringList(buffer, rule.biomeExcludes(), ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                ProtocolLimits.ID_LENGTH + 1);
 
         writeCount(buffer, rule.bands().size(), ProtocolLimits.MAX_BANDS, "spawn bands");
         for (AdminSnapshot.OreBandDraft band : rule.bands()) {
@@ -189,7 +199,18 @@ public final class DelvefoldStreamCodecs {
         int variantCount = readCount(buffer, ProtocolLimits.MAX_VARIANTS, "ore variants");
         List<AdminSnapshot.OreVariantDraft> variants = new ArrayList<>(variantCount);
         for (int index = 0; index < variantCount; index++) {
-            variants.add(new AdminSnapshot.OreVariantDraft(readResourceId(buffer), readResourceId(buffer)));
+            String blockId = readResourceId(buffer);
+            String replaceTag = readResourceId(buffer);
+            int stateCount = readCount(buffer, ProtocolLimits.MAX_STATE_PROPERTIES, "state properties");
+            java.util.Map<String, String> state = new java.util.LinkedHashMap<>();
+            for (int property = 0; property < stateCount; property++) {
+                String key = readString(buffer, ProtocolLimits.ID_LENGTH);
+                String value = readString(buffer, ProtocolLimits.ID_LENGTH);
+                if (state.putIfAbsent(key, value) != null) {
+                    throw new IllegalArgumentException("Duplicate block-state property: " + key);
+                }
+            }
+            variants.add(new AdminSnapshot.OreVariantDraft(blockId, replaceTag, state));
         }
 
         int terrainCount = readCount(buffer, ProtocolLimits.MAX_TERRAIN_MODES, "terrain modes");
@@ -201,12 +222,18 @@ public final class DelvefoldStreamCodecs {
             }
         }
 
+        List<String> biomeIncludes = readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                ProtocolLimits.ID_LENGTH + 1);
+        List<String> biomeExcludes = readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                ProtocolLimits.ID_LENGTH + 1);
+
         int bandCount = readCount(buffer, ProtocolLimits.MAX_BANDS, "spawn bands");
         List<AdminSnapshot.OreBandDraft> bands = new ArrayList<>(bandCount);
         for (int index = 0; index < bandCount; index++) {
             bands.add(readOreBand(buffer));
         }
-        return new AdminSnapshot.OreRuleDraft(id, enabled, required, primaryBlockId, variants, terrainModes, bands);
+        return new AdminSnapshot.OreRuleDraft(id, enabled, required, primaryBlockId, variants, terrainModes,
+                biomeIncludes, biomeExcludes, bands);
     }
 
     public static void writeOreBand(RegistryFriendlyByteBuf buffer, AdminSnapshot.OreBandDraft band) {

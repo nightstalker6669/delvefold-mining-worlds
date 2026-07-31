@@ -14,7 +14,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Named per-save ore profiles with safe duplication, selection, and JSON import/export.
 - Visual height-distribution and generation-workload previews in the ore editor.
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
-- Wizard for stone/deepslate or other variants, replacement hosts, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
+- Three-page ore-rule wizard for stone/deepslate or other variants, replacement hosts, block-state properties, biome include/exclude selectors, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
 - Safe, Hostile, and Normal gameplay presets with individual spawn-category toggles.
 - Dedicated Delvefold creative tab with the Portal Frame and room for future content.

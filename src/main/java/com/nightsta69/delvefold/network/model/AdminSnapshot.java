@@ -181,6 +181,8 @@ public record AdminSnapshot(
             String primaryBlockId,
             List<OreVariantDraft> variants,
             List<TerrainMode> terrainModes,
+            List<String> biomeIncludes,
+            List<String> biomeExcludes,
             List<OreBandDraft> bands) {
 
         public OreRuleDraft {
@@ -188,6 +190,10 @@ public record AdminSnapshot(
             primaryBlockId = cleanId(primaryBlockId, "minecraft:iron_ore");
             variants = limitedCopy(variants, ProtocolLimits.MAX_VARIANTS);
             terrainModes = limitedCopy(terrainModes, ProtocolLimits.MAX_TERRAIN_MODES);
+            biomeIncludes = limitedStrings(biomeIncludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                    ProtocolLimits.ID_LENGTH + 1);
+            biomeExcludes = limitedStrings(biomeExcludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                    ProtocolLimits.ID_LENGTH + 1);
             bands = limitedCopy(bands, ProtocolLimits.MAX_BANDS);
         }
 
@@ -200,20 +206,31 @@ public record AdminSnapshot(
                     true,
                     false,
                     normalizedBlock,
-                    List.of(new OreVariantDraft(normalizedBlock, replaceTag)),
+                    List.of(new OreVariantDraft(normalizedBlock, replaceTag, java.util.Map.of())),
                     List.of(TerrainMode.values()),
+                    List.of("#delvefold:mining_biomes"),
+                    List.of(),
                     List.of(OreBandDraft.defaultBand()));
         }
 
         public OreRuleDraft withEnabled(boolean value) {
-            return new OreRuleDraft(id, value, required, primaryBlockId, variants, terrainModes, bands);
+            return new OreRuleDraft(id, value, required, primaryBlockId, variants, terrainModes,
+                    biomeIncludes, biomeExcludes, bands);
         }
     }
 
-    public record OreVariantDraft(String blockId, String replaceTag) {
+    public record OreVariantDraft(String blockId, String replaceTag, java.util.Map<String, String> state) {
         public OreVariantDraft {
             blockId = cleanId(blockId, "minecraft:iron_ore");
             replaceTag = cleanId(replaceTag, "minecraft:stone_ore_replaceables");
+            if (state == null || state.isEmpty()) {
+                state = java.util.Map.of();
+            } else {
+                java.util.TreeMap<String, String> sanitized = new java.util.TreeMap<>();
+                state.entrySet().stream().limit(ProtocolLimits.MAX_STATE_PROPERTIES)
+                        .forEach(entry -> sanitized.put(entry.getKey(), entry.getValue()));
+                state = java.util.Collections.unmodifiableMap(sanitized);
+            }
         }
     }
 
