@@ -1,6 +1,6 @@
 # Modpack and Mod Integration
 
-Delvefold 0.4 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is experimental until 1.0; `DelvefoldApi.API_VERSION` is currently `1`.
+Delvefold 1.0 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is stable for the 1.x line; `DelvefoldApi.API_VERSION` is `1`. Additive methods and events may appear in later 1.x releases, while existing public signatures retain source and binary compatibility.
 
 ## Datapack ore profiles
 

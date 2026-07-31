@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0 — Stable Foundations
+
+- Stabilized configuration schema 2 and public API version 1 for the Delvefold 1.x line.
+- Preserved direct upgrade compatibility for schema-2 worlds created by Delvefold 0.2–0.4.
+- Added reproducible release JARs, source JARs, manifest version metadata, and explicit optional JEI/EMI declarations.
+- Added build-time validation for all shipped JSON, datapack examples, and literal Delvefold translation keys.
+- Migrated the setup wizard, ore picker, ore editor, backup browser, dashboard navigation, and major administration labels to translatable components.
+- Added clean-build CI, pull-request artifacts, monthly dependency updates, and tag-driven GitHub releases with SHA-256 checksums.
+- Added compatibility, troubleshooting, contribution, security, and structured bug-report documentation.
+- Removed deprecated client event-bus registration usage and completed client/dedicated-server release smoke testing.
+
+Delvefold 1.0 remains server-authoritative, requires installation on both client and server, and never retrogenerates existing chunks silently.
+
 ## 0.4.0 — Modpack Ecosystem
 
 - Added namespaced, read-only ore profiles loaded from datapacks.

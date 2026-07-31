@@ -12,11 +12,9 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Portal;
 import net.minecraft.world.level.block.Rotation;
@@ -145,11 +143,6 @@ public final class MiningPortalBlock extends Block implements Portal {
             level.addParticle(count == 0 ? ParticleTypes.REVERSE_PORTAL : ParticleTypes.PORTAL,
                     x, y, z, dx, dy, dz);
         }
-    }
-
-    @Override
-    public ItemStack getCloneItemStack(LevelReader level, BlockPos position, BlockState state) {
-        return ItemStack.EMPTY;
     }
 
     @Override
