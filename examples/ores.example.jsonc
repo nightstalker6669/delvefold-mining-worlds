@@ -1,0 +1,45 @@
+{
+  // Copied per save to <save>/serverconfig/delvefold/ores.json.
+  "schema_version": 1,
+  "revision": 0,
+  "profile": "custom",
+  "rules": [
+    {
+      "id": "examplemod_tin",
+      "enabled": true,
+      // false lets a pack load without examplemod; the rule warns and skips.
+      "required": false,
+      "terrain_modes": ["flat", "cavern", "wild"],
+      "targets": [
+        {
+          "block": "examplemod:tin_ore",
+          "state": {},
+          "replace_tag": "minecraft:stone_ore_replaceables"
+        },
+        {
+          "block": "examplemod:deepslate_tin_ore",
+          "state": {},
+          "replace_tag": "minecraft:deepslate_ore_replaceables"
+        }
+      ],
+      "biomes": {
+        "include": ["#delvefold:mining_biomes"],
+        "exclude": []
+      },
+      "bands": [
+        {
+          "id": "main",
+          "vein_size": 8,
+          "attempts_per_chunk": 7.5,
+          "distribution": "triangle",
+          "min_y": -48,
+          "max_y": 96,
+          "peak_y": 16,
+          "plateau_min_y": null,
+          "plateau_max_y": null,
+          "discard_on_air_exposure": 0.25
+        }
+      ]
+    }
+  ]
+}

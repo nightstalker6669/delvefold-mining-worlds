@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "delvefold:block/portal_frame"
+    }
+  }
+}

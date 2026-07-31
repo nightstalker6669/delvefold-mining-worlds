@@ -1,0 +1,8 @@
+{
+  "feature": "delvefold:mining_ores",
+  "placement": [
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "delvefold:block/portal_ns"
+    },
+    "axis=z": {
+      "model": "delvefold:block/portal_ew"
+    }
+  }
+}

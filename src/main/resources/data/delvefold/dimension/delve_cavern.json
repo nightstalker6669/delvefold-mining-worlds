@@ -1,0 +1,11 @@
+{
+  "type": "delvefold:delve_cavern",
+  "generator": {
+    "type": "minecraft:noise",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "delvefold:mining_cavern"
+    },
+    "settings": "minecraft:caves"
+  }
+}

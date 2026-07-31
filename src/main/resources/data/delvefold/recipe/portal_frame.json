@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "key": {
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "P": {
+      "item": "minecraft:polished_deepslate"
+    },
+    "O": {
+      "item": "minecraft:obsidian"
+    }
+  },
+  "pattern": [
+    "IPI",
+    "POP",
+    "IPI"
+  ],
+  "result": {
+    "id": "delvefold:portal_frame",
+    "count": 4
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "type": "delvefold:mining_ores",
+  "config": {
+    "ores": [
+      {
+        "id": "delvefold:coal",
+        "targets": [
+          {
+            "block": "minecraft:coal_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          },
+          {
+            "block": "minecraft:deepslate_coal_ore",
+            "replaceable": "minecraft:deepslate_ore_replaceables"
+          }
+        ],
+        "vein_size": 17,
+        "veins_per_chunk": 20,
+        "min_y": -32,
+        "max_y": 192,
+        "distribution": "triangle"
+      },
+      {
+        "id": "delvefold:copper",
+        "targets": [
+          {
+            "block": "minecraft:copper_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          },
+          {
+            "block": "minecraft:deepslate_copper_ore",
+            "replaceable": "minecraft:deepslate_ore_replaceables"
+          }
+        ],
+        "vein_size": 10,
+        "veins_per_chunk": 16,
+        "min_y": -16,
+        "max_y": 112,
+        "distribution": "triangle"
+      },
+      {
+        "id": "delvefold:iron",
+        "targets": [
+          {
+            "block": "minecraft:iron_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          },
+          {
+            "block": "minecraft:deepslate_iron_ore",
+            "replaceable": "minecraft:deepslate_ore_replaceables"
+          }
+        ],
+        "vein_size": 9,
+        "veins_per_chunk": 20,
+        "min_y": -64,
+        "max_y": 160,
+        "distribution": "triangle"
+      },
+      {
+        "id": "delvefold:gold",
+        "targets": [
+          {
+            "block": "minecraft:gold_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          },
+          {
+            "block": "minecraft:deepslate_gold_ore",
+            "replaceable": "minecraft:deepslate_ore_replaceables"
+          }
+        ],
+        "vein_size": 9,
+        "veins_per_chunk": 6,
+        "min_y": -64,
+        "max_y": 48,
+        "distribution": "triangle"
+      },
+      {
+        "id": "delvefold:redstone",
+        "targets": [
+          {
+            "block": "minecraft:redstone_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          },
+          {
+            "block": "minecraft:deepslate_redstone_ore",
+            "replaceable": "minecraft:deepslate_ore_replaceables"
+          }
+        ],
+        "vein_size": 8,
+        "veins_per_chunk": 10,
+        "min_y": -64,
+        "max_y": 16,
+        "distribution": "uniform"
+      },
+      {
+        "id": "delvefold:lapis",
+        "targets": [
+          {
+            "block": "minecraft:lapis_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          },
+          {
+            "block": "minecraft:deepslate_lapis_ore",
+            "replaceable": "minecraft:deepslate_ore_replaceables"
+          }
+        ],
+        "vein_size": 7,
+        "veins_per_chunk": 4,
+        "min_y": -64,
+        "max_y": 64,
+        "distribution": "triangle"
+      },
+      {
+        "id": "delvefold:diamond",
+        "targets": [
+          {
+            "block": "minecraft:diamond_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          },
+          {
+            "block": "minecraft:deepslate_diamond_ore",
+            "replaceable": "minecraft:deepslate_ore_replaceables"
+          }
+        ],
+        "vein_size": 8,
+        "veins_per_chunk": 6,
+        "min_y": -64,
+        "max_y": 16,
+        "distribution": "triangle",
+        "discard_chance_on_air_exposure": 0.5
+      },
+      {
+        "id": "delvefold:emerald",
+        "targets": [
+          {
+            "block": "minecraft:emerald_ore",
+            "replaceable": "minecraft:stone_ore_replaceables"
+          }
+        ],
+        "vein_size": 3,
+        "veins_per_chunk": 4,
+        "min_y": -16,
+        "max_y": 192,
+        "distribution": "triangle"
+      }
+    ]
+  }
+}

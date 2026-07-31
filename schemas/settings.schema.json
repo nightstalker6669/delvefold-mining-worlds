@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nightsta69.github.io/delvefold/schemas/settings.schema.json",
+  "title": "Delvefold world settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "revision",
+    "generation_epoch",
+    "last_world_operation_id",
+    "initialized",
+    "terrain_mode",
+    "ore_preset",
+    "gameplay",
+    "portal"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "generation_epoch": { "type": "integer", "minimum": 0 },
+    "last_world_operation_id": { "type": "string", "maxLength": 128 },
+    "initialized": { "type": "boolean" },
+    "terrain_mode": { "type": ["string", "null"], "enum": ["flat", "cavern", "wild", null] },
+    "ore_preset": { "enum": ["vanilla_balanced", "rich", "empty"] },
+    "gameplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preset", "monsters", "creatures", "ambient", "water_creatures", "patrols", "phantoms"],
+      "properties": {
+        "preset": { "enum": ["safe", "hostile", "normal"] },
+        "monsters": { "type": "boolean" },
+        "creatures": { "type": "boolean" },
+        "ambient": { "type": "boolean" },
+        "water_creatures": { "type": "boolean" },
+        "patrols": { "type": "boolean" },
+        "phantoms": { "type": "boolean" }
+      }
+    },
+    "portal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "allow_from_overworld_only", "player_only", "cooldown_seconds", "coordinate_scale"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "allow_from_overworld_only": { "type": "boolean" },
+        "player_only": { "const": true },
+        "cooldown_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+        "coordinate_scale": { "type": "number", "minimum": 0.01, "maximum": 100 }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "initialized": { "const": true } } },
+      "then": { "properties": { "terrain_mode": { "enum": ["flat", "cavern", "wild"] } } }
+    },
+    {
+      "if": { "properties": { "initialized": { "const": false } } },
+      "then": { "properties": { "terrain_mode": { "type": "null" } } }
+    }
+  ]
+}
