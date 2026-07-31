@@ -1,0 +1,22 @@
+{
+  "parent": "delvefold:root",
+  "display": {
+    "icon": { "id": "minecraft:flint_and_steel" },
+    "title": { "translate": "advancement.delvefold.activate.title" },
+    "description": { "translate": "advancement.delvefold.activate.description" },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "activate": {
+      "trigger": "minecraft:item_used_on_block",
+      "conditions": {
+        "location": { "block": { "blocks": "delvefold:portal_frame" } },
+        "item": { "items": "minecraft:flint_and_steel" }
+      }
+    }
+  },
+  "requirements": [["activate"]]
+}

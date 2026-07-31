@@ -24,11 +24,19 @@ final class StrictConfigStructure {
             "discard_on_air_exposure");
     private static final Set<String> SETTINGS_DOCUMENT = Set.of(
             "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
+            "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal", "identity");
+    private static final Set<String> REQUIRED_SETTINGS_DOCUMENT = Set.of(
+            "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
             "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal");
     private static final Set<String> GAMEPLAY = Set.of(
             "preset", "monsters", "creatures", "ambient", "water_creatures", "patrols", "phantoms");
     private static final Set<String> PORTAL = Set.of(
             "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale");
+    private static final Set<String> IDENTITY = Set.of(
+            "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
+            "fault_lines", "renewal");
+    private static final Set<String> RENEWAL = Set.of(
+            "enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis");
 
     private StrictConfigStructure() {
     }
@@ -98,7 +106,7 @@ final class StrictConfigStructure {
 
     private static void validateSettingsDocument(JsonElement root) {
         JsonObject settings = object(root, "$");
-        fields(settings, SETTINGS_DOCUMENT, SETTINGS_DOCUMENT, "$");
+        fields(settings, SETTINGS_DOCUMENT, REQUIRED_SETTINGS_DOCUMENT, "$");
         integer(settings.get("schema_version"), "$.schema_version");
         integer(settings.get("revision"), "$.revision");
         integer(settings.get("generation_epoch"), "$.generation_epoch");
@@ -122,6 +130,23 @@ final class StrictConfigStructure {
         bool(portal.get("allow_from_overworld_only"), "$.portal.allow_from_overworld_only");
         integer(portal.get("cooldown_seconds"), "$.portal.cooldown_seconds");
         number(portal.get("coordinate_scale"), "$.portal.coordinate_scale");
+        if (settings.has("identity")) {
+            JsonObject identity = object(settings.get("identity"), "$.identity");
+            fields(identity, IDENTITY, IDENTITY, "$.identity");
+            string(identity.get("display_name"), "$.identity.display_name", false);
+            string(identity.get("terrain_variant"), "$.identity.terrain_variant", false);
+            string(identity.get("landmark_preset"), "$.identity.landmark_preset", false);
+            bool(identity.get("survey_stations"), "$.identity.survey_stations");
+            bool(identity.get("motherlodes"), "$.identity.motherlodes");
+            bool(identity.get("fault_lines"), "$.identity.fault_lines");
+            JsonObject renewal = object(identity.get("renewal"), "$.identity.renewal");
+            fields(renewal, RENEWAL, RENEWAL, "$.identity.renewal");
+            bool(renewal.get("enabled"), "$.identity.renewal.enabled");
+            integer(renewal.get("interval_days"), "$.identity.renewal.interval_days");
+            integer(renewal.get("warning_minutes"), "$.identity.renewal.warning_minutes");
+            integer(renewal.get("next_renewal_at_epoch_millis"),
+                    "$.identity.renewal.next_renewal_at_epoch_millis");
+        }
     }
 
     private static void fields(JsonObject object, Set<String> allowed, Set<String> required, String path) {

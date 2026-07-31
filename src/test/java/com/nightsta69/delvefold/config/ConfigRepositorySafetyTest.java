@@ -129,4 +129,25 @@ class ConfigRepositorySafetyTest {
         assertThrows(IllegalArgumentException.class, () -> repository.save(
                 baseline.snapshot().ores(), baseline.snapshot().settings().withActiveProfile("rich")));
     }
+
+    @Test
+    void schemaTwoSettingsWithoutIdentityReceiveNonDestructiveDefaults() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+        String withIdentity = Files.readString(paths.settings());
+        var oldRoot = com.google.gson.JsonParser.parseString(withIdentity).getAsJsonObject();
+        oldRoot.remove("identity");
+        String withoutIdentity = ConfigJson.GSON.toJson(oldRoot) + System.lineSeparator();
+        Files.writeString(paths.settings(), withoutIdentity);
+
+        ConfigLoadResult loaded = repository.loadOrCreate(null);
+
+        assertTrue(!loaded.usedFallback());
+        assertEquals("Delvefold Mining World", loaded.snapshot().settings().identity().displayName());
+        assertEquals(withoutIdentity, Files.readString(paths.settings()));
+    }
 }

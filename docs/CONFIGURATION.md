@@ -7,7 +7,7 @@ Delvefold has one canonical configuration model. The GUI, commands, and JSON all
 ## Save scope and loading
 
 - `ores.json` contains the ore profile and independently revisioned ore rules.
-- `settings.json` contains explicit initialization state, locked terrain choice, generation epoch, gameplay settings, and portal settings.
+- `settings.json` contains explicit initialization state, terrain shape and scale, world identity, landmark policy, renewal schedule, generation epoch, gameplay settings, and portal settings.
 - Missing files are created from built-in defaults.
 - Invalid edits are rejected without overwriting the rejected files. If a valid configuration was already active, it remains the last-known-good runtime snapshot.
 - Disk writes use temporary sibling files, forced flush, and atomic replacement where the filesystem supports it. A small transaction journal makes the two JSON documents restart-recoverable if a write is interrupted between them.
@@ -89,6 +89,33 @@ Nether quartz, ancient debris, and End-specific ores are intentionally excluded.
 The `generation_epoch` increments on initialization, recreation, and deletion. Portal links and generation caches use the epoch to avoid reusing stale state.
 
 Terrain is locked for the current mining world. Changing it requires **Recreate Mining World**, which removes the old active dimension safely on restart and begins a new epoch.
+
+### World identity
+
+The optional `identity` object is additive to schema 2. A schema-2 settings file written by 0.2 loads with safe defaults when the object is absent and is not rewritten merely by loading:
+
+```json
+{
+  "identity": {
+    "display_name": "Delvefold Mining World",
+    "terrain_variant": "classic",
+    "landmark_preset": "balanced",
+    "survey_stations": true,
+    "motherlodes": true,
+    "fault_lines": true,
+    "renewal": {
+      "enabled": false,
+      "interval_days": 30,
+      "warning_minutes": 30,
+      "next_renewal_at_epoch_millis": 0
+    }
+  }
+}
+```
+
+`terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat doubles the mineable depth, Expansive Cavern creates amplified subterranean ranges, and Expansive Wild uses amplified Overworld terrain. `landmark_preset` is `pure_mining`, `balanced`, or `abundant`. Pure Mining disables Delvefold landmarks. The individual landmark booleans can further narrow which bounded landmark types appear in newly generated chunks.
+
+Scheduled renewal is disabled by default. When enabled, `interval_days` is 1–3650 and `warning_minutes` is 1–10080. The server announces the configured warning plus ten- and one-minute warnings when applicable. At the due time it blocks entry, evacuates players, schedules a restart-safe recreation, and always retains a timestamped backup. Singleplayer users apply it by exiting to title and reopening the save; dedicated servers apply it on restart.
 
 Gameplay presets are live settings:
 

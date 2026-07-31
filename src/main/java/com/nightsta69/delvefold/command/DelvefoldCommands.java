@@ -19,6 +19,10 @@ import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.LandmarkPreset;
+import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
+import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.reset.BackupMode;
@@ -78,10 +82,44 @@ public final class DelvefoldCommands {
                                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("safe", "hostile", "normal"), builder))
                                                 .executes(DelvefoldCommands::initialize)))))
                 .then(Commands.literal("status").executes(DelvefoldCommands::status))
+                .then(identityCommands())
+                .then(renewalCommands())
                 .then(profileCommands())
                 .then(backupCommands())
                 .then(oreCommands())
                 .then(worldCommands());
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> identityCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> identity = Commands.literal("identity");
+        identity.requires(AdminAccess::canConfigure);
+        identity.executes(DelvefoldCommands::identityStatus);
+        identity.then(Commands.literal("name")
+                .then(Commands.argument("name", StringArgumentType.greedyString())
+                        .executes(DelvefoldCommands::setIdentityName)));
+        identity.then(Commands.literal("landmarks")
+                .then(Commands.argument("preset", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("pure_mining", "balanced", "abundant"), builder))
+                        .executes(DelvefoldCommands::setLandmarkPreset)));
+        identity.then(Commands.literal("variant")
+                .then(Commands.argument("variant", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("classic", "expansive"), builder))
+                        .executes(DelvefoldCommands::setUninitializedVariant)));
+        return identity;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> renewalCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> renewal = Commands.literal("renewal");
+        renewal.requires(AdminAccess::canManageWorld);
+        renewal.executes(DelvefoldCommands::renewalStatus);
+        renewal.then(Commands.literal("disable").executes(DelvefoldCommands::disableRenewal));
+        renewal.then(Commands.literal("configure")
+                .then(Commands.argument("interval_days", IntegerArgumentType.integer(1, 3650))
+                        .then(Commands.argument("warning_minutes", IntegerArgumentType.integer(1, 10080))
+                                .executes(DelvefoldCommands::configureRenewal))));
+        return renewal;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> backupCommands() {
@@ -238,7 +276,9 @@ public final class DelvefoldCommands {
                         .executes(context -> requestRecreate(
                                 context,
                                 TerrainMode.parse(StringArgumentType.getString(context, "terrain")),
-                                parseBackup(StringArgumentType.getString(context, "backup"))))));
+                                parseBackup(StringArgumentType.getString(context, "backup")))))
+                .then(recreateVariantLiteral("classic", TerrainVariant.CLASSIC))
+                .then(recreateVariantLiteral("expansive", TerrainVariant.EXPANSIVE)));
         world.then(Commands.literal("recreate").then(recreateRequest));
 
         LiteralArgumentBuilder<CommandSourceStack> deleteRequest = Commands.literal("request");
@@ -251,6 +291,24 @@ public final class DelvefoldCommands {
                 .then(Commands.argument("token", StringArgumentType.word()).executes(DelvefoldCommands::confirmWorldOperation)));
         world.then(Commands.literal("cancel").executes(DelvefoldCommands::cancelWorldOperation));
         return world;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> recreateVariantLiteral(
+            String name, TerrainVariant variant) {
+        return Commands.literal(name)
+                .executes(context -> requestRecreate(
+                        context,
+                        TerrainMode.parse(StringArgumentType.getString(context, "terrain")),
+                        variant,
+                        BackupMode.KEEP_BACKUP))
+                .then(Commands.argument("backup", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("keep_backup", "permanent"), builder))
+                        .executes(context -> requestRecreate(
+                                context,
+                                TerrainMode.parse(StringArgumentType.getString(context, "terrain")),
+                                variant,
+                                parseBackup(StringArgumentType.getString(context, "backup")))));
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> ruleArgument() {
@@ -300,6 +358,79 @@ public final class DelvefoldCommands {
             context.getSource().sendFailure(Component.literal(exception.getMessage()));
             return 0;
         }
+    }
+
+    private static int identityStatus(CommandContext<CommandSourceStack> context) {
+        var settings = DelvefoldConfigService.get().snapshot().settings();
+        var identity = settings.identity();
+        context.getSource().sendSuccess(() -> Component.literal(identity.displayName() + ": "
+                + identity.terrainVariant().serializedName() + " "
+                + identity.landmarkPreset().serializedName() + " landmarks"), false);
+        return 1;
+    }
+
+    private static int setIdentityName(CommandContext<CommandSourceStack> context) {
+        String name = StringArgumentType.getString(context, "name").trim();
+        return updateIdentity(context, identity -> new WorldIdentitySettings(name, identity.terrainVariant(),
+                identity.landmarkPreset(), identity.surveyStations(), identity.motherlodes(), identity.faultLines(),
+                identity.renewal()), "Mining-world name updated to '" + name + "'.");
+    }
+
+    private static int setLandmarkPreset(CommandContext<CommandSourceStack> context) {
+        LandmarkPreset preset = LandmarkPreset.valueOf(
+                StringArgumentType.getString(context, "preset").toUpperCase(Locale.ROOT));
+        boolean enabled = preset != LandmarkPreset.PURE_MINING;
+        return updateIdentity(context, identity -> new WorldIdentitySettings(identity.displayName(),
+                identity.terrainVariant(), preset, enabled, enabled, enabled, identity.renewal()),
+                "Landmark preset updated; changes apply to newly generated chunks.");
+    }
+
+    private static int setUninitializedVariant(CommandContext<CommandSourceStack> context) {
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        if (snapshot.settings().initialized()) {
+            context.getSource().sendFailure(Component.literal(
+                    "Terrain variant is locked for the active world. Change it during a confirmed recreation."));
+            return 0;
+        }
+        TerrainVariant variant = TerrainVariant.valueOf(
+                StringArgumentType.getString(context, "variant").toUpperCase(Locale.ROOT));
+        return updateIdentity(context, identity -> new WorldIdentitySettings(identity.displayName(), variant,
+                identity.landmarkPreset(), identity.surveyStations(), identity.motherlodes(), identity.faultLines(),
+                identity.renewal()), "Terrain variant set to " + variant.serializedName() + ".");
+    }
+
+    private static int renewalStatus(CommandContext<CommandSourceStack> context) {
+        RenewalSettings renewal = DelvefoldConfigService.get().snapshot().settings().identity().renewal();
+        String status = renewal.enabled()
+                ? "enabled every " + renewal.intervalDays() + " day(s), warning " + renewal.warningMinutes()
+                        + " minute(s), next epoch ms " + renewal.nextRenewalAtEpochMillis()
+                : "disabled";
+        context.getSource().sendSuccess(() -> Component.literal("Scheduled renewal: " + status), false);
+        return 1;
+    }
+
+    private static int configureRenewal(CommandContext<CommandSourceStack> context) {
+        int days = IntegerArgumentType.getInteger(context, "interval_days");
+        int warning = IntegerArgumentType.getInteger(context, "warning_minutes");
+        RenewalSettings renewal = new RenewalSettings(true, days, warning, 0L)
+                .scheduledFrom(System.currentTimeMillis());
+        return updateIdentity(context, identity -> identity.withRenewal(renewal),
+                "Scheduled renewal enabled every " + days + " day(s). Backups are mandatory.");
+    }
+
+    private static int disableRenewal(CommandContext<CommandSourceStack> context) {
+        return updateIdentity(context, identity -> identity.withRenewal(RenewalSettings.disabled()),
+                "Scheduled renewal disabled.");
+    }
+
+    private static int updateIdentity(
+            CommandContext<CommandSourceStack> context,
+            java.util.function.UnaryOperator<WorldIdentitySettings> update,
+            String success) {
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(snapshot.settings().revision(),
+                settings -> settings.withIdentity(update.apply(settings.identity())));
+        return reportWrite(context.getSource(), result, success);
     }
 
     private static int listProfiles(CommandContext<CommandSourceStack> context) {
@@ -699,16 +830,24 @@ public final class DelvefoldCommands {
 
     private static int requestRecreate(CommandContext<CommandSourceStack> context, TerrainMode selected, BackupMode backup) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        return requestRecreate(context, selected, snapshot.settings().identity().terrainVariant(), backup);
+    }
+
+    private static int requestRecreate(CommandContext<CommandSourceStack> context, TerrainMode selected,
+            TerrainVariant variant, BackupMode backup) {
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         TerrainMode target = selected == null ? snapshot.settings().terrainMode() : selected;
-        WorldOperationRequest base = WorldOperationRequest.recreate(target);
+        WorldOperationRequest base = WorldOperationRequest.recreate(target, variant);
         WorldOperationRequest request = new WorldOperationRequest(
-                base.type(), base.targetTerrain(), null, null, backup, false);
+                base.type(), base.targetTerrain(), base.targetVariant(),
+                null, null, backup, false);
         return reportPreview(context, WorldOperationService.get().request(context.getSource().getServer(), request, context.getSource().getTextName()));
     }
 
     private static int requestDelete(CommandContext<CommandSourceStack> context, BackupMode backup) {
         WorldOperationRequest base = WorldOperationRequest.delete();
-        WorldOperationRequest request = new WorldOperationRequest(base.type(), null, null, null, backup, false);
+        WorldOperationRequest request = new WorldOperationRequest(
+                base.type(), null, null, null, null, backup, false);
         return reportPreview(context, WorldOperationService.get().request(context.getSource().getServer(), request, context.getSource().getTextName()));
     }
 

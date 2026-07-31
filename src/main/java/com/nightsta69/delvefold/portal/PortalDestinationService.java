@@ -156,7 +156,7 @@ final class PortalDestinationService {
 
     private static Optional<PortalFrameShape> findNaturalSite(
             ServerLevel level, BlockPos requested, Direction.Axis axis) {
-        boolean cavern = level.dimension().equals(com.nightsta69.delvefold.world.DelvefoldWorldgen.CAVERN_LEVEL);
+        boolean cavern = com.nightsta69.delvefold.world.DelvefoldWorldgen.isCavernLevel(level.dimension());
         WorldBorder border = level.getWorldBorder();
 
         for (BlockPos.MutableBlockPos cursor : BlockPos.spiralAround(
@@ -239,7 +239,7 @@ final class PortalDestinationService {
         }
 
         int y;
-        if (level.dimension().equals(com.nightsta69.delvefold.world.DelvefoldWorldgen.CAVERN_LEVEL)) {
+        if (com.nightsta69.delvefold.world.DelvefoldWorldgen.isCavernLevel(level.dimension())) {
             y = clampPortalY(level, requested.getY());
         } else {
             y = clampPortalY(level, level.getHeight(

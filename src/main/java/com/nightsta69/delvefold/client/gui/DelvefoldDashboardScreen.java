@@ -6,11 +6,16 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
+import com.nightsta69.delvefold.config.model.LandmarkPreset;
+import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.model.ProfileOperation;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
+import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
 import java.util.List;
@@ -32,6 +37,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private boolean patrols;
     private boolean phantoms;
     private TerrainMode recreateTerrain;
+    private TerrainVariant recreateVariant;
     private boolean portalEnabled;
     private boolean portalOverworldOnly;
     private String portalCooldown;
@@ -39,6 +45,12 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private String portalError = "";
     private String profileName = "my_profile";
     private String profileError = "";
+    private String identityName;
+    private LandmarkPreset landmarkPreset;
+    private boolean renewalEnabled;
+    private String renewalDays;
+    private String renewalWarning;
+    private String identityError = "";
     private String deleteArmedProfile = "";
     private boolean profileOverwrite;
     private AdminOperation armedOperation;
@@ -61,7 +73,9 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         this.profilePage = Math.max(0, profilePage);
         setGameplay(snapshot.gameplay());
         setPortal(snapshot.portal());
+        setIdentity(snapshot.identity());
         this.recreateTerrain = snapshot.terrainMode();
+        this.recreateVariant = snapshot.identity().terrainVariant();
     }
 
     @Override
@@ -87,6 +101,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             case PROFILES -> initProfiles();
             case GAMEPLAY -> initGameplay();
             case PORTAL -> initPortal();
+            case IDENTITY -> initIdentity();
             case DIAGNOSTICS -> initDiagnostics();
             case WORLD_MANAGEMENT -> initWorldManagement();
         }
@@ -310,7 +325,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                     new AdminSnapshot(this.snapshot.oreRevision(), this.snapshot.settingsRevision(),
                             this.snapshot.backendReady(), this.snapshot.initialized(),
                             this.snapshot.terrainMode(), this.snapshot.orePreset(), currentGameplay(),
-                            this.snapshot.portal(),
+                            this.snapshot.portal(), this.snapshot.identity(),
                             this.snapshot.capabilities(),
                             this.snapshot.activeProfileId(), this.snapshot.profiles(), this.snapshot.backups(),
                             this.snapshot.portalStatus(), this.snapshot.worldStatus(), this.snapshot.resetPending(),
@@ -415,15 +430,101 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 Style.GHOST, button -> refresh());
     }
 
+    private void initIdentity() {
+        int x = this.contentLeft() + 10;
+        int y = bodyTop() + 30;
+        int width = this.contentWidth() - 20;
+        EditBox name = this.addRenderableWidget(new EditBox(this.font, x, y, width, 20,
+                Component.literal("World display name")));
+        name.setMaxLength(64);
+        name.setValue(this.identityName);
+        name.setHint(Component.literal("World display name"));
+        name.setResponder(value -> this.identityName = value);
+
+        int gap = 6;
+        int half = (width - gap) / 2;
+        this.addButton(x, y + 34, half, 22,
+                Component.literal("Landmarks: " + pretty(this.landmarkPreset.name())), Style.SECONDARY,
+                button -> {
+                    LandmarkPreset[] values = LandmarkPreset.values();
+                    this.landmarkPreset = values[(this.landmarkPreset.ordinal() + 1) % values.length];
+                    button.setMessage(Component.literal("Landmarks: " + pretty(this.landmarkPreset.name())));
+                });
+        this.addButton(x + half + gap, y + 34, width - half - gap, 22,
+                toggleLabel("Scheduled renewal", this.renewalEnabled),
+                this.renewalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
+                    this.renewalEnabled = !this.renewalEnabled;
+                    button.setMessage(toggleLabel("Scheduled renewal", this.renewalEnabled));
+                    setButtonStyle(button, this.renewalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+                });
+
+        EditBox days = this.addRenderableWidget(new EditBox(this.font, x, y + 68, half, 20,
+                Component.literal("Renew every days")));
+        days.setMaxLength(4);
+        days.setValue(this.renewalDays);
+        days.setHint(Component.literal("Renew every days"));
+        days.setResponder(value -> this.renewalDays = value);
+        EditBox warning = this.addRenderableWidget(new EditBox(this.font, x + half + gap, y + 68,
+                width - half - gap, 20, Component.literal("Warning minutes")));
+        warning.setMaxLength(5);
+        warning.setValue(this.renewalWarning);
+        warning.setHint(Component.literal("Warning minutes"));
+        warning.setResponder(value -> this.renewalWarning = value);
+
+        this.addButton(x, y + 102, width, 22, Component.literal("Save world identity"), Style.PRIMARY,
+                button -> saveIdentity());
+    }
+
+    private void setIdentity(WorldIdentitySettings identity) {
+        this.identityName = identity.displayName();
+        this.landmarkPreset = identity.landmarkPreset();
+        this.renewalEnabled = identity.renewal().enabled();
+        this.renewalDays = Integer.toString(identity.renewal().intervalDays());
+        this.renewalWarning = Integer.toString(identity.renewal().warningMinutes());
+    }
+
+    private void saveIdentity() {
+        try {
+            int days = Integer.parseInt(this.renewalDays.trim());
+            int warning = Integer.parseInt(this.renewalWarning.trim());
+            if (this.identityName.isBlank() || days < 1 || days > 3650 || warning < 1 || warning > 10080) {
+                throw new NumberFormatException();
+            }
+            WorldIdentitySettings current = this.snapshot.identity();
+            boolean landmarks = this.landmarkPreset != LandmarkPreset.PURE_MINING;
+            long next = this.renewalEnabled
+                    ? (current.renewal().enabled() && current.renewal().intervalDays() == days
+                            ? current.renewal().nextRenewalAtEpochMillis()
+                            : System.currentTimeMillis() + days * 86_400_000L)
+                    : 0L;
+            RenewalSettings renewal = new RenewalSettings(this.renewalEnabled, days, warning, next);
+            WorldIdentitySettings updated = new WorldIdentitySettings(this.identityName,
+                    current.terrainVariant(), this.landmarkPreset,
+                    landmarks, landmarks, landmarks, renewal);
+            this.identityError = "";
+            DelvefoldClientRequests.send(new IdentityUpdatePayload(this.snapshot.settingsRevision(), updated));
+        } catch (NumberFormatException exception) {
+            this.identityError = "Name 1–64 chars; interval 1–3650 days; warning 1–10080 minutes.";
+        }
+    }
+
     private void initWorldManagement() {
         int x = this.contentLeft() + 10;
         int innerWidth = Math.max(1, this.contentWidth() - 20);
         int y = bodyTop() + (compactHeight() ? 22 : 26);
-        this.addButton(x, y, Math.min(220, innerWidth), 22, recreateTerrainLabel(), Style.SECONDARY, button -> {
+        int choiceGap = 6;
+        int choiceWidth = Math.max(1, (innerWidth - choiceGap) / 2);
+        this.addButton(x, y, choiceWidth, 22, recreateTerrainLabel(), Style.SECONDARY, button -> {
             TerrainMode[] modes = TerrainMode.values();
             this.recreateTerrain = modes[(this.recreateTerrain.ordinal() + 1) % modes.length];
             button.setMessage(recreateTerrainLabel());
         });
+        this.addButton(x + choiceWidth + choiceGap, y, innerWidth - choiceWidth - choiceGap, 22,
+                recreateVariantLabel(), Style.SECONDARY, button -> {
+                    TerrainVariant[] variants = TerrainVariant.values();
+                    this.recreateVariant = variants[(this.recreateVariant.ordinal() + 1) % variants.length];
+                    button.setMessage(recreateVariantLabel());
+                });
         y += compactHeight() ? 26 : 32;
         int actionGap = Math.min(6, Math.max(0, innerWidth - 2));
         int actionWidth = Math.max(1, (innerWidth - actionGap) / 2);
@@ -457,7 +558,9 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         }
         perform(operation, switch (operation) {
             case DELETE_WORLD -> "DELETE";
-            case RECREATE_WORLD -> "RECREATE:" + this.recreateTerrain.serializedName().toUpperCase(java.util.Locale.ROOT);
+            case RECREATE_WORLD -> "RECREATE:"
+                    + this.recreateTerrain.serializedName().toUpperCase(java.util.Locale.ROOT) + ":"
+                    + this.recreateVariant.serializedName().toUpperCase(java.util.Locale.ROOT);
             case CANCEL_PENDING_RESET -> "CANCEL";
             default -> "";
         });
@@ -514,6 +617,10 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
     private Component recreateTerrainLabel() {
         return Component.literal("Recreate terrain: " + pretty(this.recreateTerrain.name()));
+    }
+
+    private Component recreateVariantLabel() {
+        return Component.literal("Scale: " + pretty(this.recreateVariant.name()));
     }
 
     private static Component toggleLabel(String name, boolean enabled) {
@@ -619,6 +726,24 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                             x + 10, y + height - 17, DANGER, false);
                 }
             }
+            case IDENTITY -> {
+                this.drawCard(graphics, x, y, width, height);
+                this.drawSectionTitle(graphics, Component.literal("WORLD IDENTITY & RENEWAL"), x + 10, y + 7);
+                Component variant = Component.literal("Terrain scale: "
+                        + pretty(this.snapshot.identity().terrainVariant().name()) + " (locked per world)");
+                graphics.drawString(this.font, variant, x + width - this.font.width(variant) - 10,
+                        y + 8, ACCENT, false);
+                if (!this.identityError.isEmpty()) {
+                    graphics.drawString(this.font, this.font.plainSubstrByWidth(this.identityError, width - 20),
+                            x + 10, y + height - 15, DANGER, false);
+                } else {
+                    String schedule = this.snapshot.identity().renewal().enabled()
+                            ? "Renewal creates a backup, evacuates players, and waits for restart."
+                            : "Scheduled renewal is opt-in and currently disabled.";
+                    graphics.drawString(this.font, this.font.plainSubstrByWidth(schedule, width - 20),
+                            x + 10, y + height - 15, DIM_TEXT, false);
+                }
+            }
             case DIAGNOSTICS -> {
                 this.drawCard(graphics, x, y, width, height);
                 this.drawSectionTitle(graphics, Component.literal("CONFIGURATION HEALTH"), x + 10, y + 7);
@@ -705,6 +830,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         PROFILES("Profiles"),
         GAMEPLAY("Gameplay"),
         PORTAL("Portal"),
+        IDENTITY("Identity"),
         DIAGNOSTICS("Diagnostics"),
         WORLD_MANAGEMENT("World");
 

@@ -8,6 +8,7 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import org.junit.jupiter.api.Test;
 
@@ -35,10 +36,12 @@ class ConfigJsonTest {
         assertEquals(TerrainMode.CAVERN, initialized.terrainMode());
 
         WorldSettingsDocument recreated = initialized.recreate(
-                TerrainMode.WILD, OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE, "operation-1");
+                TerrainMode.WILD, TerrainVariant.EXPANSIVE,
+                OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE, "operation-1");
         assertEquals(2, recreated.generationEpoch());
         assertEquals("operation-1", recreated.lastWorldOperationId());
         assertEquals(TerrainMode.WILD, recreated.terrainMode());
+        assertEquals(TerrainVariant.EXPANSIVE, recreated.identity().terrainVariant());
 
         WorldSettingsDocument deleted = recreated.markDeleted("operation-2");
         assertFalse(deleted.initialized());

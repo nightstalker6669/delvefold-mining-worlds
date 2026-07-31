@@ -30,6 +30,30 @@
       "minLength": 1,
       "maxLength": 128
     },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes", "fault_lines", "renewal"],
+      "properties": {
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "terrain_variant": { "enum": ["classic", "expansive"] },
+        "landmark_preset": { "enum": ["pure_mining", "balanced", "abundant"] },
+        "survey_stations": { "type": "boolean" },
+        "motherlodes": { "type": "boolean" },
+        "fault_lines": { "type": "boolean" },
+        "renewal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "interval_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+            "warning_minutes": { "type": "integer", "minimum": 1, "maximum": 10080 },
+            "next_renewal_at_epoch_millis": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
     "gameplay": {
       "type": "object",
       "additionalProperties": false,

@@ -238,7 +238,8 @@ public final class DelvefoldConfigService {
                         candidate.orePreset(),
                         candidate.gameplay(),
                         candidate.portal(),
-                        candidate.activeProfileId()
+                        candidate.activeProfileId(),
+                        candidate.identity()
                 );
                 ConfigSnapshot saved = repository.save(before.ores(), candidate);
                 current.set(saved);
@@ -312,7 +313,8 @@ public final class DelvefoldConfigService {
                         before.settings().orePreset(),
                         before.settings().gameplay(),
                         before.settings().portal(),
-                        selected.profile());
+                        selected.profile(),
+                        before.settings().identity());
                 ConfigSnapshot saved = repository.save(active, settings);
                 current.set(saved);
                 return new ConfigWriteResult(true, saved, List.of());

@@ -196,6 +196,7 @@ public final class WorldRestoreService {
             WorldSettingsDocument settings = readSettings(ConfigPaths.forServer(server).settings());
             PendingWorldOperation metadata = new PendingWorldOperation(PendingWorldOperation.CURRENT_SCHEMA_VERSION,
                     pending.operationId(), WorldOperationType.RECREATE, settings.terrainMode(), settings.terrainMode(),
+                    settings.identity().terrainVariant(),
                     settings.orePreset(), settings.gameplay().preset(), BackupMode.KEEP_BACKUP, false,
                     pending.createdAtEpochMillis(), pending.requestedBy());
             writeJson(marker, metadata);

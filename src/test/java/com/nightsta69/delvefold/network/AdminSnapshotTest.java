@@ -16,7 +16,8 @@ class AdminSnapshotTest {
     void missingCapabilitiesFailClosed() {
         AdminSnapshot snapshot = new AdminSnapshot(0, 0, true, false, TerrainMode.FLAT,
                 OrePreset.VANILLA_BALANCED, GameplaySettings.fromPreset(GameplayPreset.SAFE),
-                PortalSettings.defaults(), null, "vanilla_balanced", List.of(), List.of(),
+                PortalSettings.defaults(), com.nightsta69.delvefold.config.model.WorldIdentitySettings.defaults(),
+                null, "vanilla_balanced", List.of(), List.of(),
                 "portal", "world", false, List.of(), 0, 0, List.of());
 
         assertFalse(snapshot.capabilities().canConfigure());

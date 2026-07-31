@@ -23,7 +23,7 @@ public enum AdminOperation {
     public boolean confirmationMatches(String supplied) {
         String normalized = supplied == null ? "" : supplied.trim();
         if (this == RECREATE_WORLD) {
-            return normalized.matches("(?i)RECREATE:(FLAT|CAVERN|WILD)");
+            return normalized.matches("(?i)RECREATE:(FLAT|CAVERN|WILD):(CLASSIC|EXPANSIVE)");
         }
         return confirmation.isEmpty() || confirmation.equalsIgnoreCase(normalized);
     }

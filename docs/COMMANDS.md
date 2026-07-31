@@ -22,6 +22,20 @@ The integrated singleplayer owner may administer Delvefold even with cheats disa
 /delvefold config reload
 ```
 
+## World identity and renewal
+
+```text
+/delvefold identity
+/delvefold identity name <name>
+/delvefold identity landmarks <pure_mining|balanced|abundant>
+/delvefold identity variant <classic|expansive>
+/delvefold renewal
+/delvefold renewal configure <interval_days> <warning_minutes>
+/delvefold renewal disable
+```
+
+`identity variant` sets the scale for an uninitialized world. Once initialized, choose Classic or Expansive as part of a confirmed recreation in the World GUI or command below. Landmark changes apply only to newly generated chunks. Renewal is opt-in, always retains a backup, warns online players, evacuates the mining dimensions when due, and waits for a restart before replacing terrain.
+
 ## Named ore profiles
 
 ```text
@@ -70,6 +84,7 @@ Default recoverable operations:
 ```text
 /delvefold world recreate request
 /delvefold world recreate request <flat|cavern|wild>
+/delvefold world recreate request <flat|cavern|wild> <classic|expansive>
 /delvefold world delete request
 ```
 
@@ -84,6 +99,7 @@ To explicitly discard the old dimension without retaining its timestamped backup
 
 ```text
 /delvefold world recreate request <terrain> permanent
+/delvefold world recreate request <terrain> <classic|expansive> permanent
 /delvefold world delete request permanent
 ```
 

@@ -4,12 +4,14 @@ import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.reset.WorldOperationService;
 import com.nightsta69.delvefold.reset.WorldRestoreService;
+import com.nightsta69.delvefold.reset.RenewalScheduler;
 import java.io.IOException;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
 /** Orders startup so pending dimension moves precede config publication. */
@@ -35,9 +37,11 @@ public final class DelvefoldServerLifecycle {
                 DelvefoldServerLifecycle::loadConfiguration);
         gameBus.addListener(EventPriority.LOWEST, ServerAboutToStartEvent.class,
                 event -> WorldOperationService.get().finishStartup(event.getServer()));
+        gameBus.addListener(ServerTickEvent.Post.class, RenewalScheduler::onServerTick);
         gameBus.addListener(ServerStoppingEvent.class, event -> {
             WorldOperationService.get().stop(event.getServer());
             WorldRestoreService.get().stop();
+            RenewalScheduler.reset();
             DelvefoldConfigService.get().stop(event.getServer());
         });
     }

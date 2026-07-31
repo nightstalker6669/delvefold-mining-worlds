@@ -10,7 +10,8 @@ public record WorldSettingsDocument(
         OrePreset orePreset,
         GameplaySettings gameplay,
         PortalSettings portal,
-        String activeProfileId
+        String activeProfileId,
+        WorldIdentitySettings identity
 ) {
     public static final int CURRENT_SCHEMA_VERSION = 2;
 
@@ -21,6 +22,7 @@ public record WorldSettingsDocument(
         portal = portal == null ? PortalSettings.defaults() : portal;
         activeProfileId = activeProfileId == null || activeProfileId.isBlank()
                 ? orePreset.serializedName() : activeProfileId.trim();
+        identity = identity == null ? WorldIdentitySettings.defaults() : identity;
         if (initialized && terrainMode == null) {
             throw new IllegalArgumentException("An initialized world requires a terrain mode");
         }
@@ -37,7 +39,8 @@ public record WorldSettingsDocument(
                 OrePreset.VANILLA_BALANCED,
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
                 PortalSettings.defaults(),
-                OrePreset.VANILLA_BALANCED.serializedName()
+                OrePreset.VANILLA_BALANCED.serializedName(),
+                WorldIdentitySettings.defaults()
         );
     }
 
@@ -55,7 +58,8 @@ public record WorldSettingsDocument(
                 preset,
                 GameplaySettings.fromPreset(gameplayPreset),
                 portal,
-                preset.serializedName()
+                preset.serializedName(),
+                identity
         );
     }
 
@@ -74,15 +78,21 @@ public record WorldSettingsDocument(
                 orePreset,
                 gameplay,
                 portal,
-                activeProfileId
+                activeProfileId,
+                identity
         );
     }
 
     public WorldSettingsDocument recreate(TerrainMode mode, OrePreset preset, GameplayPreset gameplayPreset) {
-        return recreate(mode, preset, gameplayPreset, lastWorldOperationId);
+        return recreate(mode, identity.terrainVariant(), preset, gameplayPreset, lastWorldOperationId);
     }
 
     public WorldSettingsDocument recreate(TerrainMode mode, OrePreset preset, GameplayPreset gameplayPreset, String operationId) {
+        return recreate(mode, identity.terrainVariant(), preset, gameplayPreset, operationId);
+    }
+
+    public WorldSettingsDocument recreate(TerrainMode mode, TerrainVariant variant, OrePreset preset,
+            GameplayPreset gameplayPreset, String operationId) {
         if (!initialized) {
             throw new IllegalStateException("Delvefold must be initialized before it can be recreated");
         }
@@ -96,7 +106,8 @@ public record WorldSettingsDocument(
                 preset == null ? orePreset : preset,
                 gameplayPreset == null ? gameplay : GameplaySettings.fromPreset(gameplayPreset),
                 portal,
-                activeProfileId
+                activeProfileId,
+                identity.withTerrainVariant(variant)
         );
     }
 
@@ -111,7 +122,8 @@ public record WorldSettingsDocument(
                 orePreset,
                 replacement,
                 portal,
-                activeProfileId
+                activeProfileId,
+                identity
         );
     }
 
@@ -126,12 +138,18 @@ public record WorldSettingsDocument(
                 orePreset,
                 gameplay,
                 replacement,
-                activeProfileId
+                activeProfileId,
+                identity
         );
     }
 
     public WorldSettingsDocument withActiveProfile(String replacement) {
         return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, replacement);
+                initialized, terrainMode, orePreset, gameplay, portal, replacement, identity);
+    }
+
+    public WorldSettingsDocument withIdentity(WorldIdentitySettings replacement) {
+        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, lastWorldOperationId,
+                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, replacement);
     }
 }

@@ -6,6 +6,7 @@ import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import java.util.List;
 
@@ -23,6 +24,7 @@ public record AdminSnapshot(
         OrePreset orePreset,
         GameplaySettings gameplay,
         PortalSettings portal,
+        WorldIdentitySettings identity,
         AdminCapabilities capabilities,
         String activeProfileId,
         List<ProfileDraft> profiles,
@@ -42,6 +44,7 @@ public record AdminSnapshot(
         orePreset = orePreset == null ? OrePreset.VANILLA_BALANCED : orePreset;
         gameplay = gameplay == null ? GameplaySettings.fromPreset(GameplayPreset.SAFE) : gameplay;
         portal = portal == null ? PortalSettings.defaults() : portal;
+        identity = identity == null ? WorldIdentitySettings.defaults() : identity;
         capabilities = capabilities == null ? AdminCapabilities.none() : capabilities;
         activeProfileId = cleanId(activeProfileId, "vanilla_balanced");
         profiles = limitedCopy(profiles, ProtocolLimits.MAX_PROFILES);
@@ -63,6 +66,7 @@ public record AdminSnapshot(
             OrePreset orePreset,
             GameplaySettings gameplay,
             PortalSettings portal,
+            WorldIdentitySettings identity,
             AdminCapabilities capabilities,
             String activeProfileId,
             List<ProfileDraft> profiles,
@@ -72,7 +76,7 @@ public record AdminSnapshot(
             boolean resetPending,
             List<String> diagnostics,
             List<OreRuleDraft> oreRules) {
-        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, capabilities,
+        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, identity, capabilities,
                 activeProfileId, profiles,
                 backups,
                 portalStatus, worldStatus, resetPending, diagnostics,
@@ -89,6 +93,7 @@ public record AdminSnapshot(
                 OrePreset.VANILLA_BALANCED,
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
                 PortalSettings.defaults(),
+                WorldIdentitySettings.defaults(),
                 AdminCapabilities.none(),
                 "vanilla_balanced",
                 List.of(),

@@ -167,17 +167,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     }
 
     private static TerrainMode terrainMode(FeaturePlaceContext<MiningOreConfiguration> context) {
-        ResourceKey<Level> dimension = context.level().getLevel().dimension();
-        if (dimension.equals(DelvefoldWorldgen.FLAT_LEVEL)) {
-            return TerrainMode.FLAT;
-        }
-        if (dimension.equals(DelvefoldWorldgen.CAVERN_LEVEL)) {
-            return TerrainMode.CAVERN;
-        }
-        if (dimension.equals(DelvefoldWorldgen.WILD_LEVEL)) {
-            return TerrainMode.WILD;
-        }
-        return null;
+        return DelvefoldWorldgen.terrainFor(context.level().getLevel().dimension());
     }
 
     private static List<OreConfiguration.TargetBlockState> resolveTargets(OreDefinition definition) {

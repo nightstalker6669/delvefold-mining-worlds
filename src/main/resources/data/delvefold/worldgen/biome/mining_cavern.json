@@ -49,7 +49,9 @@
       "minecraft:spring_water",
       "minecraft:spring_lava"
     ],
-    [],
+    [
+      "delvefold:mining_landmark"
+    ],
     []
   ],
   "has_precipitation": false,
