@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.1 — Stability and Correctness
+
+- Fixed overlapping descriptions in the setup wizard and added readable help for every landmark-density choice.
+- Moved the Expansive Flat surface safely below the vanilla cloud layer.
+- Awarded Strike the Seam only after a complete portal successfully ignites.
+- Corrected multi-output ore rules so blocks sharing one host tag are selected deterministically per vein instead of shadowing later outputs.
+- Deduplicated repeated runtime ore outputs and added clear warnings for empty optional output tags.
+- Added NeoForge GameTests for portal frame integrity and multi-output ore selection.
+- Added a dedicated GameTest job to continuous integration.
+
+Configuration schema 2 and public API version 1 remain unchanged. Existing exact-block targets and stable world layouts remain compatible.
+
 ## 1.0.0 — Stable Foundations
 
 - Stabilized configuration schema 2 and public API version 1 for the Delvefold 1.x line.

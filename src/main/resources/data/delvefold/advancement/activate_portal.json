@@ -11,11 +11,7 @@
   },
   "criteria": {
     "activate": {
-      "trigger": "minecraft:item_used_on_block",
-      "conditions": {
-        "location": { "block": { "blocks": "delvefold:portal_frame" } },
-        "item": { "items": "minecraft:flint_and_steel" }
-      }
+      "trigger": "minecraft:impossible"
     }
   },
   "requirements": [["activate"]]

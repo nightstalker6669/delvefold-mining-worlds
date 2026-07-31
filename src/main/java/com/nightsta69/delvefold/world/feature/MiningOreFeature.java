@@ -87,7 +87,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
                         context.chunkGenerator(),
                         random,
                         origin,
-                        band.ore()));
+                        band.ore(random)));
             }
         }
 

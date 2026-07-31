@@ -10,6 +10,10 @@ import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import com.google.gson.JsonParser;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 class ConfigJsonTest {
@@ -64,5 +68,19 @@ class ConfigJsonTest {
         OreProfileDocument decoded = ConfigJson.GSON.fromJson(json, OreProfileDocument.class);
         assertEquals("example:tin_ore", decoded.rules().getFirst().targets().getFirst().block());
         assertEquals("", decoded.rules().getFirst().targets().getFirst().blockTag());
+    }
+
+    @Test
+    void expansiveFlatSurfaceStaysBelowCloudLayer() throws IOException {
+        String json = Files.readString(Path.of(
+                "src/main/resources/data/delvefold/dimension/delve_flat_expansive.json"));
+        var layers = JsonParser.parseString(json).getAsJsonObject()
+                .getAsJsonObject("generator").getAsJsonObject("settings").getAsJsonArray("layers");
+        int totalHeight = 0;
+        for (var layer : layers) {
+            totalHeight += layer.getAsJsonObject().get("height").getAsInt();
+        }
+        assertEquals(193, totalHeight);
+        assertTrue(-64 + totalHeight - 1 < 192, "Flat surface must remain below vanilla cloud height");
     }
 }

@@ -11,6 +11,8 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,8 +56,8 @@ final class RuntimeOreProfile {
                 continue;
             }
 
-            List<OreConfiguration.TargetBlockState> targets = compileTargets(rule);
-            if (targets.isEmpty()) {
+            List<CompiledTargetGroup> targetGroups = compileTargetGroups(rule);
+            if (targetGroups.isEmpty()) {
                 continue;
             }
 
@@ -64,11 +66,11 @@ final class RuntimeOreProfile {
                 if (band.attemptsPerChunk() <= 0.0D || band.minY() > band.maxY()) {
                     continue;
                 }
-                OreConfiguration ore = new OreConfiguration(
-                        targets, band.veinSize(), (float) band.discardOnAirExposure());
                 bands.add(new CompiledBand(
                         rule.id() + '/' + band.id(),
-                        ore,
+                        targetGroups,
+                        band.veinSize(),
+                        (float) band.discardOnAirExposure(),
                         band.attemptsPerChunk(),
                         compileHeight(band)));
             }
@@ -102,8 +104,8 @@ final class RuntimeOreProfile {
         return List.copyOf(result);
     }
 
-    private static List<OreConfiguration.TargetBlockState> compileTargets(OreRule rule) {
-        List<OreConfiguration.TargetBlockState> targets = new ArrayList<>();
+    private static List<CompiledTargetGroup> compileTargetGroups(OreRule rule) {
+        Map<TagKey<Block>, LinkedHashSet<BlockState>> grouped = new LinkedHashMap<>();
         for (OreTarget target : rule.targets()) {
             ResourceLocation tagId = ResourceLocation.tryParse(stripHash(target.replaceTag()));
             if (tagId == null) {
@@ -115,13 +117,33 @@ final class RuntimeOreProfile {
                 continue;
             }
             TagKey<Block> replaceable = TagKey.create(Registries.BLOCK, tagId);
-            for (Map.Entry<ResourceLocation, Block> output : outputBlocks(target)) {
+            List<Map.Entry<ResourceLocation, Block>> outputs = outputBlocks(target);
+            if (outputs.isEmpty()) {
+                warnOnce(
+                        rule.id() + '|' + target.sourceId() + "|empty",
+                        "Skipping ore rule {} target {} because it resolves to no installed output blocks",
+                        rule.id(),
+                        target.sourceId());
+                continue;
+            }
+            LinkedHashSet<BlockState> candidates = grouped.computeIfAbsent(replaceable, ignored -> new LinkedHashSet<>());
+            for (Map.Entry<ResourceLocation, Block> output : outputs) {
                 BlockState state = applyProperties(
                         rule.id(), output.getKey(), output.getValue().defaultBlockState(), target.state());
-                targets.add(OreConfiguration.target(new TagMatchTest(replaceable), state));
+                if (!candidates.add(state)) {
+                    warnOnce(
+                            rule.id() + '|' + replaceable.location() + '|' + state,
+                            "Deduplicating repeated output {} for host tag {} in ore rule {}",
+                            output.getKey(),
+                            replaceable.location(),
+                            rule.id());
+                }
             }
         }
-        return targets;
+        return grouped.entrySet().stream()
+                .filter(entry -> !entry.getValue().isEmpty())
+                .map(entry -> new CompiledTargetGroup(entry.getKey(), List.copyOf(entry.getValue())))
+                .toList();
     }
 
     private static List<Map.Entry<ResourceLocation, Block>> outputBlocks(OreTarget target) {
@@ -273,7 +295,33 @@ final class RuntimeOreProfile {
         }
     }
 
-    record CompiledBand(String salt, OreConfiguration ore, double attemptsPerChunk, HeightSampler height) {
+    record CompiledBand(
+            String salt,
+            List<CompiledTargetGroup> targetGroups,
+            int veinSize,
+            float discardOnAirExposure,
+            double attemptsPerChunk,
+            HeightSampler height) {
+        CompiledBand {
+            targetGroups = List.copyOf(targetGroups);
+        }
+
+        OreConfiguration ore(RandomSource random) {
+            List<OreConfiguration.TargetBlockState> targets = new ArrayList<>(targetGroups.size());
+            for (CompiledTargetGroup group : targetGroups) {
+                BlockState selected = group.outputs().size() == 1
+                        ? group.outputs().getFirst()
+                        : group.outputs().get(random.nextInt(group.outputs().size()));
+                targets.add(OreConfiguration.target(new TagMatchTest(group.replaceable()), selected));
+            }
+            return new OreConfiguration(targets, veinSize, discardOnAirExposure);
+        }
+    }
+
+    record CompiledTargetGroup(TagKey<Block> replaceable, List<BlockState> outputs) {
+        CompiledTargetGroup {
+            outputs = List.copyOf(outputs);
+        }
     }
 
     private record SelectionKey(TerrainMode terrainMode, ResourceKey<Biome> biome) {
