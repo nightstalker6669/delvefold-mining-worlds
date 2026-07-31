@@ -6,7 +6,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 
 ## Core features
 
-- Explicit initialization through `/miningworlds gui` or `/miningworlds initialize`; portal activation never chooses settings.
+- Explicit initialization through `/delvefold gui` or `/delvefold initialize`; portal activation never chooses settings.
 - Flat, roofed cavern, and overworld-shaped mining terrain.
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
@@ -28,7 +28,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 ## First use
 
 1. Start or open a world with Delvefold installed.
-2. Run `/miningworlds gui` (the `/delvefold gui` alias also works).
+2. Run `/delvefold gui`.
 3. Choose terrain, ore, and gameplay presets.
 4. Check the lock confirmation and click **Initialize**.
 5. Build and activate a Delvefold portal.
@@ -38,8 +38,61 @@ Until step 4 is complete, portal activation changes no blocks and does not damag
 The console equivalent is:
 
 ```text
-/miningworlds initialize <flat|cavern|wild> <balanced|rich|empty> <safe|hostile|normal>
+/delvefold initialize <flat|cavern|wild> <balanced|rich|empty> <safe|hostile|normal>
 ```
+
+## Commands
+
+All commands use the `/delvefold` root. The integrated singleplayer owner can administer Delvefold even with cheats disabled. Dedicated-server configuration requires operator level 2; world deletion and recreation require level 4.
+
+Setup, status, and JSON:
+
+```text
+/delvefold gui
+/delvefold config
+/delvefold initialize <flat|cavern|wild> <balanced|rich|empty> <safe|hostile|normal>
+/delvefold status
+/delvefold config validate
+/delvefold config reload
+```
+
+Ore discovery and rules:
+
+```text
+/delvefold ore list
+/delvefold ore show <rule>
+/delvefold ore scan [namespace]
+/delvefold ore add <block_id> <exact|detected> <common|uncommon|rare|very_rare>
+/delvefold ore enable <rule>
+/delvefold ore disable <rule>
+/delvefold ore remove <rule>
+```
+
+Ore targets and spawn bands:
+
+```text
+/delvefold ore target add <rule> <block_id> <replace_tag>
+/delvefold ore target remove <rule> <block_id>
+/delvefold ore band add <rule> <band_id> <common|uncommon|rare|very_rare>
+/delvefold ore band remove <rule> <band_id>
+/delvefold ore band set <rule> <band_id> <field> <value>
+```
+
+Band fields are `vein_size`, `attempts`, `min_y`, `max_y`, `peak_y`, `plateau_min_y`, `plateau_max_y`, and `discard`.
+
+Safe world deletion and recreation:
+
+```text
+/delvefold world recreate request
+/delvefold world recreate request <flat|cavern|wild>
+/delvefold world recreate request <flat|cavern|wild> <keep_backup|permanent>
+/delvefold world delete request
+/delvefold world delete request <keep_backup|permanent>
+/delvefold world confirm <token>
+/delvefold world cancel
+```
+
+World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. See [Commands](docs/COMMANDS.md) for behavior and permission details.
 
 ## Portal recipe and activation
 
@@ -62,7 +115,7 @@ Each save owns its configuration:
 <save>/serverconfig/delvefold/settings.json
 ```
 
-Editing JSON affects only chunks generated after a successful `/miningworlds config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), and the [JSON Schema](schemas/ores.schema.json).
+Editing JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), and the [JSON Schema](schemas/ores.schema.json).
 
 ## Recreating or deleting the mining world
 
