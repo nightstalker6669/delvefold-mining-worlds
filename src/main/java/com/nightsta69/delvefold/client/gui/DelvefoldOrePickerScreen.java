@@ -42,7 +42,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     private int gridTop;
     private int gridWidth;
     private String searchQuery = "";
-    private String localStatus = "";
+    private Component localStatus = Component.empty();
 
     public DelvefoldOrePickerScreen(Screen parent, AdminSnapshot snapshot) {
         super(Component.translatable("screen.delvefold.ore_picker.title"), snapshot);
@@ -70,7 +70,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
         this.searchBox.setValue(this.searchQuery);
         this.searchBox.setResponder(value -> {
             this.searchQuery = value;
-            this.localStatus = "";
+            this.localStatus = Component.empty();
             this.page = 0;
             updateGrid();
         });
@@ -86,7 +86,8 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
             updateGrid();
         });
         int idX = showAllX + showAllWidth + controlGap;
-        this.addButton(idX, controlsY, idWidth, 20, Component.literal("Use exact ID"), Style.SECONDARY,
+        this.addButton(idX, controlsY, idWidth, 20,
+                Component.translatable("screen.delvefold.ore_picker.exact_id"), Style.SECONDARY,
                 button -> chooseTypedId());
 
         this.columns = Math.max(6, Math.min(14, (width - 20) / TILE_STEP));
@@ -111,12 +112,12 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
 
         int pagerY = this.gridTop + this.rows * TILE_STEP + 8;
         this.previousButton = this.addButton(this.gridLeft, pagerY, 68, 20,
-                Component.literal("‹  Prev"), Style.GHOST, button -> {
+                Component.translatable("screen.delvefold.previous"), Style.GHOST, button -> {
             this.page--;
             updateGrid();
         });
         this.nextButton = this.addButton(this.gridLeft + this.gridWidth - 68, pagerY, 68, 20,
-                Component.literal("Next  ›"), Style.GHOST, button -> {
+                Component.translatable("screen.delvefold.next"), Style.GHOST, button -> {
             this.page++;
             updateGrid();
         });
@@ -185,7 +186,9 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     }
 
     private Component showAllLabel() {
-        return Component.literal(this.showAll ? "ALL BLOCKS" : "ORES ONLY");
+        return Component.translatable(this.showAll
+                ? "screen.delvefold.ore_picker.all_blocks"
+                : "screen.delvefold.ore_picker.ores_only");
     }
 
     private void choose(OrePickerEntry entry) {
@@ -195,7 +198,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     private void chooseTypedId() {
         ResourceLocation id = ResourceLocation.tryParse(this.searchQuery.trim());
         if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
-            this.localStatus = "No registered block matches that exact ID.";
+            this.localStatus = Component.translatable("screen.delvefold.ore_picker.no_exact_match");
             return;
         }
         chooseBlock(id);
@@ -215,19 +218,19 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
 
     @Override
     protected void renderPanelContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.drawString(this.font, Component.literal("SEARCH THE BLOCK REGISTRY"),
+        graphics.drawString(this.font, Component.translatable("screen.delvefold.ore_picker.registry"),
                 this.contentLeft(), this.contentTop(), MUTED_TEXT, false);
         int gridCardY = this.gridTop - 7;
         this.drawCard(graphics, this.gridLeft - 7, gridCardY,
                 this.gridWidth + 14, this.rows * TILE_STEP + 14);
         int pageCount = Math.max(1, (this.filteredEntries.size() + this.pageSize - 1) / this.pageSize);
-        Component resultText = Component.literal(this.filteredEntries.size() + " results  •  page "
-                + (this.page + 1) + "/" + pageCount + "  •  green marks c:ores");
+        Component resultText = Component.translatable("screen.delvefold.ore_picker.results",
+                this.filteredEntries.size(), this.page + 1, pageCount);
         graphics.drawCenteredString(this.font, resultText,
                 this.panelLeft + this.panelWidth / 2,
                 this.gridTop + this.rows * TILE_STEP + 14,
                 MUTED_TEXT);
-        if (!this.localStatus.isEmpty()) {
+        if (!this.localStatus.getString().isEmpty()) {
             graphics.drawString(this.font, this.localStatus,
                     this.contentLeft() + 88, this.panelTop + this.panelHeight - 22, DANGER, false);
         }

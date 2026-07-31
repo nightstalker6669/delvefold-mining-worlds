@@ -1,6 +1,6 @@
 # Configuration
 
-Schema 2 is a deliberate pre-1.0 redesign for new Minecraft saves. If schema-1 files are detected, Delvefold leaves them and all existing dimension data untouched, disables configuration mutations and portal entry, and reports that a new save is required.
+Schema 2 is the stable Delvefold 1.x configuration format. If schema-1 files are detected, Delvefold leaves them and all existing dimension data untouched, disables configuration mutations and portal entry, and reports that a new save is required.
 
 Delvefold has one canonical configuration model. The GUI, commands, and JSON all validate and write the same immutable server snapshot.
 

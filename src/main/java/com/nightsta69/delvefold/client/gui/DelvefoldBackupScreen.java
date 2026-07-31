@@ -28,7 +28,7 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
     }
 
     private DelvefoldBackupScreen(Screen parent, AdminSnapshot snapshot, int page) {
-        super(Component.literal("Delvefold: World Backups"), snapshot);
+        super(Component.translatable("screen.delvefold.backup.title"), snapshot);
         this.parent = parent;
         this.page = Math.max(0, page);
     }
@@ -61,15 +61,18 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
                     backup.valid() ? Style.GHOST : Style.DANGER, ignored -> { });
             info.active = false;
             addButton(x + labelWidth + gap, y, pinWidth, 20,
-                    Component.literal(backup.pinned() ? "Unpin" : "Pin"), Style.SECONDARY,
+                    Component.translatable(backup.pinned()
+                            ? "screen.delvefold.backup.unpin" : "screen.delvefold.backup.pin"), Style.SECONDARY,
                     button -> perform(backup.pinned() ? BackupOperation.UNPIN : BackupOperation.PIN, backup.id()));
             Button restore = addButton(x + labelWidth + pinWidth + gap * 2, y, restoreWidth, 20,
-                    Component.literal(armed(BackupOperation.RESTORE, backup.id()) ? "Confirm" : "Restore"),
+                    Component.translatable(armed(BackupOperation.RESTORE, backup.id())
+                            ? "screen.delvefold.confirm" : "screen.delvefold.backup.restore"),
                     Style.PRIMARY, button -> armOrPerform(BackupOperation.RESTORE, backup.id()));
             restore.active = backup.restorable() && snapshot.capabilities().canRestoreBackups();
             Button delete = addButton(x + labelWidth + pinWidth + restoreWidth + gap * 3, y,
                     deleteWidth, 20,
-                    Component.literal(armed(BackupOperation.DELETE, backup.id()) ? "Confirm" : "Delete"),
+                    Component.translatable(armed(BackupOperation.DELETE, backup.id())
+                            ? "screen.delvefold.confirm" : "screen.delvefold.delete"),
                     Style.DANGER, button -> armOrPerform(BackupOperation.DELETE, backup.id()));
             delete.active = !backup.pinned() && snapshot.capabilities().canManageWorld();
             y += 24;
@@ -79,15 +82,18 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
         addButton(contentLeft(), footer, 72, 22, Component.translatable("gui.back"), Style.GHOST,
                 button -> minecraft.setScreen(parent));
         if (pageCount > 1) {
-            Button previous = addButton(contentLeft() + 78, footer, 58, 22, Component.literal("‹ Prev"),
+            Button previous = addButton(contentLeft() + 78, footer, 58, 22,
+                    Component.translatable("screen.delvefold.previous"),
                     Style.GHOST, button -> setPage(safePage - 1));
             previous.active = safePage > 0;
-            Button next = addButton(contentLeft() + 142, footer, 58, 22, Component.literal("Next ›"),
+            Button next = addButton(contentLeft() + 142, footer, 58, 22,
+                    Component.translatable("screen.delvefold.next"),
                     Style.GHOST, button -> setPage(safePage + 1));
             next.active = safePage + 1 < pageCount;
         }
         if (snapshot.resetPending()) {
-            addButton(contentRight() - 126, footer, 126, 22, Component.literal("Cancel pending"), Style.DANGER,
+            addButton(contentRight() - 126, footer, 126, 22,
+                    Component.translatable("screen.delvefold.backup.cancel_pending"), Style.DANGER,
                     button -> perform(BackupOperation.CANCEL_RESTORE, ""));
         }
     }
@@ -123,10 +129,9 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
         int width = contentWidth();
         int height = contentBottom() - y;
         drawCard(graphics, x, y, width, height);
-        drawSectionTitle(graphics, Component.literal("RECOVERABLE WORLD SNAPSHOTS"), x + 10, y + 7);
+        drawSectionTitle(graphics, Component.translatable("screen.delvefold.backup.snapshots"), x + 10, y + 7);
         if (snapshot.backups().isEmpty()) {
-            graphics.drawWordWrap(font, Component.literal(
-                    "No backups yet. Recreate or delete with backups enabled to create a restore point."),
+            graphics.drawWordWrap(font, Component.translatable("screen.delvefold.backup.empty"),
                     x + 12, y + 35, width - 24, MUTED_TEXT);
         }
     }

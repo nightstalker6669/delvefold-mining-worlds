@@ -6,7 +6,7 @@ import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.Optional;
 
-/** Experimental 0.4 integration surface; source compatibility becomes guaranteed at 1.0. */
+/** Stable Delvefold 1.x integration surface. New 1.x APIs will remain backward compatible. */
 public final class DelvefoldApi {
     public static final int API_VERSION = 1;
 

@@ -207,7 +207,7 @@ final class PortalDestinationService {
         for (BlockPos framePosition : shape.framePositions()) {
             BlockState state = level.getBlockState(framePosition);
             if (framePosition.getY() == bottomFrameY) {
-                if (!state.isSolid()) {
+                if (!state.isCollisionShapeFullBlock(level, framePosition)) {
                     return false;
                 }
             } else if (!isReplaceableAndDry(state)) {

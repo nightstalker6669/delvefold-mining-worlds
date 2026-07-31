@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible Delvefold problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please test with the latest Delvefold release and keep a backup of the affected world.
+  - type: input
+    id: version
+    attributes:
+      label: Delvefold version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: neoforge
+    attributes:
+      label: NeoForge version
+      placeholder: 21.1.244
+    validations:
+      required: true
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other installed mods
+      description: Include permission, scripting, world-generation, and recipe-viewer mods.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: Describe the smallest repeatable sequence.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and configuration
+      description: Attach latest.log and relevant Delvefold JSON. Remove server addresses, tokens, and personal data.
+    validations:
+      required: true

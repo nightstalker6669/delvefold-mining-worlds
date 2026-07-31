@@ -16,7 +16,15 @@ base {
     archivesName = "${mod_id}-${minecraft_version}"
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
 
 sourceSets.main.resources {
     srcDir('src/generated/resources')
@@ -99,6 +107,17 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+tasks.named('jar', Jar).configure {
+    manifest {
+        attributes(
+                'Implementation-Title': mod_name,
+                'Implementation-Version': mod_version,
+                'Implementation-Vendor': mod_authors,
+                'Delvefold-Api-Version': mod_api_version
+        )
+    }
+}
+
 def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
     def replaceProperties = [
             minecraft_version      : minecraft_version,
@@ -124,10 +143,65 @@ neoForge.ideSyncTask(generateModMetadata)
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs.addAll('-Xlint:deprecation', '-Xlint:unchecked')
 }
 
 tasks.named('test', Test).configure {
     useJUnitPlatform()
+}
+
+def validateJson = tasks.register('validateJson') {
+    group = 'verification'
+    description = 'Parses every shipped JSON resource, schema, and datapack example.'
+    def inputsToValidate = files(
+            fileTree('src/main/resources') { include '**/*.json' },
+            fileTree('src/generated/resources') { include '**/*.json' },
+            fileTree('schemas') { include '**/*.json' },
+            fileTree('examples/datapack') { include '**/*.json', '**/*.mcmeta' }
+    )
+    inputs.files(inputsToValidate)
+    doLast {
+        def parser = new groovy.json.JsonSlurper()
+        inputsToValidate.files.sort().each { candidate ->
+            try {
+                parser.parse(candidate, 'UTF-8')
+            } catch (Exception exception) {
+                throw new GradleException("Invalid JSON in ${project.relativePath(candidate)}", exception)
+            }
+        }
+        logger.lifecycle("Validated ${inputsToValidate.files.size()} JSON files")
+    }
+}
+
+def validateTranslations = tasks.register('validateTranslations') {
+    group = 'verification'
+    description = 'Checks literal Delvefold translation keys referenced by Java sources.'
+    def languageFile = file('src/main/resources/assets/delvefold/lang/en_us.json')
+    def javaSources = fileTree('src/main/java') { include '**/*.java' }
+    inputs.file(languageFile)
+    inputs.files(javaSources)
+    doLast {
+        Map language = (Map) new groovy.json.JsonSlurper().parse(languageFile, 'UTF-8')
+        Set<String> referenced = new TreeSet<>()
+        def pattern = ~/Component\.translatable\("([^"]+)"/
+        javaSources.files.each { source ->
+            (source.getText('UTF-8') =~ pattern).each { match ->
+                String key = match[1]
+                if (key.contains('.delvefold.') && !key.endsWith('.')) {
+                    referenced.add(key)
+                }
+            }
+        }
+        Set<String> missing = referenced.findAll { !language.containsKey(it) }
+        if (!missing.isEmpty()) {
+            throw new GradleException("Missing en_us translations: ${missing.join(', ')}")
+        }
+        logger.lifecycle("Validated ${referenced.size()} literal Delvefold translation keys")
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn(validateJson, validateTranslations)
 }
 
 idea {
