@@ -45,11 +45,15 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
     public AdminSnapshot snapshot(ServerPlayer player, int requestedOrePage, int requestedOrePageSize) {
         requireConfigure(player);
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        boolean compatible = !DelvefoldConfigService.get().isReadOnlyIncompatible();
         var settings = snapshot.settings();
         List<String> diagnostics = new ArrayList<>();
         diagnostics.add("Config hash: " + snapshot.diskHash());
         diagnostics.add("Loaded: " + snapshot.loadedAt());
         diagnostics.add("Generation epoch: " + settings.generationEpoch());
+        if (!compatible) {
+            diagnostics.add(DelvefoldConfigService.get().compatibilityMessage());
+        }
         for (ConfigIssue issue : snapshot.validation().issues()) {
             diagnostics.add(issue.severity() + " " + issue.path() + ": " + issue.message());
         }
@@ -102,7 +106,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         return new AdminSnapshot(
                 snapshot.ores().revision(),
                 settings.revision(),
-                true,
+                compatible,
                 settings.initialized(),
                 settings.terrainMode(),
                 settings.orePreset(),
@@ -110,9 +114,9 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings.portal(),
                 new AdminSnapshot.AdminCapabilities(
                         AdminAccess.canConfigure(player),
-                        AdminAccess.canConfigure(player),
-                        AdminAccess.canManageWorld(player),
-                        AdminAccess.canManageWorld(player),
+                        compatible && AdminAccess.canConfigure(player),
+                        compatible && AdminAccess.canManageWorld(player),
+                        compatible && AdminAccess.canManageWorld(player),
                         AdminAccess.canConfigure(player)),
                 snapshot.ores().profile(),
                 profiles,

@@ -24,11 +24,11 @@ final class StrictConfigStructure {
             "discard_on_air_exposure");
     private static final Set<String> SETTINGS_DOCUMENT = Set.of(
             "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
-            "terrain_mode", "ore_preset", "gameplay", "portal");
+            "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal");
     private static final Set<String> GAMEPLAY = Set.of(
             "preset", "monsters", "creatures", "ambient", "water_creatures", "patrols", "phantoms");
     private static final Set<String> PORTAL = Set.of(
-            "enabled", "allow_from_overworld_only", "player_only", "cooldown_seconds", "coordinate_scale");
+            "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale");
 
     private StrictConfigStructure() {
     }
@@ -106,6 +106,7 @@ final class StrictConfigStructure {
         bool(settings.get("initialized"), "$.initialized");
         string(settings.get("terrain_mode"), "$.terrain_mode", true);
         string(settings.get("ore_preset"), "$.ore_preset", false);
+        string(settings.get("active_profile_id"), "$.active_profile_id", false);
         JsonObject gameplay = object(settings.get("gameplay"), "$.gameplay");
         fields(gameplay, GAMEPLAY, GAMEPLAY, "$.gameplay");
         string(gameplay.get("preset"), "$.gameplay.preset", false);
@@ -119,7 +120,6 @@ final class StrictConfigStructure {
         fields(portal, PORTAL, PORTAL, "$.portal");
         bool(portal.get("enabled"), "$.portal.enabled");
         bool(portal.get("allow_from_overworld_only"), "$.portal.allow_from_overworld_only");
-        bool(portal.get("player_only"), "$.portal.player_only");
         integer(portal.get("cooldown_seconds"), "$.portal.cooldown_seconds");
         number(portal.get("coordinate_scale"), "$.portal.coordinate_scale");
     }

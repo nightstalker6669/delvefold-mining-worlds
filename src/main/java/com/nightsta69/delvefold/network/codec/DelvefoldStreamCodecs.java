@@ -127,14 +127,13 @@ public final class DelvefoldStreamCodecs {
     public static void writePortal(RegistryFriendlyByteBuf buffer, PortalSettings portal) {
         buffer.writeBoolean(portal.enabled());
         buffer.writeBoolean(portal.allowFromOverworldOnly());
-        buffer.writeBoolean(portal.playerOnly());
         buffer.writeVarInt(portal.cooldownSeconds());
         writeFiniteDouble(buffer, portal.coordinateScale(), "portal coordinate scale");
     }
 
     public static PortalSettings readPortal(RegistryFriendlyByteBuf buffer) {
-        return new PortalSettings(buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readVarInt(), readFiniteDouble(buffer, "portal coordinate scale"));
+        return new PortalSettings(buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(),
+                readFiniteDouble(buffer, "portal coordinate scale"));
     }
 
     public static void writeGameplay(RegistryFriendlyByteBuf buffer, GameplaySettings gameplay) {

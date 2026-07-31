@@ -12,17 +12,24 @@
     "initialized",
     "terrain_mode",
     "ore_preset",
+    "active_profile_id",
     "gameplay",
     "portal"
   ],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "const": 2 },
     "revision": { "type": "integer", "minimum": 0 },
     "generation_epoch": { "type": "integer", "minimum": 0 },
     "last_world_operation_id": { "type": "string", "maxLength": 128 },
     "initialized": { "type": "boolean" },
     "terrain_mode": { "type": ["string", "null"], "enum": ["flat", "cavern", "wild", null] },
     "ore_preset": { "enum": ["vanilla_balanced", "rich", "empty"] },
+    "active_profile_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_.-]+$",
+      "minLength": 1,
+      "maxLength": 128
+    },
     "gameplay": {
       "type": "object",
       "additionalProperties": false,
@@ -40,11 +47,10 @@
     "portal": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "allow_from_overworld_only", "player_only", "cooldown_seconds", "coordinate_scale"],
+      "required": ["enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale"],
       "properties": {
         "enabled": { "type": "boolean" },
         "allow_from_overworld_only": { "type": "boolean" },
-        "player_only": { "const": true },
         "cooldown_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
         "coordinate_scale": { "type": "number", "minimum": 0.01, "maximum": 100 }
       }

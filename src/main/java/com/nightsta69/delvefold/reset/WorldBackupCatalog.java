@@ -1,6 +1,8 @@
 package com.nightsta69.delvefold.reset;
 
 import com.nightsta69.delvefold.config.ConfigJson;
+import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -96,14 +98,34 @@ public final class WorldBackupCatalog {
         if (operation == null || operation.schemaVersion() != PendingWorldOperation.CURRENT_SCHEMA_VERSION) {
             throw new IOException("Backup marker schema is unsupported");
         }
-        boolean hasSettings = Files.isRegularFile(root.resolve("config/serverconfig/delvefold/settings.json"));
-        boolean hasOres = Files.isRegularFile(root.resolve("config/serverconfig/delvefold/ores.json"));
+        boolean hasSettings = hasCurrentSchema(root.resolve("config/serverconfig/delvefold/settings.json"),
+                WorldSettingsDocument.class, WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
+        boolean hasOres = hasCurrentSchema(root.resolve("config/serverconfig/delvefold/ores.json"),
+                OreProfileDocument.class, OreProfileDocument.CURRENT_SCHEMA_VERSION);
         boolean hasDimensions = Files.isDirectory(root.resolve("dimensions/delvefold"));
         return new BackupSummary(root.getFileName().toString(), operation.createdAtEpochMillis(),
                 operation.type().name().toLowerCase(java.util.Locale.ROOT),
                 operation.sourceTerrain() == null ? "unknown" : operation.sourceTerrain().serializedName(),
                 size(root), Files.isRegularFile(root.resolve(".pinned")),
                 hasSettings && hasOres && hasDimensions, true);
+    }
+
+    private static boolean hasCurrentSchema(Path path, Class<?> type, int expected) {
+        try {
+            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path) || Files.size(path) > 4L * 1024L * 1024L) {
+                return false;
+            }
+            Object value = ConfigJson.GSON.fromJson(Files.readString(path, StandardCharsets.UTF_8), type);
+            if (value instanceof WorldSettingsDocument settings) {
+                return settings.schemaVersion() == expected;
+            }
+            if (value instanceof OreProfileDocument ores) {
+                return ores.schemaVersion() == expected;
+            }
+            return false;
+        } catch (IOException | RuntimeException exception) {
+            return false;
+        }
     }
 
     private static long size(Path root) {

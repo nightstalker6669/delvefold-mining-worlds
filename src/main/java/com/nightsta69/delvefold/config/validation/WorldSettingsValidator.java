@@ -33,9 +33,9 @@ public final class WorldSettingsValidator {
             issues.add(ConfigIssue.error("settings.operation_id.too_long", "$.last_world_operation_id",
                     "The last world operation ID cannot exceed 128 characters"));
         }
-        if (!settings.portal().playerOnly()) {
-            issues.add(ConfigIssue.error("settings.portal.player_only", "$.portal.player_only",
-                    "Delvefold portals are player-only"));
+        if (!settings.activeProfileId().matches("[a-z0-9_.-]{1,128}")) {
+            issues.add(ConfigIssue.error("settings.profile.invalid", "$.active_profile_id",
+                    "Active profile ID may contain lowercase letters, digits, _, . and - only"));
         }
         int cooldown = settings.portal().cooldownSeconds();
         if (cooldown < 1 || cooldown > 3600) {

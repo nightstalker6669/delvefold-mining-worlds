@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.ConfigJson;
+import com.nightsta69.delvefold.config.OrePresets;
+import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
@@ -21,8 +24,10 @@ class WorldBackupCatalogTest {
         Path backup = saveRoot.resolve("delvefold_backups").resolve(id);
         Files.createDirectories(backup.resolve("dimensions/delvefold/delve_flat"));
         Files.createDirectories(backup.resolve("config/serverconfig/delvefold"));
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/settings.json"), "{}");
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/ores.json"), "{}");
+        Files.writeString(backup.resolve("config/serverconfig/delvefold/settings.json"),
+                ConfigJson.GSON.toJson(WorldSettingsDocument.uninitialized()));
+        Files.writeString(backup.resolve("config/serverconfig/delvefold/ores.json"),
+                ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
         PendingWorldOperation operation = new PendingWorldOperation(
                 PendingWorldOperation.CURRENT_SCHEMA_VERSION,
                 "11111111-1111-1111-1111-111111111111",

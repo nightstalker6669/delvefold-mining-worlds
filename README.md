@@ -2,6 +2,8 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
+> **0.2 compatibility:** Delvefold 0.2 uses configuration schema 2 and is intended for new Minecraft saves. Schema-1 saves open in non-destructive read-only compatibility mode; their configuration and mining dimensions are never rewritten automatically.
+
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
 ## Core features
@@ -169,6 +171,6 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-0.1.0.jar`.
+The release JAR is written to `build/libs/delvefold-1.21.1-0.2.0.jar`.
 
 License: MIT.

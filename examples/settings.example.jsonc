@@ -1,11 +1,12 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "revision": 0,
   "generation_epoch": 0,
   "last_world_operation_id": "",
   "initialized": false,
   "terrain_mode": null,
   "ore_preset": "vanilla_balanced",
+  "active_profile_id": "vanilla_balanced",
   "gameplay": {
     "preset": "safe",
     "monsters": false,
@@ -18,7 +19,6 @@
   "portal": {
     "enabled": true,
     "allow_from_overworld_only": true,
-    "player_only": true,
     "cooldown_seconds": 5,
     "coordinate_scale": 1.0
   }

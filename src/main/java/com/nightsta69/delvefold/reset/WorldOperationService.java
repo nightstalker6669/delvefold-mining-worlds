@@ -267,7 +267,8 @@ public final class WorldOperationService {
                             : operation.targetOrePreset();
                     OreProfileDocument replacement = OrePresets.create(preset);
                     if (!replacement.profile().equals(afterSettings.ores().profile())) {
-                        ConfigWriteResult oresResult = configs.updateOres(afterSettings.ores().revision(), ignored -> replacement);
+                        ConfigWriteResult oresResult = configs.activateProfile(
+                                afterSettings.ores().revision(), replacement.profile());
                         if (!oresResult.saved()) {
                             throw new IOException("Ore preset reset was rejected: " + oresResult.issues());
                         }

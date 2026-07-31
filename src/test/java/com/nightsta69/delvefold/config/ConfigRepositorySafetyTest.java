@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
@@ -24,7 +25,7 @@ class ConfigRepositorySafetyTest {
 
         Files.writeString(paths.ores(), """
                 {
-                  "schema_version": 1,
+                  "schema_version": 2,
                   "revision": 2,
                   "profile": "broken",
                   "rules": [null]
@@ -72,5 +73,60 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
         assertTrue(rejected.usedFallback());
         assertTrue(rejected.issues().stream().anyMatch(issue -> issue.message().contains("JSON boolean")));
+    }
+
+    @Test
+    void schemaOneFilesAreLeftUntouchedAndLoadedReadOnlyFromDefaults() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+        String oldOres = Files.readString(paths.ores()).replace("\"schema_version\": 2", "\"schema_version\": 1");
+        String oldSettings = Files.readString(paths.settings()).replace("\"schema_version\": 2", "\"schema_version\": 1");
+        Files.writeString(paths.ores(), oldOres);
+        Files.writeString(paths.settings(), oldSettings);
+
+        ConfigLoadResult result = repository.loadOrCreate(null);
+
+        assertTrue(result.usedFallback());
+        assertTrue(result.issues().stream().anyMatch(issue -> "schema.unsupported".equals(issue.code())));
+        assertEquals(oldOres, Files.readString(paths.ores()));
+        assertEquals(oldSettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void mismatchedActiveProfileIsRejectedWithoutReplacingTheLastKnownGoodSnapshot() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        ConfigLoadResult baseline = repository.loadOrCreate(null);
+
+        String mismatched = Files.readString(paths.settings())
+                .replace("\"active_profile_id\": \"vanilla_balanced\"",
+                        "\"active_profile_id\": \"rich\"");
+        Files.writeString(paths.settings(), mismatched);
+
+        ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
+        assertTrue(rejected.usedFallback());
+        assertEquals(baseline.snapshot(), rejected.snapshot());
+        assertTrue(rejected.issues().stream()
+                .anyMatch(issue -> "profile.active_mismatch".equals(issue.code())));
+    }
+
+    @Test
+    void mismatchedProfilesCannotBeSaved() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        ConfigLoadResult baseline = repository.loadOrCreate(null);
+
+        assertThrows(IllegalArgumentException.class, () -> repository.save(
+                baseline.snapshot().ores(), baseline.snapshot().settings().withActiveProfile("rich")));
     }
 }

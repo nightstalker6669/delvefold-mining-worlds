@@ -387,7 +387,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             }
             this.portalError = "";
             DelvefoldClientRequests.send(new PortalUpdatePayload(this.snapshot.settingsRevision(),
-                    new PortalSettings(this.portalEnabled, this.portalOverworldOnly, true, cooldown, scale)));
+                    new PortalSettings(this.portalEnabled, this.portalOverworldOnly, cooldown, scale)));
         } catch (NumberFormatException exception) {
             this.portalError = "Cooldown must be 1–3600; scale must be 0.01–100.";
         }
