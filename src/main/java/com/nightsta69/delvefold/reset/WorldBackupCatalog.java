@@ -58,6 +58,34 @@ public final class WorldBackupCatalog {
         return result;
     }
 
+    public boolean setPinned(String id, boolean pinned) throws IOException {
+        Path root = resolve(id);
+        Path marker = root.resolve(".pinned");
+        if (pinned) {
+            if (Files.notExists(marker)) {
+                Files.writeString(marker, "pinned\n", StandardCharsets.UTF_8);
+            }
+            return true;
+        }
+        return Files.deleteIfExists(marker);
+    }
+
+    public boolean delete(String id) throws IOException {
+        Path root = resolve(id);
+        if (Files.exists(root.resolve(".pinned"))) {
+            throw new IOException("Pinned backups must be unpinned before deletion");
+        }
+        try (Stream<Path> paths = Files.walk(root)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                if (Files.isSymbolicLink(path)) {
+                    throw new IOException("Backup contains a symbolic link and was not deleted");
+                }
+                Files.delete(path);
+            }
+        }
+        return Files.notExists(root);
+    }
+
     private BackupSummary readSummary(Path root) throws IOException {
         Path marker = root.resolve("operation.json");
         if (Files.isSymbolicLink(marker) || !Files.isRegularFile(marker) || Files.size(marker) > MAX_MARKER_BYTES) {

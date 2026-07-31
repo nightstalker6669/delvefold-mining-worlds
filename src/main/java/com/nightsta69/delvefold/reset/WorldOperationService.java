@@ -105,7 +105,7 @@ public final class WorldOperationService {
             );
             List<Path> targets = resolveTargets(server, operation);
             long bytes = estimateSize(targets);
-            int players = countMiningPlayers(server);
+            int players = countMiningPlayersForOperation(server);
             draft = new Draft(saveRoot(server), token, expires, operation, bytes, players);
             String message = request.backupMode() == BackupMode.KEEP_BACKUP
                     ? "Review the estimate and confirm; the active data will be moved to a timestamped backup on restart"
@@ -133,7 +133,7 @@ public final class WorldOperationService {
             try {
                 writeJsonAtomically(pendingPath(server), draft.operation());
                 entryBlocked.set(true);
-                evacuateMiningPlayers(server);
+                evacuateMiningPlayersForOperation(server);
                 String instruction = server.isDedicatedServer()
                         ? "Operation scheduled. Restart the server to apply it."
                         : "Operation scheduled. Exit to the title screen and reopen this world to apply it.";
@@ -181,7 +181,11 @@ public final class WorldOperationService {
     }
 
     public boolean isEntryBlocked() {
-        return entryBlocked.get();
+        return entryBlocked.get() || WorldRestoreService.get().isEntryBlocked();
+    }
+
+    public boolean hasPending(MinecraftServer server) {
+        return Files.exists(pendingPath(server));
     }
 
     /** Clears JVM-local state when an integrated or dedicated server stops. */
@@ -540,7 +544,7 @@ public final class WorldOperationService {
         return total;
     }
 
-    private static int countMiningPlayers(MinecraftServer server) {
+    static int countMiningPlayersForOperation(MinecraftServer server) {
         int count = 0;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             if (isMiningLevel(player.level().dimension())) {
@@ -550,7 +554,7 @@ public final class WorldOperationService {
         return count;
     }
 
-    private static void evacuateMiningPlayers(MinecraftServer server) {
+    static void evacuateMiningPlayersForOperation(MinecraftServer server) {
         for (ServerPlayer player : List.copyOf(server.getPlayerList().getPlayers())) {
             if (isMiningLevel(player.level().dimension())) {
                 MiningPlayerSafety.evacuate(player);

@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.client;
 
 import com.nightsta69.delvefold.client.gui.DelvefoldDashboardScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldBackupScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreRuleWizardScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldSetupScreen;
@@ -21,6 +22,8 @@ public final class DelvefoldClientPayloadHandler {
             if (minecraft.screen instanceof DelvefoldOreRuleWizardScreen wizard
                     && !wizard.closeOnNextSnapshot()) {
                 minecraft.setScreen(wizard.refreshed(payload.snapshot()));
+            } else if (minecraft.screen instanceof DelvefoldBackupScreen backups) {
+                minecraft.setScreen(backups.refreshed(payload.snapshot()));
             } else {
                 minecraft.setScreen(minecraft.screen instanceof DelvefoldDashboardScreen dashboard
                         ? dashboard.refreshed(payload.snapshot())

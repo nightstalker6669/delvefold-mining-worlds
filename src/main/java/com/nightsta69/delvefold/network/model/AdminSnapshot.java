@@ -26,6 +26,7 @@ public record AdminSnapshot(
         AdminCapabilities capabilities,
         String activeProfileId,
         List<ProfileDraft> profiles,
+        List<BackupDraft> backups,
         String portalStatus,
         String worldStatus,
         boolean resetPending,
@@ -44,6 +45,7 @@ public record AdminSnapshot(
         capabilities = capabilities == null ? AdminCapabilities.none() : capabilities;
         activeProfileId = cleanId(activeProfileId, "vanilla_balanced");
         profiles = limitedCopy(profiles, ProtocolLimits.MAX_PROFILES);
+        backups = limitedCopy(backups, ProtocolLimits.MAX_BACKUPS);
         portalStatus = clean(portalStatus, "Portal is not available yet.");
         worldStatus = clean(worldStatus, initialized ? "Mining world ready." : "Mining world is not initialized.");
         diagnostics = limitedStrings(diagnostics, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
@@ -64,6 +66,7 @@ public record AdminSnapshot(
             AdminCapabilities capabilities,
             String activeProfileId,
             List<ProfileDraft> profiles,
+            List<BackupDraft> backups,
             String portalStatus,
             String worldStatus,
             boolean resetPending,
@@ -71,6 +74,7 @@ public record AdminSnapshot(
             List<OreRuleDraft> oreRules) {
         this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, capabilities,
                 activeProfileId, profiles,
+                backups,
                 portalStatus, worldStatus, resetPending, diagnostics,
                 oreRules == null ? 0 : oreRules.size(), 0, oreRules);
     }
@@ -87,6 +91,7 @@ public record AdminSnapshot(
                 PortalSettings.defaults(),
                 AdminCapabilities.none(),
                 "vanilla_balanced",
+                List.of(),
                 List.of(),
                 "Portal disabled until the administration backend is installed.",
                 "Administration backend is not installed.",
@@ -119,6 +124,24 @@ public record AdminSnapshot(
             id = cleanId(id, "invalid");
             ruleCount = Math.max(0, Math.min(ruleCount, ProtocolLimits.MAX_ORE_RULES));
             revision = Math.max(0, revision);
+        }
+    }
+
+    public record BackupDraft(
+            String id,
+            long createdAtEpochMillis,
+            String operation,
+            String terrain,
+            long sizeBytes,
+            boolean pinned,
+            boolean restorable,
+            boolean valid) {
+        public BackupDraft {
+            id = cleanId(id, "invalid");
+            operation = clean(operation, "unknown");
+            terrain = clean(terrain, "unknown");
+            createdAtEpochMillis = Math.max(0, createdAtEpochMillis);
+            sizeBytes = Math.max(-1, sizeBytes);
         }
     }
 

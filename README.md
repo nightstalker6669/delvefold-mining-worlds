@@ -18,6 +18,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Dedicated Delvefold creative tab with the Portal Frame and room for future content.
 - Iron-tier framed portal ignited with vanilla Flint and Steel.
 - Safe world deletion/recreation on restart, with a timestamped backup by default.
+- In-game backup browser with pinning, confirmed deletion, and restart-safe restoration.
 - Atomic per-save JSON, validation, stale-edit protection, and last-known-good runtime snapshots.
 
 ## Requirements
@@ -105,6 +106,18 @@ Safe world deletion and recreation:
 /delvefold world delete request <keep_backup|permanent>
 /delvefold world confirm <token>
 /delvefold world cancel
+```
+
+Backup management:
+
+```text
+/delvefold backup list
+/delvefold backup pin <backup>
+/delvefold backup unpin <backup>
+/delvefold backup delete <backup> confirm
+/delvefold backup restore request <backup>
+/delvefold backup restore confirm <token>
+/delvefold backup restore cancel
 ```
 
 World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. See [Commands](docs/COMMANDS.md) for behavior and permission details.

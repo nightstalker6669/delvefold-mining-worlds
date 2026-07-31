@@ -22,10 +22,12 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.reset.BackupMode;
+import com.nightsta69.delvefold.reset.WorldBackupCatalog;
 import com.nightsta69.delvefold.reset.WorldOperationPreview;
 import com.nightsta69.delvefold.reset.WorldOperationRequest;
 import com.nightsta69.delvefold.reset.WorldOperationResult;
 import com.nightsta69.delvefold.reset.WorldOperationService;
+import com.nightsta69.delvefold.reset.WorldRestoreService;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +40,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 /** Brigadier and console parity for every administration path exposed by the GUI. */
@@ -76,8 +79,35 @@ public final class DelvefoldCommands {
                                                 .executes(DelvefoldCommands::initialize)))))
                 .then(Commands.literal("status").executes(DelvefoldCommands::status))
                 .then(profileCommands())
+                .then(backupCommands())
                 .then(oreCommands())
                 .then(worldCommands());
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> backupCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> backup = Commands.literal("backup");
+        backup.requires(AdminAccess::canManageWorld);
+        backup.then(Commands.literal("list").executes(DelvefoldCommands::listBackups));
+        backup.then(Commands.literal("pin").then(backupArgument().executes(context -> pinBackup(context, true))));
+        backup.then(Commands.literal("unpin").then(backupArgument().executes(context -> pinBackup(context, false))));
+        backup.then(Commands.literal("delete").then(backupArgument()
+                .then(Commands.literal("confirm").executes(DelvefoldCommands::deleteBackup))));
+        backup.then(Commands.literal("restore")
+                .then(Commands.literal("request").then(backupArgument().executes(DelvefoldCommands::requestRestore)))
+                .then(Commands.literal("confirm").then(Commands.argument("token", StringArgumentType.word())
+                        .executes(DelvefoldCommands::confirmRestore)))
+                .then(Commands.literal("cancel").executes(DelvefoldCommands::cancelRestore)));
+        return backup;
+    }
+
+    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> backupArgument() {
+        return Commands.argument("backup", StringArgumentType.word()).suggests((context, builder) -> {
+            try {
+                return SharedSuggestionProvider.suggest(backups(context).stream().map(backup -> backup.id()), builder);
+            } catch (IOException exception) {
+                return builder.buildFuture();
+            }
+        });
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> profileCommands() {
@@ -378,6 +408,85 @@ public final class DelvefoldCommands {
     private static int profileFailure(CommandContext<CommandSourceStack> context, Exception exception) {
         context.getSource().sendFailure(Component.literal("Profile operation failed: " + exception.getMessage()));
         return 0;
+    }
+
+    private static int listBackups(CommandContext<CommandSourceStack> context) {
+        try {
+            var backups = backups(context);
+            context.getSource().sendSuccess(() -> Component.literal(
+                    backups.isEmpty() ? "No Delvefold backups found." : "Delvefold backups:"), false);
+            for (var backup : backups) {
+                context.getSource().sendSystemMessage(Component.literal("  " + backup.id() + " — "
+                        + backup.operation() + ", " + backup.terrain() + ", " + humanBytes(backup.sizeBytes())
+                        + (backup.pinned() ? " [pinned]" : "")
+                        + (backup.restorable() ? " [restorable]" : " [archive only]")));
+            }
+            return backups.size();
+        } catch (IOException exception) {
+            context.getSource().sendFailure(Component.literal("Could not list backups: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int pinBackup(CommandContext<CommandSourceStack> context, boolean pinned) {
+        try {
+            backupCatalog(context).setPinned(StringArgumentType.getString(context, "backup"), pinned);
+            context.getSource().sendSuccess(() -> Component.literal(
+                    (pinned ? "Pinned " : "Unpinned ") + StringArgumentType.getString(context, "backup")), true);
+            return 1;
+        } catch (IOException exception) {
+            context.getSource().sendFailure(Component.literal("Backup update failed: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int deleteBackup(CommandContext<CommandSourceStack> context) {
+        String id = StringArgumentType.getString(context, "backup");
+        try {
+            if (!backupCatalog(context).delete(id)) {
+                context.getSource().sendFailure(Component.literal("Backup was not deleted: " + id));
+                return 0;
+            }
+            context.getSource().sendSuccess(() -> Component.literal(
+                    "Permanently deleted Delvefold backup " + id), true);
+            return 1;
+        } catch (IOException exception) {
+            context.getSource().sendFailure(Component.literal("Backup deletion failed: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int requestRestore(CommandContext<CommandSourceStack> context) {
+        String id = StringArgumentType.getString(context, "backup");
+        WorldOperationPreview preview = WorldRestoreService.get().request(
+                context.getSource().getServer(), id, context.getSource().getTextName());
+        if (!preview.accepted()) {
+            context.getSource().sendFailure(Component.literal(preview.message()));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(preview.message()
+                + ". Estimated copy: " + humanBytes(preview.estimatedBytes())
+                + ". Confirm with /delvefold backup restore confirm " + preview.confirmationToken()), false);
+        return 1;
+    }
+
+    private static int confirmRestore(CommandContext<CommandSourceStack> context) {
+        return reportOperation(context.getSource(), WorldRestoreService.get().confirm(
+                context.getSource().getServer(), StringArgumentType.getString(context, "token")));
+    }
+
+    private static int cancelRestore(CommandContext<CommandSourceStack> context) {
+        return reportOperation(context.getSource(), WorldRestoreService.get().cancel(context.getSource().getServer()));
+    }
+
+    private static List<WorldBackupCatalog.BackupSummary> backups(CommandContext<CommandSourceStack> context)
+            throws IOException {
+        return backupCatalog(context).list();
+    }
+
+    private static WorldBackupCatalog backupCatalog(CommandContext<CommandSourceStack> context) {
+        return new WorldBackupCatalog(context.getSource().getServer()
+                .getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize());
     }
 
     private static int validateConfig(CommandContext<CommandSourceStack> context) {

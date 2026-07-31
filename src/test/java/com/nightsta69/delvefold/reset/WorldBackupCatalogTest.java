@@ -44,5 +44,10 @@ class WorldBackupCatalogTest {
         assertTrue(summary.valid());
         assertEquals(backup, catalog.resolve(id));
         assertThrows(java.io.IOException.class, () -> catalog.resolve("../escape"));
+
+        assertTrue(catalog.setPinned(id, true));
+        assertThrows(java.io.IOException.class, () -> catalog.delete(id));
+        assertTrue(catalog.setPinned(id, false));
+        assertTrue(catalog.delete(id));
     }
 }

@@ -37,6 +37,17 @@ public final class DelvefoldStreamCodecs {
             buffer.writeLong(profile.revision());
             buffer.writeBoolean(profile.valid());
         }
+        writeCount(buffer, snapshot.backups().size(), ProtocolLimits.MAX_BACKUPS, "world backups");
+        for (AdminSnapshot.BackupDraft backup : snapshot.backups()) {
+            writeString(buffer, backup.id(), ProtocolLimits.SHORT_TEXT_LENGTH);
+            buffer.writeLong(backup.createdAtEpochMillis());
+            writeString(buffer, backup.operation(), ProtocolLimits.ID_LENGTH);
+            writeString(buffer, backup.terrain(), ProtocolLimits.ID_LENGTH);
+            buffer.writeLong(backup.sizeBytes());
+            buffer.writeBoolean(backup.pinned());
+            buffer.writeBoolean(backup.restorable());
+            buffer.writeBoolean(backup.valid());
+        }
         writeString(buffer, snapshot.portalStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeString(buffer, snapshot.worldStatus(), ProtocolLimits.MESSAGE_LENGTH);
         buffer.writeBoolean(snapshot.resetPending());
@@ -68,6 +79,14 @@ public final class DelvefoldStreamCodecs {
                     buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(), buffer.readLong(),
                     buffer.readBoolean()));
         }
+        int backupCount = readCount(buffer, ProtocolLimits.MAX_BACKUPS, "world backups");
+        List<AdminSnapshot.BackupDraft> backups = new ArrayList<>(backupCount);
+        for (int index = 0; index < backupCount; index++) {
+            backups.add(new AdminSnapshot.BackupDraft(
+                    readString(buffer, ProtocolLimits.SHORT_TEXT_LENGTH), buffer.readLong(),
+                    readString(buffer, ProtocolLimits.ID_LENGTH), readString(buffer, ProtocolLimits.ID_LENGTH),
+                    buffer.readLong(), buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean()));
+        }
         String portalStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         String worldStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         boolean resetPending = buffer.readBoolean();
@@ -88,6 +107,7 @@ public final class DelvefoldStreamCodecs {
         }
         return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, capabilities,
                 activeProfileId, profiles,
+                backups,
                 portalStatus, worldStatus, resetPending, diagnostics, oreRuleTotal, orePage, rules);
     }
 

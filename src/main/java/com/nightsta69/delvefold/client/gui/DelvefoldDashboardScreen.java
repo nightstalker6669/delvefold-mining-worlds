@@ -312,7 +312,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                             this.snapshot.terrainMode(), this.snapshot.orePreset(), currentGameplay(),
                             this.snapshot.portal(),
                             this.snapshot.capabilities(),
-                            this.snapshot.activeProfileId(), this.snapshot.profiles(),
+                            this.snapshot.activeProfileId(), this.snapshot.profiles(), this.snapshot.backups(),
                             this.snapshot.portalStatus(), this.snapshot.worldStatus(), this.snapshot.resetPending(),
                             this.snapshot.diagnostics(), this.snapshot.oreRuleTotal(), this.snapshot.orePage(),
                             this.snapshot.oreRules()),
@@ -443,6 +443,9 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                     button -> armOrPerform(AdminOperation.CANCEL_PENDING_RESET));
             this.cancelPendingButton.active = this.snapshot.capabilities().canManageWorld();
         }
+        y += compactHeight() ? 55 : 65;
+        this.addButton(x, y, Math.min(220, innerWidth), 22, Component.literal("Manage backups…"),
+                Style.SECONDARY, button -> this.minecraft.setScreen(new DelvefoldBackupScreen(this, this.snapshot)));
         updateDestructiveLabels();
     }
 

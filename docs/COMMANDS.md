@@ -88,3 +88,17 @@ To explicitly discard the old dimension without retaining its timestamped backup
 ```
 
 Permanent mode still stages the old folders until the settings transaction commits. It is then deleted. Delvefold never modifies a loaded mining dimension.
+
+## Backups and restore
+
+```text
+/delvefold backup list
+/delvefold backup pin <backup>
+/delvefold backup unpin <backup>
+/delvefold backup delete <backup> confirm
+/delvefold backup restore request <backup>
+/delvefold backup restore confirm <token>
+/delvefold backup restore cancel
+```
+
+Only backups created by versions that capture both dimension and configuration data are restorable; older entries remain visible as archive-only. Restore preserves the selected backup, creates a pre-restore backup of the current mining world, evacuates players, and applies during the next restart. Pinned backups must be unpinned before deletion.

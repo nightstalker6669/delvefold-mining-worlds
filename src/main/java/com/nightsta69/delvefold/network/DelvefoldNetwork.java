@@ -7,6 +7,7 @@ import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
+import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
@@ -94,6 +95,8 @@ public final class DelvefoldNetwork {
                 DelvefoldNetwork::handleProfileAction);
         registrar.playToServer(ProfileExportRequestPayload.TYPE, ProfileExportRequestPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleProfileExportRequest);
+        registrar.playToServer(BackupActionPayload.TYPE, BackupActionPayload.STREAM_CODEC,
+                DelvefoldNetwork::handleBackupAction);
         registrar.playToServer(AdminActionPayload.TYPE, AdminActionPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleAdminAction);
 
@@ -197,6 +200,14 @@ public final class DelvefoldNetwork {
         } catch (IOException | IllegalArgumentException exception) {
             finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.ERROR, 0,
                     "Profile export failed: " + exception.getMessage(), false));
+        }
+    }
+
+    private static void handleBackupAction(BackupActionPayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, AdminAccess.WORLD_MANAGEMENT_PERMISSION);
+        if (player != null) {
+            invoke(player, () -> DelvefoldAdminServices.get().performBackup(player,
+                    payload.expectedSettingsRevision(), payload.operation(), payload.backupId()));
         }
     }
 

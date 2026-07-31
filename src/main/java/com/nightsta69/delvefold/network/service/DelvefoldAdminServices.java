@@ -6,6 +6,7 @@ import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.BackupOperation;
 import com.nightsta69.delvefold.network.model.ProfileOperation;
 import java.util.Objects;
 import net.minecraft.server.level.ServerPlayer;
@@ -70,6 +71,12 @@ public final class DelvefoldAdminServices {
         public ServiceResult performProfile(ServerPlayer player, long expectedOreRevision, ProfileOperation operation,
                 String sourceId, String targetId, String json, boolean overwrite) {
             return ServiceResult.unavailable(expectedOreRevision);
+        }
+
+        @Override
+        public ServiceResult performBackup(ServerPlayer player, long expectedSettingsRevision,
+                BackupOperation operation, String backupId) {
+            return ServiceResult.unavailable(expectedSettingsRevision);
         }
 
         @Override

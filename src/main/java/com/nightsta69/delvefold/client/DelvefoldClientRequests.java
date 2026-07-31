@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.client;
 
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
+import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
@@ -50,6 +51,10 @@ public final class DelvefoldClientRequests {
     }
 
     public static void send(AdminActionPayload payload) {
+        send((CustomPacketPayload) payload);
+    }
+
+    public static void send(BackupActionPayload payload) {
         send((CustomPacketPayload) payload);
     }
 

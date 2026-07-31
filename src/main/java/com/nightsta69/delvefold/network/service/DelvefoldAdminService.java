@@ -7,6 +7,7 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.BackupOperation;
 import com.nightsta69.delvefold.network.model.ProfileOperation;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -53,6 +54,9 @@ public interface DelvefoldAdminService {
             String targetId,
             String json,
             boolean overwrite);
+
+    ServiceResult performBackup(
+            ServerPlayer player, long expectedSettingsRevision, BackupOperation operation, String backupId);
 
     ServiceResult perform(
             ServerPlayer player,
