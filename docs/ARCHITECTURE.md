@@ -1,10 +1,11 @@
 # Delvefold Architecture
 
-This document records the architecture of Delvefold 1.3.0 before the 1.3.1
-code-quality refactor. It is both a map for maintainers and a compatibility
-contract for the cleanup. Structural changes may improve ownership and reduce
-duplication, but they must not change the behavior described here unless a
-future feature release explicitly revises the relevant public contract.
+This document records the final Delvefold 1.3.1 architecture after the
+behavior-preserving code-quality refactor. It is both a map for maintainers and
+a compatibility contract for subsequent maintenance. The released 1.3.0
+architecture remains the behavioral baseline: 1.3.1 narrows ownership, makes
+contracts explicit, and removes repeated client presentation work without
+changing gameplay, save data, generation identity, or public interfaces.
 
 ## Architectural goals
 
@@ -34,7 +35,7 @@ The architecture is built around five invariants:
 
 ## Compatibility boundary
 
-The 1.3.1 cleanup is behavior-preserving. These identifiers and formats are
+The 1.3.1 cleanup is behavior-preserving. These identifiers and formats remain
 frozen against the 1.3.0 release:
 
 | Contract | Baseline | Compatibility requirement |
@@ -87,28 +88,59 @@ still completing.
 
 ## Package and subsystem map
 
-The baseline contains 246 production Java files. Counts below include nested
-packages and are useful for locating concentration, not as size targets.
+The final 1.3.1 source tree contains 317 production Java files and 51,673 lines,
+compared with 246 files and 36,043 lines in the 1.3.0 baseline. The increase is
+primarily 35 documented `package-info.java` nullness contracts, focused
+collaborators, and exhaustive Javadocs. Counts below are final, include nested
+packages and package contracts, and are useful for locating responsibility—not
+as size targets.
 
 | Package | Files | Responsibility and allowed dependency direction |
 | --- | ---: | --- |
-| `config` | 60 | Immutable settings/ore models, strict JSON, validation, profile catalogs, forecasting, import planning, permissions, and the runtime snapshot. Models and pure analysis should not depend on GUI or command code. |
-| `network` | 41 | Bounded wire models, codecs, payloads, registration, and the admin-service interface. Payloads depend on immutable views/models; domain services must not depend on client screens. |
-| `world` | 39 | Feature registration, deterministic ore/province/geology generation, structure-backed landmarks, catalog snapshots, and discovery. Generation consumes published config/catalog views and registries, never editor state or filesystem services. |
-| `reset` | 26 | Backups, manifests, verification, retention, delete/recreate, restore, renewal, journals, evacuation, and cross-operation coordination. This subsystem owns destructive save-tree transitions. |
-| `client` | 21 | Client payload handling, requests, screens, layout calculations, and widgets. It consumes bounded network snapshots and has no authority to mutate server state directly. |
-| `portal` | 11 | Frame recognition, ignition, POI registration, access policy, destination construction, hub routing, and hub protection. It reads active settings through server-side access services. |
-| `guide` | 11 | Visibility policy, authorization, bounded read-only snapshots, icons, and console summaries. It exposes resource guidance without seeds, coordinates, paths, or administrative secrets. |
-| `audit` | 7 | Actor scoping, accepted-mutation tracking, bounded asynchronous writes, JSON-lines serialization, rotation, and lifecycle ownership. Audit failure is contained and cannot undo an accepted gameplay mutation. |
-| `diagnostics` | 6 | Bounded Doctor collection, caching, rendering, redaction, and export. Expensive disk inspection runs away from the server tick thread. |
-| `compat` | 6 | Dependency-free portal-construction description plus isolated JEI and EMI adapters. Common/server packages must not reference viewer implementation classes. |
-| `api` | 6 | API-v1 immutable world view and public events for lifecycle, profile activation, portal travel, and landmark discovery. This is the strongest binary-compatibility boundary. |
-| `admin` | 4 | Server-side adapter between bounded GUI operations and domain/config/lifecycle services, plus localized result encoding and ore-import administration. |
-| `command` | 3 | Brigadier registration, command handlers, canonical command names, and ore-rule construction. Commands call the same authoritative domain services as GUI requests. |
-| `content` | 2 | Seam Ledger item behavior and its server-authorized advancements. |
-| `server` | 1 | Per-save startup/shutdown orchestration. |
-| `gameplay` | 1 | Natural mob-spawn policy for configured mining-world gameplay. |
-| root | 1 | NeoForge composition root and mod ID. |
+| `config` | 73 | Immutable settings/ore models, strict JSON, validation, profile catalogs, forecasting, import planning, permissions, and the runtime snapshot. Models and pure analysis do not depend on GUI or command code. |
+| `network` | 46 | Bounded wire models, codecs, payloads, registration, and the admin-service interface. Payloads depend on immutable views/models; domain services do not depend on client screens. |
+| `client` | 43 | Client payload handling, requests, screens, pure draft/presentation/layout models, and widgets. It consumes bounded network snapshots and has no authority to mutate server state directly. |
+| `world` | 43 | Feature registration, deterministic ore/province/geology generation, structure-backed landmarks, catalog snapshots, and discovery. Generation consumes published config/catalog views and registries, never editor state or filesystem services. |
+| `reset` | 29 | Backups, manifests, verification, retention, delete/recreate, restore, renewal, shared lifecycle file/journal operations, evacuation, and cross-operation coordination. This subsystem owns destructive save-tree transitions. |
+| `portal` | 12 | Frame recognition, ignition, POI registration, access policy, destination construction, hub routing, and hub protection. It reads active settings through server-side access services. |
+| `guide` | 12 | Visibility policy, authorization, bounded read-only snapshots, icons, and console summaries. It exposes resource guidance without seeds, coordinates, paths, or administrative secrets. |
+| `compat` | 9 | Dependency-free portal-construction description plus isolated JEI and EMI adapters. Common/server packages do not reference viewer implementation classes. |
+| `admin` | 8 | Stable server-side adapter plus focused backup dispatch, snapshot assembly, ore mapping/import administration, and localized result encoding. |
+| `api` | 8 | API-v1 immutable world view and public events for lifecycle, profile activation, portal travel, and landmark discovery. This is the strongest binary-compatibility boundary. |
+| `audit` | 8 | Actor scoping, accepted-mutation tracking, bounded asynchronous writes, JSON-lines serialization, rotation, and lifecycle ownership. Audit failure is contained and cannot undo an accepted gameplay mutation. |
+| `diagnostics` | 8 | Bounded Doctor collection, filesystem analysis, caching, rendering, redaction, and export. Expensive disk inspection runs away from the server tick thread. |
+| `command` | 5 | Brigadier registration/handlers and pure ore-rule document edits. Commands call the same authoritative domain services as GUI requests. |
+| `internal` | 4 | Package-private atomic-file and named-thread primitives shared without creating a service locator or shared worker queue. |
+| `content` | 3 | Seam Ledger item behavior and its server-authorized advancements. |
+| `server` | 2 | Per-save startup/shutdown orchestration. |
+| `gameplay` | 2 | Natural mob-spawn policy for configured mining-world gameplay. |
+| root | 2 | NeoForge composition root and mod ID. |
+
+### 1.3.1 responsibility boundaries
+
+The public facades and NeoForge entry points remain stable, while focused
+package-private collaborators now own logic that can be characterized without a
+running client or server:
+
+- `DefaultDelvefoldAdminService` delegates backup operations to
+  `AdminBackupOperations`, bounded view construction to `AdminSnapshotAssembler`,
+  and ore-model conversion to `AdminOreDraftMapper`.
+- `DelvefoldCommands` retains its exact Brigadier tree and dispatch behavior,
+  while `OreRuleEdits` performs immutable ore-document transformations.
+- `DelvefoldConfigService` remains the synchronized publication/persistence
+  facade; `ConfigDocumentTransitions`, `LiveConfigReloadPolicy`, and
+  `ProfileCatalogOperations` isolate pure transition and catalog decisions.
+- Dashboard, ore-rule wizard, ore-import, forecast, picker, backup, and setup
+  screens delegate draft, presentation, validation, scrolling, and responsive
+  geometry to focused models. Screens still own Minecraft widgets, rendering,
+  narration, and network submission.
+- `AtomicFiles`, `LifecycleFileOperations`, and `LifecycleJournalFiles` centralize
+  tested persistence mechanics. `NamedDaemonThreadFactory` standardizes thread
+  identity without combining the separately owned worker queues.
+
+These boundaries are deliberately package-private. They improve testability and
+reviewability without expanding API version 1 or making private implementation
+layout a downstream contract.
 
 ### Intended dependency flow
 
@@ -313,13 +345,15 @@ The existing CI architecture has four independent checks:
 - dedicated-server startup smoke;
 - four client smokes: base, JEI, EMI, and both viewers.
 
-Refactoring seams must be protected by characterization tests before code moves.
-The strongest invariants are public API descriptors, the complete Brigadier
-tree and permissions, payload codec round trips and limits, schema-2 canonical
+The completed 1.3.1 branch contains 157 test Java files and 15,611 lines. It
+passes 601 JUnit tests and all 35 required NeoForge GameTests, compared with 86
+files, 8,847 lines, and 365 JUnit tests at the 1.3.0 baseline. The strongest
+invariants are public API descriptors, the complete Brigadier tree and
+permissions, payload codec round trips and limits, schema-2 canonical
 serialization, deterministic placement outputs, GUI draft/layout state, and
 restart/recovery lifecycle behavior.
 
-## Refactoring rules
+## Maintenance rules
 
 1. Keep current public facades (`DelvefoldApi`, `DelvefoldConfigService`,
    `DelvefoldAdminService`, screen entry classes, and command registration)

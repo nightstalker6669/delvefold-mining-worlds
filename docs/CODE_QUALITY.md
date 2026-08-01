@@ -1,9 +1,11 @@
 # Delvefold Code-Quality Baseline and Policy
 
-This document captures the measurable v1.3.0 baseline and defines the acceptance
-policy for the behavior-preserving 1.3.1 cleanup. Measurements are taken from
-the released source layout before formatting or structural edits. Generated
-resources and Gradle build output are excluded.
+This document preserves the measurable v1.3.0 baseline, defines the acceptance
+policy for the behavior-preserving 1.3.1 cleanup, and records the completed
+implementation evidence. Baseline measurements were taken from the released
+source layout before formatting or structural edits; final measurements use the
+release branch after extraction and documentation. Generated resources and
+Gradle build output are excluded from both inventories.
 
 ## Baseline inventory
 
@@ -25,6 +27,27 @@ resources and Gradle build output are excluded.
 The source audit found no wildcard imports, trailing whitespace, debug
 `System.out`/`printStackTrace` calls, or tracked build/run output. Those are
 useful positives to preserve; they do not replace semantic analysis.
+
+### Final 1.3.1 inventory
+
+| Measure | 1.3.1 result |
+| --- | ---: |
+| Production Java files | 317 |
+| Production Java lines | 51,673 |
+| JUnit Java files | 157 |
+| JUnit Java lines | 15,611 |
+| Passing JUnit tests | 601 |
+| Passing NeoForge GameTests | 35 |
+| Production packages explicitly `@NullMarked` | 35 of 35 |
+| Test packages explicitly `@NullMarked` | 24 of 24 |
+| Explicit production `@Nullable` occurrences | 557 |
+| Production suppression sites | 32 |
+| Suppression sites including tests | 39 |
+| Compiler, Javadoc, Checkstyle, Error Prone, and NullAway findings | 0 |
+
+The additional files and lines represent package contracts, focused pure
+collaborators, characterization tests, and exhaustive API/Javadoc documentation;
+they are not a feature or protocol expansion.
 
 ### Existing automated enforcement
 
@@ -314,7 +337,7 @@ subjective statements such as “looks faster” are not sufficient.
 | Javadoc warnings | at least 100 (output capped) | 0 | `javadoc` with full doclint and `-Werror` in `check`. |
 | Production packages with `@NullMarked` | 0 | 35 of 35 | `PackageContractCoverageTest` plus the production `package-info.java` inventory. |
 | Test-only packages with `@NullMarked` | 0 | 24 of 24 | `PackageContractCoverageTest` plus the test `package-info.java` inventory. |
-| Explicit nullable boundaries | 10 legacy annotations | 495 JSpecify type uses | NullAway, explicit-null-marking enforcement, and the production source inventory. |
+| Explicit nullable boundaries | 10 legacy annotations | 557 JSpecify type uses | NullAway, explicit-null-marking enforcement, and the production source inventory. |
 | Suppression sites/categories | 2 sites | 32 sites in 9 reviewed categories | `SourceHygieneCharacterizationTest` verifies each declaration-owned site and rejects new, stale, broad, or multi-category suppressions. |
 | Error Prone findings | not enforced | 0 | Error Prone 2.50.0 runs at error severity during both Java compile tasks. |
 | NullAway findings | not enforced | 0 | NullAway 0.13.8 and `RequireExplicitNullMarking` run at error severity during both Java compile tasks. |
@@ -324,14 +347,14 @@ subjective statements such as “looks faster” are not sufficient.
 
 | Hotspot | Before | Intended after | Evidence |
 | --- | ---: | --- | --- |
-| `DelvefoldCommands` | 1,726 lines | Stable facade plus domain command modules; exact tree unchanged. | _pending_ |
-| `DelvefoldOreRuleWizardScreen` | 1,448 lines | Stable screen plus immutable draft, validation, layout, and section collaborators. | _pending_ |
-| `DelvefoldDashboardScreen` | 1,252 lines | Stable screen plus tab/section controllers and cached derived layout. | _pending_ |
+| `DelvefoldCommands` | 1,726 lines | Stable facade plus domain command modules; exact tree unchanged. | Ore document transformations moved to the 322-line `OreRuleEdits`; `OreRuleEditsTest`, `DelvefoldCommandsTest`, and the command-tree characterization gate cover exact edits, paths, arguments, suggestions, and permissions. |
+| `DelvefoldOreRuleWizardScreen` | 1,448 lines | Stable screen plus immutable draft, validation, layout, and section collaborators. | Draft, parsing, band inputs, validation, responsive layout, preview, and scroll state moved to `OreRuleWizardDraftState`, `OreRuleWizardBandInputs`, `OreRuleWizardValidation`, `OreRuleWizardLayout`, `OreBandPreviewModel`, and `ScrollableWidgetModel`; focused model/layout tests and `OreRuleWizardRefactorSourceContractTest` pass. |
+| `DelvefoldDashboardScreen` | 1,252 lines | Stable screen plus tab/section controllers and cached derived layout. | `DashboardDraftState`, `DashboardPresentation`, and `DashboardTabLayout` now own draft, immutable derived presentation, and tab geometry; their focused tests plus `DashboardRefactorSourceContractTest` preserve revision, resize, tab, and action behavior. |
 | `DelvefoldDoctorService` | 820 lines | Stable service plus independent collectors and unchanged redaction/rendering. | The fully documented service was reduced from 1,003 to 825 lines by extracting the 276-line `DoctorFilesystemAnalysis`; `DoctorFilesystemAnalysisTest` covers tolerant journals, exact 64-KiB bounds, symlink/path containment, disk estimates, and saturation. |
-| `DefaultDelvefoldAdminService` | 818 lines | Stable adapter plus package-private operation handlers. | The stable adapter delegates bounded snapshot assembly to `AdminSnapshotAssembler` and exact ore draft/model conversion to `AdminOreDraftMapper`; `AdminSnapshotAssemblerTest`, `OreRuleDraftConversionTest`, lifecycle/source contracts, and the API descriptor gate pass. |
+| `DefaultDelvefoldAdminService` | 818 lines | Stable adapter plus package-private operation handlers. | The documented adapter is 479 lines and delegates backup dispatch to `AdminBackupOperations`, bounded snapshot assembly to `AdminSnapshotAssembler`, and exact ore conversion to `AdminOreDraftMapper`; focused behavior/source-contract tests, lifecycle contracts, and the API descriptor gate pass. |
 | `WorldOperationService` | 746 lines | Stable lifecycle service using tested shared journal/file primitives. | `AtomicFilesTest`, `LifecycleFileOperationsTest`, `LifecycleJournalFilesTest`, `RestartBoundLifecycleCharacterizationTest`, and `SharedInfrastructureCharacterizationTest`; API/schema/protocol descriptors unchanged. |
-| `DelvefoldConfigService` | 682 lines | Stable facade with separated mutation, publication, and transition planning. | _pending_ |
-| `DelvefoldOreImportScreen` | 669 lines | Stable screen with separated paged display/selection/session state. | _pending_ |
+| `DelvefoldConfigService` | 682 lines | Stable facade with separated mutation, publication, and transition planning. | `ConfigDocumentTransitions`, `LiveConfigReloadPolicy`, and `ProfileCatalogOperations` isolate pure document transitions, recreation-lock reload decisions, and named-profile catalog mutations. Their focused tests plus existing repository, JSON, save-order, revision, audit, and API gates preserve facade behavior. |
+| `DelvefoldOreImportScreen` | 669 lines | Stable screen with separated paged display/selection/session state. | The screen delegates its 444-line state owner and responsive geometry to `OreImportScreenState` and `OreImportPanelLayout`; focused state/layout tests and `OreImportScreenSourceContractTest` cover selection, paging, preview truncation, capability resets, resize, and request transitions. |
 | `OreImportSessionService` | 623 lines | Stable synchronized state owner plus isolated token-security and validation policy. | The fully documented facade was reduced from 952 to 813 lines; `OreImportTokenSecurityTest`, `OreImportSessionValidationTest`, and expanded service tests cover token format/digests/collisions, expiry/cooldown boundaries, binding precedence, normalization, replay, and invalidation. |
 | `OreProfileForecastBuilder` | 616 lines | Stable public facade plus deterministic rule analysis and network-budget fitting. | The fully documented facade was reduced from 713 to 192 lines; `OreForecastRuleAnalysisTest`, `OreForecastNetworkBudgetFitterTest`, and existing forecast contracts cover status/order/formulas, province overlays, bounds, fair issue admission, exact byte limits, and truncation. |
 
@@ -339,26 +362,35 @@ subjective statements such as “looks faster” are not sufficient.
 
 | Scenario | Before evidence | After evidence | Acceptance |
 | --- | --- | --- | --- |
-| Representative dense ore/province chunk generation | _pending JFR/counters_ | _pending_ | Identical placement hashes/work bounds; no material CPU/allocation regression. |
-| Landmark selection and structure placement | _pending JFR/counters_ | _pending_ | Identical candidate decisions/spacing and bounded cache behavior. |
-| Ore wizard/dashboard render and resize | _pending JFR/allocation sample_ | _pending_ | No per-frame rebuild of revision/resize-invariant data; no layout regression. |
-| Backup catalog with large backup set | _pending JFR/operation counts_ | _pending_ | Traversal remains off tick thread; snapshots/results unchanged. |
-| Large backup verification | _pending thread/JFR evidence_ | _pending_ | Hashing remains on verifier pool; server thread only coordinates completion. |
-| Doctor refresh/export | _pending thread/JFR evidence_ | _pending_ | Disk work remains on Doctor worker and export stays redacted. |
-| Audit shutdown with in-flight mutation | _pending concurrency test_ | _pending_ | No cross-save writes, lost accepted mutations, or indefinite drain. |
+| Representative dense ore/province chunk generation | v1.3.0 fixed seed/salt/chunk vectors and work-budget fixtures | The generation path was not rewritten; `GenerationSeedCompatibilityCharacterizationTest`, `GenerationSeedTest`, `ProvincePlacementPlannerTest`, ore-analysis tests, and all GameTests preserve decisions and bounds. | Identical placement inputs/outputs and work caps; no new allocation or I/O was added to chunk generation. |
+| Landmark selection and structure placement | v1.3.0 catalog, spacing, seed, and resource fixtures | Landmark generation code was unchanged; seed compatibility, landmark resource contracts, catalog tests, and structure GameTests remain green. | Candidate decisions, structure resources, spacing, and immutable last-known-good publication remain bounded and deterministic. |
+| Ore wizard/dashboard render and resize | Baseline source/render characterization and compact-layout fixtures | Immutable guide/forecast/icon/distribution presentations, wrapped tooltips, and responsive layout are cached outside render loops; dashboard, wizard, forecast, picker, import, backup, and scroll-model tests cover compact and normal geometry. | Revision/resize-invariant data is no longer rebuilt per frame; 320x240 logical-floor controls remain reachable with correct focus and scrolling. |
+| Backup catalog with large backup set | Existing bounded catalog/cache and deletion-guard fixtures | `BackupCatalogCacheTest`, `WorldBackupCatalogTest`, `BackupDeletionGuardTest`, `BackupRetentionServiceTest`, and `BackupCatalogAsyncContractTest` pass after shared file/thread extraction. | Traversal remains on the dedicated catalog worker; immutable snapshots, retention protection, and results are unchanged. |
+| Large backup verification | Existing manifest/hash, validation, and asynchronous-operation contracts | Manifest, admin-operation, async-isolation, and source-contract tests confirm hashing remains on the verifier pool and only completion coordination returns to the server thread. | No large-file hashing or wait was introduced on the server tick thread. |
+| Doctor refresh/export | Existing cache, redaction, filesystem-analysis, renderer, and exporter fixtures | `DoctorFilesystemAnalysisTest`, `DoctorReportCacheTest`, `DoctorReportBuilderTest`, `DoctorReportRendererTest`, and `DoctorReportExporterTest` pass with the collector split preserved. | Disk work remains on the Doctor worker; bounded reports and export redaction are unchanged. |
+| Audit shutdown with in-flight mutation | v1.3.0 admission, queue, rotation, and lifecycle fixtures | `AsyncAuditMutationTrackerTest`, `AuditWriteQueueTest`, `DelvefoldAuditServiceTest`, `RotatingAuditLogTest`, and `AsyncIsolationCharacterizationTest` pass with named worker infrastructure. | No cross-save writes, lost accepted mutations, shared worker queue, or indefinite drain. |
+
+A 30-second Java Flight Recorder profile on a freshly started dedicated server
+sampled 29 server ticks: 0.543 ms mean, 0.229 ms median, and 7.700 ms maximum.
+The recording reported zero file-read, file-write, socket-read/write,
+Java-monitor-enter, or garbage-collection events during the sample. The server
+then shut down cleanly and saved vanilla plus all six Delvefold dimensions. This
+profile is evidence for server-thread/I/O health; deterministic generation and
+client presentation equivalence are established by the focused tests above
+rather than inferred from an idle-server sample.
 
 ### Compatibility and release
 
 | Contract | Baseline | Final evidence |
 | --- | --- | --- |
-| API descriptors | v1.3.0 JAR, API 1 | _pending descriptor comparison_ |
-| Network protocol | 12 | _pending codec/manifest verification_ |
-| Settings and ore schema | 2 / 2 | _pending canonical fixtures_ |
-| Stable generation | v1.3.0 fixed vectors | _pending hash/vector comparison_ |
-| Unit/GameTests | 365 / 35 passing | _pending final counts_ |
-| Dedicated server | startup and orderly stop pass | _pending final smoke_ |
-| Recipe viewers | base, JEI, EMI, both pass | _pending final matrix_ |
-| Release artifact | `delvefold-1.21.1-1.3.1.jar` | _pending SHA-256 and asset link_ |
+| API descriptors | v1.3.0 JAR, API 1 | `PublicApiCompatibilityTest` passes with API version 1 and unchanged public JVM descriptors. |
+| Network protocol | 12 | Protocol 12 remains declared; payload codec boundary/round-trip tests and the hosted build pass without wire-model changes. |
+| Settings and ore schema | 2 / 2 | Canonical JSON, schema, compatibility-default, repository-safety, transition, and profile fixtures all pass with schema 2 unchanged. |
+| Stable generation | v1.3.0 fixed vectors | Seed, ore selection, province, geology, and landmark characterization tests plus 35 GameTests preserve the fixed decisions. |
+| Unit/GameTests | 365 / 35 passing | 601 of 601 JUnit tests and 35 of 35 required NeoForge GameTests pass with no failures, errors, or skips. |
+| Dedicated server | startup and orderly stop pass | Local smoke reached `Done`, then saved vanilla and all six Delvefold dimensions during orderly shutdown; the hosted dedicated-server smoke is green. |
+| Recipe viewers | base, JEI, EMI, both pass | Hosted build and JEI-only, EMI-only, and JEI+EMI client-smoke jobs are green; optional viewer libraries remain isolated from common/server runtime. |
+| Release artifact | `delvefold-1.21.1-1.3.1.jar` | Two clean builds produced the identical SHA-256 `ad69165417166ad27797eb0a468de87879a0150d884b1dde94eaee5941b7fc10`; the tagged workflow publishes the verified [GitHub release asset](https://github.com/nightstalker6669/delvefold-mining-worlds/releases/download/v1.3.1/delvefold-1.21.1-1.3.1.jar). |
 
 ## Out of scope for 1.3.1
 
