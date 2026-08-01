@@ -37,6 +37,29 @@ class GenerationSeedTest {
     }
 
     @Test
+    void provinceCenterOutputChunkAndPositionStreamsAreStableAndSeparated() {
+        long center = GenerationSeedMixer.oreProvinceCenterSeed(
+                1234L, -7L, 11L, "diamond/province", 41L);
+        long output = GenerationSeedMixer.oreProvinceOutputSeed(
+                1234L, -7L, 11L, "diamond/province", 41L);
+        long chunk = GenerationSeedMixer.oreProvinceChunkSeed(
+                1234L, -7L, 11L, chunkPosition(4, -2), "diamond/province", 41L);
+        long position = GenerationSeedMixer.oreProvincePositionSeed(chunk, 57);
+
+        assertEquals(center, GenerationSeedMixer.oreProvinceCenterSeed(
+                1234L, -7L, 11L, "diamond/province", 41L));
+        assertNotEquals(center, GenerationSeedMixer.oreProvinceCenterSeed(
+                1234L, -7L, 11L, "diamond/province", 42L));
+        assertNotEquals(center, GenerationSeedMixer.oreProvinceCenterSeed(
+                1234L, -6L, 11L, "diamond/province", 41L));
+        assertNotEquals(center, output);
+        assertNotEquals(center, chunk);
+        assertNotEquals(output, chunk);
+        assertNotEquals(chunk, position);
+        assertNotEquals(position, GenerationSeedMixer.oreProvincePositionSeed(chunk, 58));
+    }
+
+    @Test
     void rotatedLandmarkSeedsRepeatAndChangeAcrossSaltsAndChunks() {
         long chunkPosition = chunkPosition(23, -51);
         long first = GenerationSeedMixer.landmarkPlacementSeed(

@@ -16,7 +16,7 @@ public final class GuideTextSummary {
         List<String> lines = new ArrayList<>();
         lines.add("Delvefold Seam Ledger — " + snapshot.worldName());
         lines.add("Terrain: " + snapshot.terrain() + " / " + snapshot.terrainVariant()
-                + "; profile: " + snapshot.activeProfile());
+                + "; geology: " + snapshot.geologyTheme() + "; profile: " + snapshot.activeProfile());
         lines.add("Portal: " + readable(snapshot.portalStatus().name())
                 + "; renewal: " + renewal(snapshot.renewal()));
         lines.add("Published ores: " + snapshot.ores().size() + (snapshot.truncated() ? " (truncated)" : ""));

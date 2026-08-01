@@ -2,9 +2,12 @@ package com.nightsta69.delvefold.network.codec;
 
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
+import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
@@ -150,6 +153,7 @@ public final class DelvefoldStreamCodecs {
         buffer.writeBoolean(identity.surveyStations());
         buffer.writeBoolean(identity.motherlodes());
         buffer.writeBoolean(identity.faultLines());
+        writeEnum(buffer, identity.geologyTheme());
         RenewalSettings renewal = identity.renewal();
         buffer.writeBoolean(renewal.enabled());
         buffer.writeVarInt(renewal.intervalDays());
@@ -164,6 +168,7 @@ public final class DelvefoldStreamCodecs {
                 readEnum(buffer, TerrainVariant.class),
                 readEnum(buffer, LandmarkPreset.class),
                 buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
+                readEnum(buffer, GeologyTheme.class),
                 new RenewalSettings(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt(), buffer.readLong(),
                         readEnum(buffer, RenewalSeedMode.class)));
     }
@@ -284,20 +289,38 @@ public final class DelvefoldStreamCodecs {
         buffer.writeInt(band.plateauMinY());
         buffer.writeInt(band.plateauMaxY());
         writeFiniteDouble(buffer, band.discardOnAirExposure(), "air exposure discard");
+        writeEnum(buffer, band.placement());
+        buffer.writeBoolean(band.province() != null);
+        if (band.province() != null) {
+            buffer.writeVarInt(band.province().regionSize());
+            buffer.writeVarInt(band.province().radius());
+            buffer.writeVarInt(band.province().verticalThickness());
+            writeFiniteDouble(buffer, band.province().density(), "province density");
+            buffer.writeVarInt(band.province().perChunkWorkCap());
+        }
     }
 
     public static AdminSnapshot.OreBandDraft readOreBand(RegistryFriendlyByteBuf buffer) {
+        String id = readString(buffer, ProtocolLimits.ID_LENGTH);
+        int veinSize = buffer.readVarInt();
+        double attempts = readFiniteDouble(buffer, "attempts per chunk");
+        HeightDistribution distribution = readEnum(buffer, HeightDistribution.class);
+        int minY = buffer.readInt();
+        int maxY = buffer.readInt();
+        int peakY = buffer.readInt();
+        int plateauMinY = buffer.readInt();
+        int plateauMaxY = buffer.readInt();
+        double discard = readFiniteDouble(buffer, "air exposure discard");
+        OreBandPlacement placement = readEnum(buffer, OreBandPlacement.class);
+        ProvinceSettings province = null;
+        if (buffer.readBoolean()) {
+            province = new ProvinceSettings(
+                    buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(),
+                    readFiniteDouble(buffer, "province density"), buffer.readVarInt());
+        }
         return new AdminSnapshot.OreBandDraft(
-                readString(buffer, ProtocolLimits.ID_LENGTH),
-                buffer.readVarInt(),
-                readFiniteDouble(buffer, "attempts per chunk"),
-                readEnum(buffer, HeightDistribution.class),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                buffer.readInt(),
-                readFiniteDouble(buffer, "air exposure discard"));
+                id, veinSize, attempts, distribution, minY, maxY, peakY,
+                plateauMinY, plateauMaxY, discard, placement, province);
     }
 
     public static void writeString(RegistryFriendlyByteBuf buffer, String value, int maximumLength) {

@@ -2,7 +2,7 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
-> **1.0 compatibility:** Delvefold 1.0 stabilizes configuration schema 2 and public API version 1. Existing 0.2–0.4 schema-2 saves and exact-block ore targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode.
+> **1.x compatibility:** Delvefold keeps configuration schema 2 and public API version 1. The 1.1 surveying fields and 1.2 geology, province, and landmark fields are additive with compatibility-preserving defaults. Existing 0.2–1.1 schema-2 saves and exact-block ore targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode.
 
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
@@ -10,17 +10,19 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 
 - Explicit initialization through `/delvefold gui` or `/delvefold initialize`; portal activation never chooses settings.
 - Flat, roofed cavern, and overworld-shaped mining terrain, each with Classic and Expansive scale variants.
-- Optional survey stations, ore motherlodes, and fault-line landmarks with Pure Mining, Balanced, and Abundant presets.
+- Five recreation-locked geology themes—Classic, Volcanic, Dripstone, Lush, and Crystal—with bounded vanilla-block strata, decorations, fluids, particles, and ambience.
+- A reloadable structure-system landmark catalog with six bundled discoveries: survey camp, collapsed mine entrance, lift station, geode vault, motherlode chamber, and fault-line grotto.
+- Pure Mining, Balanced, and Abundant landmark density presets, plus individual category toggles and one-time landmark loot.
 - A configurable world name, stable or rotating recreation layouts, and opt-in scheduled renewal with player warnings and mandatory backups.
 - An onboarding advancement path for building, activating, and entering the mining world.
-- A craftable **Seam Ledger** and `/delvefold guide` screen that publish server-authoritative ore outputs, best mining heights, relative frequency, terrain applicability, portal state, and renewal status without exposing administrative data.
+- A craftable **Seam Ledger** and `/delvefold guide` screen that publish the active terrain, scale, geology theme, ore outputs, best mining heights, relative frequency, terrain applicability, portal state, and renewal status without exposing administrative data.
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
 - Named per-save ore profiles with safe duplication, selection, and JSON import/export.
 - Visual height-distribution and generation-workload previews in the ore editor.
 - A whole-profile forecast with per-terrain attempts/work, an active-height graph, and missing, shadowed, or ineffective-rule diagnostics.
 - A guided modded-ore importer that discovers `c:ores/*` and ore-like registered blocks, groups likely stone/deepslate variants, previews the diff and workload, and creates a new inactive profile without overwriting anything.
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
-- Three-page ore-rule wizard for stone/deepslate or other variants, weighted output selection, replacement hosts, block-state properties, biome include/exclude selectors, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
+- Three-page ore-rule wizard for stone/deepslate or other variants, weighted output selection, replacement hosts, block-state properties, biome include/exclude selectors, vein or regional-province placement, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
 - Read-only ore profiles supplied by datapacks or startup scripts, including tag-driven outputs such as `c:ores/tin`.
 - Native NeoForge permission nodes, public lifecycle events, and a stable versioned integration API.
@@ -43,7 +45,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 
 1. Start or open a world with Delvefold installed.
 2. Run `/delvefold gui`.
-3. Choose terrain shape and scale, ore, gameplay, and landmark presets.
+3. Choose terrain shape, scale, geology theme, ore, gameplay, and landmark presets.
 4. Check the lock confirmation and click **Initialize**.
 5. Build and activate a Delvefold portal.
 
@@ -75,6 +77,7 @@ Setup, status, and JSON:
 /delvefold identity name <name>
 /delvefold identity landmarks <pure_mining|balanced|abundant>
 /delvefold identity variant <classic|expansive>
+/delvefold identity geology-theme <classic|volcanic|dripstone|lush|crystal>
 /delvefold renewal
 /delvefold renewal configure <interval_days> <warning_minutes>
 /delvefold renewal disable
@@ -120,9 +123,11 @@ Ore targets and spawn bands:
 /delvefold ore band add <rule> <band_id> <common|uncommon|rare|very_rare>
 /delvefold ore band remove <rule> <band_id>
 /delvefold ore band set <rule> <band_id> <field> <value>
+/delvefold ore band placement <rule> <band_id> <vein|province>
+/delvefold ore band province <rule> <band_id> <region_size|radius|vertical_thickness|density|work_cap> <value>
 ```
 
-Band fields are `vein_size`, `attempts`, `min_y`, `max_y`, `peak_y`, `plateau_min_y`, `plateau_max_y`, and `discard`.
+Fields supported by `ore band set` are `vein_size`, `attempts`, `min_y`, `max_y`, `peak_y`, `plateau_min_y`, `plateau_max_y`, and `discard`. The GUI, dedicated placement/province commands, and canonical JSON can switch a band between `vein` and `province` and configure its bounded regional controls.
 
 Ore targets may carry an optional relative `weight` from 1 through 1000 in the GUI or canonical schema-2 JSON. Omitted weights default to `1`; existing and all-1 profiles keep the earlier member-uniform deterministic per-vein selection sequence. Exact targets use their configured weight directly, while each output tag divides its total weight equally among installed members when a host group contains a non-default weight. Identical resolved states are deduplicated first-wins, and later overlaps are ignored with a warning.
 
@@ -134,6 +139,14 @@ Open the **Profiles** tab and choose **Detect ores…** to scan the server's ins
 
 Discovery and planning are server-authoritative in singleplayer and multiplayer. Scan/preview capabilities expire, are bound to the requesting player and current profile/registry state, and cannot be replayed to overwrite a profile. If installed mods or the active profile change, start a fresh scan.
 
+## Living geology
+
+Geology themes are chosen during initialization or a confirmed recreation. `classic` preserves the established terrain composition; `volcanic`, `dripstone`, `lush`, and `crystal` add deterministic, per-chunk-bounded vanilla-block strata, decorations, sealed fluid pockets, particles, sounds, and ambience without changing Delvefold's registered dimension IDs or replacing its terrain generators. Existing schema-2 worlds that omit `identity.geology_theme` load as `classic` and are not rewritten merely by loading.
+
+Ore bands may use the compatibility-default `vein` placement or the optional `province` placement. Provinces derive regional centers deterministically across chunk borders, but generate only inside the chunk currently being built. Region size, radius, vertical thickness, density, and a hard per-chunk work cap are editable in the ore-rule GUI, dedicated commands, or canonical JSON and participate in the existing workload safety budget.
+
+Landmarks are now structure-system templates selected from `data/<namespace>/delvefold/landmarks/*.json`. Bundled definitions cover the six landmarks listed above. Pure Mining accepts no candidates, Balanced deterministically accepts 25%, and Abundant accepts 75%; the existing survey-station, motherlode, and fault-line toggles narrow those candidates further. Invalid datapack reloads retain the complete last-known-good catalog and report the rejected definitions in diagnostics. Entering a landmark awards **Signs in the Stone** and posts the additive API-v1 discovery event.
+
 Safe world deletion and recreation:
 
 ```text
@@ -141,6 +154,7 @@ Safe world deletion and recreation:
 /delvefold world recreate request <flat|cavern|wild>
 /delvefold world recreate request <flat|cavern|wild> <keep_backup|permanent>
 /delvefold world recreate request <flat|cavern|wild> <classic|expansive> [keep_backup|permanent]
+/delvefold world recreate request <flat|cavern|wild> <classic|expansive> <classic|volcanic|dripstone|lush|crystal> [keep_backup|permanent]
 /delvefold world delete request
 /delvefold world delete request <keep_backup|permanent>
 /delvefold world confirm <token>
@@ -161,11 +175,11 @@ Backup management:
 
 World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. See [Commands](docs/COMMANDS.md) for behavior and permission details.
 
-Recreation layout defaults to `stable`, which reproduces the established ore and landmark layout. Administrators can select `rotate_on_recreate` through the GUI or renewal command; the selection applies only when the world is next initialized or recreated, and ordinary restarts never change an existing layout.
+Recreation layout defaults to `stable`, which reproduces the established ore, province, themed geology, and landmark layout. Administrators can select `rotate_on_recreate` through the GUI or renewal command; the selection applies only when the world is next initialized or recreated, and ordinary restarts never change an existing layout. Omitting the geology argument preserves the current theme.
 
 ## Seam Ledger
 
-Craft the Seam Ledger shapelessly from one Book, one Compass, and one Copper Ingot, or find it in the Delvefold creative tab. Right-clicking it opens a scrollable, read-only view of the active world and enabled ore profile. It shows representative ore icons, output IDs or tags, best height bands, vein sizes, relative frequency, terrain applicability, bounded biome include/exclude selectors, portal availability, and renewal timing.
+Craft the Seam Ledger shapelessly from one Book, one Compass, and one Copper Ingot, or find it in the Delvefold creative tab. Right-clicking it opens a scrollable, read-only view of the active world and enabled ore profile. It shows terrain, scale, the active geology theme, representative ore icons, output IDs or tags, best height bands, vein sizes or province distributions, relative frequency, terrain applicability, bounded biome include/exclude selectors, portal availability, and renewal timing.
 
 The server constructs and authorizes every snapshot. Oversized profiles are safely truncated, and the snapshot never publishes world seeds, horizontal coordinates, filesystem paths, world-operation confirmation tokens, permissions, or administration diagnostics. Successfully obtaining the ledger has an advancement. Consultation is awarded only after the client installs a server-authorized screen, returns its short-lived single-use acknowledgement, and the server rechecks visibility.
 
@@ -195,7 +209,7 @@ Each save owns its configuration:
 
 Editing ore-generation JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), the [ore schema](schemas/ores.schema.json), and the [settings schema](schemas/settings.schema.json).
 
-Modpack authors can provide namespaced, read-only profiles under `data/<namespace>/delvefold/ore_profiles/`, register profiles from startup scripts, and use NeoForge events and permission nodes. See [Integration](docs/INTEGRATION.md) and the [example datapack](examples/datapack).
+Modpack authors can provide namespaced, read-only profiles under `data/<namespace>/delvefold/ore_profiles/`, reloadable landmarks under `data/<namespace>/delvefold/landmarks/`, register profiles from startup scripts, and use NeoForge events and permission nodes. See [Integration](docs/INTEGRATION.md) and the [example datapack](examples/datapack).
 
 For upgrades, supported combinations, and recovery behavior, see [Compatibility](docs/COMPATIBILITY.md). For common startup, portal, JSON, and reset problems, see [Troubleshooting](docs/TROUBLESHOOTING.md).
 
@@ -220,7 +234,7 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-1.1.0.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, and optional recipe-viewer client smoke tests. Version tags publish the JAR and SHA-256 checksum automatically.
+The release JAR is written to `build/libs/delvefold-1.21.1-1.2.0.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, and optional recipe-viewer client smoke tests. Version tags publish the JAR and SHA-256 checksum automatically.
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
 

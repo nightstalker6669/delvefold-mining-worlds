@@ -8,10 +8,13 @@ import org.junit.jupiter.api.Test;
 
 class AdminOperationTest {
     @Test
-    void recreationConfirmationIncludesShapeAndScale() {
-        assertTrue(AdminOperation.RECREATE_WORLD.confirmationMatches("RECREATE:WILD:EXPANSIVE"));
-        assertTrue(AdminOperation.RECREATE_WORLD.confirmationMatches("recreate:flat:classic"));
+    void recreationConfirmationIncludesShapeScaleAndGeologyTheme() {
+        assertTrue(AdminOperation.RECREATE_WORLD.confirmationMatches("RECREATE:WILD:EXPANSIVE:VOLCANIC"));
+        assertTrue(AdminOperation.RECREATE_WORLD.confirmationMatches("recreate:flat:classic:classic"));
+        assertTrue(AdminOperation.RECREATE_WORLD.confirmationMatches("RECREATE:CAVERN:EXPANSIVE:CRYSTAL"));
         assertFalse(AdminOperation.RECREATE_WORLD.confirmationMatches("RECREATE:WILD"));
+        assertFalse(AdminOperation.RECREATE_WORLD.confirmationMatches("RECREATE:WILD:EXPANSIVE"));
         assertFalse(AdminOperation.RECREATE_WORLD.confirmationMatches("RECREATE:WILD:UNKNOWN"));
+        assertFalse(AdminOperation.RECREATE_WORLD.confirmationMatches("RECREATE:WILD:EXPANSIVE:UNKNOWN"));
     }
 }

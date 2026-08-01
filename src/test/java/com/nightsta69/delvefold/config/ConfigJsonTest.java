@@ -8,8 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
@@ -188,6 +190,45 @@ class ConfigJsonTest {
         assertEquals("example:tin_ore", decoded.rules().getFirst().targets().getFirst().block());
         assertEquals("", decoded.rules().getFirst().targets().getFirst().blockTag());
         assertEquals(OreTarget.DEFAULT_WEIGHT, decoded.rules().getFirst().targets().getFirst().weight());
+        assertEquals(OreBandPlacement.VEIN, decoded.rules().getFirst().bands().getFirst().placement());
+        assertEquals(null, decoded.rules().getFirst().bands().getFirst().province());
+    }
+
+    @Test
+    void provinceBandsRemainAdditiveSchemaTwoDataAndRoundTripCanonically() {
+        var original = OrePresets.balanced().rules().getFirst();
+        var province = com.nightsta69.delvefold.config.model.SpawnBand.province(
+                "regional", com.nightsta69.delvefold.config.model.HeightDistribution.TRIANGLE,
+                -48, 64, -16, null, null, 0.25D,
+                new ProvinceSettings(512, 192, 48, 0.08D, 1024));
+        var rule = original.withBands(List.of(province));
+        var document = new OreProfileDocument(
+                OreProfileDocument.CURRENT_SCHEMA_VERSION, 3L, "province", List.of(rule));
+
+        String json = ConfigJson.GSON.toJson(document);
+        assertTrue(json.contains("\"placement\": \"province\""));
+        assertTrue(json.contains("\"per_chunk_work_cap\": 1024"));
+        StrictConfigStructure.parseAndValidate(json, OreProfileDocument.class);
+        assertEquals(document, ConfigJson.GSON.fromJson(json, OreProfileDocument.class));
+    }
+
+    @Test
+    void strictProvinceParsingRejectsUnknownModesIncompleteSettingsAndIntegerOverflow() {
+        var original = OrePresets.balanced().rules().getFirst();
+        var province = com.nightsta69.delvefold.config.model.SpawnBand.province(
+                "regional", com.nightsta69.delvefold.config.model.HeightDistribution.UNIFORM,
+                -32, 32, null, null, null, 0.0D, ProvinceSettings.defaults());
+        String valid = ConfigJson.GSON.toJson(new OreProfileDocument(
+                2, 0L, "strict_province", List.of(original.withBands(List.of(province)))));
+
+        assertThrows(JsonParseException.class, () -> StrictConfigStructure.parseAndValidate(
+                valid.replace("\"placement\": \"province\"", "\"placement\": \"cluster\""),
+                OreProfileDocument.class));
+        assertThrows(JsonParseException.class, () -> StrictConfigStructure.parseAndValidate(
+                valid.replace("\"radius\": 192,", ""), OreProfileDocument.class));
+        assertThrows(JsonParseException.class, () -> StrictConfigStructure.parseAndValidate(
+                valid.replace("\"per_chunk_work_cap\": 1024",
+                        "\"per_chunk_work_cap\": 4294967297"), OreProfileDocument.class));
     }
 
     @Test

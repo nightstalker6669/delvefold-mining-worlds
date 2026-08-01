@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "template": "delvefold:landmarks/lift_station",
+  "weight": 8,
+  "category": "survey_station",
+  "terrain_modes": ["flat", "wild"],
+  "placement_style": "surface",
+  "min_y": -48,
+  "max_y": 240,
+  "biomes": { "include": ["#delvefold:mining_biomes"], "exclude": [] },
+  "processors": ["delvefold:landmark_pristine"],
+  "loot_table": "delvefold:chests/lift_station"
+}

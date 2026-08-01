@@ -32,6 +32,8 @@
       "bands": [
         {
           "id": "main",
+          // Optional additive schema-2 field; omitted values use classic vein placement.
+          "placement": "vein",
           "vein_size": 8,
           "attempts_per_chunk": 7.5,
           "distribution": "triangle",
@@ -40,7 +42,29 @@
           "peak_y": 16,
           "plateau_min_y": null,
           "plateau_max_y": null,
-          "discard_on_air_exposure": 0.25
+          "discard_on_air_exposure": 0.25,
+          "province": null
+        },
+        {
+          "id": "regional_pockets",
+          "placement": "province",
+          // Retained canonical fields; ignored by the province algorithm.
+          "vein_size": 1,
+          "attempts_per_chunk": 0.0,
+          "distribution": "triangle",
+          "min_y": -48,
+          "max_y": 96,
+          "peak_y": 12,
+          "plateau_min_y": null,
+          "plateau_max_y": null,
+          "discard_on_air_exposure": 0.25,
+          "province": {
+            "region_size": 512,
+            "radius": 192,
+            "vertical_thickness": 48,
+            "density": 0.08,
+            "per_chunk_work_cap": 256
+          }
         }
       ]
     }

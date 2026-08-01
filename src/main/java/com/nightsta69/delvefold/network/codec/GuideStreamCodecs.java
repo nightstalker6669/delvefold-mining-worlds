@@ -20,6 +20,10 @@ public final class GuideStreamCodecs {
     }
 
     public static void write(RegistryFriendlyByteBuf buffer, GuideSnapshot snapshot) {
+        if (snapshot.formatVersion() != GuideSnapshot.CURRENT_FORMAT_VERSION) {
+            throw new IllegalArgumentException(
+                    "Only the current guide format can be sent over protocol 11: " + snapshot.formatVersion());
+        }
         if (snapshot.estimatedNetworkBytes() > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
             throw new IllegalArgumentException("Guide snapshot exceeds its network budget");
         }
@@ -27,6 +31,7 @@ public final class GuideStreamCodecs {
         writeString(buffer, snapshot.worldName(), GuideLimits.MAX_WORLD_NAME_CHARACTERS);
         writeString(buffer, snapshot.terrain(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         writeString(buffer, snapshot.terrainVariant(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
+        writeString(buffer, snapshot.geologyTheme(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         writeString(buffer, snapshot.activeProfile(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         writeEnum(buffer, snapshot.portalStatus());
         writeRenewal(buffer, snapshot.renewal());
@@ -50,6 +55,8 @@ public final class GuideStreamCodecs {
         ensureDecodeBudget(buffer, startIndex);
         String variant = readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         ensureDecodeBudget(buffer, startIndex);
+        String geology = readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
+        ensureDecodeBudget(buffer, startIndex);
         String profile = readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         ensureDecodeBudget(buffer, startIndex);
         PortalStatus portal = readEnum(buffer, PortalStatus.class);
@@ -62,7 +69,7 @@ public final class GuideStreamCodecs {
         }
         boolean truncated = buffer.readBoolean();
         ensureDecodeBudget(buffer, startIndex);
-        return new GuideSnapshot(format, world, terrain, variant, profile, portal, renewal, ores, truncated);
+        return new GuideSnapshot(format, world, terrain, variant, geology, profile, portal, renewal, ores, truncated);
     }
 
     private static void writeRenewal(RegistryFriendlyByteBuf buffer, Renewal renewal) {

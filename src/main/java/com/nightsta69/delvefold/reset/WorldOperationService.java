@@ -101,6 +101,9 @@ public final class WorldOperationService {
                     snapshot.settings().terrainMode(),
                     request.targetTerrain(),
                     request.targetVariant(),
+                    request.targetGeologyTheme() == null
+                            ? snapshot.settings().identity().geologyTheme()
+                            : request.targetGeologyTheme(),
                     request.targetOrePreset(),
                     request.targetGameplayPreset(),
                     request.backupMode(),
@@ -257,6 +260,7 @@ public final class WorldOperationService {
                         case RECREATE -> settings.recreate(
                                 operation.targetTerrain(),
                                 operation.targetVariant(),
+                                operation.targetGeologyTheme(),
                                 operation.targetOrePreset(),
                                 operation.targetGameplayPreset(),
                                 operation.operationId()

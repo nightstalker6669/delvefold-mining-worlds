@@ -13,6 +13,7 @@ import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import java.util.ArrayList;
@@ -161,6 +162,40 @@ class OreProfileForecastBuilderTest {
             assertEquals(1.0D, sample.expectedAttempts(), 1.0E-9);
             assertEquals(8.0D, sample.expectedWorkUnits(), 1.0E-9);
         }
+    }
+
+    @Test
+    void provinceForecastUsesHardCapAndThicknessAwareHeightOverlay() {
+        SpawnBand province = SpawnBand.province(
+                "regional", com.nightsta69.delvefold.config.model.HeightDistribution.UNIFORM,
+                0, 0, null, null, null, 0.0D,
+                new ProvinceSettings(512, 192, 5, 0.08D, 100));
+        OreRule rule = new OreRule(
+                "regional_diamond", true, true, Set.of(TerrainMode.FLAT),
+                List.of(OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables")),
+                BiomeFilter.ALL_MINING_BIOMES, List.of(province));
+        OreProfileDocument profile = new OreProfileDocument(
+                2, 0L, "province", List.of(rule));
+
+        OreProfileForecast forecast = OreProfileForecastBuilder.build(
+                profile.profile(), profile, TerrainMode.FLAT, (terrain, filter) -> true,
+                ignored -> new TargetAnalysis(1, 0, List.of(), false), 0, 12);
+
+        var ruleForecast = forecast.rules().getFirst();
+        assertEquals(RuleStatus.EFFECTIVE, ruleForecast.status());
+        assertEquals(100.0D, ruleForecast.configuredAttempts(), 1.0E-9);
+        assertEquals(100.0D, ruleForecast.configuredWorkUnits(), 1.0E-9);
+        assertEquals(100.0D, ruleForecast.effectiveWorkUnits(), 1.0E-9);
+        double overlayWork = forecast.activeTerrainHeightOverlay().stream()
+                .mapToDouble(OreProfileForecast.HeightSample::expectedWorkUnits).sum();
+        assertEquals(100.0D, overlayWork, 1.0E-9);
+        assertTrue(forecast.activeTerrainHeightOverlay().stream()
+                .filter(sample -> sample.y() >= -2 && sample.y() <= 2)
+                .allMatch(sample -> sample.expectedWorkUnits() > 0.0D));
+        assertEquals(0.0D, forecast.activeTerrainHeightOverlay().get(-3 + 64)
+                .expectedWorkUnits(), 1.0E-9);
+        assertEquals(0.0D, forecast.activeTerrainHeightOverlay().get(3 + 64)
+                .expectedWorkUnits(), 1.0E-9);
     }
 
     @Test

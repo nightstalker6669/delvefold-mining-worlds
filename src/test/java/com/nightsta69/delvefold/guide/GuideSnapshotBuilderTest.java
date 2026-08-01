@@ -8,12 +8,15 @@ import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.OrePresets;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
+import com.nightsta69.delvefold.config.model.GeologyTheme;
+import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.RenewalSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
@@ -37,7 +40,8 @@ class GuideSnapshotBuilderTest {
         long now = 1_000_000L;
         WorldIdentitySettings identity = new WorldIdentitySettings(
                 "Public Mine", TerrainVariant.EXPANSIVE, LandmarkPreset.BALANCED,
-                true, true, true, new RenewalSettings(true, 30, 30, now + 90_001L));
+                true, true, true, GeologyTheme.CRYSTAL,
+                new RenewalSettings(true, 30, 30, now + 90_001L));
         WorldSettingsDocument settings = WorldSettingsDocument.uninitialized()
                 .withIdentity(identity)
                 .initialize(TerrainMode.CAVERN, OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE)
@@ -50,6 +54,7 @@ class GuideSnapshotBuilderTest {
         assertEquals("Public Mine", guide.worldName());
         assertEquals("cavern", guide.terrain());
         assertEquals("expansive", guide.terrainVariant());
+        assertEquals("crystal", guide.geologyTheme());
         assertEquals(PortalStatus.AVAILABLE, guide.portalStatus());
         assertTrue(guide.renewal().scheduled());
         assertEquals(91L, guide.renewal().remainingSeconds());
@@ -81,6 +86,48 @@ class GuideSnapshotBuilderTest {
         assertEquals(12, entry.heightBands().getFirst().bestMinY());
         assertEquals(12, entry.heightBands().getFirst().bestMaxY());
         assertEquals(RelativeFrequency.ABUNDANT, entry.relativeFrequency());
+    }
+
+    @Test
+    void representsProvincePlacementAndCountsItsBoundedWorkInRelativeFrequency() {
+        SpawnBand province = SpawnBand.province(
+                "regional", HeightDistribution.TRIANGLE, -48, 96, 24, null, null, 0.0D,
+                new ProvinceSettings(512, 160, 40, 0.04D, 768));
+        OreRule rule = new OreRule("regional_tin", true, false, EnumSet.of(TerrainMode.FLAT),
+                List.of(OreTarget.of("example:tin_ore", "minecraft:stone_ore_replaceables")),
+                BiomeFilter.ALL_MINING_BIOMES, List.of(province));
+        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized()
+                .initialize(TerrainMode.FLAT, OrePreset.EMPTY, GameplayPreset.SAFE);
+
+        GuideSnapshot guide = GuideSnapshotBuilder.build(
+                snapshot(new OreProfileDocument(2, 1, "province", List.of(rule)), settings),
+                0L, false, GuideIconResolver.NONE);
+
+        var entry = guide.ores().getFirst();
+        assertEquals(RelativeFrequency.ABUNDANT, entry.relativeFrequency());
+        assertEquals("province_triangle", entry.heightBands().getFirst().distribution());
+        assertEquals(24, entry.heightBands().getFirst().bestMinY());
+        assertEquals(1, entry.heightBands().getFirst().veinSize());
+    }
+
+    @Test
+    void provinceGuideUsesAPlacementMarkerRatherThanTheUnusedCanonicalVeinSize() {
+        SpawnBand province = new SpawnBand(
+                "regional", 0, 0.0D, HeightDistribution.UNIFORM, -32, 64,
+                null, null, null, 0.0D,
+                com.nightsta69.delvefold.config.model.OreBandPlacement.PROVINCE,
+                ProvinceSettings.defaults());
+        OreRule rule = new OreRule("regional_tin", true, false, EnumSet.of(TerrainMode.FLAT),
+                List.of(OreTarget.of("example:tin_ore", "minecraft:stone_ore_replaceables")),
+                BiomeFilter.ALL_MINING_BIOMES, List.of(province));
+        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized()
+                .initialize(TerrainMode.FLAT, OrePreset.EMPTY, GameplayPreset.SAFE);
+
+        GuideSnapshot guide = GuideSnapshotBuilder.build(
+                snapshot(new OreProfileDocument(2, 1, "province", List.of(rule)), settings),
+                0L, false, GuideIconResolver.NONE);
+
+        assertEquals(1, guide.ores().getFirst().heightBands().getFirst().veinSize());
     }
 
     @Test

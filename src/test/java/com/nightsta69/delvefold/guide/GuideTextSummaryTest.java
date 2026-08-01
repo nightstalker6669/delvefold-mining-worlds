@@ -18,7 +18,7 @@ class GuideTextSummaryTest {
     @Test
     void consoleSummaryIncludesUsefulPublicInformationOnly() {
         GuideSnapshot snapshot = new GuideSnapshot(GuideSnapshot.CURRENT_FORMAT_VERSION,
-                "Public Mine", "cavern", "classic", "pack:metals", PortalStatus.AVAILABLE,
+                "Public Mine", "cavern", "classic", "dripstone", "pack:metals", PortalStatus.AVAILABLE,
                 new Renewal(true, true, false, 90_000L),
                 List.of(new OreEntry("tin",
                         List.of(new Output(OutputKind.BLOCK_TAG, "c:ores/tin", "example:tin_ore")),
@@ -30,6 +30,7 @@ class GuideTextSummaryTest {
         String text = String.join("\n", GuideTextSummary.lines(snapshot));
         assertTrue(text.contains("Public Mine"));
         assertTrue(text.contains("pack:metals"));
+        assertTrue(text.contains("geology: dripstone"));
         assertTrue(text.contains("#c:ores/tin"));
         assertTrue(text.contains("#delvefold:mining_biomes"));
         assertTrue(text.contains("Y 12"));

@@ -4,8 +4,10 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.ProtocolLimits;
@@ -280,16 +282,35 @@ public record AdminSnapshot(
             int peakY,
             int plateauMinY,
             int plateauMaxY,
-            double discardOnAirExposure) {
+            double discardOnAirExposure,
+            OreBandPlacement placement,
+            ProvinceSettings province) {
 
         public OreBandDraft {
             id = cleanId(id, "main");
             distribution = distribution == null ? HeightDistribution.UNIFORM : distribution;
+            placement = placement == null ? OreBandPlacement.VEIN : placement;
+        }
+
+        /** Source-compatible constructor for clients written before regional provinces. */
+        public OreBandDraft(
+                String id,
+                int veinSize,
+                double attemptsPerChunk,
+                HeightDistribution distribution,
+                int minY,
+                int maxY,
+                int peakY,
+                int plateauMinY,
+                int plateauMaxY,
+                double discardOnAirExposure) {
+            this(id, veinSize, attemptsPerChunk, distribution, minY, maxY, peakY,
+                    plateauMinY, plateauMaxY, discardOnAirExposure, OreBandPlacement.VEIN, null);
         }
 
         public static OreBandDraft defaultBand() {
             return new OreBandDraft("main", 8, 8.0D, HeightDistribution.UNIFORM,
-                    -64, 64, 0, -16, 16, 0.0D);
+                    -64, 64, 0, -16, 16, 0.0D, OreBandPlacement.VEIN, null);
         }
     }
 

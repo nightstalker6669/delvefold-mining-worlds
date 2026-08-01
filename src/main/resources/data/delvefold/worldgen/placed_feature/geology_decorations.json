@@ -1,0 +1,8 @@
+{
+  "feature": "delvefold:geology_decorations",
+  "placement": [
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "parent": "delvefold:enter_mining_world",
+  "display": {
+    "icon": { "id": "minecraft:spyglass" },
+    "title": { "translate": "advancement.delvefold.landmark.discover.title" },
+    "description": { "translate": "advancement.delvefold.landmark.discover.description" },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "discover": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [["discover"]]
+}

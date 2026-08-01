@@ -4,9 +4,11 @@ import com.nightsta69.delvefold.Delvefold;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.world.feature.GenerationSaltedLandmarkPlacement;
+import com.nightsta69.delvefold.world.feature.GeologyThemeFeature;
 import com.nightsta69.delvefold.world.feature.MiningOreFeature;
 import com.nightsta69.delvefold.world.feature.MiningLandmarkFeature;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Holder;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
@@ -35,6 +37,8 @@ public final class DelvefoldWorldgen {
 
     public static final DeferredHolder<Feature<?>, MiningOreFeature> MINING_ORE_FEATURE =
             FEATURES.register("mining_ores", MiningOreFeature::new);
+    public static final DeferredHolder<Feature<?>, GeologyThemeFeature> GEOLOGY_THEME_FEATURE =
+            FEATURES.register("geology_theme", GeologyThemeFeature::new);
     public static final DeferredHolder<Feature<?>, MiningLandmarkFeature> MINING_LANDMARK_FEATURE =
             FEATURES.register("mining_landmark",
                     () -> new MiningLandmarkFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
@@ -65,6 +69,14 @@ public final class DelvefoldWorldgen {
             Registries.CONFIGURED_FEATURE, id("mining_ores"));
     public static final ResourceKey<PlacedFeature> MINING_ORES_PLACED = ResourceKey.create(
             Registries.PLACED_FEATURE, id("mining_ores"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> GEOLOGY_STRATA_CONFIGURED = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, id("geology_strata"));
+    public static final ResourceKey<PlacedFeature> GEOLOGY_STRATA_PLACED = ResourceKey.create(
+            Registries.PLACED_FEATURE, id("geology_strata"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> GEOLOGY_DECORATIONS_CONFIGURED = ResourceKey.create(
+            Registries.CONFIGURED_FEATURE, id("geology_decorations"));
+    public static final ResourceKey<PlacedFeature> GEOLOGY_DECORATIONS_PLACED = ResourceKey.create(
+            Registries.PLACED_FEATURE, id("geology_decorations"));
     public static final ResourceKey<ConfiguredFeature<?, ?>> MINING_LANDMARK_CONFIGURED = ResourceKey.create(
             Registries.CONFIGURED_FEATURE, id("mining_landmark"));
     public static final ResourceKey<PlacedFeature> MINING_LANDMARK_PLACED = ResourceKey.create(
@@ -112,6 +124,27 @@ public final class DelvefoldWorldgen {
             return TerrainMode.WILD;
         }
         return null;
+    }
+
+    public static TerrainMode terrainFor(Holder<Biome> biome) {
+        if (biome.is(MINING_FLAT_BIOME)) {
+            return TerrainMode.FLAT;
+        }
+        if (biome.is(MINING_CAVERN_BIOME)) {
+            return TerrainMode.CAVERN;
+        }
+        if (biome.is(MINING_WILD_BIOME)) {
+            return TerrainMode.WILD;
+        }
+        return null;
+    }
+
+    public static ResourceKey<Biome> biomeFor(TerrainMode mode) {
+        return switch (mode) {
+            case FLAT -> MINING_FLAT_BIOME;
+            case CAVERN -> MINING_CAVERN_BIOME;
+            case WILD -> MINING_WILD_BIOME;
+        };
     }
 
     private static ResourceKey<Level> levelKey(String path) {

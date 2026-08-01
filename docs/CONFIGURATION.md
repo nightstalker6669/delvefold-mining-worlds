@@ -7,7 +7,7 @@ Delvefold has one canonical configuration model. The GUI, commands, and JSON all
 ## Save scope and loading
 
 - `ores.json` contains the ore profile and independently revisioned ore rules.
-- `settings.json` contains explicit initialization state, terrain shape and scale, world identity, landmark policy, renewal schedule, generation epoch, gameplay settings, and portal settings.
+- `settings.json` contains explicit initialization state, terrain shape, scale and geology theme, world identity, landmark policy, renewal schedule, generation epoch, gameplay settings, and portal settings.
 - Missing files are created from built-in defaults.
 - Invalid edits are rejected without overwriting the rejected files. If a valid configuration was already active, it remains the last-known-good runtime snapshot.
 - Disk writes use temporary sibling files, forced flush, and atomic replacement where the filesystem supports it. A small transaction journal makes the two JSON documents restart-recoverable if a write is interrupted between them.
@@ -88,15 +88,54 @@ The output block is looked up lazily after all installed mods have registered th
 | Field | Range and meaning |
 |---|---|
 | `id` | Unique within its rule; it also contributes to deterministic random salt. |
-| `vein_size` | 1–64 attempted ore blocks per vein. |
-| `attempts_per_chunk` | 0–256; fractions are supported. `0.25` means a 25% chance of one attempt. |
+| `placement` | Optional `vein` or `province`; omitted values use `vein` for schema-2 compatibility. |
+| `vein_size` | 1–64 attempted ore blocks per vein. Retained as `1` but ignored for province placement. |
+| `attempts_per_chunk` | 0–256; fractions are supported. `0.25` means a 25% chance of one attempt. Retained as `0` but ignored for province placement. |
 | `distribution` | `uniform`, `triangle`, or `trapezoid`. |
 | `min_y`, `max_y` | Inclusive range inside -64..320. |
 | `peak_y` | Required for triangle; it need not be centered. |
 | `plateau_min_y`, `plateau_max_y` | Required for trapezoid and must lie inside the range. |
 | `discard_on_air_exposure` | 0–1 chance to discard exposed ore positions. |
+| `province` | Required object when `placement` is `province`; omit it or set it to `null` for a vein. |
 
-Unrelated rule changes do not shift other ores: each rule, band, chunk, and attempt uses its own stable deterministic salt.
+Classic vein bands retain the established behavior. A province band adds these controls:
+
+```json
+{
+  "id": "regional_pockets",
+  "placement": "province",
+  "vein_size": 1,
+  "attempts_per_chunk": 0.0,
+  "distribution": "triangle",
+  "min_y": -48,
+  "max_y": 96,
+  "peak_y": 12,
+  "plateau_min_y": null,
+  "plateau_max_y": null,
+  "discard_on_air_exposure": 0.25,
+  "province": {
+    "region_size": 512,
+    "radius": 192,
+    "vertical_thickness": 48,
+    "density": 0.08,
+    "per_chunk_work_cap": 256
+  }
+}
+```
+
+| Province field | Range and meaning |
+|---|---|
+| `region_size` | 16–8192 blocks and a multiple of 16. One deterministic center is derived per regional cell. |
+| `radius` | 1 through `region_size`; horizontal radius around the regional center. |
+| `vertical_thickness` | 1–385 blocks around the height selected by the band's distribution. |
+| `density` | Greater than 0 through 1; fraction of the bounded province volume sampled as candidates. |
+| `per_chunk_work_cap` | 1–4096; hard cap shared by every province slice that touches the current chunk. |
+
+Province centers are derived from the world seed, persisted generation salt, region coordinates, and band ID. Neighboring chunks therefore agree on the same region, but placement writes only inside the chunk currently generating. The work cap is charged as both attempts and work units in forecasts and aggregate validation.
+
+The ore-rule GUI exposes the same controls. Command-line administrators can switch algorithms with `/delvefold ore band placement <rule> <band> <vein|province>` and edit a province with `/delvefold ore band province <rule> <band> <region_size|radius|vertical_thickness|density|work_cap> <value>`. Every mutation validates the complete profile before it is committed.
+
+Unrelated rule changes do not shift other ores: each rule, band, chunk, region, and attempt uses its own stable deterministic salt.
 
 To prevent an accidental world-generation stall, each terrain has aggregate safety limits of 4,096 ore attempts and 65,536 attempt×vein-size work units per chunk. Disabled rules do not count. Biome filters are conservatively counted because several rules can overlap in the same biome.
 
@@ -114,7 +153,7 @@ Nether quartz, ancient debris, and End-specific ores are intentionally excluded.
 
 The `generation_epoch` increments on initialization, recreation, and deletion. Portal links and generation caches use the epoch to avoid reusing stale state.
 
-`generation_salt` is server-maintained lifecycle state used for deterministic ore and landmark placement. It is never sent to the administration GUI or Seam Ledger. Existing schema-2 settings that omit it load as `0` without being rewritten. Live reload rejects edits to the active generation epoch, salt, terrain, terrain scale, initialization state, or world-operation ID; those values change only through initialization, confirmed recreation/deletion, restart-time restoration, or loading a save backup.
+`generation_salt` is server-maintained lifecycle state used for deterministic ore, province, themed geology, and landmark placement. It is never sent to the administration GUI or Seam Ledger. Existing schema-2 settings that omit it load as `0` without being rewritten. Live reload rejects edits to the active generation epoch, salt, terrain, terrain scale, geology theme, initialization state, or world-operation ID; those values change only through initialization, confirmed recreation/deletion, restart-time restoration, or loading a save backup.
 
 Terrain is locked for the current mining world. Changing it requires **Recreate Mining World**, which removes the old active dimension safely on restart and begins a new epoch.
 
@@ -147,6 +186,7 @@ The optional `identity` object is additive to schema 2. A schema-2 settings file
   "identity": {
     "display_name": "Delvefold Mining World",
     "terrain_variant": "classic",
+    "geology_theme": "classic",
     "landmark_preset": "balanced",
     "survey_stations": true,
     "motherlodes": true,
@@ -162,16 +202,66 @@ The optional `identity` object is additive to schema 2. A schema-2 settings file
 }
 ```
 
-`terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat adds substantially more mineable depth while keeping its surface safely below the cloud layer, Expansive Cavern creates amplified subterranean ranges, and Expansive Wild uses amplified Overworld terrain. `landmark_preset` is `pure_mining`, `balanced`, or `abundant`. Pure Mining disables Delvefold landmarks. The individual landmark booleans can further narrow which bounded landmark types appear in newly generated chunks.
+`terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat adds substantially more mineable depth while keeping its surface safely below the cloud layer, Expansive Cavern creates amplified subterranean ranges, and Expansive Wild uses amplified Overworld terrain.
+
+`geology_theme` is additive to schema 2 and is locked to initialization or confirmed recreation. Accepted values are `classic`, `volcanic`, `dripstone`, `lush`, and `crystal`. Classic preserves the established stone composition. The other themes add bounded vanilla-block strata, decorations and sealed fluids plus client-visible particles, sounds, and ambience; they do not change registered dimension IDs or replace the terrain generator. Existing settings that omit the field load as `classic` and are not rewritten merely by loading.
+
+`landmark_preset` is `pure_mining`, `balanced`, or `abundant`. Pure Mining disables all candidates, Balanced deterministically accepts 25%, and Abundant accepts 75%. The individual landmark booleans further narrow the catalog categories that can appear in newly generated chunks: `survey_stations` controls `survey_station`, `motherlodes` controls `motherlode`, and `fault_lines` controls `fault_line`.
 
 Scheduled renewal is disabled by default. When enabled, `interval_days` is 1–3650 and `warning_minutes` is 1–10080. The server announces the configured warning plus ten- and one-minute warnings when applicable. At the due time it blocks entry, evacuates players, schedules a restart-safe recreation, and always retains a timestamped backup. Singleplayer users apply it by exiting to title and reopening the save; dedicated servers apply it on restart.
 
 `seed_mode` controls the layout installed by the next initialization or recreation:
 
-- `stable` is the compatibility default and reproduces the established layout for the same save, profile, and terrain.
-- `rotate_on_recreate` incorporates the next generation epoch into ore and landmark placement so each recreated world receives a new deterministic layout.
+- `stable` is the compatibility default and reproduces the established vein, province, themed geology, and landmark layout for the same save, profile, and terrain.
+- `rotate_on_recreate` incorporates the next generation epoch into ore, province, themed geology, and landmark placement so each recreated world receives a new deterministic layout.
 
 Changing the selection does not retrogen chunks or alter the active mining world. The server derives and persists `generation_salt` only when initialization or recreation commits, so restarting an already-created world cannot change its layout. Existing schema-2 files that omit `seed_mode` continue to load as `stable`, without a rewrite or schema migration.
+
+### Reloadable landmark catalog
+
+Landmark definitions are server datapack resources at:
+
+```text
+data/<namespace>/delvefold/landmarks/<path>.json
+```
+
+The definition ID is `<namespace>:<path>`. Delvefold ships survey camp, collapsed mine entrance, lift station, geode vault, motherlode chamber, and fault-line grotto definitions backed by structure-system templates, so their pieces respect chunk boundaries and structure spacing.
+
+```json
+{
+  "format": 1,
+  "template": "examplepack:landmarks/crystal_camp",
+  "weight": 8,
+  "category": "survey_station",
+  "terrain_modes": ["flat", "wild"],
+  "placement_style": "surface",
+  "min_y": -48,
+  "max_y": 240,
+  "biomes": {
+    "include": ["#delvefold:mining_biomes"],
+    "exclude": []
+  },
+  "processors": ["examplepack:landmark_weathering"],
+  "loot_table": "examplepack:chests/crystal_camp"
+}
+```
+
+| Field | Contract |
+|---|---|
+| `format` | Currently exactly `1`. |
+| `template` | Existing compressed structure template resource ID; dimensions must be positive, no more than 96 blocks wide/deep, and no more than 384 blocks tall. |
+| `weight` | Integer 1–1000 used among eligible definitions. |
+| `category` | `survey_station`, `motherlode`, or `fault_line`; the matching world-identity toggle must be enabled. |
+| `terrain_modes` | Non-empty unique list containing `flat`, `cavern`, and/or `wild`. |
+| `placement_style` | `surface`, `cave_floor`, or `buried`. |
+| `min_y`, `max_y` | Ordered placement bounds from -2048 through 2047. |
+| `biomes.include`, `biomes.exclude` | Optional biome IDs or `#tag` selectors, at most 32 in each list. Omission defaults to `#delvefold:mining_biomes`. |
+| `processors` | Optional list of existing structure processor-list IDs. |
+| `loot_table` | Existing loot-table ID used by `loot` data markers. |
+
+Each catalog contains at most 256 definitions and each definition is limited to 64 KiB. Every referenced template, processor list, and loot table must exist. `/reload` validates the complete candidate catalog atomically: if any definition is invalid, Delvefold rejects the entire candidate, retains the last-known-good catalog, and exposes the errors through administration diagnostics and the server log.
+
+Templates may use a structure data marker named `loot` directly above an empty randomizable container. Delvefold assigns the definition's loot table and deterministic seed only when the container has neither an existing loot table nor contents, then persists an initialized marker on that block entity. Reprocessing the piece therefore cannot roll the container again even after a player empties it.
 
 Gameplay presets are live settings:
 

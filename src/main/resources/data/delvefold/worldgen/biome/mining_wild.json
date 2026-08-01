@@ -42,18 +42,20 @@
       "minecraft:ore_andesite_lower",
       "minecraft:ore_tuff",
       "delvefold:mining_ores",
+      "delvefold:geology_strata",
       "minecraft:underwater_magma",
       "minecraft:disk_sand",
       "minecraft:disk_clay",
       "minecraft:disk_gravel"
     ],
-    [],
+    [
+      "delvefold:geology_decorations"
+    ],
     [
       "minecraft:spring_water",
       "minecraft:spring_lava"
     ],
     [
-      "delvefold:mining_landmark",
       "minecraft:glow_lichen",
       "minecraft:patch_tall_grass_2",
       "minecraft:trees_plains",

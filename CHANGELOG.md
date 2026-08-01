@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0 — Living Geology
+
+- Replaced the fixed landmark feature with a server-reloadable catalog at `data/<namespace>/delvefold/landmarks/`, backed by Minecraft's structure system so templates obey chunk boundaries and configured spacing.
+- Shipped six vanilla-block landmark templates: Survey Camp, Collapsed Mine Entrance, Lift Station, Geode Vault, Motherlode Chamber, and Fault-line Grotto.
+- Made landmark definitions data-driven across template, weight, category, terrain modes, placement style, height bounds, biome selectors, processor lists, and loot table. Catalog reloads are atomic and retain the complete last-known-good revision when any definition or dependency is invalid.
+- Applied landmark density deterministically: Pure Mining accepts no candidates, Balanced accepts 25%, and Abundant accepts 75%, with the existing survey-station, motherlode, and fault-line toggles narrowing the eligible catalog further.
+- Processed `loot` template markers into deterministically seeded containers only when they have no existing loot table or contents, preventing repeated population.
+- Added the **Signs in the Stone** landmark-discovery advancement and the additive API-v1 `DelvefoldLandmarkDiscoveredEvent` with player, landmark ID, dimension, and structure-start chunk views.
+- Added recreation-locked Classic, Volcanic, Dripstone, Lush, and Crystal geology themes. Non-Classic themes add bounded vanilla-block strata, decorations, sealed fluids, particles, sounds, and ambience without replacing Delvefold terrain generators or dimension IDs.
+- Published the active geology theme through the Seam Ledger, console guide, and additive API-v1 guide view. Current guide snapshots use format 2; the legacy constructor remains available with Classic as its compatibility default.
+- Added deterministic regional ore-province bands with configurable region size, radius, vertical thickness, density, and a hard per-chunk work cap. Neighboring chunks agree on regional centers while generation writes only inside the current chunk.
+- Added province controls to the ore-rule GUI and command parity through `/delvefold ore band placement` and `/delvefold ore band province`.
+- Extended forecasts and the existing aggregate safety budget to include province work, rejecting configurations that exceed bounded per-terrain limits.
+- Kept configuration schema 2 and public API version 1. Existing settings default to Classic geology, existing ore bands default to Vein placement, and absent fields do not trigger a load-time rewrite.
+- Advanced the identical-version client/server protocol to 11 for geology identity, guide format 2, and province-band administration payloads.
+
+CurseForge upload is intentionally deferred to the project owner until the complete post-1.0 roadmap is finished.
+
 ## 1.1.0 — The Surveying Update
 
 - Expanded optional JEI and EMI support with a visual Portal Construction category, minimum-frame diagram, Flint and Steel catalyst, initialization guidance, isolated development launch profiles, and client compatibility smoke tests.

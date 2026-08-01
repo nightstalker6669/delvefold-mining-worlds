@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "template": "delvefold:landmarks/motherlode_chamber",
+  "weight": 5,
+  "category": "motherlode",
+  "terrain_modes": ["flat", "cavern", "wild"],
+  "placement_style": "buried",
+  "min_y": -52,
+  "max_y": 24,
+  "biomes": { "include": ["#delvefold:mining_biomes"], "exclude": [] },
+  "processors": ["delvefold:landmark_weathering"],
+  "loot_table": "delvefold:chests/motherlode_chamber"
+}

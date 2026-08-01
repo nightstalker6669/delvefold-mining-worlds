@@ -12,6 +12,8 @@
   "identity": {
     "display_name": "Delvefold Mining World",
     "terrain_variant": "classic",
+    // Optional additive schema-2 field; omitted values load as "classic".
+    "geology_theme": "classic",
     "landmark_preset": "balanced",
     "survey_stations": true,
     "motherlodes": true,

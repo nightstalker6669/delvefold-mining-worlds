@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import java.util.List;
@@ -77,5 +78,23 @@ class OreWorkBudgetAnalysisTest {
 
         assertEquals(Double.MAX_VALUE, result.attemptsPerChunk());
         assertEquals(Double.MAX_VALUE, result.workUnitsPerChunk());
+    }
+
+    @Test
+    void provinceCapIsCanonicalConservativeAttemptAndWorkBudget() {
+        SpawnBand province = SpawnBand.province(
+                "province", com.nightsta69.delvefold.config.model.HeightDistribution.UNIFORM,
+                -32, 64, null, null, null, 0.0D,
+                new ProvinceSettings(512, 192, 48, 0.01D, 777));
+        OreRule rule = new OreRule(
+                "mixed", true, false, Set.of(TerrainMode.FLAT), List.of(),
+                BiomeFilter.ALL_MINING_BIOMES,
+                List.of(SpawnBand.uniform("vein", 8, 2.0D, -32, 32, 0.0D), province));
+
+        OreWorkBudgetAnalysis.Budget result = OreWorkBudgetAnalysis.analyze(rule, TerrainMode.FLAT);
+
+        assertEquals(779.0D, result.attemptsPerChunk(), 1.0E-9);
+        assertEquals(793.0D, result.workUnitsPerChunk(), 1.0E-9);
+        assertEquals(777.0D, OreWorkBudgetAnalysis.analyze(province).workUnitsPerChunk(), 1.0E-9);
     }
 }

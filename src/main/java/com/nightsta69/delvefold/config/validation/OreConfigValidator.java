@@ -3,8 +3,10 @@ package com.nightsta69.delvefold.config.validation;
 import com.nightsta69.delvefold.config.analysis.OreWorkBudgetAnalysis;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import java.util.ArrayList;
@@ -26,6 +28,9 @@ public final class OreConfigValidator {
     public static final int MAX_TARGET_WEIGHT = OreTarget.MAX_WEIGHT;
     public static final double MAX_ATTEMPTS_PER_CHUNK_PER_TERRAIN = 4096.0D;
     public static final double MAX_ORE_WORK_PER_CHUNK_PER_TERRAIN = 65536.0D;
+    public static final int MIN_PROVINCE_REGION_SIZE = 16;
+    public static final int MAX_PROVINCE_REGION_SIZE = 8192;
+    public static final int MAX_PROVINCE_WORK_PER_CHUNK = 4096;
     private static final Pattern RESOURCE_LOCATION = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
     private static final Pattern RULE_ID = Pattern.compile("[a-z0-9_.-]+");
 
@@ -159,11 +164,21 @@ public final class OreConfigValidator {
         if (band.id().isBlank() || band.id().length() > MAX_ID_LENGTH || !RULE_ID.matcher(band.id()).matches()) {
             issues.add(ConfigIssue.error("band.invalid_id", path + ".id", "Use lowercase letters, digits, dots, dashes, or underscores"));
         }
+        // Province bands retain these canonical schema-2 fields for wire and disk compatibility.
+        // Validate them even though province placement does not consume them at generation time.
         if (band.veinSize() < 1 || band.veinSize() > 64) {
             issues.add(ConfigIssue.error("band.invalid_vein_size", path + ".vein_size", "Vein size must be between 1 and 64"));
         }
         if (!Double.isFinite(band.attemptsPerChunk()) || band.attemptsPerChunk() < 0 || band.attemptsPerChunk() > 256) {
             issues.add(ConfigIssue.error("band.invalid_attempts", path + ".attempts_per_chunk", "Attempts must be between 0 and 256"));
+        }
+        if (band.placement() == OreBandPlacement.VEIN) {
+            if (band.province() != null) {
+                issues.add(ConfigIssue.error("band.unexpected_province", path + ".province",
+                        "Vein bands cannot contain province settings"));
+            }
+        } else if (band.placement() == OreBandPlacement.PROVINCE) {
+            validateProvince(band.province(), path + ".province", issues);
         }
         if (band.minY() < MIN_WORLD_Y || band.maxY() > MAX_WORLD_Y || band.minY() > band.maxY()) {
             issues.add(ConfigIssue.error("band.invalid_height", path, "Height must stay within -64..320 and min_y cannot exceed max_y"));
@@ -181,6 +196,42 @@ public final class OreConfigValidator {
             if (low == null || high == null || low < band.minY() || high > band.maxY() || low > high) {
                 issues.add(ConfigIssue.error("band.invalid_plateau", path, "Trapezoid plateau must be ordered and inside the height range"));
             }
+        }
+    }
+
+    private static void validateProvince(
+            ProvinceSettings province, String path, List<ConfigIssue> issues) {
+        if (province == null) {
+            issues.add(ConfigIssue.error("band.missing_province", path,
+                    "Province bands require province settings"));
+            return;
+        }
+        if (province.regionSize() < MIN_PROVINCE_REGION_SIZE
+                || province.regionSize() > MAX_PROVINCE_REGION_SIZE
+                || province.regionSize() % 16 != 0) {
+            issues.add(ConfigIssue.error("province.invalid_region_size", path + ".region_size",
+                    "Region size must be a multiple of 16 from " + MIN_PROVINCE_REGION_SIZE
+                            + " through " + MAX_PROVINCE_REGION_SIZE));
+        }
+        if (province.radius() < 1 || province.radius() > province.regionSize()) {
+            issues.add(ConfigIssue.error("province.invalid_radius", path + ".radius",
+                    "Province radius must be positive and cannot exceed region size"));
+        }
+        int worldHeight = MAX_WORLD_Y - MIN_WORLD_Y + 1;
+        if (province.verticalThickness() < 1 || province.verticalThickness() > worldHeight) {
+            issues.add(ConfigIssue.error("province.invalid_vertical_thickness", path + ".vertical_thickness",
+                    "Province vertical thickness must be between 1 and " + worldHeight));
+        }
+        if (!Double.isFinite(province.density())
+                || province.density() <= 0.0D || province.density() > 1.0D) {
+            issues.add(ConfigIssue.error("province.invalid_density", path + ".density",
+                    "Province density must be greater than 0 and at most 1"));
+        }
+        if (province.perChunkWorkCap() < 1
+                || province.perChunkWorkCap() > MAX_PROVINCE_WORK_PER_CHUNK) {
+            issues.add(ConfigIssue.error("province.invalid_work_cap", path + ".per_chunk_work_cap",
+                    "Province per-chunk work cap must be between 1 and "
+                            + MAX_PROVINCE_WORK_PER_CHUNK));
         }
     }
 

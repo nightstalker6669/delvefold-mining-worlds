@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import com.nightsta69.delvefold.world.feature.MiningOreConfiguration.OreDefinition;
@@ -21,10 +22,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import net.minecraft.world.level.levelgen.feature.OreFeature;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
 import org.slf4j.Logger;
@@ -65,6 +68,11 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         boolean placedAny = false;
 
         for (CompiledBand band : profile.bands(terrainMode, biome)) {
+            if (band.placement() == OreBandPlacement.PROVINCE) {
+                placedAny |= placeProvinceBand(
+                        context.level(), chunkPos, band, context.level().getSeed(), generationSalt);
+                continue;
+            }
             long bandSeed = seedFor(context.level().getSeed(), chunkPos, band.salt(), generationSalt);
             RandomSource countRandom = RandomSource.create(mix64(bandSeed ^ COUNT_SALT));
             int attempts = (int) Math.floor(band.attemptsPerChunk());
@@ -93,6 +101,68 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
             }
         }
 
+        return placedAny;
+    }
+
+    static boolean placeProvinceBand(
+            WorldGenLevel level,
+            ChunkPos chunkPos,
+            CompiledBand band,
+            long worldSeed,
+            long generationSalt) {
+        ProvincePlacementPlanner.Plan plan = ProvincePlacementPlanner.plan(
+                worldSeed,
+                generationSalt,
+                band.salt(),
+                band.sourceBand(),
+                chunkPos.x,
+                chunkPos.z,
+                level.getMinBuildHeight(),
+                level.getMaxBuildHeight());
+        return applyProvincePlan(level, chunkPos, band, plan);
+    }
+
+    static boolean applyProvincePlan(
+            WorldGenLevel level,
+            ChunkPos chunkPos,
+            CompiledBand band,
+            ProvincePlacementPlanner.Plan plan) {
+        boolean placedAny = false;
+        BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
+        int chunkMinX = chunkPos.getMinBlockX();
+        int chunkMinZ = chunkPos.getMinBlockZ();
+        int chunkMaxX = chunkPos.getMaxBlockX();
+        int chunkMaxZ = chunkPos.getMaxBlockZ();
+
+        for (ProvincePlacementPlanner.ProvinceSlice province : plan.provinces()) {
+            OreConfiguration ore = band.ore(RandomSource.create(province.outputSeed()));
+            for (ProvincePlacementPlanner.Candidate candidate : province.candidates()) {
+                // The planner owns this invariant; retain the guard at the mutation boundary too.
+                if (candidate.x() < chunkMinX || candidate.x() > chunkMaxX
+                        || candidate.z() < chunkMinZ || candidate.z() > chunkMaxZ
+                        || level.isOutsideBuildHeight(candidate.y())) {
+                    continue;
+                }
+                position.set(candidate.x(), candidate.y(), candidate.z());
+                if (!level.ensureCanWrite(position)) {
+                    continue;
+                }
+                var existing = level.getBlockState(position);
+                RandomSource random = RandomSource.create(candidate.placementSeed());
+                for (OreConfiguration.TargetBlockState target : ore.targetStates) {
+                    if (OreFeature.canPlaceOre(
+                            existing,
+                            level::getBlockState,
+                            random,
+                            ore,
+                            target,
+                            position)) {
+                        placedAny |= level.setBlock(position, target.state, 2);
+                        break;
+                    }
+                }
+            }
+        }
         return placedAny;
     }
 
@@ -140,7 +210,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         return placedAny;
     }
 
-    private RuntimeOreProfile profileFor(OreProfileDocument document) {
+    RuntimeOreProfile profileFor(OreProfileDocument document) {
         RuntimeOreProfile current = runtimeProfile;
         if (current != null && current.source().equals(document)) {
             return current;
@@ -159,6 +229,11 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
             }
             return compiled;
         }
+    }
+
+    /** Clears tag- and registry-derived output choices atomically with profile compilation. */
+    public synchronized void invalidateRuntimeProfile() {
+        runtimeProfile = null;
     }
 
     private static OreProfileDocument currentOreDocument() {

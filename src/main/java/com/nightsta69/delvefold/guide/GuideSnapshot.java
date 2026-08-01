@@ -14,20 +14,25 @@ public record GuideSnapshot(
         String worldName,
         String terrain,
         String terrainVariant,
+        String geologyTheme,
         String activeProfile,
         PortalStatus portalStatus,
         Renewal renewal,
         List<OreEntry> ores,
         boolean truncated) {
-    public static final int CURRENT_FORMAT_VERSION = 1;
+    public static final int LEGACY_FORMAT_VERSION = 1;
+    public static final int CURRENT_FORMAT_VERSION = 2;
 
     public GuideSnapshot {
-        if (formatVersion != CURRENT_FORMAT_VERSION) {
+        if (formatVersion < LEGACY_FORMAT_VERSION || formatVersion > CURRENT_FORMAT_VERSION) {
             throw new IllegalArgumentException("Unsupported guide format version: " + formatVersion);
         }
         worldName = GuideLimits.boundedText(worldName, GuideLimits.MAX_WORLD_NAME_CHARACTERS);
         terrain = GuideLimits.boundedText(terrain, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         terrainVariant = GuideLimits.boundedText(terrainVariant, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
+        geologyTheme = GuideLimits.boundedText(
+                geologyTheme == null || geologyTheme.isBlank() ? "classic" : geologyTheme,
+                GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         activeProfile = GuideLimits.boundedText(activeProfile, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         portalStatus = Objects.requireNonNull(portalStatus, "portalStatus");
         renewal = Objects.requireNonNull(renewal, "renewal");
@@ -35,20 +40,37 @@ public record GuideSnapshot(
         if (ores.size() > GuideLimits.MAX_ORE_ENTRIES) {
             throw new IllegalArgumentException("Too many guide ore entries");
         }
-        if (estimatedNetworkBytes(formatVersion, worldName, terrain, terrainVariant, activeProfile,
+        if (estimatedNetworkBytes(formatVersion, worldName, terrain, terrainVariant, geologyTheme, activeProfile,
                 renewal, ores) > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
             throw new IllegalArgumentException("Guide snapshot exceeds its network-size budget");
         }
     }
 
+    /** Source- and binary-compatible constructor for 1.1 guide consumers. */
+    public GuideSnapshot(
+            int formatVersion,
+            String worldName,
+            String terrain,
+            String terrainVariant,
+            String activeProfile,
+            PortalStatus portalStatus,
+            Renewal renewal,
+            List<OreEntry> ores,
+            boolean truncated) {
+        this(formatVersion, worldName, terrain, terrainVariant, "classic", activeProfile,
+                portalStatus, renewal, ores, truncated);
+    }
+
     public int estimatedNetworkBytes() {
-        return estimatedNetworkBytes(formatVersion, worldName, terrain, terrainVariant, activeProfile,
+        return estimatedNetworkBytes(formatVersion, worldName, terrain, terrainVariant, geologyTheme, activeProfile,
                 renewal, ores);
     }
 
     static int estimatedBaseNetworkBytes(
-            String worldName, String terrain, String terrainVariant, String activeProfile, Renewal renewal) {
-        return estimatedNetworkBytes(CURRENT_FORMAT_VERSION, worldName, terrain, terrainVariant, activeProfile,
+            String worldName, String terrain, String terrainVariant, String geologyTheme,
+            String activeProfile, Renewal renewal) {
+        return estimatedNetworkBytes(CURRENT_FORMAT_VERSION, worldName, terrain, terrainVariant, geologyTheme,
+                activeProfile,
                 renewal, List.of());
     }
 
@@ -57,6 +79,7 @@ public record GuideSnapshot(
             String worldName,
             String terrain,
             String terrainVariant,
+            String geologyTheme,
             String activeProfile,
             Renewal renewal,
             List<OreEntry> ores) {
@@ -64,6 +87,7 @@ public record GuideSnapshot(
         bytes += GuideLimits.networkStringBytes(worldName);
         bytes += GuideLimits.networkStringBytes(terrain);
         bytes += GuideLimits.networkStringBytes(terrainVariant);
+        bytes += GuideLimits.networkStringBytes(geologyTheme);
         bytes += GuideLimits.networkStringBytes(activeProfile);
         bytes += renewal.estimatedNetworkBytes();
         for (OreEntry ore : ores) {

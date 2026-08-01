@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "template": "delvefold:landmarks/geode_vault",
+  "weight": 7,
+  "category": "motherlode",
+  "terrain_modes": ["flat", "cavern", "wild"],
+  "placement_style": "buried",
+  "min_y": -44,
+  "max_y": 48,
+  "biomes": { "include": ["#delvefold:mining_biomes"], "exclude": [] },
+  "processors": ["delvefold:landmark_pristine"],
+  "loot_table": "delvefold:chests/geode_vault"
+}

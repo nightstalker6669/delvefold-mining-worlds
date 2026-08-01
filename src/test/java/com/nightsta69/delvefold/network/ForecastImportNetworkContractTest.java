@@ -12,10 +12,10 @@ class ForecastImportNetworkContractTest {
     private static final Path MAIN = Path.of("src/main/java/com/nightsta69/delvefold");
 
     @Test
-    void protocolTenRegistersEveryForecastAndImportPayloadInTheCorrectDirection() throws Exception {
+    void currentProtocolRegistersEveryForecastAndImportPayloadInTheCorrectDirection() throws Exception {
         String network = compact(read("network/DelvefoldNetwork.java"));
 
-        assertTrue(network.contains("PROTOCOL_VERSION=\"10\""));
+        assertTrue(network.contains("PROTOCOL_VERSION=\"11\""));
         for (String payload : List.of(
                 "ForecastRequestPayload",
                 "OreImportScanRequestPayload",

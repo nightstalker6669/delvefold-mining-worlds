@@ -13,11 +13,14 @@ import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.ConfigWriteResult;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
+import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
@@ -127,6 +130,11 @@ public final class DelvefoldCommands {
                         .suggests((context, builder) -> SharedSuggestionProvider.suggest(
                                 List.of("classic", "expansive"), builder))
                         .executes(DelvefoldCommands::setUninitializedVariant)));
+        identity.then(Commands.literal("geology-theme")
+                .then(Commands.argument("theme", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("classic", "volcanic", "dripstone", "lush", "crystal"), builder))
+                        .executes(DelvefoldCommands::setUninitializedGeologyTheme)));
         return identity;
     }
 
@@ -307,6 +315,22 @@ public final class DelvefoldCommands {
                                                 List.of("vein_size", "attempts", "min_y", "max_y", "peak_y", "plateau_min_y", "plateau_max_y", "discard"), builder))
                                         .then(Commands.argument("value", DoubleArgumentType.doubleArg())
                                                 .executes(DelvefoldCommands::setBandField))))));
+        band.then(Commands.literal("placement")
+                .then(ruleArgument()
+                        .then(Commands.argument("band", StringArgumentType.word())
+                                .then(Commands.argument("mode", StringArgumentType.word())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                List.of("vein", "province"), builder))
+                                        .executes(DelvefoldCommands::setBandPlacement)))));
+        band.then(Commands.literal("province")
+                .then(ruleArgument()
+                        .then(Commands.argument("band", StringArgumentType.word())
+                                .then(Commands.argument("field", StringArgumentType.word())
+                                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                                List.of("region_size", "radius", "vertical_thickness",
+                                                        "density", "work_cap"), builder))
+                                        .then(Commands.argument("value", DoubleArgumentType.doubleArg())
+                                                .executes(DelvefoldCommands::setProvinceField))))));
         ore.then(band);
 
         ore.then(Commands.literal("scan")
@@ -352,7 +376,7 @@ public final class DelvefoldCommands {
 
     private static LiteralArgumentBuilder<CommandSourceStack> recreateVariantLiteral(
             String name, TerrainVariant variant) {
-        return Commands.literal(name)
+        LiteralArgumentBuilder<CommandSourceStack> variantCommand = Commands.literal(name)
                 .executes(context -> requestRecreate(
                         context,
                         TerrainMode.parse(StringArgumentType.getString(context, "terrain")),
@@ -365,6 +389,30 @@ public final class DelvefoldCommands {
                                 context,
                                 TerrainMode.parse(StringArgumentType.getString(context, "terrain")),
                                 variant,
+                                parseBackup(StringArgumentType.getString(context, "backup")))));
+        for (GeologyTheme theme : GeologyTheme.values()) {
+            variantCommand.then(recreateThemeLiteral(theme.serializedName(), variant, theme));
+        }
+        return variantCommand;
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> recreateThemeLiteral(
+            String name, TerrainVariant variant, GeologyTheme theme) {
+        return Commands.literal(name)
+                .executes(context -> requestRecreate(
+                        context,
+                        TerrainMode.parse(StringArgumentType.getString(context, "terrain")),
+                        variant,
+                        theme,
+                        BackupMode.KEEP_BACKUP))
+                .then(Commands.argument("backup", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("keep_backup", "permanent"), builder))
+                        .executes(context -> requestRecreate(
+                                context,
+                                TerrainMode.parse(StringArgumentType.getString(context, "terrain")),
+                                variant,
+                                theme,
                                 parseBackup(StringArgumentType.getString(context, "backup")))));
     }
 
@@ -485,23 +533,22 @@ public final class DelvefoldCommands {
         var identity = settings.identity();
         context.getSource().sendSuccess(() -> Component.literal(identity.displayName() + ": "
                 + identity.terrainVariant().serializedName() + " "
+                + identity.geologyTheme().serializedName() + " geology, "
                 + identity.landmarkPreset().serializedName() + " landmarks"), false);
         return 1;
     }
 
     private static int setIdentityName(CommandContext<CommandSourceStack> context) {
         String name = StringArgumentType.getString(context, "name").trim();
-        return updateIdentity(context, identity -> new WorldIdentitySettings(name, identity.terrainVariant(),
-                identity.landmarkPreset(), identity.surveyStations(), identity.motherlodes(), identity.faultLines(),
-                identity.renewal()), "Mining-world name updated to '" + name + "'.");
+        return updateIdentity(context, identity -> identity.withDisplayName(name),
+                "Mining-world name updated to '" + name + "'.");
     }
 
     private static int setLandmarkPreset(CommandContext<CommandSourceStack> context) {
         LandmarkPreset preset = LandmarkPreset.valueOf(
                 StringArgumentType.getString(context, "preset").toUpperCase(Locale.ROOT));
         boolean enabled = preset != LandmarkPreset.PURE_MINING;
-        return updateIdentity(context, identity -> new WorldIdentitySettings(identity.displayName(),
-                identity.terrainVariant(), preset, enabled, enabled, enabled, identity.renewal()),
+        return updateIdentity(context, identity -> identity.withLandmarks(preset, enabled, enabled, enabled),
                 "Landmark preset updated; changes apply to newly generated chunks.");
     }
 
@@ -514,9 +561,20 @@ public final class DelvefoldCommands {
         }
         TerrainVariant variant = TerrainVariant.valueOf(
                 StringArgumentType.getString(context, "variant").toUpperCase(Locale.ROOT));
-        return updateIdentity(context, identity -> new WorldIdentitySettings(identity.displayName(), variant,
-                identity.landmarkPreset(), identity.surveyStations(), identity.motherlodes(), identity.faultLines(),
-                identity.renewal()), "Terrain variant set to " + variant.serializedName() + ".");
+        return updateIdentity(context, identity -> identity.withTerrainVariant(variant),
+                "Terrain variant set to " + variant.serializedName() + ".");
+    }
+
+    private static int setUninitializedGeologyTheme(CommandContext<CommandSourceStack> context) {
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        if (snapshot.settings().initialized()) {
+            context.getSource().sendFailure(Component.literal(
+                    "Geology theme is locked for the active world. Change it during a confirmed recreation."));
+            return 0;
+        }
+        GeologyTheme theme = GeologyTheme.parse(StringArgumentType.getString(context, "theme"));
+        return updateIdentity(context, identity -> identity.withGeologyTheme(theme),
+                "Geology theme set to " + theme.serializedName() + ".");
     }
 
     private static int renewalStatus(CommandContext<CommandSourceStack> context) {
@@ -826,9 +884,19 @@ public final class DelvefoldCommands {
                             + " weight=" + target.weight()));
         }
         for (SpawnBand band : rule.bands()) {
+            String details;
+            if (band.placement() == OreBandPlacement.PROVINCE && band.province() != null) {
+                ProvinceSettings province = band.province();
+                details = "province region=" + province.regionSize() + ", radius=" + province.radius()
+                        + ", thickness=" + province.verticalThickness() + ", density=" + province.density()
+                        + ", work_cap=" + province.perChunkWorkCap();
+            } else {
+                details = "vein size=" + band.veinSize() + ", attempts=" + band.attemptsPerChunk();
+            }
             context.getSource().sendSystemMessage(Component.literal(
-                    "  band " + band.id() + ": size=" + band.veinSize() + ", attempts=" + band.attemptsPerChunk()
-                            + ", " + band.distribution().name().toLowerCase(Locale.ROOT) + " " + band.minY() + ".." + band.maxY()));
+                    "  band " + band.id() + ": " + details + ", "
+                            + band.distribution().name().toLowerCase(Locale.ROOT) + " "
+                            + band.minY() + ".." + band.maxY()));
         }
         return 1;
     }
@@ -990,6 +1058,64 @@ public final class DelvefoldCommands {
                 .toList()), "Updated " + ruleId + '/' + bandId + ' ' + field);
     }
 
+    private static int setBandPlacement(CommandContext<CommandSourceStack> context) {
+        String ruleId = StringArgumentType.getString(context, "rule");
+        String bandId = StringArgumentType.getString(context, "band");
+        OreBandPlacement placement = OreBandPlacement.parse(StringArgumentType.getString(context, "mode"));
+        return mutateRule(context, ruleId, rule -> rule.withBands(rule.bands().stream()
+                .map(band -> band.id().equals(bandId) ? withBandPlacement(band, placement) : band)
+                .toList()), "Set " + ruleId + '/' + bandId + " placement to " + placement.serializedName());
+    }
+
+    private static SpawnBand withBandPlacement(SpawnBand band, OreBandPlacement placement) {
+        if (placement == OreBandPlacement.PROVINCE) {
+            return new SpawnBand(band.id(), 1, 0.0D, band.distribution(), band.minY(), band.maxY(),
+                    band.peakY(), band.plateauMinY(), band.plateauMaxY(), band.discardOnAirExposure(),
+                    OreBandPlacement.PROVINCE,
+                    band.province() == null ? ProvinceSettings.defaults() : band.province());
+        }
+        int veinSize = band.placement() == OreBandPlacement.VEIN ? band.veinSize() : 8;
+        double attempts = band.placement() == OreBandPlacement.VEIN ? band.attemptsPerChunk() : 8.0D;
+        return new SpawnBand(band.id(), veinSize, attempts, band.distribution(), band.minY(), band.maxY(),
+                band.peakY(), band.plateauMinY(), band.plateauMaxY(), band.discardOnAirExposure(),
+                OreBandPlacement.VEIN, null);
+    }
+
+    private static int setProvinceField(CommandContext<CommandSourceStack> context) {
+        String ruleId = StringArgumentType.getString(context, "rule");
+        String bandId = StringArgumentType.getString(context, "band");
+        String field = StringArgumentType.getString(context, "field");
+        double value = DoubleArgumentType.getDouble(context, "value");
+        return mutateRule(context, ruleId, rule -> rule.withBands(rule.bands().stream()
+                .map(band -> band.id().equals(bandId) ? withProvinceField(band, field, value) : band)
+                .toList()), "Updated " + ruleId + '/' + bandId + " province " + field);
+    }
+
+    private static SpawnBand withProvinceField(SpawnBand band, String field, double value) {
+        if (band.placement() != OreBandPlacement.PROVINCE) {
+            throw new IllegalArgumentException("Band " + band.id()
+                    + " is not a province; set its placement to province first");
+        }
+        ProvinceSettings current = band.province() == null ? ProvinceSettings.defaults() : band.province();
+        int regionSize = current.regionSize();
+        int radius = current.radius();
+        int thickness = current.verticalThickness();
+        double density = current.density();
+        int workCap = current.perChunkWorkCap();
+        switch (field) {
+            case "region_size" -> regionSize = requireWhole(value, field);
+            case "radius" -> radius = requireWhole(value, field);
+            case "vertical_thickness" -> thickness = requireWhole(value, field);
+            case "density" -> density = value;
+            case "work_cap" -> workCap = requireWhole(value, field);
+            default -> throw new IllegalArgumentException("Unknown province field: " + field);
+        }
+        return new SpawnBand(band.id(), 1, 0.0D, band.distribution(), band.minY(), band.maxY(),
+                band.peakY(), band.plateauMinY(), band.plateauMaxY(), band.discardOnAirExposure(),
+                OreBandPlacement.PROVINCE,
+                new ProvinceSettings(regionSize, radius, thickness, density, workCap));
+    }
+
     private static SpawnBand withBandField(SpawnBand band, String field, double value) {
         int vein = band.veinSize();
         double attempts = band.attemptsPerChunk();
@@ -1010,7 +1136,8 @@ public final class DelvefoldCommands {
             case "discard" -> discard = value;
             default -> throw new IllegalArgumentException("Unknown band field: " + field);
         }
-        return new SpawnBand(band.id(), vein, attempts, band.distribution(), min, max, peak, plateauMin, plateauMax, discard);
+        return new SpawnBand(band.id(), vein, attempts, band.distribution(), min, max, peak,
+                plateauMin, plateauMax, discard, band.placement(), band.province());
     }
 
     private static int requireWhole(double value, String field) {
@@ -1041,11 +1168,17 @@ public final class DelvefoldCommands {
 
     private static int requestRecreate(CommandContext<CommandSourceStack> context, TerrainMode selected,
             TerrainVariant variant, BackupMode backup) {
+        return requestRecreate(context, selected, variant, null, backup);
+    }
+
+    private static int requestRecreate(CommandContext<CommandSourceStack> context, TerrainMode selected,
+            TerrainVariant variant, GeologyTheme theme, BackupMode backup) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         TerrainMode target = selected == null ? snapshot.settings().terrainMode() : selected;
-        WorldOperationRequest base = WorldOperationRequest.recreate(target, variant);
+        GeologyTheme targetTheme = theme == null ? snapshot.settings().identity().geologyTheme() : theme;
+        WorldOperationRequest base = WorldOperationRequest.recreate(target, variant, targetTheme);
         WorldOperationRequest request = new WorldOperationRequest(
-                base.type(), base.targetTerrain(), base.targetVariant(),
+                base.type(), base.targetTerrain(), base.targetVariant(), base.targetGeologyTheme(),
                 null, null, backup, false);
         return reportPreview(context, WorldOperationService.get().request(context.getSource().getServer(), request, context.getSource().getTextName()));
     }
