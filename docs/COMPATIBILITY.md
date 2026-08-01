@@ -2,7 +2,7 @@
 
 ## Supported platform
 
-Delvefold 1.0 targets Minecraft Java Edition 1.21.1, NeoForge 21.1.x, and Java 21. Install the same Delvefold JAR on every client and the server. Singleplayer uses the same server-authoritative implementation through Minecraft's integrated server.
+Delvefold 1.1 targets Minecraft Java Edition 1.21.1, NeoForge 21.1.x, and Java 21. Install the same Delvefold JAR on every client and the server. Singleplayer uses the same server-authoritative implementation through Minecraft's integrated server.
 
 JEI, EMI, permission handlers, scripting mods, and mods that contribute ores are optional. Delvefold resolves blocks and tags after registration and does not declare a hard dependency on those integrations. JEI 19.18.3–19.x and EMI 1.1.x receive the Portal Frame recipe plus Delvefold's visual portal-construction guide.
 
@@ -28,7 +28,7 @@ Lifecycle-owned fields are locked during a live config reload. Delvefold keeps t
 
 ## Multiplayer and network compatibility
 
-The 1.1.0 client/server protocol is version 9. It carries weighted ore-target drafts and renewal seed-mode identity data in addition to bounded guide snapshots and the short-lived client-open acknowledgement used for the consulting advancement. The derived generation salt remains server-only. A client and server with incompatible protocol versions cannot safely exchange Delvefold administration or guide payloads; use identical mod versions. Commands and canonical JSON remain available from the server console when no graphical client is connected. `/delvefold guide` prints a bounded text summary there in `public` or `operators` mode because the trusted console passes the operator check; `disabled` rejects the console as well as every other built-in opening source.
+The 1.1.0 client/server protocol is version 10. It carries weighted ore-target drafts, renewal seed-mode identity data, bounded whole-profile forecasts, and paged guided-import views in addition to guide snapshots and the short-lived client-open acknowledgement used for the consulting advancement. Forecasts and imports do not expose seeds, coordinates, filesystem paths, confirmation tokens, or server-side registry/profile fingerprints. Import capabilities are random, expiring, player-bound, current-state-bound, and single-use for commit. The derived generation salt remains server-only. A client and server with incompatible protocol versions cannot safely exchange Delvefold administration or guide payloads; use identical mod versions. Commands and canonical JSON remain available from the server console when no graphical client is connected. `/delvefold guide` prints a bounded text summary there in `public` or `operators` mode because the trusted console passes the operator check; `disabled` rejects the console as well as every other built-in opening source.
 
 Permission fallback behavior is operator level 2 for configuration, level 4 for world lifecycle operations, and allowed for portal use. A NeoForge permission handler can override these nodes. Return travel to the Overworld is never denied.
 

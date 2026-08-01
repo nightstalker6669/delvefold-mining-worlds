@@ -21,6 +21,17 @@ public final class ProtocolLimits {
     public static final int MAX_PROFILE_JSON_BYTES = 256 * 1024;
     public static final int MAX_PROFILE_CLIPBOARD_CHARS = 24 * 1024;
     public static final int MAX_BACKUPS = 64;
+    public static final int MAX_IMPORT_TOKEN_LENGTH = 64;
+    public static final int MAX_IMPORT_GROUPS = 256;
+    /** Four maximal registry-ID groups, including all 16 candidates, remain below 24 KiB. */
+    public static final int MAX_IMPORT_GROUPS_PER_PAGE = 4;
+    public static final int MAX_IMPORT_SELECTED_GROUPS = 128;
+    /** Two maximal diff entries leave room for workloads and bounded validation details. */
+    public static final int MAX_IMPORT_DIFF_PER_PAGE = 2;
+    /** Four worst-case UTF-8 validation details fit alongside a maximal two-entry diff page. */
+    public static final int MAX_IMPORT_ISSUES = 4;
+    public static final int MAX_IMPORT_MESSAGE_LENGTH = 512;
+    public static final int MAX_IMPORT_NETWORK_BYTES = 24 * 1024;
 
     private ProtocolLimits() {
     }

@@ -4,17 +4,24 @@ import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
+import com.nightsta69.delvefold.network.payload.ForecastRequestPayload;
 import com.nightsta69.delvefold.network.payload.GuideOpenedPayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
 import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
+import com.nightsta69.delvefold.network.payload.OreImportCreatePayload;
+import com.nightsta69.delvefold.network.payload.OreImportPreviewPageRequestPayload;
+import com.nightsta69.delvefold.network.payload.OreImportPreviewRequestPayload;
+import com.nightsta69.delvefold.network.payload.OreImportScanPageRequestPayload;
+import com.nightsta69.delvefold.network.payload.OreImportScanRequestPayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportRequestPayload;
 import com.nightsta69.delvefold.network.payload.SaveOreRulePayload;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.neoforged.neoforge.network.PacketDistributor;
+import java.util.List;
 
 public final class DelvefoldClientRequests {
     private DelvefoldClientRequests() {
@@ -70,6 +77,30 @@ public final class DelvefoldClientRequests {
 
     public static void confirmGuideOpened(long authorizationId) {
         send(new GuideOpenedPayload(authorizationId));
+    }
+
+    public static void requestForecast(String profileId, int page) {
+        send(new ForecastRequestPayload(profileId, page));
+    }
+
+    public static void requestOreImportScan(long expectedOreRevision, boolean includeVanilla) {
+        send(new OreImportScanRequestPayload(expectedOreRevision, includeVanilla));
+    }
+
+    public static void requestOreImportScanPage(String scanToken, int page) {
+        send(new OreImportScanPageRequestPayload(scanToken, page));
+    }
+
+    public static void requestOreImportPreview(String scanToken, List<String> selectedGroupIds) {
+        send(new OreImportPreviewRequestPayload(scanToken, selectedGroupIds));
+    }
+
+    public static void requestOreImportPreviewPage(String commitToken, int page) {
+        send(new OreImportPreviewPageRequestPayload(commitToken, page));
+    }
+
+    public static void createImportedOreProfile(String commitToken, String profileId) {
+        send(new OreImportCreatePayload(commitToken, profileId));
     }
 
     private static void send(CustomPacketPayload payload) {

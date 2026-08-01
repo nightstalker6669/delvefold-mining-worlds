@@ -39,6 +39,11 @@ public abstract class DelvefoldScreen extends Screen {
         this.snapshot = snapshot;
     }
 
+    /** Immutable administration context retained by nested read-only screens. */
+    public final AdminSnapshot adminSnapshot() {
+        return this.snapshot;
+    }
+
     @Override
     protected final void init() {
         super.init();

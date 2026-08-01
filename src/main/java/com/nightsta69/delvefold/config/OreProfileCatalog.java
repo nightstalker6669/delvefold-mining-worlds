@@ -13,6 +13,7 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
@@ -117,6 +118,34 @@ public final class OreProfileCatalog {
         }
         write(target, replacement);
         return new ProfileWriteResult(true, replacement, report.issues(), "Saved profile '" + safeId + "'");
+    }
+
+    /**
+     * Creates a genuinely new local profile. Unlike {@link #saveAs}, this path
+     * cannot create a local override of a built-in/ecosystem profile and never
+     * replaces an existing filesystem entry.
+     */
+    public ProfileWriteResult createNew(String id, OreProfileDocument source) throws IOException {
+        String safeId = validateLocalId(id);
+        java.util.Objects.requireNonNull(source, "source");
+        Path target = localPath(safeId);
+        if (BUILT_INS.containsKey(safeId)
+                || EcosystemProfileRegistry.find(safeId) != null
+                || Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+            return ProfileWriteResult.rejected("A profile named '" + safeId + "' already exists");
+        }
+        OreProfileDocument replacement = new OreProfileDocument(
+                OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, safeId, source.rules());
+        ValidationReport report = OreConfigValidator.validate(replacement, registryLookup);
+        if (!report.valid()) {
+            return new ProfileWriteResult(false, null, report.issues(), "Profile validation failed");
+        }
+        try {
+            writeNew(target, replacement);
+        } catch (java.nio.file.FileAlreadyExistsException exception) {
+            return ProfileWriteResult.rejected("A profile named '" + safeId + "' already exists");
+        }
+        return new ProfileWriteResult(true, replacement, report.issues(), "Created profile '" + safeId + "'");
     }
 
     public ProfileWriteResult importJson(String id, String json, boolean overwrite) throws IOException {
@@ -229,6 +258,33 @@ public final class OreProfileCatalog {
     private static void write(Path target, OreProfileDocument document) throws IOException {
         writeBytesAtomically(target,
                 (ConfigJson.GSON.toJson(document) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void writeNew(Path target, OreProfileDocument document) throws IOException {
+        byte[] bytes = (ConfigJson.GSON.toJson(document) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_TRANSFER_BYTES) {
+            throw new IOException(target.getFileName() + " exceeds the profile size limit");
+        }
+        Files.createDirectories(target.getParent());
+        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
+        boolean moved = false;
+        try {
+            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer);
+                }
+                channel.force(true);
+            }
+            // No REPLACE_EXISTING option: a concurrent creator wins and this call is rejected.
+            Files.move(temporary, target);
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(temporary);
+            }
+        }
     }
 
     private static void writeBytesAtomically(Path target, byte[] bytes) throws IOException {

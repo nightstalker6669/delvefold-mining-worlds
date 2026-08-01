@@ -17,6 +17,8 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
 - Named per-save ore profiles with safe duplication, selection, and JSON import/export.
 - Visual height-distribution and generation-workload previews in the ore editor.
+- A whole-profile forecast with per-terrain attempts/work, an active-height graph, and missing, shadowed, or ineffective-rule diagnostics.
+- A guided modded-ore importer that discovers `c:ores/*` and ore-like registered blocks, groups likely stone/deepslate variants, previews the diff and workload, and creates a new inactive profile without overwriting anything.
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
 - Three-page ore-rule wizard for stone/deepslate or other variants, weighted output selection, replacement hosts, block-state properties, biome include/exclude selectors, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
@@ -124,6 +126,14 @@ Band fields are `vein_size`, `attempts`, `min_y`, `max_y`, `peak_y`, `plateau_mi
 
 Ore targets may carry an optional relative `weight` from 1 through 1000 in the GUI or canonical schema-2 JSON. Omitted weights default to `1`; existing and all-1 profiles keep the earlier member-uniform deterministic per-vein selection sequence. Exact targets use their configured weight directly, while each output tag divides its total weight equally among installed members when a host group contains a non-default weight. Identical resolved states are deduplicated first-wins, and later overlaps are ignored with a warning.
 
+## Surveying and modded-ore import
+
+Open the **Ores** dashboard tab and choose **Forecast** to inspect the complete active or named profile before generating new chunks. The server calculates configured and effective attempts and work units for Flat, Cavern, and Wild terrain, plots the active terrain's height overlay, and marks disabled, biome-filtered, terrain-mismatched, missing, invalid, and shadowed rules. Pages and diagnostic details are bounded; forecasts never contain the world seed, coordinates, filesystem paths, or lifecycle confirmation data.
+
+Open the **Profiles** tab and choose **Detect ores…** to scan the server's installed block registry. The wizard defaults to modded blocks, recognizes conventional `c:ores/*` tags and conservative ore-like names, groups probable stone/deepslate variants, and flags ambiguous hosts for manual review instead of guessing. Select groups by their real block icons, preview the exact rule diff and added workload for every terrain, then provide a new profile ID. Suggested rules use the Uncommon template. Creation is strict: it neither overwrites an existing profile nor activates the result, so an administrator must explicitly select it afterward.
+
+Discovery and planning are server-authoritative in singleplayer and multiplayer. Scan/preview capabilities expire, are bound to the requesting player and current profile/registry state, and cannot be replayed to overwrite a profile. If installed mods or the active profile change, start a fresh scan.
+
 Safe world deletion and recreation:
 
 ```text
@@ -210,7 +220,7 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-1.0.1.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, and translation-key validation. Version tags publish the JAR and SHA-256 checksum automatically.
+The release JAR is written to `build/libs/delvefold-1.21.1-1.1.0.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, and optional recipe-viewer client smoke tests. Version tags publish the JAR and SHA-256 checksum automatically.
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
 
