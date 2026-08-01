@@ -22,7 +22,7 @@ public final class GuideStreamCodecs {
     public static void write(RegistryFriendlyByteBuf buffer, GuideSnapshot snapshot) {
         if (snapshot.formatVersion() != GuideSnapshot.CURRENT_FORMAT_VERSION) {
             throw new IllegalArgumentException(
-                    "Only the current guide format can be sent over protocol 11: " + snapshot.formatVersion());
+                    "Only the current guide format can be sent over protocol 12: " + snapshot.formatVersion());
         }
         if (snapshot.estimatedNetworkBytes() > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
             throw new IllegalArgumentException("Guide snapshot exceeds its network budget");

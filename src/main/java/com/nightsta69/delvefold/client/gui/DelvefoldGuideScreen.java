@@ -199,7 +199,8 @@ public final class DelvefoldGuideScreen extends Screen {
                 .map(this::heightSummary)
                 .collect(Collectors.joining("  •  "));
         if (ore.heightBands().size() > 3) {
-            heights += "  +" + (ore.heightBands().size() - 3);
+            heights += "  " + Component.translatable("screen.delvefold.guide.additional_bands",
+                    ore.heightBands().size() - 3).getString();
         }
         drawFitted(graphics, Component.translatable("screen.delvefold.guide.heights",
                 heights.isBlank() ? Component.translatable("screen.delvefold.guide.none") : heights),
@@ -292,8 +293,12 @@ public final class DelvefoldGuideScreen extends Screen {
         String best = band.bestMinY() == band.bestMaxY()
                 ? Integer.toString(band.bestMinY())
                 : band.bestMinY() + ".." + band.bestMaxY();
-        String summary = "Y " + best + " " + distributionName(band.distribution()).getString();
-        return provinceBand(band) ? summary : summary + " ×" + band.veinSize();
+        if (provinceBand(band)) {
+            return Component.translatable("screen.delvefold.guide.height_summary.province",
+                    best, distributionName(band.distribution())).getString();
+        }
+        return Component.translatable("screen.delvefold.guide.height_summary.vein",
+                best, distributionName(band.distribution()), band.veinSize()).getString();
     }
 
     private Component fullHeightSummary(HeightBand band) {

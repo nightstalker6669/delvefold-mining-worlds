@@ -2,7 +2,7 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
-> **1.x compatibility:** Delvefold keeps configuration schema 2 and public API version 1. The 1.1 surveying fields and 1.2 geology, province, and landmark fields are additive with compatibility-preserving defaults. Existing 0.2–1.1 schema-2 saves and exact-block ore targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode.
+> **1.x compatibility:** Delvefold keeps configuration schema 2 and public API version 1. The 1.1 surveying, 1.2 living-geology, and 1.3 server-operations fields are additive with compatibility-preserving defaults. Existing 0.2–1.2 schema-2 saves and exact-block ore targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode. Delvefold 1.3 uses network protocol 12 and requires the identical 1.3.0 JAR on each client and the server.
 
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
@@ -31,13 +31,16 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Dedicated Delvefold creative tab containing the Portal Frame and Seam Ledger.
 - Iron-tier framed portal ignited with vanilla Flint and Steel.
 - Safe world deletion/recreation on restart, with a timestamped backup by default.
-- In-game backup browser with pinning, confirmed deletion, and restart-safe restoration.
+- In-game backup browser with pinning, background SHA-256 verification, confirmed deletion, and restart-safe restoration gated by verified manifests.
+- Optional automatic backup retention by count, age, and total size, with pinned, pending, and newest-two safeguards.
+- A redacted Doctor report, exportable diagnostics, and a rotating JSON-lines audit log for server operations.
+- Coordinate-linked or central-hub portal routing, including a protected vanilla-block hub and guaranteed return portal.
 - Atomic per-save JSON, validation, stale-edit protection, and last-known-good runtime snapshots.
 
 ## Requirements
 
 - Minecraft Java Edition 1.21.1
-- NeoForge 21.1.x (built against 21.1.244)
+- NeoForge 21.1.244 or newer for Minecraft 1.21.1
 - Java 21
 - Delvefold installed on both the client and server
 
@@ -73,6 +76,8 @@ Setup, status, and JSON:
 /delvefold guide visibility <public|operators|disabled>
 /delvefold config validate
 /delvefold config reload
+/delvefold doctor
+/delvefold doctor export
 /delvefold identity
 /delvefold identity name <name>
 /delvefold identity landmarks <pure_mining|balanced|abundant>
@@ -82,6 +87,9 @@ Setup, status, and JSON:
 /delvefold renewal configure <interval_days> <warning_minutes>
 /delvefold renewal disable
 /delvefold renewal seed-mode <stable|rotate_on_recreate>
+/delvefold portal
+/delvefold portal routing <coordinate_linked|central_hub>
+/delvefold portal hub <x> <z> <protection_radius>
 ```
 
 For players, `/delvefold guide` opens the same read-only Seam Ledger screen as right-clicking the item. From a dedicated-server console it prints a bounded text summary instead. The visibility command requires configuration access; `public` allows all sources, `operators` allows the integrated owner, configure-authorized players, and the trusted server console, while `disabled` blocks every command, item, command-block, and console opening source.
@@ -165,15 +173,23 @@ Backup management:
 
 ```text
 /delvefold backup list
+/delvefold backup verify <backup>
 /delvefold backup pin <backup>
 /delvefold backup unpin <backup>
 /delvefold backup delete <backup> confirm
+/delvefold backup retention
+/delvefold backup retention configure <max_count> <max_age_days> <max_total_bytes>
+/delvefold backup retention disable
 /delvefold backup restore request <backup>
 /delvefold backup restore confirm <token>
 /delvefold backup restore cancel
 ```
 
-World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. See [Commands](docs/COMMANDS.md) for behavior and permission details.
+World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. Every new backup receives a normalized SHA-256 manifest. Legacy backups remain listed but cannot be restored until an administrator explicitly runs `backup verify`, which validates the legacy snapshot and creates its manifest. Restore verifies the selected backup again during startup before active files are changed. Pre-restore moves are transactional, and Delvefold stops startup if it cannot prove a safe complete state, preventing partial mining folders from being regenerated.
+
+Retention is disabled by default. A zero count, age, or byte limit means unbounded. When enabled, Delvefold previews the deterministic prune set and never automatically removes pinned backups, the newest two backups, backups referenced by pending lifecycle operations, or any legacy, invalid, unverified, non-restorable, or incompletely measured backup.
+
+`/delvefold doctor` prints a bounded operational report; administrators can use `/delvefold doctor export` to write the same redacted data to `serverconfig/delvefold/exports/`. Reports omit seeds, filesystem paths, confirmation tokens, server addresses, complete profile JSON, and unrelated player data. See [Commands](docs/COMMANDS.md) for behavior and permission details.
 
 Recreation layout defaults to `stable`, which reproduces the established ore, province, themed geology, and landmark layout. Administrators can select `rotate_on_recreate` through the GUI or renewal command; the selection applies only when the world is next initialized or recreated, and ordinary restarts never change an existing layout. Omitting the geology argument preserves the current theme.
 
@@ -195,6 +211,8 @@ Iron Ingot          Polished Deepslate   Iron Ingot
 
 Build a complete rectangular frame, then right-click any Portal Frame block with vanilla Flint and Steel. A failed activation does not consume durability. The portal interior may be 2–21 blocks wide and 3–21 blocks tall. Delvefold portals have distinct reverse-fold particles, crystalline resonance, and activation effects.
 
+Portal routing defaults to `coordinate_linked`, preserving the established coordinate-scale behavior. Administrators may opt into `central_hub`, which sends incoming players to a configured mining-world hub, creates a safe vanilla-block platform and return portal, and protects the configured horizontal radius (16 blocks by default). Modification inside that radius requires `delvefold.manage_world`. Portal travel remains player-only in 1.3; mobs, items, boats, and minecarts do not pass through Delvefold portals.
+
 ## JSON locations
 
 Each save owns its configuration:
@@ -205,7 +223,11 @@ Each save owns its configuration:
 <save>/serverconfig/delvefold/profiles/*.json
 <save>/serverconfig/delvefold/imports/*.json
 <save>/serverconfig/delvefold/exports/*.json
+<save>/serverconfig/delvefold/audit/delvefold-audit.jsonl
+<save>/delvefold_backups/<backup>/manifest.json
 ```
+
+The audit log records accepted mutations as redacted JSON lines and rotates at 10 MiB, retaining the active file plus four archives. It never records confirmation tokens, complete profiles, server addresses, or unrelated player data. Backup manifests inventory normalized relative paths, byte sizes, and SHA-256 hashes; pin and verification-control files are not part of the immutable backup contents.
 
 Editing ore-generation JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), the [ore schema](schemas/ores.schema.json), and the [settings schema](schemas/settings.schema.json).
 
@@ -234,7 +256,7 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-1.2.0.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, and optional recipe-viewer client smoke tests. Version tags publish the JAR and SHA-256 checksum automatically.
+The release JAR is written to `build/libs/delvefold-1.21.1-1.3.0.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, and optional recipe-viewer client smoke tests. Version tags publish the GitHub JAR and SHA-256 checksum automatically. CurseForge upload remains a manual project-owner step; no workflow publishes there.
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
 

@@ -6,12 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.GameplayPreset;
+import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
+import com.nightsta69.delvefold.config.model.PortalHubSettings;
+import com.nightsta69.delvefold.config.model.PortalRoutingMode;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
@@ -172,6 +175,45 @@ class ConfigJsonTest {
         assertTrue(json.contains("\"guide_visibility\": \"disabled\""));
         assertEquals(GuideVisibility.DISABLED,
                 ConfigJson.GSON.fromJson(json, WorldSettingsDocument.class).guideVisibility());
+    }
+
+    @Test
+    void backupRetentionIsOptionalDisabledAndStrictlyBounded() {
+        WorldSettingsDocument defaults = WorldSettingsDocument.uninitialized();
+        assertEquals(BackupRetentionSettings.defaults(), defaults.backupRetention());
+
+        WorldSettingsDocument configured = defaults.withBackupRetention(
+                new BackupRetentionSettings(true, 12, 90L, 8L * 1024L * 1024L * 1024L));
+        String json = ConfigJson.GSON.toJson(configured);
+        assertTrue(json.contains("\"backup_retention\""));
+        assertEquals(configured, ConfigJson.GSON.fromJson(json, WorldSettingsDocument.class));
+        StrictConfigStructure.parseAndValidate(json, WorldSettingsDocument.class);
+
+        assertThrows(JsonParseException.class, () -> StrictConfigStructure.parseAndValidate(
+                json.replace("\"max_count\": 12", "\"max_count\": 4294967297"),
+                WorldSettingsDocument.class));
+        assertThrows(JsonParseException.class, () -> StrictConfigStructure.parseAndValidate(
+                json.replace("\"max_total_bytes\": 8589934592", "\"max_total_bytes\": -1"),
+                WorldSettingsDocument.class));
+    }
+
+    @Test
+    void centralHubPortalSettingsRoundTripAndRejectUnsafeBounds() {
+        var portal = new com.nightsta69.delvefold.config.model.PortalSettings(
+                true, true, 5, 1.0D, PortalRoutingMode.CENTRAL_HUB,
+                new PortalHubSettings(128, -256, 24));
+        WorldSettingsDocument configured = WorldSettingsDocument.uninitialized().withPortal(portal);
+        String json = ConfigJson.GSON.toJson(configured);
+
+        assertTrue(json.contains("\"routing_mode\": \"central_hub\""));
+        assertEquals(configured, ConfigJson.GSON.fromJson(json, WorldSettingsDocument.class));
+        StrictConfigStructure.parseAndValidate(json, WorldSettingsDocument.class);
+        assertThrows(JsonParseException.class, () -> StrictConfigStructure.parseAndValidate(
+                json.replace("\"protection_radius\": 24", "\"protection_radius\": 7"),
+                WorldSettingsDocument.class));
+        assertThrows(JsonParseException.class, () -> StrictConfigStructure.parseAndValidate(
+                json.replace("\"routing_mode\": \"central_hub\"", "\"routing_mode\": \"random\""),
+                WorldSettingsDocument.class));
     }
 
     @Test

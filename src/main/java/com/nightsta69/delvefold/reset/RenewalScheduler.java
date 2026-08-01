@@ -1,6 +1,8 @@
 package com.nightsta69.delvefold.reset;
 
 import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.audit.AuditMutation;
+import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.ConfigWriteResult;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
@@ -62,8 +64,10 @@ public final class RenewalScheduler {
             if (remainingMillis <= minutes * 60_000L) {
                 String key = renewal.nextRenewalAtEpochMillis() + ":" + minutes;
                 if (ANNOUNCED.add(key)) {
-                    broadcast(server, "Delvefold mining-world renewal is due in " + minutes
-                            + " minute" + (minutes == 1 ? "" : "s") + ". A backup will be created.");
+                    broadcast(server, Component.translatable(minutes == 1
+                                    ? "message.delvefold.renewal.warning_one"
+                                    : "message.delvefold.renewal.warning_many",
+                            minutes));
                 }
             }
         }
@@ -84,21 +88,36 @@ public final class RenewalScheduler {
         }
         WorldOperationResult result = WorldOperationService.get().confirm(server, preview.confirmationToken());
         if (result.success()) {
+            auditWorldOperation(AuditMutation.Operation.WORLD_OPERATION_ACCEPTED,
+                    snapshot.settings().revision());
             ConfigWriteResult rescheduled = DelvefoldConfigService.get().updateSettings(
                     snapshot.settings().revision(),
                     settings -> settings.withIdentity(settings.identity().withRenewal(renewal.scheduledFrom(now))));
             if (!rescheduled.saved()) {
                 WorldOperationResult cancelled = WorldOperationService.get().cancelConfirmed(server);
+                if (cancelled.success()) {
+                    auditWorldOperation(AuditMutation.Operation.WORLD_OPERATION_CANCELLED,
+                            snapshot.settings().revision());
+                }
                 LOGGER.error("Scheduled renewal was cancelled because its next-run time could not be saved: {} ({})",
                         rescheduled.issues(), cancelled.message());
                 return;
             }
             ANNOUNCED.clear();
-            broadcast(server, "Delvefold mining-world renewal is ready. Players were evacuated; restart the "
-                    + "server to create the backup and fresh terrain.");
+            broadcast(server, Component.translatable("message.delvefold.renewal.ready"));
         } else {
             LOGGER.error("Scheduled Delvefold renewal could not be confirmed: {}", result.message());
         }
+    }
+
+    private static void auditWorldOperation(AuditMutation.Operation operation, long settingsRevision) {
+        DelvefoldAuditService.get().record(new AuditMutation(
+                "server",
+                operation,
+                AuditMutation.ObjectType.WORLD,
+                "mining_world",
+                settingsRevision,
+                settingsRevision));
     }
 
     public static void reset() {
@@ -106,8 +125,8 @@ public final class RenewalScheduler {
         lastCheckTick = 0L;
     }
 
-    private static void broadcast(MinecraftServer server, String message) {
-        server.getPlayerList().broadcastSystemMessage(Component.literal(message), false);
-        LOGGER.info(message);
+    private static void broadcast(MinecraftServer server, Component message) {
+        server.getPlayerList().broadcastSystemMessage(message, false);
+        LOGGER.info(message.getString());
     }
 }

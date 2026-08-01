@@ -74,6 +74,28 @@ public final class WorldSettingsValidator {
             issues.add(ConfigIssue.error("settings.portal.invalid_scale", "$.portal.coordinate_scale",
                     "Portal coordinate scale must be finite and between 0.01 and 100"));
         }
+        var hub = settings.portal().hub();
+        if (Math.abs((long) hub.x()) > 29_999_936L || Math.abs((long) hub.z()) > 29_999_936L) {
+            issues.add(ConfigIssue.error("settings.portal.hub_coordinates", "$.portal.hub",
+                    "Central-hub coordinates must remain inside the safe world boundary"));
+        }
+        if (hub.protectionRadius() < 8 || hub.protectionRadius() > 256) {
+            issues.add(ConfigIssue.error("settings.portal.hub_radius", "$.portal.hub.protection_radius",
+                    "Central-hub protection radius must be between 8 and 256 blocks"));
+        }
+        var retention = settings.backupRetention();
+        if (retention.maxCount() < 0) {
+            issues.add(ConfigIssue.error("settings.backup_retention.count", "$.backup_retention.max_count",
+                    "Backup retention count cannot be negative"));
+        }
+        if (retention.maxAgeDays() < 0) {
+            issues.add(ConfigIssue.error("settings.backup_retention.age", "$.backup_retention.max_age_days",
+                    "Backup retention age cannot be negative"));
+        }
+        if (retention.maxTotalBytes() < 0) {
+            issues.add(ConfigIssue.error("settings.backup_retention.bytes", "$.backup_retention.max_total_bytes",
+                    "Backup retention byte limit cannot be negative"));
+        }
         return new ValidationReport(issues);
     }
 }

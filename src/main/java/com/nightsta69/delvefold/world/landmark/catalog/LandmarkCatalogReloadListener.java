@@ -3,6 +3,8 @@ package com.nightsta69.delvefold.world.landmark.catalog;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.audit.AuditMutation;
+import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.mojang.serialization.JsonOps;
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,6 +15,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -38,6 +41,7 @@ public final class LandmarkCatalogReloadListener extends
     public static final int MAX_DEFINITION_BYTES = 65_536;
     public static final long MAX_TEMPLATE_NBT_BYTES = 8L * 1024L * 1024L;
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final AtomicReference<AuditMutation> PENDING_STARTUP_AUDIT = new AtomicReference<>();
 
     @Override
     protected LoadResult prepare(ResourceManager resources, ProfilerFiller profiler) {
@@ -158,6 +162,8 @@ public final class LandmarkCatalogReloadListener extends
         LandmarkCatalogService.ReloadOutcome outcome = LandmarkCatalogService.get().publish(
                 result.definitions(), result.errors(), result.attemptedAt());
         if (outcome.applied()) {
+            long revision = outcome.activeSnapshot().revision();
+            auditAcceptedReload(Math.max(0L, revision - 1L), revision);
             LOGGER.info("Loaded {} Delvefold landmark definition(s) as catalog revision {}",
                     outcome.activeSnapshot().definitions().size(), outcome.activeSnapshot().revision());
         } else {
@@ -165,6 +171,41 @@ public final class LandmarkCatalogReloadListener extends
                     outcome.activeSnapshot().revision(), outcome.activeSnapshot().definitions().size());
             outcome.diagnostics().errors().forEach(error -> LOGGER.error("Landmark catalog: {}", error));
         }
+    }
+
+    /**
+     * Flushes the initial datapack reload after the per-save audit writer is ready. Resource
+     * reload callbacks do not expose the command source that initiated {@code /reload}, so both
+     * startup and runtime catalog publications are explicitly attributed to the server.
+     */
+    public static void flushPendingAudit() {
+        AuditMutation pending = PENDING_STARTUP_AUDIT.getAndSet(null);
+        if (pending != null) {
+            DelvefoldAuditService.get().record(pending);
+        }
+    }
+
+    private static void auditAcceptedReload(long oldRevision, long newRevision) {
+        AuditMutation mutation = new AuditMutation(
+                "server",
+                AuditMutation.Operation.LANDMARK_CATALOG_RELOADED,
+                AuditMutation.ObjectType.LANDMARK_CATALOG,
+                "catalog",
+                oldRevision,
+                newRevision);
+        if (DelvefoldAuditService.get().available()) {
+            DelvefoldAuditService.get().record(mutation);
+            return;
+        }
+        PENDING_STARTUP_AUDIT.updateAndGet(previous -> previous == null
+                ? mutation
+                : new AuditMutation(
+                        "server",
+                        AuditMutation.Operation.LANDMARK_CATALOG_RELOADED,
+                        AuditMutation.ObjectType.LANDMARK_CATALOG,
+                        "catalog",
+                        previous.oldRevision(),
+                        newRevision));
     }
 
     record LoadResult(

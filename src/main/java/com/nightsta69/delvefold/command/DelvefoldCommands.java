@@ -3,16 +3,23 @@ package com.nightsta69.delvefold.command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.admin.AdminLocalizedComponents;
 import com.nightsta69.delvefold.config.AdminAccess;
+import com.nightsta69.delvefold.audit.AsyncAuditMutationTracker;
+import com.nightsta69.delvefold.audit.AuditMutation;
+import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.ConfigLoadResult;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.ConfigWriteResult;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
+import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
 import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
@@ -21,6 +28,9 @@ import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
+import com.nightsta69.delvefold.config.model.PortalHubSettings;
+import com.nightsta69.delvefold.config.model.PortalRoutingMode;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
@@ -29,12 +39,18 @@ import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
+import com.nightsta69.delvefold.config.validation.ConfigIssueMessages;
+import com.nightsta69.delvefold.diagnostics.DelvefoldDoctorService;
 import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.guide.DelvefoldGuideService;
 import com.nightsta69.delvefold.guide.GuideAccessPolicy;
 import com.nightsta69.delvefold.guide.GuideSnapshotService;
 import com.nightsta69.delvefold.guide.GuideTextSummary;
+import com.nightsta69.delvefold.reset.BackupCatalogCache;
+import com.nightsta69.delvefold.reset.BackupDeletionGuard;
 import com.nightsta69.delvefold.reset.BackupMode;
+import com.nightsta69.delvefold.reset.BackupVerificationResult;
+import com.nightsta69.delvefold.reset.BackupVerificationService;
 import com.nightsta69.delvefold.reset.WorldBackupCatalog;
 import com.nightsta69.delvefold.reset.WorldOperationPreview;
 import com.nightsta69.delvefold.reset.WorldOperationRequest;
@@ -55,9 +71,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import org.slf4j.Logger;
 
 /** Brigadier and console parity for every administration path exposed by the GUI. */
 public final class DelvefoldCommands {
+    private static final Logger LOGGER = LogUtils.getLogger();
+
     private DelvefoldCommands() {
     }
 
@@ -91,13 +110,23 @@ public final class DelvefoldCommands {
                                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("safe", "hostile", "normal"), builder))
                                                 .executes(DelvefoldCommands::initialize)))))
                 .then(Commands.literal("status").executes(DelvefoldCommands::status))
+                .then(doctorCommands())
                 .then(guideCommands())
                 .then(identityCommands())
+                .then(portalCommands())
                 .then(renewalCommands())
                 .then(profileCommands())
                 .then(backupCommands())
                 .then(oreCommands())
                 .then(worldCommands());
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> doctorCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> doctor = Commands.literal("doctor")
+                .requires(AdminAccess::canConfigure)
+                .executes(DelvefoldCommands::doctor);
+        doctor.then(Commands.literal("export").executes(DelvefoldCommands::exportDoctorReport));
+        return doctor;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> guideCommands() {
@@ -156,10 +185,44 @@ public final class DelvefoldCommands {
         return renewal;
     }
 
+    private static LiteralArgumentBuilder<CommandSourceStack> portalCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> portal = Commands.literal("portal");
+        portal.requires(AdminAccess::canConfigure);
+        portal.executes(DelvefoldCommands::portalStatus);
+        portal.then(Commands.literal("routing")
+                .then(Commands.argument("mode", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("coordinate_linked", "central_hub"), builder))
+                        .executes(DelvefoldCommands::setPortalRouting)));
+        portal.then(Commands.literal("hub")
+                .requires(AdminAccess::canManageWorld)
+                .then(Commands.argument("x", IntegerArgumentType.integer(
+                                -PortalHubSettings.MAX_ABSOLUTE_COORDINATE,
+                                PortalHubSettings.MAX_ABSOLUTE_COORDINATE))
+                        .then(Commands.argument("z", IntegerArgumentType.integer(
+                                        -PortalHubSettings.MAX_ABSOLUTE_COORDINATE,
+                                        PortalHubSettings.MAX_ABSOLUTE_COORDINATE))
+                                .then(Commands.argument("protection_radius", IntegerArgumentType.integer(
+                                                PortalHubSettings.MIN_PROTECTION_RADIUS,
+                                                PortalHubSettings.MAX_PROTECTION_RADIUS))
+                                        .executes(DelvefoldCommands::setPortalHub)))));
+        return portal;
+    }
+
     private static LiteralArgumentBuilder<CommandSourceStack> backupCommands() {
         LiteralArgumentBuilder<CommandSourceStack> backup = Commands.literal("backup");
         backup.requires(AdminAccess::canManageWorld);
         backup.then(Commands.literal("list").executes(DelvefoldCommands::listBackups));
+        backup.then(Commands.literal("verify").then(backupArgument().executes(DelvefoldCommands::verifyBackup)));
+        LiteralArgumentBuilder<CommandSourceStack> retention = Commands.literal("retention")
+                .executes(DelvefoldCommands::retentionStatus);
+        retention.then(Commands.literal("disable").executes(DelvefoldCommands::disableRetention));
+        retention.then(Commands.literal("configure")
+                .then(Commands.argument("max_count", IntegerArgumentType.integer(0))
+                        .then(Commands.argument("max_age_days", LongArgumentType.longArg(0L))
+                                .then(Commands.argument("max_total_bytes", LongArgumentType.longArg(0L))
+                                        .executes(DelvefoldCommands::configureRetention)))));
+        backup.then(retention);
         backup.then(Commands.literal("pin").then(backupArgument().executes(context -> pinBackup(context, true))));
         backup.then(Commands.literal("unpin").then(backupArgument().executes(context -> pinBackup(context, false))));
         backup.then(Commands.literal("delete").then(backupArgument()
@@ -173,13 +236,10 @@ public final class DelvefoldCommands {
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> backupArgument() {
-        return Commands.argument("backup", StringArgumentType.word()).suggests((context, builder) -> {
-            try {
-                return SharedSuggestionProvider.suggest(backups(context).stream().map(backup -> backup.id()), builder);
-            } catch (IOException exception) {
-                return builder.buildFuture();
-            }
-        });
+        return Commands.argument("backup", StringArgumentType.word()).suggests((context, builder) ->
+                SharedSuggestionProvider.suggest(
+                        backupSnapshot(context).backups().stream().map(WorldBackupCatalog.BackupSummary::id),
+                        builder));
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> profileCommands() {
@@ -425,9 +485,50 @@ public final class DelvefoldCommands {
     private static int openGui(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
         ServerPlayer player = context.getSource().getPlayerOrException();
         if (!DelvefoldNetwork.openFor(player)) {
-            context.getSource().sendFailure(Component.literal("You are not allowed to configure Delvefold."));
+            context.getSource().sendFailure(Component.translatable("message.delvefold.command.configure_denied"));
             return 0;
         }
+        return 1;
+    }
+
+    private static int doctor(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        var server = source.getServer();
+        DelvefoldDoctorService.get().renderedLinesAsync(server).whenComplete((lines, failure) ->
+                server.execute(() -> {
+                    if (!sourceStillAvailable(source)) {
+                        return;
+                    }
+                    if (failure != null) {
+                        LOGGER.error("Could not prepare the Delvefold Doctor report", failure);
+                        source.sendFailure(Component.translatable("message.delvefold.doctor.failed"));
+                        return;
+                    }
+                    for (String line : lines) {
+                        source.sendSystemMessage(AdminLocalizedComponents.resolve(line));
+                    }
+                }));
+        source.sendSuccess(() -> Component.translatable("message.delvefold.doctor.started"), false);
+        return 1;
+    }
+
+    private static int exportDoctorReport(CommandContext<CommandSourceStack> context) {
+        CommandSourceStack source = context.getSource();
+        var server = source.getServer();
+        DelvefoldDoctorService.get().exportAsync(server).whenComplete((path, failure) ->
+                server.execute(() -> {
+                    if (!sourceStillAvailable(source)) {
+                        return;
+                    }
+                    if (failure != null) {
+                        LOGGER.error("Could not export the Delvefold Doctor report", failure);
+                        source.sendFailure(Component.translatable("message.delvefold.doctor.export_failed"));
+                        return;
+                    }
+                    source.sendSuccess(() -> Component.translatable(
+                            "message.delvefold.doctor.exported", path.getFileName().toString()), false);
+                }));
+        source.sendSuccess(() -> Component.translatable("message.delvefold.doctor.export_started"), false);
         return 1;
     }
 
@@ -456,7 +557,8 @@ public final class DelvefoldCommands {
         }
         return GuideSnapshotService.current().map(snapshot -> {
             for (String line : GuideTextSummary.lines(snapshot)) {
-                context.getSource().sendSuccess(() -> Component.literal(line), false);
+                context.getSource().sendSuccess(
+                        () -> AdminLocalizedComponents.resolve(line), false);
             }
             return 1;
         }).orElseGet(() -> {
@@ -482,12 +584,14 @@ public final class DelvefoldCommands {
         try {
             GuideVisibility visibility = GuideVisibility.parse(StringArgumentType.getString(context, "mode"));
             ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
-            ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(
-                    before.settings().revision(), settings -> settings.withGuideVisibility(visibility));
-            return reportWrite(context.getSource(), result,
-                    "Guide visibility set to " + visibility.serializedName() + ".");
+            ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateSettings(
+                    before.settings().revision(), settings -> settings.withGuideVisibility(visibility)));
+            return reportWrite(context.getSource(), result, Component.translatable(
+                    "message.delvefold.command.guide_visibility_set", visibility.serializedName()));
         } catch (IllegalArgumentException | IllegalStateException exception) {
-            context.getSource().sendFailure(Component.literal(exception.getMessage()));
+            LOGGER.warn("Could not update Delvefold guide visibility", exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.guide_visibility_failed"));
             return 0;
         }
     }
@@ -498,12 +602,15 @@ public final class DelvefoldCommands {
             OrePreset orePreset = OrePreset.parse(StringArgumentType.getString(context, "ore_preset"));
             GameplayPreset gameplay = GameplayPreset.parse(StringArgumentType.getString(context, "gameplay_preset"));
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
-            ConfigWriteResult result = DelvefoldConfigService.get().initialize(
+            ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().initialize(
                     snapshot.ores().revision(), snapshot.settings().revision(), terrain, orePreset, gameplay,
-                    snapshot.settings().identity());
-            return reportWrite(context.getSource(), result, "Delvefold initialized as " + terrain.serializedName());
+                    snapshot.settings().identity()));
+            return reportWrite(context.getSource(), result, Component.translatable(
+                    "message.delvefold.command.initialized", terrain.serializedName()));
         } catch (IllegalArgumentException exception) {
-            context.getSource().sendFailure(Component.literal(exception.getMessage()));
+            LOGGER.warn("Invalid Delvefold initialization command", exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.initialize_invalid"));
             return 0;
         }
     }
@@ -512,18 +619,21 @@ public final class DelvefoldCommands {
         try {
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
             var settings = snapshot.settings();
-            String terrain = settings.initialized() ? settings.terrainMode().serializedName() : "uninitialized";
-            context.getSource().sendSuccess(() -> Component.literal(
-                    "Delvefold: " + terrain
-                            + ", epoch " + settings.generationEpoch()
-                            + ", recreation layout " + settings.identity().renewal().seedMode().serializedName()
-                            + ", ore revision " + snapshot.ores().revision()
-                            + ", settings revision " + settings.revision()
-                            + (WorldOperationService.get().isEntryBlocked() ? ", world operation pending" : "")
-            ), false);
+            Component terrain = settings.initialized()
+                    ? Component.literal(settings.terrainMode().serializedName())
+                    : Component.translatable("message.delvefold.command.status_uninitialized");
+            Component pending = WorldOperationService.get().isEntryBlocked()
+                    ? Component.translatable("message.delvefold.command.status_pending")
+                    : Component.empty();
+            context.getSource().sendSuccess(() -> Component.translatable(
+                    "message.delvefold.command.status", terrain, settings.generationEpoch(),
+                    settings.identity().renewal().seedMode().serializedName(), snapshot.ores().revision(),
+                    settings.revision(), pending), false);
             return 1;
         } catch (IllegalStateException exception) {
-            context.getSource().sendFailure(Component.literal(exception.getMessage()));
+            LOGGER.warn("Could not read Delvefold status", exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.status_failed"));
             return 0;
         }
     }
@@ -531,17 +641,56 @@ public final class DelvefoldCommands {
     private static int identityStatus(CommandContext<CommandSourceStack> context) {
         var settings = DelvefoldConfigService.get().snapshot().settings();
         var identity = settings.identity();
-        context.getSource().sendSuccess(() -> Component.literal(identity.displayName() + ": "
-                + identity.terrainVariant().serializedName() + " "
-                + identity.geologyTheme().serializedName() + " geology, "
-                + identity.landmarkPreset().serializedName() + " landmarks"), false);
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.identity_status", identity.displayName(),
+                identity.terrainVariant().serializedName(), identity.geologyTheme().serializedName(),
+                identity.landmarkPreset().serializedName()), false);
         return 1;
+    }
+
+    private static int portalStatus(CommandContext<CommandSourceStack> context) {
+        PortalSettings portal = DelvefoldConfigService.get().snapshot().settings().portal();
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.portal_status", portal.routingMode().serializedName(),
+                portal.hub().x(), portal.hub().z(), portal.hub().protectionRadius()), false);
+        return 1;
+    }
+
+    private static int setPortalRouting(CommandContext<CommandSourceStack> context) {
+        PortalRoutingMode mode = PortalRoutingMode.parse(StringArgumentType.getString(context, "mode"));
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateSettings(
+                snapshot.settings().revision(), settings -> {
+                    PortalSettings current = settings.portal();
+                    return settings.withPortal(new PortalSettings(
+                            current.enabled(), current.allowFromOverworldOnly(), current.cooldownSeconds(),
+                            current.coordinateScale(), mode, current.hub()));
+                }));
+        return reportWrite(context.getSource(), result, Component.translatable(
+                "message.delvefold.command.portal_routing_set", mode.serializedName()));
+    }
+
+    private static int setPortalHub(CommandContext<CommandSourceStack> context) {
+        PortalHubSettings hub = new PortalHubSettings(
+                IntegerArgumentType.getInteger(context, "x"),
+                IntegerArgumentType.getInteger(context, "z"),
+                IntegerArgumentType.getInteger(context, "protection_radius"));
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateSettings(
+                snapshot.settings().revision(), settings -> {
+                    PortalSettings current = settings.portal();
+                    return settings.withPortal(new PortalSettings(
+                            current.enabled(), current.allowFromOverworldOnly(), current.cooldownSeconds(),
+                            current.coordinateScale(), current.routingMode(), hub));
+                }));
+        return reportWrite(context.getSource(), result, Component.translatable(
+                "message.delvefold.command.portal_hub_set", hub.x(), hub.z(), hub.protectionRadius()));
     }
 
     private static int setIdentityName(CommandContext<CommandSourceStack> context) {
         String name = StringArgumentType.getString(context, "name").trim();
         return updateIdentity(context, identity -> identity.withDisplayName(name),
-                "Mining-world name updated to '" + name + "'.");
+                Component.translatable("message.delvefold.command.identity_name_set", name));
     }
 
     private static int setLandmarkPreset(CommandContext<CommandSourceStack> context) {
@@ -549,50 +698,51 @@ public final class DelvefoldCommands {
                 StringArgumentType.getString(context, "preset").toUpperCase(Locale.ROOT));
         boolean enabled = preset != LandmarkPreset.PURE_MINING;
         return updateIdentity(context, identity -> identity.withLandmarks(preset, enabled, enabled, enabled),
-                "Landmark preset updated; changes apply to newly generated chunks.");
+                Component.translatable("message.delvefold.command.landmark_preset_set"));
     }
 
     private static int setUninitializedVariant(CommandContext<CommandSourceStack> context) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         if (snapshot.settings().initialized()) {
-            context.getSource().sendFailure(Component.literal(
-                    "Terrain variant is locked for the active world. Change it during a confirmed recreation."));
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.terrain_variant_locked"));
             return 0;
         }
         TerrainVariant variant = TerrainVariant.valueOf(
                 StringArgumentType.getString(context, "variant").toUpperCase(Locale.ROOT));
         return updateIdentity(context, identity -> identity.withTerrainVariant(variant),
-                "Terrain variant set to " + variant.serializedName() + ".");
+                Component.translatable("message.delvefold.command.terrain_variant_set",
+                        variant.serializedName()));
     }
 
     private static int setUninitializedGeologyTheme(CommandContext<CommandSourceStack> context) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         if (snapshot.settings().initialized()) {
-            context.getSource().sendFailure(Component.literal(
-                    "Geology theme is locked for the active world. Change it during a confirmed recreation."));
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.geology_theme_locked"));
             return 0;
         }
         GeologyTheme theme = GeologyTheme.parse(StringArgumentType.getString(context, "theme"));
         return updateIdentity(context, identity -> identity.withGeologyTheme(theme),
-                "Geology theme set to " + theme.serializedName() + ".");
+                Component.translatable("message.delvefold.command.geology_theme_set",
+                        theme.serializedName()));
     }
 
     private static int renewalStatus(CommandContext<CommandSourceStack> context) {
         RenewalSettings renewal = DelvefoldConfigService.get().snapshot().settings().identity().renewal();
-        String status = renewal.enabled()
-                ? "enabled every " + renewal.intervalDays() + " day(s), warning " + renewal.warningMinutes()
-                        + " minute(s), next epoch ms " + renewal.nextRenewalAtEpochMillis()
-                : "disabled";
-        context.getSource().sendSuccess(() -> Component.literal("Scheduled renewal: " + status
-                + "; recreation layout: " + renewal.seedMode().serializedName()), false);
+        Component status = renewal.enabled()
+                ? Component.translatable("message.delvefold.command.renewal_enabled",
+                        renewal.intervalDays(), renewal.warningMinutes(), renewal.nextRenewalAtEpochMillis())
+                : Component.translatable("message.delvefold.command.renewal_disabled_state");
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.renewal_status", status, renewal.seedMode().serializedName()), false);
         return 1;
     }
 
     private static int renewalSeedModeStatus(CommandContext<CommandSourceStack> context) {
         RenewalSeedMode mode = DelvefoldConfigService.get().snapshot().settings().identity().renewal().seedMode();
-        context.getSource().sendSuccess(() -> Component.literal(
-                "Renewal seed mode: " + mode.serializedName()
-                        + ". This selection applies on the next initialization or recreation."), false);
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.renewal_seed_status", mode.serializedName()), false);
         return 1;
     }
 
@@ -603,8 +753,7 @@ public final class DelvefoldCommands {
             return identity.withRenewal(new RenewalSettings(
                     current.enabled(), current.intervalDays(), current.warningMinutes(),
                     current.nextRenewalAtEpochMillis(), mode));
-        }, "Renewal seed mode set to " + mode.serializedName()
-                + "; it will apply on the next initialization or recreation.");
+        }, Component.translatable("message.delvefold.command.renewal_seed_set", mode.serializedName()));
     }
 
     private static int configureRenewal(CommandContext<CommandSourceStack> context) {
@@ -615,7 +764,7 @@ public final class DelvefoldCommands {
         RenewalSettings renewal = new RenewalSettings(true, days, warning, 0L, seedMode)
                 .scheduledFrom(System.currentTimeMillis());
         return updateIdentity(context, identity -> identity.withRenewal(renewal),
-                "Scheduled renewal enabled every " + days + " day(s). Backups are mandatory.");
+                Component.translatable("message.delvefold.command.renewal_configured", days));
     }
 
     private static int disableRenewal(CommandContext<CommandSourceStack> context) {
@@ -623,17 +772,16 @@ public final class DelvefoldCommands {
             RenewalSettings current = identity.renewal();
             return identity.withRenewal(new RenewalSettings(
                     false, current.intervalDays(), current.warningMinutes(), 0L, current.seedMode()));
-        },
-                "Scheduled renewal disabled.");
+        }, Component.translatable("message.delvefold.command.renewal_disabled_success"));
     }
 
     private static int updateIdentity(
             CommandContext<CommandSourceStack> context,
             java.util.function.UnaryOperator<WorldIdentitySettings> update,
-            String success) {
+            Component success) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
-        ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(snapshot.settings().revision(),
-                settings -> settings.withIdentity(update.apply(settings.identity())));
+        ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateSettings(
+                snapshot.settings().revision(), settings -> settings.withIdentity(update.apply(settings.identity()))));
         return reportWrite(context.getSource(), result, success);
     }
 
@@ -641,14 +789,12 @@ public final class DelvefoldCommands {
         try {
             var profiles = DelvefoldConfigService.get().listProfiles();
             String active = DelvefoldConfigService.get().snapshot().ores().profile();
-            context.getSource().sendSuccess(() -> Component.literal(
-                    "Ore profiles (active: " + active + "):"), false);
+            context.getSource().sendSuccess(() -> Component.translatable(
+                    "message.delvefold.command.profile_list_header", active), false);
             for (var profile : profiles) {
-                String flags = (profile.id().equals(active) ? "active" : "")
-                        + (profile.builtIn() ? (profile.id().equals(active) ? ", built-in" : "built-in") : "")
-                        + (profile.localOverride() ? ", local" : "");
-                context.getSource().sendSystemMessage(Component.literal("  " + profile.id() + " — "
-                        + profile.ruleCount() + " rule(s)" + (flags.isBlank() ? "" : " [" + flags + "]")));
+                context.getSource().sendSystemMessage(Component.translatable(
+                        "message.delvefold.command.profile_list_row", profile.id(), profile.ruleCount(),
+                        profile.id().equals(active), profile.builtIn(), profile.localOverride()));
             }
             return profiles.size();
         } catch (IOException exception) {
@@ -660,7 +806,8 @@ public final class DelvefoldCommands {
         try {
             String id = StringArgumentType.getString(context, "id");
             OrePreset preset = OrePreset.parse(StringArgumentType.getString(context, "preset"));
-            return reportProfile(context, DelvefoldConfigService.get().createProfileFromPreset(id, preset, overwrite));
+            return reportProfile(context, asAuditActorIo(context,
+                    () -> DelvefoldConfigService.get().createProfileFromPreset(id, preset, overwrite)));
         } catch (IOException | IllegalArgumentException exception) {
             return profileFailure(context, exception);
         }
@@ -668,9 +815,9 @@ public final class DelvefoldCommands {
 
     private static int duplicateProfile(CommandContext<CommandSourceStack> context, boolean overwrite) {
         try {
-            return reportProfile(context, DelvefoldConfigService.get().duplicateProfile(
+            return reportProfile(context, asAuditActorIo(context, () -> DelvefoldConfigService.get().duplicateProfile(
                     StringArgumentType.getString(context, "source"),
-                    StringArgumentType.getString(context, "id"), overwrite));
+                    StringArgumentType.getString(context, "id"), overwrite)));
         } catch (IOException | IllegalArgumentException exception) {
             return profileFailure(context, exception);
         }
@@ -678,8 +825,9 @@ public final class DelvefoldCommands {
 
     private static int saveCurrentProfile(CommandContext<CommandSourceStack> context, boolean overwrite) {
         try {
-            return reportProfile(context, DelvefoldConfigService.get().saveCurrentProfileAs(
-                    StringArgumentType.getString(context, "id"), overwrite));
+            return reportProfile(context, asAuditActorIo(context,
+                    () -> DelvefoldConfigService.get().saveCurrentProfileAs(
+                            StringArgumentType.getString(context, "id"), overwrite)));
         } catch (IOException | IllegalArgumentException exception) {
             return profileFailure(context, exception);
         }
@@ -688,26 +836,28 @@ public final class DelvefoldCommands {
     private static int selectProfile(CommandContext<CommandSourceStack> context) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         String id = StringArgumentType.getString(context, "id");
-        ConfigWriteResult result = DelvefoldConfigService.get().activateProfile(snapshot.ores().revision(), id);
-        return reportWrite(context.getSource(), result,
-                "Activated ore profile '" + id + "'. Existing chunks are unchanged.");
+        ConfigWriteResult result = asAuditActor(context,
+                () -> DelvefoldConfigService.get().activateProfile(snapshot.ores().revision(), id));
+        return reportWrite(context.getSource(), result, Component.translatable(
+                "message.delvefold.command.profile_activated", id));
     }
 
     private static int deleteProfile(CommandContext<CommandSourceStack> context) {
-        var result = DelvefoldConfigService.get().deleteProfile(StringArgumentType.getString(context, "id"));
+        var result = asAuditActor(context, () -> DelvefoldConfigService.get()
+                .deleteProfile(StringArgumentType.getString(context, "id")));
         if (!result.deleted()) {
-            context.getSource().sendFailure(Component.literal(result.message()));
+            context.getSource().sendFailure(AdminLocalizedComponents.resolve(result.message()));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal(result.message()), true);
+        context.getSource().sendSuccess(() -> AdminLocalizedComponents.resolve(result.message()), true);
         return 1;
     }
 
     private static int importProfile(CommandContext<CommandSourceStack> context, boolean overwrite) {
         try {
-            return reportProfile(context, DelvefoldConfigService.get().importProfile(
+            return reportProfile(context, asAuditActorIo(context, () -> DelvefoldConfigService.get().importProfile(
                     StringArgumentType.getString(context, "file"),
-                    StringArgumentType.getString(context, "id"), overwrite));
+                    StringArgumentType.getString(context, "id"), overwrite)));
         } catch (IOException | IllegalArgumentException exception) {
             return profileFailure(context, exception);
         }
@@ -718,8 +868,8 @@ public final class DelvefoldCommands {
             var exported = DelvefoldConfigService.get().exportProfile(
                     StringArgumentType.getString(context, "id"),
                     StringArgumentType.getString(context, "file"));
-            context.getSource().sendSuccess(() -> Component.literal(
-                    "Exported profile to serverconfig/delvefold/exports/" + exported.getFileName()), false);
+            context.getSource().sendSuccess(() -> Component.translatable(
+                    "message.delvefold.command.profile_exported", exported.getFileName()), false);
             return 1;
         } catch (IOException | IllegalArgumentException exception) {
             return profileFailure(context, exception);
@@ -729,99 +879,262 @@ public final class DelvefoldCommands {
     private static int reportProfile(
             CommandContext<CommandSourceStack> context, com.nightsta69.delvefold.config.OreProfileCatalog.ProfileWriteResult result) {
         for (ConfigIssue issue : result.issues()) {
-            context.getSource().sendSystemMessage(Component.literal(
-                    issue.severity() + " " + issue.path() + ": " + issue.message()));
+            context.getSource().sendSystemMessage(ConfigIssueMessages.component(issue));
         }
         if (!result.saved()) {
-            context.getSource().sendFailure(Component.literal(result.message()));
+            context.getSource().sendFailure(AdminLocalizedComponents.resolve(result.message()));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal(result.message()), true);
+        context.getSource().sendSuccess(() -> AdminLocalizedComponents.resolve(result.message()), true);
         return 1;
     }
 
     private static int profileFailure(CommandContext<CommandSourceStack> context, Exception exception) {
-        context.getSource().sendFailure(Component.literal("Profile operation failed: " + exception.getMessage()));
+        LOGGER.warn("Delvefold profile command failed", exception);
+        context.getSource().sendFailure(Component.translatable(
+                "message.delvefold.command.profile_failed_safe"));
         return 0;
     }
 
     private static int listBackups(CommandContext<CommandSourceStack> context) {
-        try {
-            var backups = backups(context);
-            context.getSource().sendSuccess(() -> Component.literal(
-                    backups.isEmpty() ? "No Delvefold backups found." : "Delvefold backups:"), false);
-            for (var backup : backups) {
-                context.getSource().sendSystemMessage(Component.literal("  " + backup.id() + " — "
-                        + backup.operation() + ", " + backup.terrain() + ", " + humanBytes(backup.sizeBytes())
-                        + (backup.pinned() ? " [pinned]" : "")
-                        + (backup.restorable() ? " [restorable]" : " [archive only]")));
-            }
-            return backups.size();
-        } catch (IOException exception) {
-            context.getSource().sendFailure(Component.literal("Could not list backups: " + exception.getMessage()));
+        BackupCatalogCache.Snapshot catalog = backupSnapshot(context);
+        var backups = catalog.backups();
+        if (catalog.refreshing()) {
+            context.getSource().sendSystemMessage(Component.translatable(
+                    "message.delvefold.command.backup_catalog_refreshing"));
+        }
+        if (!catalog.lastError().isBlank()) {
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.backup_list_failed",
+                    AdminLocalizedComponents.resolve(catalog.lastError())));
+        }
+        context.getSource().sendSuccess(() -> Component.translatable(backups.isEmpty()
+                ? "message.delvefold.command.backup_list_empty"
+                : "message.delvefold.command.backup_list_header"), false);
+        for (var backup : backups) {
+            Component pinState = backup.pinned()
+                    ? Component.translatable("message.delvefold.command.backup_pinned")
+                    : Component.empty();
+            Component restoreState = Component.translatable(backup.restorable()
+                    ? "message.delvefold.command.backup_restorable"
+                    : "message.delvefold.command.backup_archive_only");
+            context.getSource().sendSystemMessage(Component.translatable(
+                    "message.delvefold.command.backup_row", backup.id(), backup.operation(), backup.terrain(),
+                    humanBytes(backup.sizeBytes()), pinState, restoreState));
+        }
+        return backups.isEmpty() && catalog.refreshing() ? 1 : backups.size();
+    }
+
+    private static int retentionStatus(CommandContext<CommandSourceStack> context) {
+        BackupRetentionSettings retention = DelvefoldConfigService.get().snapshot()
+                .settings().backupRetention();
+        context.getSource().sendSuccess(() -> retention.enabled()
+                ? Component.translatable("message.delvefold.command.retention_enabled",
+                        retention.maxCount(), retention.maxAgeDays(), retention.maxTotalBytes())
+                : Component.translatable("message.delvefold.command.retention_disabled"), false);
+        return 1;
+    }
+
+    private static int verifyBackup(CommandContext<CommandSourceStack> context) {
+        String id = StringArgumentType.getString(context, "backup");
+        BackupCatalogCache.Snapshot catalog = backupSnapshot(context);
+        WorldBackupCatalog.BackupSummary summary = catalog.backups().stream()
+                .filter(candidate -> candidate.id().equals(id))
+                .findFirst()
+                .orElse(null);
+        if (summary == null) {
+            context.getSource().sendFailure(Component.translatable(catalog.refreshing()
+                    ? "message.delvefold.command.backup_catalog_wait"
+                    : "message.delvefold.command.backup_unknown", id));
             return 0;
         }
+        var server = context.getSource().getServer();
+        var saveRoot = saveRoot(context);
+        BackupVerificationService verification = BackupVerificationService.forSave(saveRoot);
+        if (verification.isInFlight(id)) {
+            context.getSource().sendSuccess(() -> Component.translatable(
+                    "message.delvefold.command.backup_verify_running", id), false);
+            return 1;
+        }
+        CommandSourceStack source = context.getSource();
+        String auditActor = auditActor(source);
+        var future = summary.legacy()
+                ? AsyncAuditMutationTracker.get().startTracked(saveRoot,
+                        () -> verification.validateLegacyAndCreateManifestAsync(id),
+                        (result, failure) -> {
+                            if (failure == null
+                                    && result.status() == BackupVerificationResult.Status.LEGACY_UPGRADED) {
+                                audit(auditActor, AuditMutation.Operation.BACKUP_MANIFEST_CREATED,
+                                        AuditMutation.ObjectType.BACKUP, id, -1L, -1L);
+                            }
+                        })
+                : verification.verifyAsync(id);
+        future.whenComplete((result, failure) -> server.execute(() -> {
+            BackupCatalogCache.get().invalidateAndRefresh(saveRoot);
+            if (source.getEntity() instanceof ServerPlayer requestedBy
+                    && server.getPlayerList().getPlayer(requestedBy.getUUID()) == null) {
+                return;
+            }
+            if (failure != null) {
+                LOGGER.error("Backup verification worker failed for {}", id, failure);
+                source.sendFailure(Component.translatable(
+                        "message.delvefold.backup_verification.internal_error", id));
+                return;
+            }
+            Component message = AdminLocalizedComponents.resolve(result.message());
+            if (result.successful()) {
+                source.sendSuccess(() -> message, true);
+            } else {
+                source.sendFailure(message);
+            }
+        }));
+        context.getSource().sendSuccess(() -> Component.translatable(summary.legacy()
+                ? "message.delvefold.command.backup_legacy_started"
+                : "message.delvefold.command.backup_verify_started", id), false);
+        return 1;
+    }
+
+    private static int disableRetention(CommandContext<CommandSourceStack> context) {
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateSettings(
+                snapshot.settings().revision(),
+                settings -> settings.withBackupRetention(BackupRetentionSettings.defaults())));
+        return reportWrite(context.getSource(), result,
+                Component.translatable("message.delvefold.command.retention_disabled_success"));
+    }
+
+    private static int configureRetention(CommandContext<CommandSourceStack> context) {
+        BackupRetentionSettings retention = new BackupRetentionSettings(
+                true,
+                IntegerArgumentType.getInteger(context, "max_count"),
+                LongArgumentType.getLong(context, "max_age_days"),
+                LongArgumentType.getLong(context, "max_total_bytes"));
+        ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
+        ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateSettings(
+                snapshot.settings().revision(), settings -> settings.withBackupRetention(retention)));
+        return reportWrite(context.getSource(), result,
+                Component.translatable("message.delvefold.command.retention_configured"));
     }
 
     private static int pinBackup(CommandContext<CommandSourceStack> context, boolean pinned) {
         try {
-            backupCatalog(context).setPinned(StringArgumentType.getString(context, "backup"), pinned);
-            context.getSource().sendSuccess(() -> Component.literal(
-                    (pinned ? "Pinned " : "Unpinned ") + StringArgumentType.getString(context, "backup")), true);
+            String id = StringArgumentType.getString(context, "backup");
+            WorldBackupCatalog catalog = backupCatalog(context);
+            boolean changed = catalog.setPinned(id, pinned);
+            BackupCatalogCache.get().invalidateAndRefresh(saveRoot(context));
+            if (changed) {
+                audit(context.getSource(), pinned
+                                ? AuditMutation.Operation.BACKUP_PINNED
+                                : AuditMutation.Operation.BACKUP_UNPINNED,
+                        AuditMutation.ObjectType.BACKUP, id, -1L, -1L);
+            }
+            context.getSource().sendSuccess(() -> Component.translatable(pinned
+                    ? "message.delvefold.command.backup_pin_success"
+                    : "message.delvefold.command.backup_unpin_success", id), true);
             return 1;
         } catch (IOException exception) {
-            context.getSource().sendFailure(Component.literal("Backup update failed: " + exception.getMessage()));
+            LOGGER.warn("Could not update a Delvefold backup pin", exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.backup_update_failed_safe"));
             return 0;
         }
     }
 
     private static int deleteBackup(CommandContext<CommandSourceStack> context) {
         String id = StringArgumentType.getString(context, "backup");
-        try {
-            if (!backupCatalog(context).delete(id)) {
-                context.getSource().sendFailure(Component.literal("Backup was not deleted: " + id));
-                return 0;
+        var server = context.getSource().getServer();
+        var source = context.getSource();
+        var requestedBy = source.getEntity() instanceof ServerPlayer player ? player.getUUID() : null;
+        var actor = auditActor(source);
+        var saveRoot = saveRoot(context);
+        var deletion = AsyncAuditMutationTracker.get().startTracked(saveRoot,
+                () -> BackupCatalogCache.get().deleteAndRefreshAsync(server, id),
+                (deleted, failure) -> {
+                    if (failure == null && Boolean.TRUE.equals(deleted)) {
+                        audit(actor, AuditMutation.Operation.BACKUP_DELETED,
+                                AuditMutation.ObjectType.BACKUP, id, -1L, -1L);
+                    }
+                });
+        deletion.whenComplete((deleted, failure) ->
+                server.execute(() -> {
+            if (requestedBy != null && server.getPlayerList().getPlayer(requestedBy) == null) {
+                return;
             }
-            context.getSource().sendSuccess(() -> Component.literal(
-                    "Permanently deleted Delvefold backup " + id), true);
-            return 1;
-        } catch (IOException exception) {
-            context.getSource().sendFailure(Component.literal("Backup deletion failed: " + exception.getMessage()));
-            return 0;
-        }
+            if (failure != null) {
+                LOGGER.error("Could not delete Delvefold backup {}", id, failure);
+                source.sendFailure(backupDeleteFailure(id, failure));
+            } else if (!Boolean.TRUE.equals(deleted)) {
+                source.sendFailure(Component.translatable(
+                        "message.delvefold.command.backup_not_deleted", id));
+            } else {
+                source.sendSuccess(() -> Component.translatable(
+                        "message.delvefold.command.backup_delete_success", id), true);
+            }
+        }));
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.backup_delete_started", id), false);
+        return 1;
     }
 
     private static int requestRestore(CommandContext<CommandSourceStack> context) {
         String id = StringArgumentType.getString(context, "backup");
-        WorldOperationPreview preview = WorldRestoreService.get().request(
-                context.getSource().getServer(), id, context.getSource().getTextName());
-        if (!preview.accepted()) {
-            context.getSource().sendFailure(Component.literal(preview.message()));
+        BackupCatalogCache.Snapshot catalog = backupSnapshot(context);
+        WorldBackupCatalog.BackupSummary summary = catalog.backups().stream()
+                .filter(candidate -> candidate.id().equals(id))
+                .findFirst()
+                .orElse(null);
+        if (summary == null) {
+            context.getSource().sendFailure(Component.translatable(catalog.refreshing()
+                    ? "message.delvefold.command.backup_catalog_wait"
+                    : "message.delvefold.command.backup_unknown", id));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal(preview.message()
-                + ". Estimated copy: " + humanBytes(preview.estimatedBytes())
-                + ". Confirm with /delvefold backup restore confirm " + preview.confirmationToken()), false);
+        WorldOperationPreview preview = WorldRestoreService.get().requestCached(
+                context.getSource().getServer(), id, context.getSource().getTextName(), summary);
+        if (!preview.accepted()) {
+            context.getSource().sendFailure(AdminLocalizedComponents.resolve(preview.message()));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.backup_restore_preview",
+                AdminLocalizedComponents.resolve(preview.message()),
+                humanBytes(preview.estimatedBytes()), preview.confirmationToken()), false);
         return 1;
     }
 
     private static int confirmRestore(CommandContext<CommandSourceStack> context) {
-        return reportOperation(context.getSource(), WorldRestoreService.get().confirm(
-                context.getSource().getServer(), StringArgumentType.getString(context, "token")));
+        var server = context.getSource().getServer();
+        String backupId = WorldRestoreService.get().selectedBackupId(server);
+        WorldOperationResult result = WorldRestoreService.get().confirm(
+                server, StringArgumentType.getString(context, "token"));
+        if (result.success()) {
+            audit(context.getSource(), AuditMutation.Operation.BACKUP_RESTORE_ACCEPTED,
+                    AuditMutation.ObjectType.BACKUP, backupId, -1L, -1L);
+        }
+        return reportOperation(context.getSource(), result);
     }
 
     private static int cancelRestore(CommandContext<CommandSourceStack> context) {
-        return reportOperation(context.getSource(), WorldRestoreService.get().cancel(context.getSource().getServer()));
+        var server = context.getSource().getServer();
+        String backupId = WorldRestoreService.get().selectedBackupId(server);
+        WorldOperationResult result = WorldRestoreService.get().cancel(server);
+        if (result.success()) {
+            audit(context.getSource(), AuditMutation.Operation.BACKUP_RESTORE_CANCELLED,
+                    AuditMutation.ObjectType.BACKUP, backupId, -1L, -1L);
+        }
+        return reportOperation(context.getSource(), result);
     }
 
-    private static List<WorldBackupCatalog.BackupSummary> backups(CommandContext<CommandSourceStack> context)
-            throws IOException {
-        return backupCatalog(context).list();
+    private static BackupCatalogCache.Snapshot backupSnapshot(CommandContext<CommandSourceStack> context) {
+        return BackupCatalogCache.get().snapshot(saveRoot(context));
+    }
+
+    private static java.nio.file.Path saveRoot(CommandContext<CommandSourceStack> context) {
+        return context.getSource().getServer().getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
     }
 
     private static WorldBackupCatalog backupCatalog(CommandContext<CommandSourceStack> context) {
-        return new WorldBackupCatalog(context.getSource().getServer()
-                .getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize());
+        return new WorldBackupCatalog(saveRoot(context));
     }
 
     private static int validateConfig(CommandContext<CommandSourceStack> context) {
@@ -829,44 +1142,54 @@ public final class DelvefoldCommands {
             ConfigLoadResult result = DelvefoldConfigService.get().validateDisk();
             var report = new com.nightsta69.delvefold.config.validation.ValidationReport(result.issues());
             for (ConfigIssue issue : result.issues()) {
-                context.getSource().sendSystemMessage(Component.literal(issue.severity() + " " + issue.path() + ": " + issue.message()));
+                context.getSource().sendSystemMessage(ConfigIssueMessages.component(issue));
             }
             boolean valid = report.valid() && !result.usedFallback();
-            context.getSource().sendSuccess(() -> Component.literal(
-                    "Disk validation complete: " + report.errorCount() + " error(s), "
-                            + report.warningCount() + " warning(s)"), false);
+            context.getSource().sendSuccess(() -> Component.translatable(
+                    "message.delvefold.command.validation_complete",
+                    report.errorCount(), report.warningCount()), false);
             return valid ? 1 : 0;
         } catch (IOException exception) {
-            context.getSource().sendFailure(Component.literal("Validation failed: " + exception.getMessage()));
+            LOGGER.warn("Could not validate Delvefold configuration", exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.validation_failed_safe"));
             return 0;
         }
     }
 
     private static int reloadConfig(CommandContext<CommandSourceStack> context) {
         try {
-            ConfigLoadResult result = DelvefoldConfigService.get().reload();
+            ConfigLoadResult result = asAuditActorIo(context, () -> DelvefoldConfigService.get().reload());
             for (ConfigIssue issue : result.issues()) {
-                context.getSource().sendSystemMessage(Component.literal(issue.severity() + " " + issue.path() + ": " + issue.message()));
+                context.getSource().sendSystemMessage(ConfigIssueMessages.component(issue));
             }
             if (result.usedFallback()) {
-                context.getSource().sendFailure(Component.literal("Rejected disk changes; the last known-good configuration remains active."));
+                context.getSource().sendFailure(Component.translatable("message.delvefold.command.reload_rejected"));
                 return 0;
             }
-            context.getSource().sendSuccess(() -> Component.literal("Delvefold JSON configuration reloaded."), true);
+            context.getSource().sendSuccess(
+                    () -> Component.translatable("message.delvefold.command.reload_success"), true);
             return 1;
         } catch (IOException exception) {
-            context.getSource().sendFailure(Component.literal("Reload failed: " + exception.getMessage()));
+            LOGGER.warn("Could not reload Delvefold configuration", exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.reload_failed_safe"));
             return 0;
         }
     }
 
     private static int listOres(CommandContext<CommandSourceStack> context) {
         OreProfileDocument document = DelvefoldConfigService.get().snapshot().ores();
-        context.getSource().sendSuccess(() -> Component.literal(
-                document.rules().isEmpty() ? "No configured ores." : "Configured ores (revision " + document.revision() + "):"), false);
+        context.getSource().sendSuccess(() -> document.rules().isEmpty()
+                ? Component.translatable("message.delvefold.command.ore_list_empty")
+                : Component.translatable("message.delvefold.command.ore_list_header", document.revision()), false);
         for (OreRule rule : document.rules()) {
-            context.getSource().sendSystemMessage(Component.literal(
-                    (rule.enabled() ? "[on] " : "[off] ") + rule.id() + " — " + rule.targets().size() + " target(s), " + rule.bands().size() + " band(s)"));
+            context.getSource().sendSystemMessage(Component.translatable(
+                    "message.delvefold.command.ore_list_row",
+                    Component.translatable(rule.enabled()
+                            ? "message.delvefold.command.state_on"
+                            : "message.delvefold.command.state_off"),
+                    rule.id(), rule.targets().size(), rule.bands().size()));
         }
         return document.rules().size();
     }
@@ -874,29 +1197,30 @@ public final class DelvefoldCommands {
     private static int showOre(CommandContext<CommandSourceStack> context, String id) {
         OreRule rule = findRule(id);
         if (rule == null) {
-            context.getSource().sendFailure(Component.literal("Unknown ore rule: " + id));
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.unknown_ore_rule", id));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal(rule.id() + " enabled=" + rule.enabled() + " required=" + rule.required()), false);
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.ore_rule_status", rule.id(), rule.enabled(), rule.required()), false);
         for (OreTarget target : rule.targets()) {
-            context.getSource().sendSystemMessage(Component.literal(
-                    "  target " + target.sourceId() + " -> #" + target.replaceTag()
-                            + " weight=" + target.weight()));
+            context.getSource().sendSystemMessage(Component.translatable(
+                    "message.delvefold.command.ore_target", target.sourceId(), target.replaceTag(), target.weight()));
         }
         for (SpawnBand band : rule.bands()) {
-            String details;
+            Component details;
             if (band.placement() == OreBandPlacement.PROVINCE && band.province() != null) {
                 ProvinceSettings province = band.province();
-                details = "province region=" + province.regionSize() + ", radius=" + province.radius()
-                        + ", thickness=" + province.verticalThickness() + ", density=" + province.density()
-                        + ", work_cap=" + province.perChunkWorkCap();
+                details = Component.translatable("message.delvefold.command.ore_province_details",
+                        province.regionSize(), province.radius(), province.verticalThickness(), province.density(),
+                        province.perChunkWorkCap());
             } else {
-                details = "vein size=" + band.veinSize() + ", attempts=" + band.attemptsPerChunk();
+                details = Component.translatable("message.delvefold.command.ore_vein_details",
+                        band.veinSize(), band.attemptsPerChunk());
             }
-            context.getSource().sendSystemMessage(Component.literal(
-                    "  band " + band.id() + ": " + details + ", "
-                            + band.distribution().name().toLowerCase(Locale.ROOT) + " "
-                            + band.minY() + ".." + band.maxY()));
+            context.getSource().sendSystemMessage(Component.translatable(
+                    "message.delvefold.command.ore_band", band.id(), details,
+                    band.distribution().name().toLowerCase(Locale.ROOT), band.minY(), band.maxY()));
         }
         return 1;
     }
@@ -904,7 +1228,7 @@ public final class DelvefoldCommands {
     private static int addOre(CommandContext<CommandSourceStack> context) {
         ResourceLocation block = ResourceLocationArgument.getId(context, "block");
         if (block == null) {
-            context.getSource().sendFailure(Component.literal("Invalid block registry id."));
+            context.getSource().sendFailure(Component.translatable("message.delvefold.command.invalid_block_id"));
             return 0;
         }
         try {
@@ -913,37 +1237,47 @@ public final class DelvefoldCommands {
             OreRule rule = OreRuleFactory.create(block, detected, rarity);
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
             if (snapshot.ores().rules().stream().anyMatch(existing -> existing.id().equals(rule.id()))) {
-                context.getSource().sendFailure(Component.literal("Rule already exists: " + rule.id()));
+                context.getSource().sendFailure(Component.translatable(
+                        "message.delvefold.command.rule_exists", rule.id()));
                 return 0;
             }
-            ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document -> {
+            ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateOres(
+                    snapshot.ores().revision(), document -> {
                 List<OreRule> rules = new ArrayList<>(document.rules());
                 rules.add(rule);
                 return document.nextRevision(rules, document.profile());
-            });
-            return reportWrite(context.getSource(), result, "Added ore rule " + rule.id());
+            }));
+            return reportWrite(context.getSource(), result,
+                    Component.translatable("message.delvefold.command.ore_rule_added", rule.id()));
         } catch (IllegalArgumentException exception) {
-            context.getSource().sendFailure(Component.literal(exception.getMessage()));
+            LOGGER.warn("Invalid Delvefold ore-add command", exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.ore_add_invalid"));
             return 0;
         }
     }
 
     private static int setOreEnabled(CommandContext<CommandSourceStack> context, boolean enabled) {
         String id = StringArgumentType.getString(context, "rule");
-        return mutateRule(context, id, rule -> rule.withEnabled(enabled), (enabled ? "Enabled " : "Disabled ") + id);
+        return mutateRule(context, id, rule -> rule.withEnabled(enabled), Component.translatable(enabled
+                ? "message.delvefold.command.ore_rule_enabled"
+                : "message.delvefold.command.ore_rule_disabled", id));
     }
 
     private static int removeOre(CommandContext<CommandSourceStack> context) {
         String id = StringArgumentType.getString(context, "rule");
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         if (findRule(id) == null) {
-            context.getSource().sendFailure(Component.literal("Unknown ore rule: " + id));
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.unknown_ore_rule", id));
             return 0;
         }
-        ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document ->
+        ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateOres(
+                snapshot.ores().revision(), document ->
                 document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(id)).toList(),
-                        document.profile()));
-        return reportWrite(context.getSource(), result, "Removed ore rule " + id);
+                        document.profile())));
+        return reportWrite(context.getSource(), result,
+                Component.translatable("message.delvefold.command.ore_rule_removed", id));
     }
 
     private static int addTarget(CommandContext<CommandSourceStack> context, int weight) {
@@ -954,7 +1288,7 @@ public final class DelvefoldCommands {
             List<OreTarget> targets = new ArrayList<>(rule.targets());
             targets.add(OreTarget.of(block, tag.startsWith("#") ? tag.substring(1) : tag, weight));
             return new OreRule(rule.id(), rule.enabled(), rule.required(), rule.terrainModes(), targets, rule.biomes(), rule.bands());
-        }, "Added target to " + ruleId + " with weight " + weight);
+        }, Component.translatable("message.delvefold.command.ore_target_added", ruleId, weight));
     }
 
     private static int removeTarget(CommandContext<CommandSourceStack> context) {
@@ -963,7 +1297,8 @@ public final class DelvefoldCommands {
         return mutateRule(context, ruleId, rule -> new OreRule(
                 rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
                 rule.targets().stream().filter(target -> !target.block().equals(block)).toList(),
-                rule.biomes(), rule.bands()), "Removed target from " + ruleId);
+                rule.biomes(), rule.bands()), Component.translatable(
+                        "message.delvefold.command.ore_target_removed", ruleId));
     }
 
     private static int addTagTarget(CommandContext<CommandSourceStack> context, int weight) {
@@ -975,7 +1310,8 @@ public final class DelvefoldCommands {
             targets.add(OreTarget.ofTag(blockTag, replaceTag, weight));
             return new OreRule(rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
                     targets, rule.biomes(), rule.bands());
-        }, "Added output tag #" + blockTag + " to " + ruleId + " with weight " + weight);
+        }, Component.translatable("message.delvefold.command.ore_tag_target_added",
+                blockTag, ruleId, weight));
     }
 
     private static int setTargetWeight(CommandContext<CommandSourceStack> context) {
@@ -983,7 +1319,8 @@ public final class DelvefoldCommands {
         String block = ResourceLocationArgument.getId(context, "block").toString();
         int weight = IntegerArgumentType.getInteger(context, "weight");
         return mutateRule(context, ruleId, rule -> replaceTargetWeight(rule, block, false, weight),
-                "Set " + block + " weight to " + weight + " in " + ruleId);
+                Component.translatable("message.delvefold.command.ore_target_weight_set",
+                        block, weight, ruleId));
     }
 
     private static int setTagTargetWeight(CommandContext<CommandSourceStack> context) {
@@ -991,7 +1328,8 @@ public final class DelvefoldCommands {
         String blockTag = ResourceLocationArgument.getId(context, "block_tag").toString();
         int weight = IntegerArgumentType.getInteger(context, "weight");
         return mutateRule(context, ruleId, rule -> replaceTargetWeight(rule, blockTag, true, weight),
-                "Set #" + blockTag + " weight to " + weight + " in " + ruleId);
+                Component.translatable("message.delvefold.command.ore_tag_weight_set",
+                        blockTag, weight, ruleId));
     }
 
     private static OreRule replaceTargetWeight(OreRule rule, String sourceId, boolean tagDriven, int weight) {
@@ -1021,7 +1359,8 @@ public final class DelvefoldCommands {
         return mutateRule(context, ruleId, rule -> new OreRule(
                 rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
                 rule.targets().stream().filter(target -> !target.blockTag().equals(blockTag)).toList(),
-                rule.biomes(), rule.bands()), "Removed output tag from " + ruleId);
+                rule.biomes(), rule.bands()), Component.translatable(
+                        "message.delvefold.command.ore_tag_target_removed", ruleId));
     }
 
     private static int addBand(CommandContext<CommandSourceStack> context) {
@@ -1037,7 +1376,7 @@ public final class DelvefoldCommands {
             List<SpawnBand> bands = new ArrayList<>(rule.bands());
             bands.add(finalBand);
             return rule.withBands(bands);
-        }, "Added band " + bandId + " to " + ruleId);
+        }, Component.translatable("message.delvefold.command.ore_band_added", bandId, ruleId));
     }
 
     private static int removeBand(CommandContext<CommandSourceStack> context) {
@@ -1045,7 +1384,7 @@ public final class DelvefoldCommands {
         String bandId = StringArgumentType.getString(context, "band");
         return mutateRule(context, ruleId, rule -> rule.withBands(
                 rule.bands().stream().filter(band -> !band.id().equals(bandId)).toList()),
-                "Removed band " + bandId + " from " + ruleId);
+                Component.translatable("message.delvefold.command.ore_band_removed", bandId, ruleId));
     }
 
     private static int setBandField(CommandContext<CommandSourceStack> context) {
@@ -1055,7 +1394,8 @@ public final class DelvefoldCommands {
         double value = DoubleArgumentType.getDouble(context, "value");
         return mutateRule(context, ruleId, rule -> rule.withBands(rule.bands().stream()
                 .map(band -> band.id().equals(bandId) ? withBandField(band, field, value) : band)
-                .toList()), "Updated " + ruleId + '/' + bandId + ' ' + field);
+                .toList()), Component.translatable("message.delvefold.command.ore_band_field_set",
+                        ruleId, bandId, field));
     }
 
     private static int setBandPlacement(CommandContext<CommandSourceStack> context) {
@@ -1064,7 +1404,8 @@ public final class DelvefoldCommands {
         OreBandPlacement placement = OreBandPlacement.parse(StringArgumentType.getString(context, "mode"));
         return mutateRule(context, ruleId, rule -> rule.withBands(rule.bands().stream()
                 .map(band -> band.id().equals(bandId) ? withBandPlacement(band, placement) : band)
-                .toList()), "Set " + ruleId + '/' + bandId + " placement to " + placement.serializedName());
+                .toList()), Component.translatable("message.delvefold.command.ore_band_placement_set",
+                        ruleId, bandId, placement.serializedName()));
     }
 
     private static SpawnBand withBandPlacement(SpawnBand band, OreBandPlacement placement) {
@@ -1088,7 +1429,8 @@ public final class DelvefoldCommands {
         double value = DoubleArgumentType.getDouble(context, "value");
         return mutateRule(context, ruleId, rule -> rule.withBands(rule.bands().stream()
                 .map(band -> band.id().equals(bandId) ? withProvinceField(band, field, value) : band)
-                .toList()), "Updated " + ruleId + '/' + bandId + " province " + field);
+                .toList()), Component.translatable("message.delvefold.command.ore_province_field_set",
+                        ruleId, bandId, field));
     }
 
     private static SpawnBand withProvinceField(SpawnBand band, String field, double value) {
@@ -1154,9 +1496,11 @@ public final class DelvefoldCommands {
                 .sorted()
                 .limit(100)
                 .toList();
-        context.getSource().sendSuccess(() -> Component.literal("Ore-like registered blocks (showing " + matches.size() + "):"), false);
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.ore_scan_header", matches.size()), false);
         for (ResourceLocation match : matches) {
-            context.getSource().sendSystemMessage(Component.literal("  " + match));
+            context.getSource().sendSystemMessage(Component.translatable(
+                    "message.delvefold.command.ore_scan_row", match));
         }
         return matches.size();
     }
@@ -1193,6 +1537,11 @@ public final class DelvefoldCommands {
     private static int confirmWorldOperation(CommandContext<CommandSourceStack> context) {
         WorldOperationResult result = WorldOperationService.get().confirm(
                 context.getSource().getServer(), StringArgumentType.getString(context, "token"));
+        if (result.success()) {
+            long revision = DelvefoldConfigService.get().snapshot().settings().revision();
+            audit(context.getSource(), AuditMutation.Operation.WORLD_OPERATION_ACCEPTED,
+                    AuditMutation.ObjectType.WORLD, "mining_world", revision, revision);
+        }
         return reportOperation(context.getSource(), result);
     }
 
@@ -1201,27 +1550,32 @@ public final class DelvefoldCommands {
         if (!result.success()) {
             result = WorldOperationService.get().cancel(context.getSource().getServer());
         }
+        if (result.success()) {
+            long revision = DelvefoldConfigService.get().snapshot().settings().revision();
+            audit(context.getSource(), AuditMutation.Operation.WORLD_OPERATION_CANCELLED,
+                    AuditMutation.ObjectType.WORLD, "mining_world", revision, revision);
+        }
         return reportOperation(context.getSource(), result);
     }
 
     private static int reportPreview(CommandContext<CommandSourceStack> context, WorldOperationPreview preview) {
         if (!preview.accepted()) {
-            context.getSource().sendFailure(Component.literal(preview.message()));
+            context.getSource().sendFailure(AdminLocalizedComponents.resolve(preview.message()));
             return 0;
         }
-        context.getSource().sendSuccess(() -> Component.literal(
-                preview.message() + ". Estimated size: " + humanBytes(preview.estimatedBytes())
-                        + "; players to evacuate: " + preview.playersToEvacuate()
-                        + ". Confirm with /delvefold world confirm " + preview.confirmationToken()), false);
+        context.getSource().sendSuccess(() -> Component.translatable(
+                "message.delvefold.command.world_preview",
+                AdminLocalizedComponents.resolve(preview.message()), humanBytes(preview.estimatedBytes()),
+                preview.playersToEvacuate(), preview.confirmationToken()), false);
         return 1;
     }
 
     private static int reportOperation(CommandSourceStack source, WorldOperationResult result) {
         if (!result.success()) {
-            source.sendFailure(Component.literal(result.message()));
+            source.sendFailure(AdminLocalizedComponents.resolve(result.message()));
             return 0;
         }
-        source.sendSuccess(() -> Component.literal(result.message()), true);
+        source.sendSuccess(() -> AdminLocalizedComponents.resolve(result.message()), true);
         return 1;
     }
 
@@ -1229,21 +1583,25 @@ public final class DelvefoldCommands {
             CommandContext<CommandSourceStack> context,
             String id,
             java.util.function.UnaryOperator<OreRule> mutation,
-            String successMessage
+            Component successMessage
     ) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         if (findRule(id) == null) {
-            context.getSource().sendFailure(Component.literal("Unknown ore rule: " + id));
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.unknown_ore_rule", id));
             return 0;
         }
         try {
-            ConfigWriteResult result = DelvefoldConfigService.get().updateOres(snapshot.ores().revision(), document ->
+            ConfigWriteResult result = asAuditActor(context, () -> DelvefoldConfigService.get().updateOres(
+                    snapshot.ores().revision(), document ->
                     document.nextRevision(document.rules().stream()
                             .map(rule -> rule.id().equals(id) ? mutation.apply(rule) : rule)
-                            .toList(), document.profile()));
+                            .toList(), document.profile())));
             return reportWrite(context.getSource(), result, successMessage);
         } catch (IllegalArgumentException exception) {
-            context.getSource().sendFailure(Component.literal(exception.getMessage()));
+            LOGGER.warn("Invalid Delvefold ore-rule mutation for {}", id, exception);
+            context.getSource().sendFailure(Component.translatable(
+                    "message.delvefold.command.ore_mutation_invalid", id));
             return 0;
         }
     }
@@ -1255,17 +1613,17 @@ public final class DelvefoldCommands {
                 .orElse(null);
     }
 
-    private static int reportWrite(CommandSourceStack source, ConfigWriteResult result, String successMessage) {
+    private static int reportWrite(CommandSourceStack source, ConfigWriteResult result, Component successMessage) {
         if (!result.saved()) {
             for (ConfigIssue issue : result.issues()) {
-                source.sendFailure(Component.literal(issue.path() + ": " + issue.message()));
+                source.sendFailure(ConfigIssueMessages.component(issue));
             }
             return 0;
         }
         for (ConfigIssue issue : result.issues()) {
-            source.sendSystemMessage(Component.literal(issue.severity() + " " + issue.path() + ": " + issue.message()));
+            source.sendSystemMessage(ConfigIssueMessages.component(issue));
         }
-        source.sendSuccess(() -> Component.literal(successMessage), true);
+        source.sendSuccess(() -> successMessage, true);
         return 1;
     }
 
@@ -1289,5 +1647,80 @@ public final class DelvefoldCommands {
             unit++;
         }
         return String.format(Locale.ROOT, "%.1f %s", value, units[unit]);
+    }
+
+    private static String auditActor(CommandSourceStack source) {
+        return source.getEntity() instanceof ServerPlayer player
+                ? player.getGameProfile().getName()
+                : "console";
+    }
+
+    private static <T> T asAuditActor(
+            CommandContext<CommandSourceStack> context, java.util.function.Supplier<T> action) {
+        try (DelvefoldAuditService.ActorScope ignored = DelvefoldAuditService.get()
+                .pushActor(auditActor(context.getSource()))) {
+            return action.get();
+        }
+    }
+
+    private static <T> T asAuditActorIo(
+            CommandContext<CommandSourceStack> context, IoAuditCall<T> action) throws IOException {
+        try (DelvefoldAuditService.ActorScope ignored = DelvefoldAuditService.get()
+                .pushActor(auditActor(context.getSource()))) {
+            return action.run();
+        }
+    }
+
+    @FunctionalInterface
+    private interface IoAuditCall<T> {
+        T run() throws IOException;
+    }
+
+    private static boolean sourceStillAvailable(CommandSourceStack source) {
+        return !(source.getEntity() instanceof ServerPlayer player)
+                || source.getServer().getPlayerList().getPlayer(player.getUUID()) != null;
+    }
+
+    private static Component backupDeleteFailure(String backupId, Throwable failure) {
+        BackupDeletionGuard.DeletionRejectedException rejection = deletionRejection(failure);
+        if (rejection == null) {
+            return Component.translatable(
+                    "message.delvefold.command.backup_delete_failed_safe", backupId);
+        }
+        String key = switch (rejection.reason()) {
+            case REFERENCED -> "message.delvefold.backup_delete.referenced";
+            case IN_PROGRESS -> "message.delvefold.backup_delete.in_progress";
+            case SESSION_CLOSED -> "message.delvefold.backup_delete.session_closed";
+        };
+        return Component.translatable(key, backupId);
+    }
+
+    private static BackupDeletionGuard.DeletionRejectedException deletionRejection(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof BackupDeletionGuard.DeletionRejectedException rejection) {
+                return rejection;
+            }
+            if (current.getCause() == current) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private static void audit(CommandSourceStack source, AuditMutation.Operation operation,
+            AuditMutation.ObjectType objectType, String objectId, long oldRevision, long newRevision) {
+        audit(auditActor(source), operation, objectType, objectId, oldRevision, newRevision);
+    }
+
+    private static void audit(String actor, AuditMutation.Operation operation,
+            AuditMutation.ObjectType objectType, String objectId, long oldRevision, long newRevision) {
+        try {
+            DelvefoldAuditService.get().record(new AuditMutation(
+                    actor, operation, objectType, objectId, oldRevision, newRevision));
+        } catch (IllegalArgumentException ignored) {
+            // Audit validation must never roll back an accepted gameplay or administration action.
+        }
     }
 }

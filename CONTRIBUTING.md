@@ -12,6 +12,13 @@ Use Java 21 and the checked-in Gradle wrapper:
 ./gradlew runServer
 ```
 
+For an isolated dedicated-server smoke world, pass a safe world name without changing the
+ordinary development world:
+
+```bash
+./gradlew runServer -Pdelvefold_server_world=world-local-smoke
+```
+
 `check` runs unit tests plus shipped-JSON and translation-key validation. Keep server-authoritative logic independent of client classes, preserve schema-2 compatibility, and never add silent chunk retrogen or loaded-dimension deletion.
 
 ## Pull requests

@@ -7,7 +7,7 @@ Delvefold has one canonical configuration model. The GUI, commands, and JSON all
 ## Save scope and loading
 
 - `ores.json` contains the ore profile and independently revisioned ore rules.
-- `settings.json` contains explicit initialization state, terrain shape, scale and geology theme, world identity, landmark policy, renewal schedule, generation epoch, gameplay settings, and portal settings.
+- `settings.json` contains explicit initialization state, terrain shape, scale and geology theme, world identity, landmark policy, renewal schedule, generation epoch, gameplay settings, portal routing, and optional backup retention.
 - Missing files are created from built-in defaults.
 - Invalid edits are rejected without overwriting the rejected files. If a valid configuration was already active, it remains the last-known-good runtime snapshot.
 - Disk writes use temporary sibling files, forced flush, and atomic replacement where the filesystem supports it. A small transaction journal makes the two JSON documents restart-recoverable if a write is interrupted between them.
@@ -177,6 +177,25 @@ Existing schema-2 files that omit `guide_visibility` continue to load as `public
 
 The setting governs every built-in guide entry point. A trusted dedicated-server console counts as an operator in `operators` mode, while `disabled` suppresses even the bounded console summary.
 
+### Backup retention
+
+`backup_retention` is an additive schema-2 object. Omission preserves the disabled compatibility default without rewriting the file:
+
+```json
+{
+  "backup_retention": {
+    "enabled": false,
+    "max_count": 0,
+    "max_age_days": 0,
+    "max_total_bytes": 0
+  }
+}
+```
+
+All three limits are non-negative; `0` means unbounded. No automatic deletion occurs unless `enabled` is explicitly `true`. At startup, Delvefold builds a deterministic oldest-first preview, records the logical backup IDs, sizes, and reasons for diagnostics/auditing, and rechecks eligibility before each deletion. Pinned backups, the newest two backups, selected/pre-restore backups referenced by pending restores, recoverable backups referenced by pending deletion/recreation, and every legacy, invalid, unverified, non-restorable, unknown-size, or unknown-timestamp backup are never pruned. A malformed pending-operation journal causes the pass to be skipped rather than risking a referenced backup.
+
+Use `/delvefold backup retention configure <max_count> <max_age_days> <max_total_bytes>` or canonical JSON to update this object. `/delvefold backup retention disable` restores the disabled, unbounded defaults.
+
 ### World identity
 
 The optional `identity` object is additive to schema 2. A schema-2 settings file written by 0.2 loads with safe defaults when the object is absent and is not rewritten merely by loading:
@@ -271,4 +290,41 @@ Gameplay presets are live settings:
 
 Spawn eggs, commands, breeding, and mob spawners are not treated as natural spawning and remain usable.
 
-`settings.json` records `active_profile_id`, which must match the active ore document. Local profile IDs are simple lowercase names; datapack and script entries use namespaced paths such as `examplepack:metals/rich_tin`. Portal settings are validated. Cooldown is 1–3600 seconds, and coordinate scale must be finite and between 0.01 and 100. The one-second minimum prevents immediate partner-portal bounce loops. Portal travel is player-only; the default policy allows Overworld entry with a five-second cooldown and 1:1 coordinates.
+`settings.json` records `active_profile_id`, which must match the active ore document. Local profile IDs are simple lowercase names; datapack and script entries use namespaced paths such as `examplepack:metals/rich_tin`.
+
+### Portal routing
+
+Portal settings remain additive inside schema 2:
+
+```json
+{
+  "portal": {
+    "enabled": true,
+    "allow_from_overworld_only": true,
+    "cooldown_seconds": 5,
+    "coordinate_scale": 1.0,
+    "routing_mode": "coordinate_linked",
+    "hub": {
+      "x": 0,
+      "z": 0,
+      "protection_radius": 16
+    }
+  }
+}
+```
+
+Cooldown is 1–3600 seconds, and coordinate scale must be finite and between 0.01 and 100. The one-second minimum prevents immediate partner-portal bounce loops. `routing_mode` accepts `coordinate_linked` or `central_hub`; omission defaults to `coordinate_linked`, preserving established 1:1 or configured-scale links. Hub X/Z coordinates must stay within ±29,999,936 and `protection_radius` accepts 8–256 blocks, defaulting to 16.
+
+In `central_hub` mode, incoming players are routed to the configured horizontal location at a safe terrain-specific height. Delvefold creates an idempotent 11×11 vanilla-block platform with a filled return portal and protects the configured horizontal radius through the mining world's vertical column. Only users with `delvefold.manage_world` may modify protected positions. Explosions, pistons, fluids, trampling, and mob griefing are prevented from altering the protected area. Return travel remains guaranteed. Portal transport is player-only in 1.3.
+
+### Backup manifests and operational files
+
+Recoverable snapshots live under `<save>/delvefold_backups/<backup-id>/`. A 1.3 backup contains `manifest.json` with backup metadata plus a registry-ID-independent, lexically sorted inventory of normalized relative paths, byte sizes, and SHA-256 hashes. Mutable `.pinned` and verification-control files are excluded from the immutable inventory. Successful verification writes a small receipt; restoration still performs a complete content check during startup.
+
+Only restorable configuration is installed from a selected snapshot. The live `audit/`, `exports/`, `imports/`, and `world_operations/` directories are operational or transfer history and remain unchanged across restoration, so selecting an older world cannot roll the audit trail or newer support records backward. New snapshots omit those directories; restore also excludes them defensively when reading a compatible older backup.
+
+Legacy snapshot folders remain visible but are not restorable merely because their old configuration and dimensions are present. `/delvefold backup verify <backup>` explicitly validates the legacy layout, creates its manifest only after validation succeeds, and performs the full hash comparison on a background worker. New lifecycle backups and pre-restore backups receive verified manifests automatically. Backup and restore include all six dimension folders for Classic/Expansive Flat, Cavern, and Wild.
+
+Accepted mutation records live under `<save>/serverconfig/delvefold/audit/`. `delvefold-audit.jsonl` rotates at 10 MiB and retains five files including the active file. Each line is a redacted format-1 entry with timestamp, actor, operation, affected logical object, and old/new revisions. Confirmation tokens, full profiles, server addresses, and unrelated player data are never fields in the audit model.
+
+`/delvefold doctor export` creates a redacted `delvefold-doctor-*.json` report in the existing `serverconfig/delvefold/exports/` directory. Doctor reports whitelist version/protocol/schema, dimension, profile-health, pending-operation, backup, retention, and disk-estimate fields and contain no filesystem paths.

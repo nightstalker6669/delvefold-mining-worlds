@@ -12,6 +12,7 @@ import com.nightsta69.delvefold.network.model.OreImportViews.GroupView;
 import com.nightsta69.delvefold.network.model.OreImportViews.PreviewView;
 import com.nightsta69.delvefold.network.model.OreImportViews.ScanView;
 import com.nightsta69.delvefold.network.model.OreImportViews.TerrainDeltaView;
+import com.nightsta69.delvefold.network.model.OreImportViews.ValidationIssueView;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     private int localOffset;
     private int visibleRows = 1;
     private String targetProfileId = "modded_ores";
-    private String statusMessage = "";
+    private Component statusMessage = Component.empty();
     private Button createButton;
 
     public DelvefoldOreImportScreen(Screen parent, AdminSnapshot snapshot) {
@@ -61,7 +62,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         this.scan = replacement;
         this.preview = null;
         this.loading = false;
-        this.statusMessage = "";
+        this.statusMessage = Component.empty();
         this.localOffset = 0;
         if (newSession) {
             this.selectedGroupIds.clear();
@@ -74,7 +75,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     public void acceptPreview(PreviewView replacement) {
         this.preview = replacement;
         this.loading = false;
-        this.statusMessage = "";
+        this.statusMessage = Component.empty();
         this.localOffset = 0;
         if (this.minecraft != null) {
             this.rebuildWidgets();
@@ -120,11 +121,15 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         int toggleWidth = Math.max(1, this.contentWidth() * 2 / 3 - 3);
         this.addButton(this.contentLeft(), controlsY, toggleWidth, 20,
                 Component.translatable("screen.delvefold.import.include_vanilla",
-                        this.includeVanilla ? "ON" : "OFF"),
+                        Component.translatable(this.includeVanilla
+                                ? "screen.delvefold.status.on"
+                                : "screen.delvefold.status.off")),
                 this.includeVanilla ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
                     this.includeVanilla = !this.includeVanilla;
                     button.setMessage(Component.translatable("screen.delvefold.import.include_vanilla",
-                            this.includeVanilla ? "ON" : "OFF"));
+                            Component.translatable(this.includeVanilla
+                                    ? "screen.delvefold.status.on"
+                                    : "screen.delvefold.status.off")));
                     setButtonStyle(button, this.includeVanilla ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
                 });
         this.addButton(this.contentLeft() + toggleWidth + 6, controlsY,
@@ -155,7 +160,9 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
             boolean selected = this.selectedGroupIds.contains(group.id());
             int importable = importableCandidateCount(group);
             int review = reviewCandidateCount(group);
-            String marker = selected ? "✓" : "□";
+            Component marker = Component.translatable(selected
+                    ? "screen.delvefold.status.selected"
+                    : "screen.delvefold.status.not_selected");
             Component label = Component.translatable("screen.delvefold.import.group_summary",
                     marker, group.namespace() + ":" + group.material(), importable, review);
             Button groupButton = this.addButton(this.contentLeft(), rowY, this.contentWidth(), 24,
@@ -223,17 +230,21 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         next.active = this.localOffset + this.visibleRows < this.preview.diff().size()
                 || this.preview.page() + 1 < this.preview.pageCount();
         if (!this.preview.issues().isEmpty()) {
-            String issueText = this.preview.issues().stream().limit(6)
-                    .map(issue -> issue.severity() + ": " + issue.message())
-                    .reduce((left, right) -> left + "\n" + right).orElse("");
-            this.createButton.setTooltip(Tooltip.create(Component.literal(issueText)));
+            var issueText = Component.empty();
+            this.preview.issues().stream().limit(6).forEach(issue -> {
+                if (!issueText.getString().isEmpty()) {
+                    issueText.append("\n");
+                }
+                issueText.append(issueLine(issue));
+            });
+            this.createButton.setTooltip(Tooltip.create(issueText));
         }
         updateCreateButton();
     }
 
     private void requestScan() {
         this.loading = true;
-        this.statusMessage = "";
+        this.statusMessage = Component.empty();
         DelvefoldClientRequests.requestOreImportScan(this.snapshot.oreRevision(), this.includeVanilla);
     }
 
@@ -306,7 +317,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         this.preview = null;
         this.localOffset = 0;
         this.loading = false;
-        this.statusMessage = "";
+        this.statusMessage = Component.empty();
         this.rebuildWidgets();
     }
 
@@ -352,7 +363,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     @Override
     public void handleActionResult(ActionResultPayload payload) {
         this.loading = false;
-        this.statusMessage = payload.message();
+        this.statusMessage = DelvefoldText.serverMessage(payload.message());
         if (payload.status() != ActionStatus.ACCEPTED && this.minecraft != null) {
             this.rebuildWidgets();
         }
@@ -445,9 +456,9 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
                     x + 8, y + 74, WARNING, false);
         }
         if (!this.preview.issues().isEmpty()) {
-            String issue = this.preview.issues().getFirst().severity() + ": "
-                    + this.preview.issues().getFirst().message();
-            graphics.drawString(this.font, this.font.plainSubstrByWidth(issue, this.contentWidth() - 16),
+            Component issue = issueLine(this.preview.issues().getFirst());
+            graphics.drawString(this.font,
+                    this.font.plainSubstrByWidth(issue.getString(), this.contentWidth() - 16),
                     x + 8, this.contentBottom() - 11,
                     this.preview.valid() ? WARNING : DANGER, false);
         }
@@ -455,9 +466,9 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     }
 
     private void renderStatus(GuiGraphics graphics) {
-        if (!this.statusMessage.isBlank()) {
+        if (!this.statusMessage.getString().isBlank()) {
             graphics.drawString(this.font,
-                    this.font.plainSubstrByWidth(this.statusMessage, this.contentWidth() - 16),
+                    this.font.plainSubstrByWidth(this.statusMessage.getString(), this.contentWidth() - 16),
                     this.contentLeft() + 8, this.contentBottom() - 11, DANGER, false);
         } else if (this.loading) {
             graphics.drawString(this.font, Component.translatable("screen.delvefold.import.working"),
@@ -507,7 +518,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     private static Component diffTooltip(DiffView entry) {
         var tooltip = Component.empty();
         if (!entry.message().isBlank()) {
-            tooltip.append(Component.literal(entry.message()));
+            tooltip.append(DelvefoldText.serverMessage(entry.message()));
         }
         appendBlockList(tooltip, "screen.delvefold.import.diff.added_blocks", entry.addedBlocks());
         appendBlockList(tooltip, "screen.delvefold.import.diff.skipped_blocks", entry.skippedBlocks());
@@ -632,6 +643,10 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     private static Component diffLabel(DiffStatus status) {
         return Component.translatable("screen.delvefold.import.diff."
                 + status.name().toLowerCase(Locale.ROOT));
+    }
+
+    private static Component issueLine(ValidationIssueView issue) {
+        return DelvefoldText.serverMessage(issue.message());
     }
 
     private static Style diffStyle(DiffStatus status) {

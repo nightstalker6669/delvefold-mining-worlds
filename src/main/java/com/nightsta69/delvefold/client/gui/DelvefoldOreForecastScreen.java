@@ -189,8 +189,11 @@ public final class DelvefoldOreForecastScreen extends DelvefoldScreen {
         int column = Math.max(1, (width - gap * (totals.size() - 1)) / totals.size());
         for (int index = 0; index < totals.size(); index++) {
             TerrainTotals value = totals.get(index);
-            Component label = Component.translatable("option.delvefold.terrain."
+            Component terrainLabel = Component.translatable("option.delvefold.terrain."
                     + value.terrain().serializedName());
+            Component label = value.active()
+                    ? Component.translatable("screen.delvefold.forecast.terrain.active_label", terrainLabel)
+                    : terrainLabel;
             int color = value.active() ? ACCENT : MUTED_TEXT;
             int at = x + index * (column + gap);
             graphics.drawString(this.font, label, at, y, color, false);
@@ -202,9 +205,7 @@ public final class DelvefoldOreForecastScreen extends DelvefoldScreen {
                     at, y + 22, effectivenessColor(value.configuredWorkUnits(), value.effectiveWorkUnits()), false);
             if (mouseX >= at && mouseX < at + column && mouseY >= y && mouseY < y + 33) {
                 this.hoveredTooltip = wrapTooltip(List.of(
-                        label.copy().append(value.active()
-                                ? Component.translatable("screen.delvefold.forecast.terrain.active")
-                                : Component.empty()),
+                        label,
                         configured,
                         effective));
             }

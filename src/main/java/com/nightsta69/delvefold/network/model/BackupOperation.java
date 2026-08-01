@@ -5,5 +5,6 @@ public enum BackupOperation {
     PIN,
     UNPIN,
     DELETE,
+    VERIFY,
     CANCEL_RESTORE
 }

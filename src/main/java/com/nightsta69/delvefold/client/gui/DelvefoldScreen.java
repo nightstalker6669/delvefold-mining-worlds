@@ -5,6 +5,7 @@ import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -54,6 +55,14 @@ public abstract class DelvefoldScreen extends Screen {
         this.panelLeft = (this.width - this.panelWidth) / 2;
         this.panelTop = (this.height - this.panelHeight) / 2;
         this.initPanel();
+        if (this.getFocused() == null) {
+            for (var child : this.children()) {
+                if (child instanceof AbstractWidget widget && widget.active && widget.visible) {
+                    this.setInitialFocus(widget);
+                    break;
+                }
+            }
+        }
     }
 
     protected int preferredPanelWidth() {
@@ -155,8 +164,8 @@ public abstract class DelvefoldScreen extends Screen {
         graphics.drawString(this.font, this.title, this.panelLeft + CONTENT_PADDING, this.panelTop + 16, TEXT, false);
 
         if (this.panelWidth >= 430) {
-            Component revision = Component.literal(
-                    "ORE " + this.snapshot.oreRevision() + "  •  SETTINGS " + this.snapshot.settingsRevision());
+            Component revision = Component.translatable("screen.delvefold.revisions",
+                    this.snapshot.oreRevision(), this.snapshot.settingsRevision());
             int revisionWidth = this.font.width(revision) + 12;
             int revisionX = this.panelLeft + this.panelWidth - CONTENT_PADDING - revisionWidth;
             graphics.fill(revisionX, this.panelTop + 12, revisionX + revisionWidth, this.panelTop + 31, 0xAA0B1318);

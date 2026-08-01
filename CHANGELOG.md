@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.3.0 — Server Operations
+
+- Added SHA-256 backup manifests containing normalized relative paths, file sizes, and backup metadata. New lifecycle and pre-restore backups are manifested and verified before they become restorable.
+- Added asynchronous `/delvefold backup verify <backup>` and a matching Backup GUI action. Large backup files are hashed on dedicated worker threads rather than the server tick thread.
+- Kept legacy backups visible but archive-only until an administrator explicitly verifies them. Successful legacy validation creates a manifest; restore then performs another full integrity check at startup before touching active data.
+- Corrected restore coverage so Classic and Expansive Flat, Cavern, and Wild dimension folders are all backed up and restored.
+- Made pre-restore snapshots transactional: path, move, or manifest failures roll back folders moved by that attempt, preserve earlier crash-staged data for retry, and stop startup before Minecraft can regenerate a missing or mixed mining world.
+- Added optional automatic backup retention with count, age, and total-byte limits. Retention is disabled by default, previews every prune, and always protects pinned, pending, newest-two, legacy, invalid, unverified, non-restorable, and incompletely measured backups.
+- Added `/delvefold doctor` and the Diagnostics GUI for bounded version, protocol/schema, dimension, profile, ineffective-target, pending-operation, backup-integrity, retention, and disk-space reporting.
+- Added `/delvefold doctor export`, which writes a redacted JSON report under the existing per-save exports directory without seeds, filesystem paths, confirmation tokens, server addresses, complete profiles, or unrelated player data.
+- Added a rotating JSON-lines audit log for accepted configuration and lifecycle mutations. Entries contain a format version plus timestamp, actor, operation, affected logical object, and old/new revisions; logs rotate at 10 MiB and retain five files including the active log.
+- Completed mutation-audit coverage for scheduled renewals, configuration reloads, profile creation/update/deletion, portal and hub changes, landmark catalog publication, backup pin state changes, and asynchronous backup operations even when the requesting player disconnects.
+- Kept operational audit logs, transfer files, Doctor exports, and lifecycle history intact across restoration; restoring an older world now replaces its selected settings and ore profiles without rolling newer operational records backward.
+- Added `coordinate_linked` and `central_hub` portal-routing modes. Coordinate-linked routing remains the compatibility default.
+- Central-hub routing creates an idempotent vanilla-block platform and guaranteed return portal at the configured mining-world hub. Its horizontal protection radius defaults to 16 blocks, and only users with world-management permission may modify protected blocks.
+- Kept portal travel player-only for 1.3. Mobs, dropped items, boats, and minecarts do not traverse Delvefold portals.
+- Completed keyboard focus, narration, tooltip, translation-key, and color-independent status work across administration screens.
+- Kept JEI and EMI optional and unchanged: the same JAR works with neither viewer, either viewer, or both.
+- Kept configuration schema 2 and public API version 1. Absent retention and portal-routing fields default to disabled retention and coordinate-linked routing without requiring a migration or load-time rewrite.
+- Advanced the identical-version client/server protocol to 12 for backup-integrity, diagnostics, retention, and portal-routing administration data.
+
+CurseForge publication remains a manual project-owner step. The repository does not upload this release to CurseForge automatically.
+
 ## 1.2.0 — Living Geology
 
 - Replaced the fixed landmark feature with a server-reloadable catalog at `data/<namespace>/delvefold/landmarks/`, backed by Minecraft's structure system so templates obey chunk boundaries and configured spacing.

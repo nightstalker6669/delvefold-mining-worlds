@@ -6,10 +6,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.nightsta69.delvefold.config.analysis.OreDistributionAnalysis;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainMode;
@@ -41,6 +43,7 @@ class TranslationCoverageTest {
             for (TerrainMode value : TerrainMode.values()) {
                 assertKey(language, "option.delvefold.terrain." + value.serializedName());
             }
+            assertKey(language, "option.delvefold.terrain.unknown");
             for (TerrainVariant value : TerrainVariant.values()) {
                 assertKey(language, "option.delvefold.terrain_variant." + value.serializedName());
             }
@@ -72,6 +75,16 @@ class TranslationCoverageTest {
             for (HeightDistribution value : HeightDistribution.values()) {
                 assertKey(language, "screen.delvefold.guide.distribution."
                         + value.name().toLowerCase(java.util.Locale.ROOT));
+                assertKey(language, "option.delvefold.height_distribution."
+                        + value.name().toLowerCase(java.util.Locale.ROOT));
+            }
+            for (OreBandPlacement value : OreBandPlacement.values()) {
+                assertKey(language, "option.delvefold.ore_band_placement."
+                        + value.name().toLowerCase(java.util.Locale.ROOT));
+            }
+            for (OreDistributionAnalysis.Density value : OreDistributionAnalysis.Density.values()) {
+                assertKey(language, "screen.delvefold.ore_wizard.density."
+                        + value.name().toLowerCase(java.util.Locale.ROOT));
             }
             assertKey(language, "screen.delvefold.guide.empty");
             assertKey(language, "screen.delvefold.guide.narration");
@@ -82,6 +95,29 @@ class TranslationCoverageTest {
             assertKey(language, "screen.delvefold.ore_wizard.validation.weight");
             assertKey(language, "screen.delvefold.ore_wizard.validation.weight_all");
             assertKey(language, "screen.delvefold.ore_wizard.validation.duplicate_sources");
+            assertKey(language, "screen.delvefold.ore_wizard.variant.label");
+            assertKey(language, "screen.delvefold.ore_wizard.variant.focused");
+            assertKey(language, "screen.delvefold.ore_wizard.narration");
+            assertKey(language, "screen.delvefold.setup.narration");
+            assertKey(language, "screen.delvefold.ore_picker.narration");
+            assertKey(language, "screen.delvefold.province.narration");
+            assertKey(language, "screen.delvefold.backup.verify");
+            assertKey(language, "screen.delvefold.backup.integrity.verified");
+            assertKey(language, "screen.delvefold.backup.integrity.unverified");
+            assertKey(language, "screen.delvefold.backup.integrity.legacy");
+            assertKey(language, "screen.delvefold.backup.integrity.invalid");
+            assertKey(language, "screen.delvefold.backup.details");
+            assertKey(language, "screen.delvefold.profiles.overwrite");
+            assertKey(language, "screen.delvefold.portal.travel");
+            assertKey(language, "screen.delvefold.portal.overworld_only");
+            assertKey(language, "screen.delvefold.portal.routing");
+            assertKey(language, "screen.delvefold.portal.hub_x");
+            assertKey(language, "screen.delvefold.portal.hub_z");
+            assertKey(language, "screen.delvefold.portal.protection_radius");
+            assertKey(language, "screen.delvefold.portal.validation");
+            assertKey(language, "screen.delvefold.portal.hub_read_only");
+            assertKey(language, "option.delvefold.portal_routing.coordinate_linked");
+            assertKey(language, "option.delvefold.portal_routing.central_hub");
             assertKey(language, PortalConstructionGuide.TITLE_KEY);
             assertKey(language, PortalConstructionGuide.DIMENSIONS_KEY);
             assertKey(language, PortalConstructionGuide.FRAMES_KEY);

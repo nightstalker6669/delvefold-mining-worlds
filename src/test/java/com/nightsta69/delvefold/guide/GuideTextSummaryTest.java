@@ -3,6 +3,7 @@ package com.nightsta69.delvefold.guide;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.guide.GuideSnapshot.Applicability;
 import com.nightsta69.delvefold.guide.GuideSnapshot.HeightBand;
 import com.nightsta69.delvefold.guide.GuideSnapshot.OreEntry;
@@ -27,15 +28,29 @@ class GuideTextSummaryTest {
                         List.of(new HeightBand("main", "triangle", -32, 80, 12, 12, 6)),
                         RelativeFrequency.UNCOMMON, false)), false);
 
-        String text = String.join("\n", GuideTextSummary.lines(snapshot));
+        String text = GuideTextSummary.lines(snapshot).stream()
+                .map(GuideTextSummaryTest::decodedTree)
+                .collect(java.util.stream.Collectors.joining("\n"));
         assertTrue(text.contains("Public Mine"));
         assertTrue(text.contains("pack:metals"));
-        assertTrue(text.contains("geology: dripstone"));
+        assertTrue(text.contains("dripstone"));
         assertTrue(text.contains("#c:ores/tin"));
         assertTrue(text.contains("#delvefold:mining_biomes"));
         assertTrue(text.contains("Y 12"));
+        assertTrue(text.contains("message.delvefold.guide.console.identity"));
+        assertTrue(text.contains("screen.delvefold.guide.frequency.uncommon"));
         assertFalse(text.toLowerCase().contains("seed"));
         assertFalse(text.toLowerCase().contains("token"));
         assertFalse(text.toLowerCase().contains("path"));
+    }
+
+    private static String decodedTree(String encoded) {
+        return AdminLocalizedMessage.decode(encoded)
+                .map(message -> message.translationKey() + " " + message.arguments().stream()
+                        .map(argument -> AdminLocalizedMessage.decode(argument).isPresent()
+                                ? decodedTree(argument)
+                                : argument)
+                        .collect(java.util.stream.Collectors.joining(" ")))
+                .orElse(encoded);
     }
 }

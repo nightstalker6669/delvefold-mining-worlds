@@ -47,12 +47,12 @@ public final class OreImportAdminService {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         if (snapshot.ores().revision() != expectedOreRevision) {
             return ViewResult.rejected(ActionStatus.STALE,
-                    "The active ore profile changed; refresh before scanning again.");
+                    localized("message.delvefold.import.scan.revision_changed"));
         }
         var admission = sessions.mayIssueScan(player.getUUID());
         if (!admission.accepted()) {
             return ViewResult.rejected(ActionStatus.REJECTED,
-                    "Ore discovery is rate limited; wait a moment and try again.");
+                    localized("message.delvefold.import.rate_limited"));
         }
         try {
             ImportContext context = context();
@@ -64,7 +64,7 @@ public final class OreImportAdminService {
         } catch (RuntimeException exception) {
             LOGGER.warn("Ore discovery failed for {}", player.getGameProfile().getName(), exception);
             return ViewResult.rejected(ActionStatus.ERROR,
-                    "Ore discovery failed; see the server log for details.");
+                    localized("message.delvefold.import.scan.failed"));
         }
     }
 
@@ -80,7 +80,8 @@ public final class OreImportAdminService {
             return ViewResult.accepted(OreImportNetworkViews.scan(
                     access.scan(), snapshot.ores().revision(), snapshot.ores().profile(), page));
         } catch (RuntimeException exception) {
-            return ViewResult.rejected(ActionStatus.ERROR, "Could not read the ore-discovery page.");
+            return ViewResult.rejected(ActionStatus.ERROR,
+                    localized("message.delvefold.import.scan_page.failed"));
         }
     }
 
@@ -100,7 +101,7 @@ public final class OreImportAdminService {
                     .toList();
             if (selected.stream().anyMatch(Objects::isNull)) {
                 return ViewResult.rejected(ActionStatus.REJECTED,
-                        "The selection contains an ore group that is not part of this scan.");
+                        localized("message.delvefold.import.selection_unknown"));
             }
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
             OreImportModels.Plan plan = OreImportPlanner.plan(
@@ -118,7 +119,7 @@ public final class OreImportAdminService {
         } catch (RuntimeException exception) {
             LOGGER.warn("Ore import preview failed for {}", player.getGameProfile().getName(), exception);
             return ViewResult.rejected(ActionStatus.ERROR,
-                    "Ore import preview failed; see the server log for details.");
+                    localized("message.delvefold.import.preview.failed"));
         }
     }
 
@@ -133,7 +134,8 @@ public final class OreImportAdminService {
             return ViewResult.accepted(OreImportNetworkViews.preview(
                     access.preview(), DelvefoldConfigService.get().snapshot().ores().revision(), page));
         } catch (RuntimeException exception) {
-            return ViewResult.rejected(ActionStatus.ERROR, "Could not read the ore-import preview page.");
+            return ViewResult.rejected(ActionStatus.ERROR,
+                    localized("message.delvefold.import.preview_page.failed"));
         }
     }
 
@@ -155,15 +157,14 @@ public final class OreImportAdminService {
                         write.message(), true);
             }
             return new ServiceResult(ActionStatus.ACCEPTED, snapshot.ores().revision(),
-                    "Created profile '" + attempt.targetProfileId()
-                            + "'. It is not active; select it explicitly from Profiles when ready.", true);
+                    localized("message.delvefold.import.profile_created", attempt.targetProfileId()), true);
         } catch (IOException | IllegalArgumentException exception) {
             return new ServiceResult(ActionStatus.REJECTED, snapshot.ores().revision(),
-                    "Profile creation failed: " + exception.getMessage(), true);
+                    localized("message.delvefold.import.profile_failed", exception.getMessage()), true);
         } catch (RuntimeException exception) {
             LOGGER.warn("Ore import profile creation failed for {}", player.getGameProfile().getName(), exception);
             return new ServiceResult(ActionStatus.ERROR, snapshot.ores().revision(),
-                    "Profile creation failed; see the server log for details.", false);
+                    localized("message.delvefold.import.profile_internal_error"), false);
         }
     }
 
@@ -189,16 +190,20 @@ public final class OreImportAdminService {
 
     private static String message(OreImportSessionService.Status status) {
         return switch (status) {
-            case ACCEPTED -> "Ore import session accepted.";
-            case RATE_LIMITED -> "Ore discovery is rate limited; wait a moment and try again.";
+            case ACCEPTED -> localized("message.delvefold.import.session.accepted");
+            case RATE_LIMITED -> localized("message.delvefold.import.rate_limited");
             case NO_ACTIVE_SCAN, NO_ACTIVE_PREVIEW, INVALID_TOKEN, EXPIRED ->
-                    "The ore import preview expired; start a new scan.";
-            case REVISION_CHANGED -> "The active ore profile changed; refresh and start a new scan.";
-            case REGISTRY_CHANGED -> "Installed blocks or tags changed; start a new scan.";
-            case BASE_CHANGED -> "The base profile changed; start a new scan.";
-            case INVALID_REQUEST -> "The ore import request was invalid.";
-            case PLAN_INVALID -> "The proposed profile has validation errors and cannot be created.";
+                    localized("message.delvefold.import.session.expired");
+            case REVISION_CHANGED -> localized("message.delvefold.import.session.revision_changed");
+            case REGISTRY_CHANGED -> localized("message.delvefold.import.session.registry_changed");
+            case BASE_CHANGED -> localized("message.delvefold.import.session.base_changed");
+            case INVALID_REQUEST -> localized("message.delvefold.import.session.invalid_request");
+            case PLAN_INVALID -> localized("message.delvefold.import.session.plan_invalid");
         };
+    }
+
+    private static String localized(String translationKey, Object... arguments) {
+        return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 
     private static void requireConfigure(ServerPlayer player) {

@@ -9,6 +9,13 @@
   "ore_preset": "vanilla_balanced",
   "active_profile_id": "vanilla_balanced",
   "guide_visibility": "public",
+  // Optional and disabled by default. A zero limit means unbounded.
+  "backup_retention": {
+    "enabled": false,
+    "max_count": 0,
+    "max_age_days": 0,
+    "max_total_bytes": 0
+  },
   "identity": {
     "display_name": "Delvefold Mining World",
     "terrain_variant": "classic",
@@ -39,6 +46,13 @@
     "enabled": true,
     "allow_from_overworld_only": true,
     "cooldown_seconds": 5,
-    "coordinate_scale": 1.0
+    "coordinate_scale": 1.0,
+    // coordinate_linked preserves existing portal behavior; central_hub routes incoming players here.
+    "routing_mode": "coordinate_linked",
+    "hub": {
+      "x": 0,
+      "z": 0,
+      "protection_radius": 16
+    }
   }
 }
