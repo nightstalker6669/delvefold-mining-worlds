@@ -6,7 +6,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import java.math.BigInteger;
 import java.util.Set;
 
 /** Rejects misspelled or structurally misplaced JSON fields before Gson applies record defaults. */
@@ -14,7 +16,7 @@ final class StrictConfigStructure {
     private static final Set<String> ORE_DOCUMENT = Set.of("schema_version", "revision", "profile", "rules");
     private static final Set<String> ORE_RULE = Set.of(
             "id", "enabled", "required", "terrain_modes", "targets", "biomes", "bands");
-    private static final Set<String> ORE_TARGET = Set.of("block", "block_tag", "state", "replace_tag");
+    private static final Set<String> ORE_TARGET = Set.of("block", "block_tag", "state", "replace_tag", "weight");
     private static final Set<String> REQUIRED_ORE_TARGET = Set.of("state", "replace_tag");
     private static final Set<String> BIOME_FILTER = Set.of("include", "exclude");
     private static final Set<String> SPAWN_BAND = Set.of(
@@ -82,6 +84,10 @@ final class StrictConfigStructure {
                     string(state.get(property), targetPath + ".state." + property, false);
                 }
                 string(target.get("replace_tag"), targetPath + ".replace_tag", false);
+                if (target.has("weight")) {
+                    boundedInteger(target.get("weight"), targetPath + ".weight",
+                            OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT);
+                }
             }
 
             JsonObject biomes = object(rule.get("biomes"), rulePath + ".biomes");
@@ -221,6 +227,20 @@ final class StrictConfigStructure {
             element.getAsBigDecimal().toBigIntegerExact();
         } catch (ArithmeticException exception) {
             throw new JsonParseException(path + " must be a whole number", exception);
+        }
+    }
+
+    private static void boundedInteger(JsonElement element, String path, int minimum, int maximum) {
+        number(element, path);
+        final BigInteger value;
+        try {
+            value = element.getAsBigDecimal().toBigIntegerExact();
+        } catch (ArithmeticException exception) {
+            throw new JsonParseException(path + " must be a whole number", exception);
+        }
+        if (value.compareTo(BigInteger.valueOf(minimum)) < 0
+                || value.compareTo(BigInteger.valueOf(maximum)) > 0) {
+            throw new JsonParseException(path + " must be between " + minimum + " and " + maximum);
         }
     }
 

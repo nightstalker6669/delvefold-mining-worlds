@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.GuideVisibility;
+import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -170,6 +171,55 @@ class ConfigRepositorySafetyTest {
         assertTrue(!loaded.usedFallback());
         assertEquals(GuideVisibility.PUBLIC, loaded.snapshot().settings().guideVisibility());
         assertEquals(legacySettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void schemaTwoOresWithoutWeightsReceiveNonDestructiveCompatibilityDefaults() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.ores())).getAsJsonObject();
+        for (var rule : root.getAsJsonArray("rules")) {
+            for (var target : rule.getAsJsonObject().getAsJsonArray("targets")) {
+                target.getAsJsonObject().remove("weight");
+            }
+        }
+        String legacyOres = ConfigJson.GSON.toJson(root) + System.lineSeparator();
+        Files.writeString(paths.ores(), legacyOres);
+
+        ConfigLoadResult loaded = repository.loadOrCreate(null);
+
+        assertTrue(!loaded.usedFallback());
+        assertTrue(loaded.snapshot().ores().rules().stream()
+                .flatMap(rule -> rule.targets().stream())
+                .allMatch(target -> target.weight() == OreTarget.DEFAULT_WEIGHT));
+        assertEquals(legacyOres, Files.readString(paths.ores()));
+    }
+
+    @Test
+    void hugeOreWeightIsRejectedBeforeGsonCanNarrowIt() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        ConfigLoadResult baseline = repository.loadOrCreate(null);
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.ores())).getAsJsonObject();
+        var firstTarget = root.getAsJsonArray("rules").get(0).getAsJsonObject()
+                .getAsJsonArray("targets").get(0).getAsJsonObject();
+        firstTarget.addProperty("weight", new java.math.BigInteger("4294967297"));
+        String invalidOres = ConfigJson.GSON.toJson(root) + System.lineSeparator();
+        Files.writeString(paths.ores(), invalidOres);
+
+        ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
+
+        assertTrue(rejected.usedFallback());
+        assertEquals(baseline.snapshot(), rejected.snapshot());
+        assertTrue(rejected.issues().stream().anyMatch(issue -> "json.invalid".equals(issue.code())));
+        assertEquals(invalidOres, Files.readString(paths.ores()));
     }
 
     @Test

@@ -70,6 +70,13 @@ class TranslationCoverageTest {
             }
             assertKey(language, "screen.delvefold.guide.empty");
             assertKey(language, "screen.delvefold.guide.narration");
+            assertKey(language, "screen.delvefold.ore_wizard.weight");
+            assertKey(language, "screen.delvefold.ore_wizard.weight.hint");
+            assertKey(language, "screen.delvefold.ore_wizard.replacement_tag");
+            assertKey(language, "screen.delvefold.ore_wizard.replacement_tag.off_page");
+            assertKey(language, "screen.delvefold.ore_wizard.validation.weight");
+            assertKey(language, "screen.delvefold.ore_wizard.validation.weight_all");
+            assertKey(language, "screen.delvefold.ore_wizard.validation.duplicate_sources");
             assertKey(language, PortalConstructionGuide.TITLE_KEY);
             assertKey(language, PortalConstructionGuide.DIMENSIONS_KEY);
             assertKey(language, PortalConstructionGuide.FRAMES_KEY);

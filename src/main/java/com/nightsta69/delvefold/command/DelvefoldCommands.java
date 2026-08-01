@@ -243,12 +243,34 @@ public final class DelvefoldCommands {
                         .then(Commands.argument("block", ResourceLocationArgument.id())
                                 .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.BLOCK.keySet(), builder))
                                 .then(Commands.argument("replace_tag", ResourceLocationArgument.id())
-                                        .executes(DelvefoldCommands::addTarget)))));
+                                        .executes(context -> addTarget(context, OreTarget.DEFAULT_WEIGHT))
+                                        .then(Commands.argument("weight", IntegerArgumentType.integer(
+                                                        OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT))
+                                                .executes(context -> addTarget(
+                                                        context, IntegerArgumentType.getInteger(context, "weight"))))))));
         target.then(Commands.literal("add-tag")
                 .then(ruleArgument()
                         .then(Commands.argument("block_tag", ResourceLocationArgument.id())
                                 .then(Commands.argument("replace_tag", ResourceLocationArgument.id())
-                                        .executes(DelvefoldCommands::addTagTarget)))));
+                                        .executes(context -> addTagTarget(context, OreTarget.DEFAULT_WEIGHT))
+                                        .then(Commands.argument("weight", IntegerArgumentType.integer(
+                                                        OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT))
+                                                .executes(context -> addTagTarget(
+                                                        context, IntegerArgumentType.getInteger(context, "weight"))))))));
+        target.then(Commands.literal("set-weight")
+                .then(ruleArgument()
+                        .then(Commands.argument("block", ResourceLocationArgument.id())
+                                .suggests((context, builder) -> SharedSuggestionProvider.suggestResource(
+                                        BuiltInRegistries.BLOCK.keySet(), builder))
+                                .then(Commands.argument("weight", IntegerArgumentType.integer(
+                                                OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT))
+                                        .executes(DelvefoldCommands::setTargetWeight)))));
+        target.then(Commands.literal("set-tag-weight")
+                .then(ruleArgument()
+                        .then(Commands.argument("block_tag", ResourceLocationArgument.id())
+                                .then(Commands.argument("weight", IntegerArgumentType.integer(
+                                                OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT))
+                                        .executes(DelvefoldCommands::setTagTargetWeight)))));
         target.then(Commands.literal("remove")
                 .then(ruleArgument()
                         .then(Commands.argument("block", ResourceLocationArgument.id())
@@ -765,7 +787,8 @@ public final class DelvefoldCommands {
         context.getSource().sendSuccess(() -> Component.literal(rule.id() + " enabled=" + rule.enabled() + " required=" + rule.required()), false);
         for (OreTarget target : rule.targets()) {
             context.getSource().sendSystemMessage(Component.literal(
-                    "  target " + target.sourceId() + " -> #" + target.replaceTag()));
+                    "  target " + target.sourceId() + " -> #" + target.replaceTag()
+                            + " weight=" + target.weight()));
         }
         for (SpawnBand band : rule.bands()) {
             context.getSource().sendSystemMessage(Component.literal(
@@ -820,15 +843,15 @@ public final class DelvefoldCommands {
         return reportWrite(context.getSource(), result, "Removed ore rule " + id);
     }
 
-    private static int addTarget(CommandContext<CommandSourceStack> context) {
+    private static int addTarget(CommandContext<CommandSourceStack> context, int weight) {
         String ruleId = StringArgumentType.getString(context, "rule");
         String block = ResourceLocationArgument.getId(context, "block").toString();
         String tag = ResourceLocationArgument.getId(context, "replace_tag").toString();
         return mutateRule(context, ruleId, rule -> {
             List<OreTarget> targets = new ArrayList<>(rule.targets());
-            targets.add(OreTarget.of(block, tag.startsWith("#") ? tag.substring(1) : tag));
+            targets.add(OreTarget.of(block, tag.startsWith("#") ? tag.substring(1) : tag, weight));
             return new OreRule(rule.id(), rule.enabled(), rule.required(), rule.terrainModes(), targets, rule.biomes(), rule.bands());
-        }, "Added target to " + ruleId);
+        }, "Added target to " + ruleId + " with weight " + weight);
     }
 
     private static int removeTarget(CommandContext<CommandSourceStack> context) {
@@ -840,16 +863,53 @@ public final class DelvefoldCommands {
                 rule.biomes(), rule.bands()), "Removed target from " + ruleId);
     }
 
-    private static int addTagTarget(CommandContext<CommandSourceStack> context) {
+    private static int addTagTarget(CommandContext<CommandSourceStack> context, int weight) {
         String ruleId = StringArgumentType.getString(context, "rule");
         String blockTag = ResourceLocationArgument.getId(context, "block_tag").toString();
         String replaceTag = ResourceLocationArgument.getId(context, "replace_tag").toString();
         return mutateRule(context, ruleId, rule -> {
             List<OreTarget> targets = new ArrayList<>(rule.targets());
-            targets.add(OreTarget.ofTag(blockTag, replaceTag));
+            targets.add(OreTarget.ofTag(blockTag, replaceTag, weight));
             return new OreRule(rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
                     targets, rule.biomes(), rule.bands());
-        }, "Added output tag #" + blockTag + " to " + ruleId);
+        }, "Added output tag #" + blockTag + " to " + ruleId + " with weight " + weight);
+    }
+
+    private static int setTargetWeight(CommandContext<CommandSourceStack> context) {
+        String ruleId = StringArgumentType.getString(context, "rule");
+        String block = ResourceLocationArgument.getId(context, "block").toString();
+        int weight = IntegerArgumentType.getInteger(context, "weight");
+        return mutateRule(context, ruleId, rule -> replaceTargetWeight(rule, block, false, weight),
+                "Set " + block + " weight to " + weight + " in " + ruleId);
+    }
+
+    private static int setTagTargetWeight(CommandContext<CommandSourceStack> context) {
+        String ruleId = StringArgumentType.getString(context, "rule");
+        String blockTag = ResourceLocationArgument.getId(context, "block_tag").toString();
+        int weight = IntegerArgumentType.getInteger(context, "weight");
+        return mutateRule(context, ruleId, rule -> replaceTargetWeight(rule, blockTag, true, weight),
+                "Set #" + blockTag + " weight to " + weight + " in " + ruleId);
+    }
+
+    private static OreRule replaceTargetWeight(OreRule rule, String sourceId, boolean tagDriven, int weight) {
+        long matches = rule.targets().stream().filter(target -> tagDriven
+                ? target.blockTag().equals(sourceId)
+                : !target.tagDriven() && target.block().equals(sourceId)).count();
+        if (matches == 0) {
+            throw new IllegalArgumentException("Unknown " + (tagDriven ? "output tag: #" : "target block: ")
+                    + sourceId);
+        }
+        if (matches > 1) {
+            throw new IllegalArgumentException("Ambiguous " + (tagDriven ? "output tag: #" : "target block: ")
+                    + sourceId + "; multiple targets use that source. Edit the specific target in canonical JSON.");
+        }
+        List<OreTarget> targets = rule.targets().stream()
+                .map(target -> (tagDriven ? target.blockTag().equals(sourceId)
+                        : !target.tagDriven() && target.block().equals(sourceId))
+                                ? target.withWeight(weight) : target)
+                .toList();
+        return new OreRule(rule.id(), rule.enabled(), rule.required(), rule.terrainModes(),
+                targets, rule.biomes(), rule.bands());
     }
 
     private static int removeTagTarget(CommandContext<CommandSourceStack> context) {

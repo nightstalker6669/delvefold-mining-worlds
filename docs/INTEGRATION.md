@@ -27,19 +27,25 @@ Use `block_tag` instead of `block` to support any installed mod that contributes
 ```json
 {
   "block_tag": "c:ores/tin",
+  "weight": 2,
   "state": {},
   "replace_tag": "minecraft:stone_ore_replaceables"
 }
 ```
 
-Exactly one output source is required. Members are expanded in registry-ID order. Mark a cross-mod rule `required: false` if a pack should remain valid when no provider is installed.
+Exactly one output source is required. Members are expanded in registry-ID order. `weight` is optional, accepts 1 through 1000, and defaults to `1`. Exact targets use their configured weight directly. A tag target's total weight is divided equally among its installed members, with fractional member weights supported internally, and only outputs sharing the same replacement-host tag compete during per-vein selection. For compatibility, a host group whose configured weights are all `1` retains the earlier member-uniform selection and exact random sequence; tag-total weighting begins when any target in that group has a non-default weight. If multiple sources resolve to the same block state, the first deterministically ordered candidate wins; later overlaps are ineffective, ignored, and warned rather than contributing more weight. Mark a cross-mod rule `required: false` if a pack should remain valid when no provider is installed.
+
+This addition does not change configuration schema 2 or `DelvefoldApi.API_VERSION` 1. Datapack and script producers should treat an omitted weight as `1`; profiles whose configured target weights are all `1` retain the earlier member-uniform deterministic output-selection sequence. The 1.1 client/server protocol is version 8 because administration payloads carry target weights, so clients and servers must use the same Delvefold version.
 
 Commands expose the same model:
 
 ```text
-/delvefold ore target add-tag <rule> <block_tag> <replace_tag>
+/delvefold ore target add-tag <rule> <block_tag> <replace_tag> [weight]
+/delvefold ore target set-tag-weight <rule> <block_tag> <weight>
 /delvefold ore target remove-tag <rule> <block_tag>
 ```
+
+Omitting the optional add weight uses the compatibility default of `1`. Pack authors can also supply a non-default weight in schema-2 profile JSON or change it later with `set-tag-weight`.
 
 ## Startup scripts
 

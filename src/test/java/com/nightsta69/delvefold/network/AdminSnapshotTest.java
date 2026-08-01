@@ -1,6 +1,8 @@
 package com.nightsta69.delvefold.network;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
@@ -23,5 +25,19 @@ class AdminSnapshotTest {
         assertFalse(snapshot.capabilities().canConfigure());
         assertFalse(snapshot.capabilities().canManageWorld());
         assertFalse(snapshot.capabilities().canRestoreBackups());
+    }
+
+    @Test
+    void oreVariantWeightsDefaultAndRejectOutOfRangeValues() {
+        AdminSnapshot.OreVariantDraft legacy = new AdminSnapshot.OreVariantDraft(
+                "example:tin_ore", "", "minecraft:stone_ore_replaceables", java.util.Map.of());
+        assertEquals(1, legacy.weight());
+        assertEquals(1000, new AdminSnapshot.OreVariantDraft(
+                "example:tin_ore", "", "minecraft:stone_ore_replaceables", java.util.Map.of(), 1000).weight());
+
+        assertThrows(IllegalArgumentException.class, () -> new AdminSnapshot.OreVariantDraft(
+                "example:tin_ore", "", "minecraft:stone_ore_replaceables", java.util.Map.of(), 0));
+        assertThrows(IllegalArgumentException.class, () -> new AdminSnapshot.OreVariantDraft(
+                "example:tin_ore", "", "minecraft:stone_ore_replaceables", java.util.Map.of(), 1001));
     }
 }

@@ -53,4 +53,84 @@ public final class DelvefoldGameTests {
         helper.assertTrue(observed.contains(Blocks.EMERALD_ORE), "Emerald was never selected");
         helper.succeed();
     }
+
+    @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
+    public static void defaultTargetWeightsPreserveTheLegacyRandomSequence(GameTestHelper helper) {
+        RuntimeOreProfile.CompiledBand band = compileBand(helper, List.of(
+                OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables"),
+                OreTarget.of("minecraft:emerald_ore", "minecraft:stone_ore_replaceables")));
+        List<Block> orderedOutputs = List.of(Blocks.DIAMOND_ORE, Blocks.EMERALD_ORE);
+        RandomSource expectedRandom = RandomSource.create(0x5EEDL);
+        RandomSource actualRandom = RandomSource.create(0x5EEDL);
+
+        for (int draw = 0; draw < 256; draw++) {
+            Block expected = orderedOutputs.get(expectedRandom.nextInt(orderedOutputs.size()));
+            Block actual = band.ore(actualRandom).targetStates.getFirst().state.getBlock();
+            helper.assertTrue(actual == expected,
+                    "Default target weights changed the pre-weight random sequence at draw " + draw);
+        }
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
+    public static void configuredTargetWeightsAreDeterministicAndEffective(GameTestHelper helper) {
+        RuntimeOreProfile.CompiledBand band = compileBand(helper, List.of(
+                OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables", 9),
+                OreTarget.of("minecraft:emerald_ore", "minecraft:stone_ore_replaceables", 1)));
+        RandomSource first = RandomSource.create(0xC0FFEE42L);
+        RandomSource second = RandomSource.create(0xC0FFEE42L);
+        int diamonds = 0;
+
+        for (int draw = 0; draw < 8192; draw++) {
+            Block selected = band.ore(first).targetStates.getFirst().state.getBlock();
+            Block repeated = band.ore(second).targetStates.getFirst().state.getBlock();
+            helper.assertTrue(selected == repeated, "Weighted target selection was not deterministic");
+            if (selected == Blocks.DIAMOND_ORE) {
+                diamonds++;
+            }
+        }
+        helper.assertTrue(diamonds > 7000 && diamonds < 7700,
+                "A 9:1 target weight produced an implausible diamond count: " + diamonds);
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
+    public static void tagWeightIsSharedAcrossSortedMembersAndOverlapsAreDeduplicated(GameTestHelper helper) {
+        RuntimeOreProfile.CompiledBand band = compileBand(helper, List.of(
+                OreTarget.ofTag("minecraft:coal_ores", "minecraft:stone_ore_replaceables", 8),
+                OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables", 2),
+                OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables", 3)));
+        RuntimeOreProfile.CompiledTargetGroup group = band.targetGroups().getFirst();
+
+        helper.assertTrue(group.outputs().size() == 3,
+                "Overlapping exact output was not deduplicated from the host group");
+        helper.assertTrue(group.outputs().get(0).state().getBlock() == Blocks.COAL_ORE,
+                "Tag members were not sorted by registry ID");
+        helper.assertTrue(group.outputs().get(1).state().getBlock() == Blocks.DEEPSLATE_COAL_ORE,
+                "Tag members were not sorted by registry ID");
+        helper.assertTrue(group.outputs().get(2).state().getBlock() == Blocks.DIAMOND_ORE,
+                "Exact output did not retain target order after the sorted tag members");
+        helper.assertTrue(group.outputs().get(0).selectionWeight() == 4.0D
+                        && group.outputs().get(1).selectionWeight() == 4.0D,
+                "The tag-level weight was not shared equally across its members");
+        helper.assertTrue(group.outputs().get(2).selectionWeight() == 2.0D,
+                "An overlapping exact target changed the first candidate's selection weight");
+        helper.succeed();
+    }
+
+    private static RuntimeOreProfile.CompiledBand compileBand(
+            GameTestHelper helper, List<OreTarget> targets) {
+        OreRule rule = new OreRule(
+                "weighted_test",
+                true,
+                true,
+                Set.of(TerrainMode.FLAT),
+                targets,
+                new BiomeFilter(List.of(), List.of()),
+                List.of(SpawnBand.uniform("main", 6, 1.0D, -32, 32, 0.0D)));
+        RuntimeOreProfile profile = RuntimeOreProfile.compile(
+                new OreProfileDocument(OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, "test", List.of(rule)));
+        return profile.bands(
+                TerrainMode.FLAT, helper.getLevel().getBiome(helper.absolutePos(BlockPos.ZERO))).getFirst();
+    }
 }

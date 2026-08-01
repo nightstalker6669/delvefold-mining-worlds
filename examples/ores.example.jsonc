@@ -13,11 +13,14 @@
       "targets": [
         {
           "block": "examplemod:tin_ore",
+          // Optional relative output weight, 1..1000; omitted means 1.
+          "weight": 2,
           "state": {},
           "replace_tag": "minecraft:stone_ore_replaceables"
         },
         {
           "block": "examplemod:deepslate_tin_ore",
+          "weight": 1,
           "state": {},
           "replace_tag": "minecraft:deepslate_ore_replaceables"
         }

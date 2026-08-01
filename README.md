@@ -18,7 +18,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Named per-save ore profiles with safe duplication, selection, and JSON import/export.
 - Visual height-distribution and generation-workload previews in the ore editor.
 - Inventory-style block picker with real item icons, `c:ores` candidates, search, namespace filtering, and a Show All fallback.
-- Three-page ore-rule wizard for stone/deepslate or other variants, replacement hosts, block-state properties, biome include/exclude selectors, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
+- Three-page ore-rule wizard for stone/deepslate or other variants, weighted output selection, replacement hosts, block-state properties, biome include/exclude selectors, vein size, attempts per chunk, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
 - Read-only ore profiles supplied by datapacks or startup scripts, including tag-driven outputs such as `c:ores/tin`.
 - Native NeoForge permission nodes, public lifecycle events, and a stable versioned integration API.
@@ -108,9 +108,11 @@ Ore discovery and rules:
 Ore targets and spawn bands:
 
 ```text
-/delvefold ore target add <rule> <block_id> <replace_tag>
+/delvefold ore target add <rule> <block_id> <replace_tag> [weight]
 /delvefold ore target remove <rule> <block_id>
-/delvefold ore target add-tag <rule> <block_tag> <replace_tag>
+/delvefold ore target add-tag <rule> <block_tag> <replace_tag> [weight]
+/delvefold ore target set-weight <rule> <block_id> <weight>
+/delvefold ore target set-tag-weight <rule> <block_tag> <weight>
 /delvefold ore target remove-tag <rule> <block_tag>
 /delvefold ore band add <rule> <band_id> <common|uncommon|rare|very_rare>
 /delvefold ore band remove <rule> <band_id>
@@ -118,6 +120,8 @@ Ore targets and spawn bands:
 ```
 
 Band fields are `vein_size`, `attempts`, `min_y`, `max_y`, `peak_y`, `plateau_min_y`, `plateau_max_y`, and `discard`.
+
+Ore targets may carry an optional relative `weight` from 1 through 1000 in the GUI or canonical schema-2 JSON. Omitted weights default to `1`; existing and all-1 profiles keep the earlier member-uniform deterministic per-vein selection sequence. Exact targets use their configured weight directly, while each output tag divides its total weight equally among installed members when a host group contains a non-default weight. Identical resolved states are deduplicated first-wins, and later overlaps are ignored with a warning.
 
 Safe world deletion and recreation:
 

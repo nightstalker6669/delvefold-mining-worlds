@@ -11,6 +11,8 @@
 - Added strict count, string, enum, biome-selector, and estimated-size limits to guide snapshots, with explicit truncation for unusually large profiles.
 - Required a short-lived, player-bound, single-use client-open acknowledgement and a fresh server visibility check before awarding the consulting advancement.
 - Added `DelvefoldApi.activeGuide()` as an additive API-v1 read-only snapshot that excludes seeds, coordinates, filesystem paths, world-operation confirmation data, and administration diagnostics.
+- Added optional ore-target weights from 1 through 1000. Exact outputs use their configured weights, each tag target divides its total weight equally among installed members once a host group uses non-default weighting, duplicate states are first-wins with warnings, and omitted or all-1 weights preserve the established member-uniform deterministic selection sequence.
+- Advanced the identical-version client/server protocol to 8 for weighted administration payloads while retaining configuration schema 2 and public API version 1.
 
 Configuration schema 2 and public API version 1 remain unchanged.
 

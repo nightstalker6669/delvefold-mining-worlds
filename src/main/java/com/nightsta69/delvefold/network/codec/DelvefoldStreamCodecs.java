@@ -197,6 +197,7 @@ public final class DelvefoldStreamCodecs {
             buffer.writeBoolean(!variant.blockTag().isBlank());
             writeResourceId(buffer, variant.blockTag().isBlank() ? variant.blockId() : variant.blockTag());
             writeResourceId(buffer, variant.replaceTag());
+            buffer.writeVarInt(variant.weight());
             writeCount(buffer, variant.state().size(), ProtocolLimits.MAX_STATE_PROPERTIES, "state properties");
             for (var property : variant.state().entrySet()) {
                 writeString(buffer, property.getKey(), ProtocolLimits.ID_LENGTH);
@@ -232,6 +233,7 @@ public final class DelvefoldStreamCodecs {
             boolean tagDriven = buffer.readBoolean();
             String sourceId = readResourceId(buffer);
             String replaceTag = readResourceId(buffer);
+            int weight = buffer.readVarInt();
             int stateCount = readCount(buffer, ProtocolLimits.MAX_STATE_PROPERTIES, "state properties");
             java.util.Map<String, String> state = new java.util.LinkedHashMap<>();
             for (int property = 0; property < stateCount; property++) {
@@ -242,7 +244,7 @@ public final class DelvefoldStreamCodecs {
                 }
             }
             variants.add(new AdminSnapshot.OreVariantDraft(
-                    tagDriven ? "" : sourceId, tagDriven ? sourceId : "", replaceTag, state));
+                    tagDriven ? "" : sourceId, tagDriven ? sourceId : "", replaceTag, state, weight));
         }
 
         int terrainCount = readCount(buffer, ProtocolLimits.MAX_TERRAIN_MODES, "terrain modes");

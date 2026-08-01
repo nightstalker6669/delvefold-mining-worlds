@@ -21,6 +21,8 @@ public final class OreConfigValidator {
     public static final int MAX_BANDS_PER_RULE = 16;
     public static final int MAX_BIOME_SELECTORS = 128;
     public static final int MAX_ID_LENGTH = 128;
+    public static final int MIN_TARGET_WEIGHT = OreTarget.MIN_WEIGHT;
+    public static final int MAX_TARGET_WEIGHT = OreTarget.MAX_WEIGHT;
     public static final double MAX_ATTEMPTS_PER_CHUNK_PER_TERRAIN = 4096.0D;
     public static final double MAX_ORE_WORK_PER_CHUNK_PER_TERRAIN = 65536.0D;
     private static final Pattern RESOURCE_LOCATION = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
@@ -90,6 +92,10 @@ public final class OreConfigValidator {
             String targetPath = path + ".targets[" + i + "]";
             boolean exact = !target.block().isBlank();
             boolean tagged = !target.blockTag().isBlank();
+            if (target.weight() < MIN_TARGET_WEIGHT || target.weight() > MAX_TARGET_WEIGHT) {
+                issues.add(ConfigIssue.error("target.invalid_weight", targetPath + ".weight",
+                        "Target weight must be between " + MIN_TARGET_WEIGHT + " and " + MAX_TARGET_WEIGHT));
+            }
             if (exact == tagged) {
                 issues.add(ConfigIssue.error("target.source", targetPath,
                         "Set exactly one of block or block_tag"));
@@ -132,7 +138,8 @@ public final class OreConfigValidator {
             }
             String targetKey = target.sourceId() + '|' + target.state() + '|' + target.replaceTag();
             if (!targetKeys.add(targetKey)) {
-                issues.add(ConfigIssue.warning("target.duplicate", targetPath, "Duplicate target will perform redundant work"));
+                issues.add(ConfigIssue.warning("target.duplicate", targetPath,
+                        "Overlapping target resolves to a block state already contributed for this host"));
             }
         }
 
