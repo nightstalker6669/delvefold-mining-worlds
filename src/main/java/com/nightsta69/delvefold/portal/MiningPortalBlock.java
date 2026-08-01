@@ -2,7 +2,6 @@ package com.nightsta69.delvefold.portal;
 
 import com.mojang.serialization.MapCodec;
 import com.nightsta69.delvefold.api.event.DelvefoldPortalTravelEvent;
-import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
@@ -27,14 +26,24 @@ import net.minecraft.world.level.portal.DimensionTransition;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.common.NeoForge;
+import org.jspecify.annotations.Nullable;
 
 /** Player-only Delvefold portal using the 1.21.1 Portal/DimensionTransition pipeline. */
 public final class MiningPortalBlock extends Block implements Portal {
+    /** Codec used by Minecraft to serialize the registered portal interior block type. */
     public static final MapCodec<MiningPortalBlock> CODEC = simpleCodec(MiningPortalBlock::new);
+
+    /** Horizontal frame axis persisted in each portal-interior block state. */
     public static final EnumProperty<Direction.Axis> AXIS = BlockStateProperties.HORIZONTAL_AXIS;
+
     private static final VoxelShape X_SHAPE = Block.box(0.0D, 0.0D, 6.0D, 16.0D, 16.0D, 10.0D);
     private static final VoxelShape Z_SHAPE = Block.box(6.0D, 0.0D, 0.0D, 10.0D, 16.0D, 16.0D);
 
+    /**
+     * Creates a portal interior with an X-axis default state.
+     *
+     * @param properties immutable Minecraft block behavior settings
+     */
     public MiningPortalBlock(BlockBehaviour.Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(AXIS, Direction.Axis.X));
@@ -46,8 +55,7 @@ public final class MiningPortalBlock extends Block implements Portal {
     }
 
     @Override
-    protected VoxelShape getShape(
-            BlockState state, BlockGetter level, BlockPos position, CollisionContext context) {
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos position, CollisionContext context) {
         return state.getValue(AXIS) == Direction.Axis.X ? X_SHAPE : Z_SHAPE;
     }
 
@@ -62,7 +70,8 @@ public final class MiningPortalBlock extends Block implements Portal {
         boolean complete = PortalFrameShape.findFromInterior(level, position, state.getValue(AXIS))
                 .filter(shape -> shape.isFilled(level))
                 .isPresent();
-        return complete ? super.updateShape(state, direction, neighborState, level, position, neighborPosition)
+        return complete
+                ? super.updateShape(state, direction, neighborState, level, position, neighborPosition)
                 : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
     }
 
@@ -88,20 +97,21 @@ public final class MiningPortalBlock extends Block implements Portal {
         return 0;
     }
 
-    @Nullable
     @Override
-    public DimensionTransition getPortalDestination(ServerLevel source, Entity entity, BlockPos entryPosition) {
+    public @Nullable DimensionTransition getPortalDestination(
+            ServerLevel source, Entity entity, BlockPos entryPosition) {
         if (!(entity instanceof ServerPlayer player)) {
             return null;
         }
         PortalAccess.Result access = PortalAccess.forTransition(source, player);
-        if (!access.allowed()) {
+        ServerLevel destination = access.destination();
+        if (!access.allowed() || destination == null) {
             PortalAccess.notifyDenied(player, access);
             player.setPortalCooldown(PortalAccess.cooldownTicks(access.settings()));
             return null;
         }
-        DelvefoldPortalTravelEvent event = NeoForge.EVENT_BUS.post(new DelvefoldPortalTravelEvent(
-                player, source.dimension(), access.destination().dimension()));
+        DelvefoldPortalTravelEvent event = NeoForge.EVENT_BUS.post(
+                new DelvefoldPortalTravelEvent(player, source.dimension(), destination.dimension()));
         if (event.isCanceled()) {
             player.setPortalCooldown(PortalAccess.cooldownTicks(access.settings()));
             return null;
@@ -140,16 +150,15 @@ public final class MiningPortalBlock extends Block implements Portal {
             double dx = (random.nextDouble() - 0.5D) * 0.25D;
             double dy = (random.nextDouble() - 0.5D) * 0.25D;
             double dz = (random.nextDouble() - 0.5D) * 0.25D;
-            level.addParticle(count == 0 ? ParticleTypes.REVERSE_PORTAL : ParticleTypes.PORTAL,
-                    x, y, z, dx, dy, dz);
+            level.addParticle(count == 0 ? ParticleTypes.REVERSE_PORTAL : ParticleTypes.PORTAL, x, y, z, dx, dy, dz);
         }
     }
 
     @Override
     protected BlockState rotate(BlockState state, Rotation rotation) {
         return switch (rotation) {
-            case CLOCKWISE_90, COUNTERCLOCKWISE_90 -> state.setValue(
-                    AXIS, state.getValue(AXIS) == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X);
+            case CLOCKWISE_90, COUNTERCLOCKWISE_90 ->
+                state.setValue(AXIS, state.getValue(AXIS) == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X);
             default -> state;
         };
     }

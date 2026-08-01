@@ -10,21 +10,31 @@ import org.junit.jupiter.api.Test;
 class GuideSnapshotContractTest {
     @Test
     void publicContractContainsOnlyWhitelistedReadOnlyFields() {
-        assertEquals(List.of(
-                        "formatVersion", "worldName", "terrain", "terrainVariant", "geologyTheme", "activeProfile",
-                        "portalStatus", "renewal", "ores", "truncated"),
+        assertEquals(
+                List.of(
+                        "formatVersion",
+                        "worldName",
+                        "terrain",
+                        "terrainVariant",
+                        "geologyTheme",
+                        "activeProfile",
+                        "portalStatus",
+                        "renewal",
+                        "ores",
+                        "truncated"),
                 componentNames(GuideSnapshot.class));
-        assertEquals(List.of("enabled", "scheduled", "due", "remainingSeconds"),
+        assertEquals(
+                List.of("enabled", "scheduled", "due", "remainingSeconds"),
                 componentNames(GuideSnapshot.Renewal.class));
-        assertEquals(List.of(
-                        "ruleId", "outputs", "applicability", "heightBands", "relativeFrequency", "truncated"),
+        assertEquals(
+                List.of("ruleId", "outputs", "applicability", "heightBands", "relativeFrequency", "truncated"),
                 componentNames(GuideSnapshot.OreEntry.class));
-        assertEquals(List.of("kind", "sourceId", "iconBlockId"),
-                componentNames(GuideSnapshot.Output.class));
-        assertEquals(List.of("terrains", "appliesToActiveTerrain", "biomeFiltered",
-                        "biomeIncludes", "biomeExcludes"),
+        assertEquals(List.of("kind", "sourceId", "iconBlockId"), componentNames(GuideSnapshot.Output.class));
+        assertEquals(
+                List.of("terrains", "appliesToActiveTerrain", "biomeFiltered", "biomeIncludes", "biomeExcludes"),
                 componentNames(GuideSnapshot.Applicability.class));
-        assertEquals(List.of("bandId", "distribution", "minY", "maxY", "bestMinY", "bestMaxY", "veinSize"),
+        assertEquals(
+                List.of("bandId", "distribution", "minY", "maxY", "bestMinY", "bestMaxY", "veinSize"),
                 componentNames(GuideSnapshot.HeightBand.class));
     }
 

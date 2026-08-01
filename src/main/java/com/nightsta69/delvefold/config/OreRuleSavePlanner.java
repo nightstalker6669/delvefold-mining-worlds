@@ -6,12 +6,11 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Pure planning step for an ore-rule save. The configuration service applies
- * the returned plan while holding its mutation lock.
+ * Pure planning step for an ore-rule save. The configuration service applies the returned plan while holding its
+ * mutation lock.
  */
 final class OreRuleSavePlanner {
-    private OreRuleSavePlanner() {
-    }
+    private OreRuleSavePlanner() {}
 
     static Plan plan(List<OreRule> existingRules, OreRule replacement, boolean createOnly) {
         Objects.requireNonNull(existingRules, "existingRules");

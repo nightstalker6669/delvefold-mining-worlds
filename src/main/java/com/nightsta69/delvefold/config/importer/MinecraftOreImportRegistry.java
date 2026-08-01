@@ -15,24 +15,30 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
+import org.jspecify.annotations.Nullable;
 
 /** Immutable snapshot of the currently bound Minecraft block registry and tags. */
 public final class MinecraftOreImportRegistry implements OreImportRegistry, RegistryLookup {
     private static final Object CACHE_LOCK = new Object();
-    private static volatile CachedSnapshot cachedSnapshot;
+    private static volatile @Nullable CachedSnapshot cachedSnapshot;
 
     private final List<BlockEntry> blocks;
     private final Map<String, List<String>> tagMembers;
     private final Set<String> blockIds;
 
+    /**
+     * Captures the currently bound Minecraft block registry and tag membership into immutable collections. Block
+     * entries and each tag's member list are ordered lexically by registry ID.
+     */
     public MinecraftOreImportRegistry() {
-        TreeMap<String, TreeSet<String>> tagsByBlock = new TreeMap<>();
+        TreeMap<String, Set<String>> tagsByBlock = new TreeMap<>();
         for (ResourceLocation id : BuiltInRegistries.BLOCK.keySet()) {
             tagsByBlock.put(id.toString(), new TreeSet<>());
         }
 
         TreeMap<String, List<String>> membersByTag = new TreeMap<>();
-        BuiltInRegistries.BLOCK.getTags()
+        BuiltInRegistries.BLOCK
+                .getTags()
                 .sorted(java.util.Comparator.comparing(pair -> pair.getFirst().location()))
                 .forEach(pair -> captureTag(pair, tagsByBlock, membersByTag));
 
@@ -44,9 +50,11 @@ public final class MinecraftOreImportRegistry implements OreImportRegistry, Regi
     }
 
     /**
-     * Returns the immutable registry/tag snapshot and its deterministic fingerprint for the
-     * current server resource state. The expensive registry walk and SHA-256 calculation happen
-     * at most once between lifecycle or datapack-reload invalidations.
+     * Returns the immutable registry/tag snapshot and its deterministic fingerprint for the current server resource
+     * state. The expensive registry walk and SHA-256 calculation happen at most once between lifecycle or
+     * datapack-reload invalidations.
+     *
+     * @return shared immutable registry snapshot and matching deterministic fingerprint
      */
     public static CachedSnapshot cachedSnapshot() {
         CachedSnapshot current = cachedSnapshot;
@@ -71,22 +79,45 @@ public final class MinecraftOreImportRegistry implements OreImportRegistry, Regi
         }
     }
 
+    /**
+     * Returns all captured blocks in lexical registry-ID order.
+     *
+     * @return immutable captured block entries
+     */
     @Override
     public List<BlockEntry> blocks() {
         return blocks;
     }
 
+    /**
+     * Looks up captured members of a block tag.
+     *
+     * @param tagId block-tag ID, with or without a leading {@code #}
+     * @return immutable members in lexical registry-ID order, or an empty list for a missing tag
+     */
     @Override
     public List<String> tagMembers(String tagId) {
         String normalized = stripHash(tagId);
         return tagMembers.getOrDefault(normalized, List.of());
     }
 
+    /**
+     * Tests exact block-ID presence in the captured snapshot.
+     *
+     * @param id block registry ID to test
+     * @return {@code true} when the trimmed ID was captured
+     */
     @Override
     public boolean blockExists(String id) {
         return id != null && blockIds.contains(id.trim());
     }
 
+    /**
+     * Tests whether a block tag exists with at least one captured member.
+     *
+     * @param id block-tag ID, with or without a leading {@code #}
+     * @return {@code true} when the tag has one or more captured members
+     */
     @Override
     public boolean blockTagExists(String id) {
         return !tagMembers(id).isEmpty();
@@ -94,7 +125,7 @@ public final class MinecraftOreImportRegistry implements OreImportRegistry, Regi
 
     private static void captureTag(
             Pair<TagKey<Block>, HolderSet.Named<Block>> pair,
-            Map<String, TreeSet<String>> tagsByBlock,
+            Map<String, Set<String>> tagsByBlock,
             Map<String, List<String>> membersByTag) {
         String tagId = pair.getFirst().location().toString();
         List<String> members = new ArrayList<>();
@@ -116,10 +147,22 @@ public final class MinecraftOreImportRegistry implements OreImportRegistry, Regi
         return normalized.startsWith("#") ? normalized.substring(1) : normalized;
     }
 
+    /**
+     * Atomically published registry snapshot and the fingerprint computed from that exact snapshot.
+     *
+     * @param registry immutable captured Minecraft registry
+     * @param fingerprint deterministic lowercase hexadecimal SHA-256 binding
+     */
     public record CachedSnapshot(MinecraftOreImportRegistry registry, String fingerprint) {
+        /**
+         * Requires both parts of the atomically cached value.
+         *
+         * @param registry immutable captured Minecraft registry
+         * @param fingerprint fingerprint computed from {@code registry}
+         */
         public CachedSnapshot {
-            registry = java.util.Objects.requireNonNull(registry, "registry");
-            fingerprint = java.util.Objects.requireNonNull(fingerprint, "fingerprint");
+            java.util.Objects.requireNonNull(registry, "registry");
+            java.util.Objects.requireNonNull(fingerprint, "fingerprint");
         }
     }
 }

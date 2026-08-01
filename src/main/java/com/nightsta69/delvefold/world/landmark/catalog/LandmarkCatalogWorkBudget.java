@@ -10,15 +10,14 @@ final class LandmarkCatalogWorkBudget {
     static final int MAX_CAVE_SCAN_CELLS_PER_CANDIDATE = 8192;
     private static final int DELVEFOLD_DIMENSION_HEIGHT = 384;
 
-    private LandmarkCatalogWorkBudget() {
-    }
+    private LandmarkCatalogWorkBudget() {}
 
     static Analysis analyze(Collection<LandmarkDefinition> definitions) {
         Set<CaveProbe> probes = new HashSet<>();
         if (definitions != null) {
             definitions.stream()
-                    .filter(definition -> definition != null
-                            && definition.placementStyle() == LandmarkPlacementStyle.CAVE_FLOOR)
+                    .filter(definition ->
+                            definition != null && definition.placementStyle() == LandmarkPlacementStyle.CAVE_FLOOR)
                     .map(definition -> new CaveProbe(definition.minY(), definition.maxY()))
                     .forEach(probes::add);
         }
@@ -41,9 +40,7 @@ final class LandmarkCatalogWorkBudget {
                 + " (reuse height bounds or reduce cave-floor definitions)");
     }
 
-    record Analysis(int distinctCaveProbes, int caveScanCellsPerCandidate) {
-    }
+    record Analysis(int distinctCaveProbes, int caveScanCellsPerCandidate) {}
 
-    private record CaveProbe(int minY, int maxY) {
-    }
+    private record CaveProbe(int minY, int maxY) {}
 }

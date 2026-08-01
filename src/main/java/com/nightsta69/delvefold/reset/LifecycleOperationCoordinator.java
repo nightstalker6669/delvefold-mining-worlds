@@ -7,16 +7,14 @@ import net.minecraft.server.MinecraftServer;
 /**
  * Establishes one lock order for delete/recreate and restore draft transitions.
  *
- * <p>Both services keep their own implementation locks, but every request,
- * confirmation, and cancellation enters this coordinator first. Cross-service
- * state queries therefore cannot form the opposing service-lock cycle that a
- * pair of ad-hoc synchronized checks would create.</p>
+ * <p>Both services keep their own implementation locks, but every request, confirmation, and cancellation enters this
+ * coordinator first. Cross-service state queries therefore cannot form the opposing service-lock cycle that a pair of
+ * ad-hoc synchronized checks would create.
  */
 final class LifecycleOperationCoordinator {
     private static final Object LOCK = new Object();
 
-    private LifecycleOperationCoordinator() {
-    }
+    private LifecycleOperationCoordinator() {}
 
     static <T> T coordinate(Supplier<T> action) {
         Objects.requireNonNull(action, "action");
@@ -36,8 +34,8 @@ final class LifecycleOperationCoordinator {
         Objects.requireNonNull(server, "server");
         Objects.requireNonNull(requestedKind, "requestedKind");
         synchronized (LOCK) {
-            boolean worldOperation = requestedKind == Kind.RESTORE
-                    && WorldOperationService.get().hasActiveLifecycleOperation(server);
+            boolean worldOperation =
+                    requestedKind == Kind.RESTORE && WorldOperationService.get().hasActiveLifecycleOperation(server);
             boolean restore = requestedKind == Kind.WORLD_OPERATION
                     && WorldRestoreService.get().hasActiveLifecycleOperation(server);
             return conflicts(requestedKind, worldOperation, restore);

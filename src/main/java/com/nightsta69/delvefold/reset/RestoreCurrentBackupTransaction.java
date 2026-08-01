@@ -2,37 +2,32 @@ package com.nightsta69.delvefold.reset;
 
 import com.nightsta69.delvefold.config.ConfigJson;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /** Transactional creation of the pre-restore snapshot while the server is offline. */
 final class RestoreCurrentBackupTransaction {
-    private RestoreCurrentBackupTransaction() {
+    private RestoreCurrentBackupTransaction() {}
+
+    static void backup(Path configDirectory, Path activeRoot, Path preRestore, PendingWorldRestore pending)
+            throws IOException {
+        backup(configDirectory, activeRoot, preRestore, pending, RestoreCurrentBackupTransaction::moveDirectory);
     }
 
-    static void backup(Path configDirectory, Path activeRoot, Path preRestore,
-            PendingWorldRestore pending) throws IOException {
-        backup(configDirectory, activeRoot, preRestore, pending,
-                RestoreCurrentBackupTransaction::moveDirectory);
-    }
-
-    static void backup(Path configDirectory, Path activeRoot, Path preRestore,
-            PendingWorldRestore pending, DirectoryMover mover) throws IOException {
+    static void backup(
+            Path configDirectory, Path activeRoot, Path preRestore, PendingWorldRestore pending, DirectoryMover mover)
+            throws IOException {
         Objects.requireNonNull(pending, "pending");
         Objects.requireNonNull(mover, "mover");
-        Path config = requireDirectory(configDirectory, "Active configuration");
-        Path activeDimensions = requireDirectory(activeRoot, "Active dimension root");
-        Path backup = requireDirectoryOrCreate(preRestore, "Pre-restore backup root");
+        Path config = LifecycleFileOperations.requireDirectory(configDirectory, "Active configuration");
+        Path activeDimensions = LifecycleFileOperations.requireDirectory(activeRoot, "Active dimension root");
+        Path backup = LifecycleFileOperations.requireDirectoryOrCreate(preRestore, "Pre-restore backup root");
         Path backupRoot = backup.resolve("dimensions/delvefold").normalize();
         if (!backupRoot.startsWith(backup)) {
             throw new IOException("Pre-restore dimension path escaped its backup root");
@@ -40,7 +35,7 @@ final class RestoreCurrentBackupTransaction {
         Files.createDirectories(backupRoot);
         preflightDimensionMoves(activeDimensions, backupRoot);
 
-        Path marker = backup.resolve("operation.json");
+        Path marker = LifecycleJournalFiles.operationMarker(backup);
         if (Files.exists(marker) || Files.isSymbolicLink(marker)) {
             if (Files.isSymbolicLink(marker) || !Files.isRegularFile(marker)) {
                 throw new IOException("Pre-restore operation marker failed safety checks");
@@ -148,79 +143,25 @@ final class RestoreCurrentBackupTransaction {
         if (Files.isSymbolicLink(path) || !Files.isRegularFile(path)) {
             throw new IOException("Active settings failed safety checks");
         }
-        WorldSettingsDocument settings = ConfigJson.GSON.fromJson(
-                Files.readString(path, StandardCharsets.UTF_8), WorldSettingsDocument.class);
+        WorldSettingsDocument settings =
+                ConfigJson.GSON.fromJson(Files.readString(path, StandardCharsets.UTF_8), WorldSettingsDocument.class);
         if (settings == null || !settings.initialized()) {
             throw new IOException("Active settings are not initialized");
         }
         return settings;
     }
 
-    private static Path requireDirectory(Path supplied, String description) throws IOException {
-        if (supplied == null) {
-            throw new IOException(description + " is missing");
-        }
-        Path path = supplied.toAbsolutePath().normalize();
-        if (Files.isSymbolicLink(path) || !Files.isDirectory(path)) {
-            throw new IOException(description + " failed safety checks");
-        }
-        return path;
-    }
-
-    private static Path requireDirectoryOrCreate(Path supplied, String description) throws IOException {
-        if (supplied == null) {
-            throw new IOException(description + " is missing");
-        }
-        Path path = supplied.toAbsolutePath().normalize();
-        if (Files.isSymbolicLink(path)) {
-            throw new IOException(description + " failed safety checks");
-        }
-        Files.createDirectories(path);
-        if (!Files.isDirectory(path)) {
-            throw new IOException(description + " failed safety checks");
-        }
-        return path;
-    }
-
     private static void writeJson(Path target, Object value) throws IOException {
-        byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator())
-                .getBytes(StandardCharsets.UTF_8);
-        Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
-        boolean moved = false;
-        try {
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
-                ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, target);
-            }
-            moved = true;
-        } finally {
-            if (!moved) {
-                Files.deleteIfExists(temporary);
-            }
-        }
+        byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
+        AtomicFiles.writeWithoutReplaceOption(target, bytes);
     }
 
     private static void moveDirectory(Path source, Path destination) throws IOException {
         Files.createDirectories(destination.getParent());
-        try {
-            Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(source, destination);
-        }
+        AtomicFiles.moveWithoutReplaceOption(source, destination);
     }
 
-    private record DimensionMove(Path active, Path backup) {
-    }
+    private record DimensionMove(Path active, Path backup) {}
 
     @FunctionalInterface
     interface DirectoryMover {

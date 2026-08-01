@@ -42,8 +42,8 @@ class WorldRestoreTransactionTest {
         Files.createSymbolicLink(unsafe, escaped);
 
         PendingWorldRestore pending = pending();
-        assertThrows(IOException.class,
-                () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending));
+        assertThrows(
+                IOException.class, () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending));
 
         for (var entry : expected.entrySet()) {
             Path dimension = active.resolve(entry.getKey());
@@ -51,10 +51,13 @@ class WorldRestoreTransactionTest {
                 assertTrue(Files.isSymbolicLink(dimension));
                 continue;
             }
-            assertEquals(entry.getValue(), Files.readString(dimension.resolve("region.mca")),
+            assertEquals(
+                    entry.getValue(),
+                    Files.readString(dimension.resolve("region.mca")),
                     "a failed backup transaction must restore " + entry.getKey());
-            assertFalse(Files.exists(preRestore.resolve("dimensions/delvefold")
-                    .resolve(entry.getKey())), "rollback must not leave a duplicate staged folder");
+            assertFalse(
+                    Files.exists(preRestore.resolve("dimensions/delvefold").resolve(entry.getKey())),
+                    "rollback must not leave a duplicate staged folder");
         }
         assertEquals("outside", Files.readString(escaped.resolve("region.mca")));
 
@@ -82,12 +85,13 @@ class WorldRestoreTransactionTest {
         Files.createDirectories(unsafeDestination.getParent());
         Files.writeString(unsafeDestination, "not a directory");
 
-        assertThrows(IOException.class,
-                () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending()));
+        assertThrows(
+                IOException.class, () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending()));
 
         for (var entry : expected.entrySet()) {
-            assertEquals(entry.getValue(), Files.readString(
-                    active.resolve(entry.getKey()).resolve("region.mca")));
+            assertEquals(
+                    entry.getValue(),
+                    Files.readString(active.resolve(entry.getKey()).resolve("region.mca")));
         }
         assertEquals("not a directory", Files.readString(unsafeDestination));
     }
@@ -108,17 +112,19 @@ class WorldRestoreTransactionTest {
             Files.move(source, destination);
         };
 
-        IOException failure = assertThrows(IOException.class,
-                () -> RestoreCurrentBackupTransaction.backup(
-                        config, active, preRestore, pending(), failOnce));
+        IOException failure = assertThrows(
+                IOException.class,
+                () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending(), failOnce));
         assertEquals("injected move failure", failure.getMessage());
-        assertEquals(7, moveCalls.get(),
+        assertEquals(
+                7,
+                moveCalls.get(),
                 "three successful moves must be rolled back in reverse order after the fourth fails");
         for (var entry : expected.entrySet()) {
-            assertEquals(entry.getValue(), Files.readString(
-                    active.resolve(entry.getKey()).resolve("region.mca")));
-            assertFalse(Files.exists(preRestore.resolve("dimensions/delvefold")
-                    .resolve(entry.getKey())));
+            assertEquals(
+                    entry.getValue(),
+                    Files.readString(active.resolve(entry.getKey()).resolve("region.mca")));
+            assertFalse(Files.exists(preRestore.resolve("dimensions/delvefold").resolve(entry.getKey())));
         }
         assertFalse(Files.exists(preRestore.resolve(BackupManifest.FILE_NAME)));
         assertFalse(Files.exists(preRestore.resolve(BackupVerificationReceipt.FILE_NAME)));
@@ -135,20 +141,21 @@ class WorldRestoreTransactionTest {
         Path preRestore = temporaryDirectory.resolve("manifest-failure/backups/pre-restore");
         Map<String, String> expected = createActiveDimensions(active);
 
-        assertThrows(IOException.class,
-                () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending()));
+        assertThrows(
+                IOException.class, () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending()));
 
         for (var entry : expected.entrySet()) {
-            assertEquals(entry.getValue(), Files.readString(
-                    active.resolve(entry.getKey()).resolve("region.mca")));
+            assertEquals(
+                    entry.getValue(),
+                    Files.readString(active.resolve(entry.getKey()).resolve("region.mca")));
             assertFalse(Files.exists(preRestore.resolve("dimensions/delvefold").resolve(entry.getKey())));
         }
         assertFalse(Files.exists(preRestore.resolve(BackupManifest.FILE_NAME)));
         assertFalse(Files.exists(preRestore.resolve(BackupVerificationReceipt.FILE_NAME)));
         assertFalse(Files.exists(preRestore.resolve(RestoreConfigSnapshot.COMPLETE_MARKER)));
 
-        Files.writeString(config.resolve("ores.json"),
-                ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
+        Files.writeString(
+                config.resolve("ores.json"), ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
         RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending());
         assertSnapshotPublished(active, preRestore, expected);
         assertTrue(Files.isRegularFile(preRestore.resolve(BackupManifest.FILE_NAME)));
@@ -173,21 +180,22 @@ class WorldRestoreTransactionTest {
         Path escaped = Files.createDirectories(temporaryDirectory.resolve("crash-retry-outside"));
         Files.createSymbolicLink(unsafe, escaped);
 
-        assertThrows(IOException.class,
-                () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending()));
+        assertThrows(
+                IOException.class, () -> RestoreCurrentBackupTransaction.backup(config, active, preRestore, pending()));
 
         assertFalse(Files.exists(active.resolve(previouslyMovedName)));
-        assertEquals(expected.get(previouslyMovedName),
+        assertEquals(
+                expected.get(previouslyMovedName),
                 Files.readString(previouslyMoved.resolve("region.mca")),
                 "rollback must not undo a folder published by an earlier startup");
         for (var entry : expected.entrySet()) {
             if (entry.getKey().equals(previouslyMovedName) || entry.getKey().equals(unsafeName)) {
                 continue;
             }
-            assertEquals(entry.getValue(), Files.readString(
-                    active.resolve(entry.getKey()).resolve("region.mca")));
-            assertFalse(Files.exists(preRestore.resolve("dimensions/delvefold")
-                    .resolve(entry.getKey())));
+            assertEquals(
+                    entry.getValue(),
+                    Files.readString(active.resolve(entry.getKey()).resolve("region.mca")));
+            assertFalse(Files.exists(preRestore.resolve("dimensions/delvefold").resolve(entry.getKey())));
         }
 
         Files.delete(unsafe);
@@ -199,14 +207,15 @@ class WorldRestoreTransactionTest {
 
     private Path createConfiguration() throws Exception {
         Path config = Files.createDirectories(temporaryDirectory.resolve("serverconfig/delvefold"));
-        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized().initialize(
-                TerrainMode.FLAT,
-                OrePreset.VANILLA_BALANCED,
-                GameplayPreset.SAFE,
-                WorldIdentitySettings.defaults());
+        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized()
+                .initialize(
+                        TerrainMode.FLAT,
+                        OrePreset.VANILLA_BALANCED,
+                        GameplayPreset.SAFE,
+                        WorldIdentitySettings.defaults());
         Files.writeString(config.resolve("settings.json"), ConfigJson.GSON.toJson(settings));
-        Files.writeString(config.resolve("ores.json"),
-                ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
+        Files.writeString(
+                config.resolve("ores.json"), ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
         return config;
     }
 
@@ -222,12 +231,16 @@ class WorldRestoreTransactionTest {
         return expected;
     }
 
-    private static void assertSnapshotPublished(
-            Path active, Path preRestore, Map<String, String> expected) throws Exception {
+    private static void assertSnapshotPublished(Path active, Path preRestore, Map<String, String> expected)
+            throws Exception {
         for (var entry : expected.entrySet()) {
             assertFalse(Files.exists(active.resolve(entry.getKey())));
-            assertEquals(entry.getValue(), Files.readString(preRestore.resolve("dimensions/delvefold")
-                    .resolve(entry.getKey()).resolve("region.mca")));
+            assertEquals(
+                    entry.getValue(),
+                    Files.readString(preRestore
+                            .resolve("dimensions/delvefold")
+                            .resolve(entry.getKey())
+                            .resolve("region.mca")));
         }
         assertTrue(Files.isRegularFile(preRestore.resolve("operation.json")));
         assertTrue(Files.isRegularFile(preRestore.resolve(RestoreConfigSnapshot.COMPLETE_MARKER)));

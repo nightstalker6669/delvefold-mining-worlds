@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /** Source-contract checks for NeoForge-only forecast and ore-import network wiring. */
@@ -23,14 +24,14 @@ class ForecastImportNetworkContractTest {
                 "OreImportPreviewRequestPayload",
                 "OreImportPreviewPageRequestPayload",
                 "OreImportCreatePayload")) {
-            assertTrue(network.contains("registrar.playToServer(" + payload + ".TYPE,"),
+            assertTrue(
+                    network.contains("registrar.playToServer(" + payload + ".TYPE,"),
                     payload + " must be registered as a client-to-server request");
         }
-        for (String payload : List.of(
-                "OpenForecastPayload",
-                "OpenOreImportScanPayload",
-                "OpenOreImportPreviewPayload")) {
-            assertTrue(network.contains("registrar.playToClient(" + payload + ".TYPE,"),
+        for (String payload :
+                List.of("OpenForecastPayload", "OpenOreImportScanPayload", "OpenOreImportPreviewPayload")) {
+            assertTrue(
+                    network.contains("registrar.playToClient(" + payload + ".TYPE,"),
                     payload + " must be registered as a server-to-client view");
         }
     }
@@ -47,14 +48,17 @@ class ForecastImportNetworkContractTest {
                 "handleImportPreviewPage",
                 "handleImportCreate")) {
             String body = privateMethod(network, handler);
-            assertTrue(body.contains("authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION)"),
+            assertTrue(
+                    body.contains("authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION)"),
                     handler + " must reject unauthorized network callers before doing work");
         }
 
         String service = read("admin/OreImportAdminService.java");
-        assertTrue(occurrences(service, "requireConfigure(player);") >= 5,
+        assertTrue(
+                occurrences(service, "requireConfigure(player);") >= 5,
                 "The import service must retain defense-in-depth permission checks");
-        assertTrue(service.contains("!AdminAccess.canConfigure(player)"),
+        assertTrue(
+                service.contains("!AdminAccess.canConfigure(player)"),
                 "The import service permission check must fail closed");
     }
 
@@ -64,9 +68,11 @@ class ForecastImportNetworkContractTest {
         String handler = read("client/DelvefoldClientPayloadHandler.java");
 
         for (String method : List.of("openForecast", "openOreImportScan", "openOreImportPreview")) {
-            assertTrue(bootstrap.contains("DelvefoldClientPayloadHandler::" + method),
+            assertTrue(
+                    bootstrap.contains("DelvefoldClientPayloadHandler::" + method),
                     method + " must be installed during client setup");
-            assertTrue(handler.contains("public static void " + method + "("),
+            assertTrue(
+                    handler.contains("public static void " + method + "("),
                     method + " must have a client payload handler");
         }
     }
@@ -83,8 +89,7 @@ class ForecastImportNetworkContractTest {
         assertTrue(forecastCodec.contains("Double.isFinite(value)"));
         assertTrue(forecastCodec.contains("bytes > MAX_NETWORK_BYTES"));
 
-        assertTrue(importCodec.contains(
-                "readCount(buffer, ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE"));
+        assertTrue(importCodec.contains("readCount(buffer, ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE"));
         assertTrue(importCodec.contains("readCount(buffer, ProtocolLimits.MAX_VARIANTS"));
         assertTrue(importCodec.contains("readCount(buffer, ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE"));
         assertTrue(importCodec.contains("readCount(buffer, ProtocolLimits.MAX_IMPORT_ISSUES"));
@@ -93,7 +98,8 @@ class ForecastImportNetworkContractTest {
 
         int countValidation = previewPayload.indexOf("if (count < 1 || count >");
         int allocation = previewPayload.indexOf("new java.util.ArrayList<>(count)");
-        assertTrue(countValidation >= 0 && allocation > countValidation,
+        assertTrue(
+                countValidation >= 0 && allocation > countValidation,
                 "The selected-group count must be checked before allocating its decode list");
     }
 
@@ -104,17 +110,24 @@ class ForecastImportNetworkContractTest {
         String lifecycle = read("server/DelvefoldServerLifecycle.java");
         String reload = read("config/EcosystemProfileReloadListener.java");
 
-        assertTrue(registry.contains("private static volatile CachedSnapshot cachedSnapshot"));
-        assertTrue(registry.contains("OreImportFingerprints.registry(registry)"),
+        assertTrue(
+                Pattern.compile("private\\s+static\\s+volatile(?:\\s+@Nullable)?\\s+CachedSnapshot\\s+cachedSnapshot")
+                        .matcher(registry)
+                        .find());
+        assertTrue(
+                registry.contains("OreImportFingerprints.registry(registry)"),
                 "The expensive registry fingerprint must be captured with the cached snapshot");
         assertTrue(service.contains("MinecraftOreImportRegistry.cachedSnapshot()"));
-        assertTrue(!service.contains("new MinecraftOreImportRegistry()"),
+        assertTrue(
+                !service.contains("new MinecraftOreImportRegistry()"),
                 "Import pages must not rebuild the block/tag registry on every request");
 
-        assertTrue(occurrences(lifecycle, "MinecraftOreImportRegistry.invalidateCache();") >= 2,
+        assertTrue(
+                occurrences(lifecycle, "MinecraftOreImportRegistry.invalidateCache();") >= 2,
                 "Server start and stop must invalidate the registry snapshot");
         assertTrue(reload.contains("MinecraftOreImportRegistry.invalidateCache();"));
-        assertTrue(reload.contains("OreImportSessionService.get().invalidateAll();"),
+        assertTrue(
+                reload.contains("OreImportSessionService.get().invalidateAll();"),
                 "A datapack/tag reload must invalidate every bound import session");
     }
 

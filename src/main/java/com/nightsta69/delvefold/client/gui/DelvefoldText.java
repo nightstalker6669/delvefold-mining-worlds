@@ -5,8 +5,7 @@ import net.minecraft.network.chat.Component;
 
 /** Centralized translatable labels shared by the administration screens. */
 public final class DelvefoldText {
-    private DelvefoldText() {
-    }
+    private DelvefoldText() {}
 
     static Component option(String group, String id) {
         return Component.translatable("option.delvefold." + group + '.' + id);
@@ -22,7 +21,12 @@ public final class DelvefoldText {
                 : Component.translatable("screen.delvefold.choice.available", label);
     }
 
-    /** Resolves the bounded translation representation sent by the server, retaining legacy text. */
+    /**
+     * Resolves the bounded translation representation sent by the server, retaining legacy text.
+     *
+     * @param message encoded translation representation or legacy literal text
+     * @return a client-localized component safe for rendering
+     */
     public static Component serverMessage(String message) {
         return AdminLocalizedComponents.resolve(message);
     }

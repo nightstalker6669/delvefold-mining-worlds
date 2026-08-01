@@ -22,10 +22,11 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.portal.DimensionTransition;
 import net.minecraft.world.level.portal.PortalShape;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 /**
- * Finds or builds a bounded, safe partner portal and creates the 1.21.1
- * {@link DimensionTransition}. No region ticket or forced chunk is retained.
+ * Finds or builds a bounded, safe partner portal and creates the 1.21.1 {@link DimensionTransition}. No region ticket
+ * or forced chunk is retained.
  */
 final class PortalDestinationService {
     private static final int PORTAL_SEARCH_RADIUS = 32;
@@ -35,14 +36,10 @@ final class PortalDestinationService {
     private static final int FALLBACK_CLEAR_RADIUS = 2;
     private static final int BLOCK_UPDATE_FLAGS = Block.UPDATE_CLIENTS | Block.UPDATE_SUPPRESS_DROPS;
 
-    private PortalDestinationService() {
-    }
+    private PortalDestinationService() {}
 
-    static DimensionTransition createTransition(
-            ServerLevel source,
-            ServerPlayer player,
-            BlockPos entryPosition,
-            PortalAccess.Result access) {
+    static @Nullable DimensionTransition createTransition(
+            ServerLevel source, ServerPlayer player, BlockPos entryPosition, PortalAccess.Result access) {
         ServerLevel target = access.destination();
         if (target == null) {
             fail(player, access);
@@ -148,8 +145,7 @@ final class PortalDestinationService {
         return PortalFrameShape.findFromInterior(level, position, state.getValue(MiningPortalBlock.AXIS));
     }
 
-    private static Optional<PortalFrameShape> createPortal(
-            ServerLevel level, BlockPos requested, Direction.Axis axis) {
+    private static Optional<PortalFrameShape> createPortal(ServerLevel level, BlockPos requested, Direction.Axis axis) {
         Optional<PortalFrameShape> natural = findNaturalSite(level, requested, axis);
         if (natural.isPresent()) {
             natural.get().buildAndFill(level);
@@ -163,8 +159,8 @@ final class PortalDestinationService {
         boolean cavern = com.nightsta69.delvefold.world.DelvefoldWorldgen.isCavernLevel(level.dimension());
         WorldBorder border = level.getWorldBorder();
 
-        for (BlockPos.MutableBlockPos cursor : BlockPos.spiralAround(
-                requested, NATURAL_SITE_RADIUS, Direction.EAST, Direction.SOUTH)) {
+        for (BlockPos.MutableBlockPos cursor :
+                BlockPos.spiralAround(requested, NATURAL_SITE_RADIUS, Direction.EAST, Direction.SOUTH)) {
             if (!hasPortalMargin(border, cursor.getX(), cursor.getZ())) {
                 continue;
             }
@@ -175,8 +171,8 @@ final class PortalDestinationService {
             preferredY = clampPortalY(level, preferredY);
 
             if (!cavern) {
-                PortalFrameShape shape = PortalFrameShape.standardAt(
-                        new BlockPos(cursor.getX(), preferredY, cursor.getZ()), axis);
+                PortalFrameShape shape =
+                        PortalFrameShape.standardAt(new BlockPos(cursor.getX(), preferredY, cursor.getZ()), axis);
                 if (canHostNaturalPortal(level, shape)) {
                     return Optional.of(shape);
                 }
@@ -185,8 +181,8 @@ final class PortalDestinationService {
 
             for (int distance = 0; distance <= CAVERN_VERTICAL_SEARCH; distance++) {
                 int above = clampPortalY(level, preferredY + distance);
-                PortalFrameShape aboveShape = PortalFrameShape.standardAt(
-                        new BlockPos(cursor.getX(), above, cursor.getZ()), axis);
+                PortalFrameShape aboveShape =
+                        PortalFrameShape.standardAt(new BlockPos(cursor.getX(), above, cursor.getZ()), axis);
                 if (canHostNaturalPortal(level, aboveShape)) {
                     return Optional.of(aboveShape);
                 }
@@ -194,8 +190,8 @@ final class PortalDestinationService {
                 if (distance > 0) {
                     int below = clampPortalY(level, preferredY - distance);
                     if (below != above) {
-                        PortalFrameShape belowShape = PortalFrameShape.standardAt(
-                                new BlockPos(cursor.getX(), below, cursor.getZ()), axis);
+                        PortalFrameShape belowShape =
+                                PortalFrameShape.standardAt(new BlockPos(cursor.getX(), below, cursor.getZ()), axis);
                         if (canHostNaturalPortal(level, belowShape)) {
                             return Optional.of(belowShape);
                         }
@@ -236,8 +232,8 @@ final class PortalDestinationService {
 
     private static Optional<PortalFrameShape> createFallbackPortal(
             ServerLevel level, BlockPos requested, Direction.Axis axis) {
-        Optional<HorizontalPosition> clamped = clampInsideBorder(
-                level.getWorldBorder(), requested.getX(), requested.getZ());
+        Optional<HorizontalPosition> clamped =
+                clampInsideBorder(level.getWorldBorder(), requested.getX(), requested.getZ());
         if (clamped.isEmpty()) {
             return Optional.empty();
         }
@@ -246,10 +242,12 @@ final class PortalDestinationService {
         if (com.nightsta69.delvefold.world.DelvefoldWorldgen.isCavernLevel(level.dimension())) {
             y = clampPortalY(level, requested.getY());
         } else {
-            y = clampPortalY(level, level.getHeight(
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    clamped.get().x(),
-                    clamped.get().z()));
+            y = clampPortalY(
+                    level,
+                    level.getHeight(
+                            Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                            clamped.get().x(),
+                            clamped.get().z()));
         }
 
         BlockPos center = new BlockPos(clamped.get().x(), y, clamped.get().z());
@@ -289,8 +287,7 @@ final class PortalDestinationService {
                 ? player.getDeltaMovement()
                 : new Vec3(player.getDeltaMovement().z, player.getDeltaMovement().y, -player.getDeltaMovement().x);
 
-        double along = dimensions.width() / 2.0D
-                + (usableWidth - dimensions.width()) * relativePosition.x();
+        double along = dimensions.width() / 2.0D + (usableWidth - dimensions.width()) * relativePosition.x();
         double vertical = (usableHeight - dimensions.height()) * relativePosition.y();
         double normal = 0.5D + relativePosition.z();
         boolean xAxis = targetAxis == Direction.Axis.X;
@@ -351,6 +348,5 @@ final class PortalDestinationService {
         player.setPortalCooldown(PortalAccess.cooldownTicks(access.settings()));
     }
 
-    private record HorizontalPosition(int x, int z) {
-    }
+    private record HorizontalPosition(int x, int z) {}
 }

@@ -14,8 +14,7 @@ class DelvefoldConfigServiceOreRuleSaveTest {
         OreRule existing = OrePresets.balanced().rules().getFirst();
         OreRule replacement = existing.withEnabled(!existing.enabled());
 
-        OreRuleSavePlanner.Plan plan =
-                OreRuleSavePlanner.plan(List.of(existing), replacement, true);
+        OreRuleSavePlanner.Plan plan = OreRuleSavePlanner.plan(List.of(existing), replacement, true);
 
         assertTrue(plan.collision());
         assertEquals(List.of(existing), plan.rules());
@@ -26,8 +25,7 @@ class DelvefoldConfigServiceOreRuleSaveTest {
         OreRule existing = OrePresets.balanced().rules().getFirst();
         OreRule replacement = existing.withEnabled(!existing.enabled());
 
-        OreRuleSavePlanner.Plan plan =
-                OreRuleSavePlanner.plan(List.of(existing), replacement, false);
+        OreRuleSavePlanner.Plan plan = OreRuleSavePlanner.plan(List.of(existing), replacement, false);
 
         assertFalse(plan.collision());
         assertEquals(List.of(replacement), plan.rules());
@@ -45,8 +43,7 @@ class DelvefoldConfigServiceOreRuleSaveTest {
                 existing.biomes(),
                 existing.bands());
 
-        OreRuleSavePlanner.Plan plan =
-                OreRuleSavePlanner.plan(List.of(existing), created, true);
+        OreRuleSavePlanner.Plan plan = OreRuleSavePlanner.plan(List.of(existing), created, true);
 
         assertFalse(plan.collision());
         assertEquals(List.of(existing, created), plan.rules());

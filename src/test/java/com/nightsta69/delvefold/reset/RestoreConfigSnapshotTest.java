@@ -2,8 +2,8 @@ package com.nightsta69.delvefold.reset;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -53,25 +53,29 @@ class RestoreConfigSnapshotTest {
 
         Files.writeString(source.resolve("settings.json"), "settings-v2");
         RestoreConfigSnapshot.capture(source, backup);
-        assertEquals("settings-v1", Files.readString(partial.resolve("settings.json")),
+        assertEquals(
+                "settings-v1",
+                Files.readString(partial.resolve("settings.json")),
                 "a completed pre-restore snapshot must remain immutable across restart recovery");
     }
 
     @Test
     void bothLifecycleBackupPathsUseTheCrashSafeSnapshotPublisher() throws Exception {
-        String worldOperation = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/reset/WorldOperationService.java"));
-        String restore = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/reset/WorldRestoreService.java"));
-        String restoreTransaction = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/reset/RestoreCurrentBackupTransaction.java"));
+        String worldOperation =
+                Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/reset/WorldOperationService.java"));
+        String restore =
+                Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/reset/WorldRestoreService.java"));
+        String restoreTransaction = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/reset/RestoreCurrentBackupTransaction.java"));
 
         assertTrue(worldOperation.contains(
                 "RestoreConfigSnapshot.capture(ConfigPaths.forServer(server).directory(), holdingRoot)"));
-        assertTrue(restore.contains(
-                "RestoreCurrentBackupTransaction.backup(configDirectory, activeRoot, preRestore, pending)"),
+        assertTrue(
+                restore.contains(
+                        "RestoreCurrentBackupTransaction.backup(configDirectory, activeRoot, preRestore, pending)"),
                 "Restore startup must delegate its pre-restore backup to the transactional publisher");
-        assertTrue(restoreTransaction.contains("RestoreConfigSnapshot.capture(config, backup)"),
+        assertTrue(
+                restoreTransaction.contains("RestoreConfigSnapshot.capture(config, backup)"),
                 "The transactional pre-restore backup must publish configuration crash-safely");
     }
 

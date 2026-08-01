@@ -7,16 +7,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class GuideLayoutTest {
     @ParameterizedTest
-    @CsvSource({
-            "854,480",
-            "1920,1080",
-            "960,540",
-            "640,360",
-            "480,270",
-            "427,240",
-            "320,240",
-            "200,150"
-    })
+    @CsvSource({"854,480", "1920,1080", "960,540", "640,360", "480,270", "427,240", "320,240", "200,150"})
     void layoutStaysContainedAndNeverCreatesAnInvalidScissor(int width, int height) {
         GuideLayout layout = GuideLayout.calculate(width, height);
         assertTrue(layout.panelLeft() >= 0);

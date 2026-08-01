@@ -5,16 +5,12 @@ import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -27,6 +23,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 /** Creates and verifies tamper-evident manifests for Delvefold backups. */
 public final class BackupManifestService {
@@ -40,6 +37,7 @@ public final class BackupManifestService {
 
     private final Clock clock;
 
+    /** Creates a manifest service using the UTC system clock for verification receipts. */
     public BackupManifestService() {
         this(Clock.systemUTC());
     }
@@ -49,8 +47,16 @@ public final class BackupManifestService {
     }
 
     /**
-     * Creates a manifest for a legacy or newly completed backup and immediately
-     * verifies it. Call only from lifecycle or worker threads, never a server tick.
+     * Creates a manifest for a legacy or newly completed backup and immediately verifies it. Call only from lifecycle
+     * or worker threads, never a server tick.
+     *
+     * <p>The root must be an existing non-symbolic-link directory with a normalized backup ID. Every nested entry is
+     * checked, file paths are normalized and sorted, and file contents are hashed before the manifest and verification
+     * receipt are published.
+     *
+     * @param backupRoot existing backup directory
+     * @return immutable manifest and receipt from the completed verification
+     * @throws IOException if layout, path, schema, size, hashing, or publication checks fail
      */
     public Verification createVerifiedManifest(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
@@ -70,7 +76,16 @@ public final class BackupManifestService {
         return verify(root);
     }
 
-    /** Performs a complete manifest/file comparison and persists a success receipt. */
+    /**
+     * Performs a complete manifest/file comparison and persists a success receipt.
+     *
+     * <p>Any existing receipt is removed before hashing and remains absent after failure, so a stale receipt cannot
+     * make a corrupted backup appear restorable.
+     *
+     * @param backupRoot existing non-symbolic-link backup directory
+     * @return immutable validated manifest and newly written receipt
+     * @throws IOException if metadata, normalized paths, sizes, SHA-256 digests, or receipt publication differ
+     */
     public Verification verify(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
         try {
@@ -114,7 +129,13 @@ public final class BackupManifestService {
         }
     }
 
-    /** Reads and structurally validates a manifest without hashing backup contents. */
+    /**
+     * Reads and structurally validates a manifest without hashing backup contents.
+     *
+     * @param backupRoot existing non-symbolic-link backup directory
+     * @return immutable manifest with sorted, unique, contained relative paths
+     * @throws IOException if the file is absent, unsafe, larger than 64 MiB, malformed, or structurally inconsistent
+     */
     public BackupManifest readManifest(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
         Path path = root.resolve(BackupManifest.FILE_NAME);
@@ -132,15 +153,20 @@ public final class BackupManifestService {
     }
 
     /**
-     * Checks the small verification receipt against the manifest. This is safe
-     * for listing screens; restoration still performs a complete verification.
+     * Checks the small verification receipt against the manifest. This is safe for listing screens; restoration still
+     * performs a complete verification.
+     *
+     * @param backupRoot existing backup directory to inspect
+     * @return {@code true} only when receipt schema, backup ID, manifest digest, byte metadata, and counts still match;
+     *     invalid or unsafe inputs return {@code false}
      */
     public boolean hasCurrentVerification(Path backupRoot) {
         try {
             Path root = checkedRoot(backupRoot);
             BackupManifest manifest = readManifest(root);
             Path receiptPath = root.resolve(BackupVerificationReceipt.FILE_NAME);
-            if (Files.isSymbolicLink(receiptPath) || !Files.isRegularFile(receiptPath)
+            if (Files.isSymbolicLink(receiptPath)
+                    || !Files.isRegularFile(receiptPath)
                     || Files.size(receiptPath) > 64L * 1024L) {
                 return false;
             }
@@ -160,19 +186,30 @@ public final class BackupManifestService {
                     && receipt.totalBytes() == manifest.totalBytes()
                     && receipt.manifestSizeBytes() == Files.size(manifestPath)
                     && receipt.manifestLastModifiedEpochMillis()
-                    == Files.getLastModifiedTime(manifestPath).toMillis();
+                            == Files.getLastModifiedTime(manifestPath).toMillis();
         } catch (IOException | RuntimeException exception) {
             return false;
         }
     }
 
-    /** Validates the pre-manifest layout used by explicit legacy upgrades. */
+    /**
+     * Validates the pre-manifest layout used by explicit legacy upgrades without writing control files.
+     *
+     * @param backupRoot existing legacy backup directory
+     * @throws IOException if configuration, operation metadata, canonical dimension data, or nested paths are unsafe
+     */
     public void validateLegacyLayout(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
         validateRestorableLayout(root);
         scanFiles(root);
     }
 
+    /**
+     * Performs a lightweight existence and final-path safety check without parsing or hashing the manifest.
+     *
+     * @param backupRoot backup directory, or {@code null}
+     * @return {@code true} when a non-symbolic-link regular manifest file exists at the normalized root
+     */
     public static boolean hasManifest(Path backupRoot) {
         if (backupRoot == null) {
             return false;
@@ -218,10 +255,12 @@ public final class BackupManifestService {
         }
         WorldSettingsDocument settings = readCurrentSchema(
                 root.resolve("config/serverconfig/delvefold/settings.json"),
-                WorldSettingsDocument.class, WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
+                WorldSettingsDocument.class,
+                WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
         OreProfileDocument ores = readCurrentSchema(
                 root.resolve("config/serverconfig/delvefold/ores.json"),
-                OreProfileDocument.class, OreProfileDocument.CURRENT_SCHEMA_VERSION);
+                OreProfileDocument.class,
+                OreProfileDocument.CURRENT_SCHEMA_VERSION);
         if (settings == null || ores == null) {
             throw new IOException("Backup configuration is missing or uses an unsupported schema");
         }
@@ -230,12 +269,12 @@ public final class BackupManifestService {
     }
 
     /**
-     * Validates that a backup contains real data for its active canonical Delvefold dimension.
-     * Older operation markers do not record the source variant, so an uninitialized settings
-     * snapshot falls back to either canonical variant for the recorded source terrain.
+     * Validates that a backup contains real data for its active canonical Delvefold dimension. Older operation markers
+     * do not record the source variant, so an uninitialized settings snapshot falls back to either canonical variant
+     * for the recorded source terrain.
      */
-    static void validateDimensionSnapshot(
-            Path root, PendingWorldOperation operation, WorldSettingsDocument settings) throws IOException {
+    static void validateDimensionSnapshot(Path root, PendingWorldOperation operation, WorldSettingsDocument settings)
+            throws IOException {
         Path dimensions = root.resolve("dimensions/delvefold");
         if (Files.isSymbolicLink(dimensions) || !Files.isDirectory(dimensions)) {
             throw new IOException("Backup dimension snapshot is missing or unsafe");
@@ -245,7 +284,8 @@ public final class BackupManifestService {
         try (Stream<Path> children = Files.list(dimensions)) {
             for (Path child : children.toList()) {
                 String name = child.getFileName().toString();
-                if (Files.isSymbolicLink(child) || !Files.isDirectory(child)
+                if (Files.isSymbolicLink(child)
+                        || !Files.isDirectory(child)
                         || !DelvefoldDimensionFolders.ALL_SET.contains(name)) {
                     throw new IOException("Backup contains an unknown top-level dimension entry: " + name);
                 }
@@ -273,7 +313,7 @@ public final class BackupManifestService {
         }
     }
 
-    private static String expectedDimensionFolder(WorldSettingsDocument settings) {
+    private static @Nullable String expectedDimensionFolder(WorldSettingsDocument settings) {
         if (settings == null || !settings.initialized() || settings.terrainMode() == null) {
             return null;
         }
@@ -282,8 +322,7 @@ public final class BackupManifestService {
     }
 
     private static String dimensionFolder(TerrainMode terrain, TerrainVariant variant) {
-        return "delve_" + terrain.serializedName()
-                + (variant == TerrainVariant.EXPANSIVE ? "_expansive" : "");
+        return "delve_" + terrain.serializedName() + (variant == TerrainVariant.EXPANSIVE ? "_expansive" : "");
     }
 
     private static boolean belongsToTerrain(String folder, TerrainMode terrain) {
@@ -308,7 +347,7 @@ public final class BackupManifestService {
         }
     }
 
-    static <T> T readCurrentSchema(Path path, Class<T> type, int expected) {
+    static <T> @Nullable T readCurrentSchema(Path path, Class<T> type, int expected) {
         try {
             if (Files.isSymbolicLink(path) || !Files.isRegularFile(path) || Files.size(path) > MAX_CONFIG_BYTES) {
                 return null;
@@ -332,7 +371,9 @@ public final class BackupManifestService {
                 operation.createdAtEpochMillis(),
                 operation.operationId(),
                 operation.type().name().toLowerCase(Locale.ROOT),
-                operation.sourceTerrain() == null ? "unknown" : operation.sourceTerrain().serializedName(),
+                operation.sourceTerrain() == null
+                        ? "unknown"
+                        : operation.sourceTerrain().serializedName(),
                 operation.requestedBy());
     }
 
@@ -414,7 +455,10 @@ public final class BackupManifestService {
             Path path = Path.of(value);
             return !path.isAbsolute()
                     && path.getNameCount() > 0
-                    && path.normalize().toString().replace(path.getFileSystem().getSeparator(), "/").equals(value)
+                    && path.normalize()
+                            .toString()
+                            .replace(path.getFileSystem().getSeparator(), "/")
+                            .equals(value)
                     && !containsDotSegment(path);
         } catch (RuntimeException exception) {
             return false;
@@ -431,11 +475,12 @@ public final class BackupManifestService {
     }
 
     private static String describeMismatch(
-            List<BackupManifest.FileEntry> expected,
-            List<BackupManifest.FileEntry> actual) {
-        Set<String> expectedPaths = expected.stream().map(BackupManifest.FileEntry::path)
+            List<BackupManifest.FileEntry> expected, List<BackupManifest.FileEntry> actual) {
+        Set<String> expectedPaths = expected.stream()
+                .map(BackupManifest.FileEntry::path)
                 .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
-        Set<String> actualPaths = actual.stream().map(BackupManifest.FileEntry::path)
+        Set<String> actualPaths = actual.stream()
+                .map(BackupManifest.FileEntry::path)
                 .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
         Set<String> missing = new java.util.TreeSet<>(expectedPaths);
         missing.removeAll(actualPaths);
@@ -445,7 +490,8 @@ public final class BackupManifestService {
             return "Backup is missing a manifest file: " + missing.iterator().next();
         }
         if (!unexpected.isEmpty()) {
-            return "Backup contains a file not present in its manifest: " + unexpected.iterator().next();
+            return "Backup contains a file not present in its manifest: "
+                    + unexpected.iterator().next();
         }
         for (int index = 0; index < Math.min(expected.size(), actual.size()); index++) {
             BackupManifest.FileEntry left = expected.get(index);
@@ -502,31 +548,14 @@ public final class BackupManifestService {
 
     private static void writeJsonAtomically(Path target, Object value) throws IOException {
         byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
-        Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
-        boolean moved = false;
-        try {
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
-                ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-            moved = true;
-        } finally {
-            if (!moved) {
-                Files.deleteIfExists(temporary);
-            }
-        }
+        AtomicFiles.writeReplacing(target, bytes);
     }
 
-    public record Verification(BackupManifest manifest, BackupVerificationReceipt receipt) {
-    }
+    /**
+     * Immutable pair published only after full content verification succeeds.
+     *
+     * @param manifest structurally validated manifest whose entries matched disk contents
+     * @param receipt newly persisted proof tied to the current manifest bytes and metadata
+     */
+    public record Verification(BackupManifest manifest, BackupVerificationReceipt receipt) {}
 }

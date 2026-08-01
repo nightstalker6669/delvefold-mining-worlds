@@ -7,13 +7,13 @@ import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.border.WorldBorder;
 import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.server.level.ServerLevel;
 
 /** Plans and idempotently constructs the protected, player-facing central hub. */
 final class CentralHubService {
@@ -26,12 +26,11 @@ final class CentralHubService {
     private static final BlockState MARKER = Blocks.LODESTONE.defaultBlockState();
     private static final BlockState LIGHT = Blocks.SEA_LANTERN.defaultBlockState();
 
-    private CentralHubService() {
-    }
+    private CentralHubService() {}
 
     /**
-     * Resolves one stable hub plan. Marker blocks make the chosen surface height persistent even
-     * after the hub itself changes the heightmap, without retaining chunks or adding saved data.
+     * Resolves one stable hub plan. Marker blocks make the chosen surface height persistent even after the hub itself
+     * changes the heightmap, without retaining chunks or adding saved data.
      */
     static Optional<HubPlan> plan(ServerLevel level, PortalHubSettings settings) {
         if (!hasHubMargin(level.getWorldBorder(), settings.x(), settings.z())) {
@@ -47,8 +46,7 @@ final class CentralHubService {
         if (DelvefoldWorldgen.isCavernLevel(level.dimension())) {
             floorY = DEFAULT_CAVERN_FLOOR_Y;
         } else {
-            floorY = level.getHeight(
-                    Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, settings.x(), settings.z()) - 1;
+            floorY = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, settings.x(), settings.z()) - 1;
         }
         floorY = Mth.clamp(floorY, minimumFloorY(level), maximumFloorY(level));
         return Optional.of(planAtFloor(new BlockPos(settings.x(), floorY, settings.z())));
@@ -59,9 +57,7 @@ final class CentralHubService {
         for (int x = -PLATFORM_RADIUS; x <= PLATFORM_RADIUS; x++) {
             for (int z = -PLATFORM_RADIUS; z <= PLATFORM_RADIUS; z++) {
                 BlockPos floor = center.offset(x, 0, z);
-                BlockState floorState = isMarkerOffset(x, z)
-                        ? MARKER
-                        : isLightOffset(x, z) ? LIGHT : PLATFORM;
+                BlockState floorState = isMarkerOffset(x, z) ? MARKER : isLightOffset(x, z) ? LIGHT : PLATFORM;
                 level.setBlock(floor, floorState, BLOCK_UPDATE_FLAGS);
                 for (int vertical = 1; vertical <= CLEAR_HEIGHT; vertical++) {
                     level.setBlock(floor.above(vertical), Blocks.AIR.defaultBlockState(), BLOCK_UPDATE_FLAGS);
@@ -73,9 +69,7 @@ final class CentralHubService {
     }
 
     static Optional<PortalFrameShape> ensureHub(ServerLevel level, PortalHubSettings settings) {
-        return plan(level, settings).map(plan -> isIntact(level, plan)
-                ? plan.returnPortal()
-                : build(level, plan));
+        return plan(level, settings).map(plan -> isIntact(level, plan) ? plan.returnPortal() : build(level, plan));
     }
 
     static HubPlan planAtFloor(BlockPos floorCenter) {
@@ -100,9 +94,7 @@ final class CentralHubService {
                         return false;
                     }
                 } else {
-                    BlockState expected = isMarkerOffset(x, z)
-                            ? MARKER
-                            : isLightOffset(x, z) ? LIGHT : PLATFORM;
+                    BlockState expected = isMarkerOffset(x, z) ? MARKER : isLightOffset(x, z) ? LIGHT : PLATFORM;
                     if (!level.getBlockState(floor).equals(expected)) {
                         return false;
                     }
@@ -142,8 +134,7 @@ final class CentralHubService {
     }
 
     private static boolean isMarkerOffset(int x, int z) {
-        return (x == -PLATFORM_RADIUS && z == -PLATFORM_RADIUS)
-                || (x == PLATFORM_RADIUS && z == PLATFORM_RADIUS);
+        return (x == -PLATFORM_RADIUS && z == -PLATFORM_RADIUS) || (x == PLATFORM_RADIUS && z == PLATFORM_RADIUS);
     }
 
     private static boolean isLightOffset(int x, int z) {

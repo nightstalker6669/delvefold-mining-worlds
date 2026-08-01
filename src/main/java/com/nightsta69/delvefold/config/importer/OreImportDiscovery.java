@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Deterministic discovery and conservative stone/deepslate family grouping. */
 public final class OreImportDiscovery {
@@ -22,13 +23,36 @@ public final class OreImportDiscovery {
     private static final String CONVENTIONAL_PREFIX = "c:ores/";
     private static final Pattern RESOURCE_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
     private static final List<String> REVIEW_HOST_PREFIXES = List.of(
-            "nether_", "netherrack_", "end_", "endstone_", "end_stone_", "blackstone_",
-            "basalt_", "soul_", "sand_", "gravel_", "tuff_", "granite_", "diorite_", "andesite_");
+            "nether_",
+            "netherrack_",
+            "end_",
+            "endstone_",
+            "end_stone_",
+            "blackstone_",
+            "basalt_",
+            "soul_",
+            "sand_",
+            "gravel_",
+            "tuff_",
+            "granite_",
+            "diorite_",
+            "andesite_");
 
-    private OreImportDiscovery() {
-    }
+    private OreImportDiscovery() {}
 
-    public static DiscoveryResult discover(OreImportRegistry registry, DiscoveryOptions options) {
+    /**
+     * Discovers conventional and ore-like blocks, then groups probable host variants by namespace and material.
+     *
+     * <p>Duplicate registry entries are merged, candidates and groups are returned in lexical ID order, and every
+     * public discovery bound is applied deterministically. Unsupported IDs or omitted entries set the result's
+     * truncation flag. Host inference is conservative: ambiguous Nether, End, decorative, or nonstandard variants are
+     * marked for explicit review and receive no guessed replacement tag.
+     *
+     * @param registry deterministic installed-block and tag snapshot
+     * @param options discovery options, or {@code null} for modded namespaces only
+     * @return immutable, bounded discovery result suitable for server-side preview paging
+     */
+    public static DiscoveryResult discover(OreImportRegistry registry, @Nullable DiscoveryOptions options) {
         if (registry == null) {
             throw new IllegalArgumentException("Ore import registry is required");
         }
@@ -42,7 +66,8 @@ public final class OreImportDiscovery {
         source.stream()
                 .filter(java.util.Objects::nonNull)
                 .limit(OreImportModels.MAX_SCANNED_BLOCKS)
-                .forEach(entry -> tagsByBlock.computeIfAbsent(entry.id(), ignored -> new TreeSet<>())
+                .forEach(entry -> tagsByBlock
+                        .computeIfAbsent(entry.id(), ignored -> new TreeSet<>())
                         .addAll(entry.tags()));
 
         TreeMap<String, GroupBuilder> groups = new TreeMap<>();
@@ -72,9 +97,7 @@ public final class OreImportDiscovery {
 
             String nameMaterial = materialFromName(path);
             String conventionalTag = bestConventionalTag(conventionalTags, nameMaterial);
-            String material = conventionalTag.isEmpty()
-                    ? nameMaterial
-                    : materialFromTag(conventionalTag);
+            String material = conventionalTag.isEmpty() ? nameMaterial : materialFromTag(conventionalTag);
             material = boundedMaterial(namespace, material);
             if (material.isEmpty()) {
                 truncated = true;
@@ -95,12 +118,7 @@ public final class OreImportDiscovery {
                 truncated = true;
             }
 
-            Candidate candidate = new Candidate(
-                    blockId,
-                    hostKind.replaceTag(),
-                    hostKind,
-                    evidence,
-                    sourceTags);
+            Candidate candidate = new Candidate(blockId, hostKind.replaceTag(), hostKind, evidence, sourceTags);
             String groupId = namespace + ':' + material;
             String groupMaterial = material;
             groups.computeIfAbsent(groupId, ignored -> new GroupBuilder(namespace, groupMaterial))
@@ -120,7 +138,8 @@ public final class OreImportDiscovery {
             if (builder.candidates.size() > candidates.size()) {
                 truncated = true;
             }
-            Evidence evidence = candidates.stream().map(Candidate::evidence)
+            Evidence evidence = candidates.stream()
+                    .map(Candidate::evidence)
                     .max(Comparator.comparingInt(Evidence::strength))
                     .orElse(Evidence.ORE_LIKE_NAME);
             result.add(new Group(
@@ -136,8 +155,8 @@ public final class OreImportDiscovery {
 
     private static String bestConventionalTag(List<String> tags, String nameMaterial) {
         return tags.stream()
-                .sorted(Comparator
-                        .comparing((String tag) -> !materialFromTag(tag).equals(nameMaterial))
+                .sorted(Comparator.comparing(
+                                (String tag) -> !materialFromTag(tag).equals(nameMaterial))
                         .thenComparingInt(tag -> materialFromTag(tag).length())
                         .thenComparing(tag -> tag))
                 .findFirst()
@@ -145,8 +164,7 @@ public final class OreImportDiscovery {
     }
 
     private static boolean isConventionalOreTag(String tag) {
-        return tag != null && tag.startsWith(CONVENTIONAL_PREFIX)
-                && tag.length() > CONVENTIONAL_PREFIX.length();
+        return tag != null && tag.startsWith(CONVENTIONAL_PREFIX) && tag.length() > CONVENTIONAL_PREFIX.length();
     }
 
     private static boolean oreLike(String path) {
@@ -178,9 +196,11 @@ public final class OreImportDiscovery {
     }
 
     private static String sanitizeMaterial(String value) {
-        String normalized = value == null ? "" : value.toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9_./-]", "_")
-                .replaceAll("_+", "_");
+        String normalized = value == null
+                ? ""
+                : value.toLowerCase(Locale.ROOT)
+                        .replaceAll("[^a-z0-9_./-]", "_")
+                        .replaceAll("_+", "_");
         while (normalized.startsWith("/") || normalized.startsWith(".")) {
             normalized = normalized.substring(1);
         }
@@ -202,8 +222,7 @@ public final class OreImportDiscovery {
         return bounded;
     }
 
-    private static HostKind classifyHost(
-            String path, String material, boolean conventionNamed, boolean oreLikeName) {
+    private static HostKind classifyHost(String path, String material, boolean conventionNamed, boolean oreLikeName) {
         String simplePath = path.substring(path.lastIndexOf('/') + 1);
         if (simplePath.startsWith("deepslate_")) {
             return HostKind.DEEPSLATE;
@@ -225,7 +244,8 @@ public final class OreImportDiscovery {
     }
 
     private static boolean supportedResourceId(String id) {
-        return id != null && id.length() <= OreImportModels.MAX_ID_LENGTH
+        return id != null
+                && id.length() <= OreImportModels.MAX_ID_LENGTH
                 && RESOURCE_ID.matcher(id).matches();
     }
 

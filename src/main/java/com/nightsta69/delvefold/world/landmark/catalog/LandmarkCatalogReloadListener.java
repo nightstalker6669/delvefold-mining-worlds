@@ -3,9 +3,9 @@ package com.nightsta69.delvefold.world.landmark.catalog;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
+import com.mojang.serialization.JsonOps;
 import com.nightsta69.delvefold.audit.AuditMutation;
 import com.nightsta69.delvefold.audit.DelvefoldAuditService;
-import com.mojang.serialization.JsonOps;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -34,12 +34,20 @@ import net.minecraft.world.level.storage.loot.LootTable;
 import org.slf4j.Logger;
 
 /** Reloads {@code data/<namespace>/delvefold/landmarks/*.json} as one atomic catalog. */
-public final class LandmarkCatalogReloadListener extends
-        SimplePreparableReloadListener<LandmarkCatalogReloadListener.LoadResult> {
+public final class LandmarkCatalogReloadListener
+        extends SimplePreparableReloadListener<LandmarkCatalogReloadListener.LoadResult> {
+    /** Creates the reload listener registered for the current server resource manager. */
+    public LandmarkCatalogReloadListener() {}
+
+    /** Datapack directory, relative to {@code data/<namespace>/}, containing landmark JSON definitions. */
     public static final String DIRECTORY = "delvefold/landmarks";
+    /** Maximum number of definition resources decoded in one reload. */
     public static final int MAX_DEFINITIONS = 256;
+    /** Maximum UTF-8 size of one landmark JSON resource in bytes. */
     public static final int MAX_DEFINITION_BYTES = 65_536;
+    /** Maximum decompressed template NBT allocation accepted during dependency validation, in bytes. */
     public static final long MAX_TEMPLATE_NBT_BYTES = 8L * 1024L * 1024L;
+
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final AtomicReference<AuditMutation> PENDING_STARTUP_AUDIT = new AtomicReference<>();
 
@@ -47,13 +55,15 @@ public final class LandmarkCatalogReloadListener extends
     protected LoadResult prepare(ResourceManager resources, ProfilerFiller profiler) {
         Map<ResourceLocation, LandmarkDefinition> definitions = new LinkedHashMap<>();
         List<String> errors = new ArrayList<>();
-        List<Map.Entry<ResourceLocation, Resource>> entries = resources
-                .listResources(DIRECTORY, id -> id.getPath().endsWith(".json"))
-                .entrySet().stream().sorted(Map.Entry.comparingByKey(Comparator.naturalOrder())).toList();
+        List<Map.Entry<ResourceLocation, Resource>> entries =
+                resources.listResources(DIRECTORY, id -> id.getPath().endsWith(".json")).entrySet().stream()
+                        .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
+                        .toList();
         if (entries.size() > MAX_DEFINITIONS) {
             errors.add("catalog contains " + entries.size() + " definitions; maximum is " + MAX_DEFINITIONS);
         }
-        entries.stream().limit(MAX_DEFINITIONS)
+        entries.stream()
+                .limit(MAX_DEFINITIONS)
                 .forEach(entry -> loadOne(resources, entry.getKey(), entry.getValue(), definitions, errors));
         errors.addAll(LandmarkCatalogWorkBudget.validate(definitions.values()));
         if (definitions.isEmpty() && errors.isEmpty()) {
@@ -88,24 +98,27 @@ public final class LandmarkCatalogReloadListener extends
         }
         ResourceLocation definitionId = definitionId(fileId);
         JsonElement json = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8));
-        LandmarkDefinition.Body body = LandmarkDefinition.BODY_CODEC.parse(JsonOps.INSTANCE, json)
+        LandmarkDefinition.Body body = LandmarkDefinition.BODY_CODEC
+                .parse(JsonOps.INSTANCE, json)
                 .getOrThrow(message -> new IllegalArgumentException(message));
         return LandmarkDefinition.from(definitionId, body);
     }
 
     private void validateDependencies(ResourceManager resources, LandmarkDefinition definition) throws IOException {
         ResourceLocation templateFile = ResourceLocation.fromNamespaceAndPath(
-                definition.template().getNamespace(), "structure/" + definition.template().getPath() + ".nbt");
+                definition.template().getNamespace(),
+                "structure/" + definition.template().getPath() + ".nbt");
         Resource templateResource = resources.getResource(templateFile).orElse(null);
         if (templateResource == null) {
             throw new IllegalArgumentException("missing structure template " + definition.template());
         }
         try (InputStream input = templateResource.open()) {
-            validateTemplateSize(definition.template(),
-                    NbtIo.readCompressed(input, NbtAccounter.create(MAX_TEMPLATE_NBT_BYTES)));
+            validateTemplateSize(
+                    definition.template(), NbtIo.readCompressed(input, NbtAccounter.create(MAX_TEMPLATE_NBT_BYTES)));
         }
         HolderLookup.Provider lookup = getRegistryLookup();
-        HolderLookup.RegistryLookup<StructureProcessorList> processors = lookup.lookupOrThrow(Registries.PROCESSOR_LIST);
+        HolderLookup.RegistryLookup<StructureProcessorList> processors =
+                lookup.lookupOrThrow(Registries.PROCESSOR_LIST);
         for (ResourceKey<StructureProcessorList> key : definition.processors()) {
             if (processors.get(key).isEmpty()) {
                 throw new IllegalArgumentException("missing processor list " + key.location());
@@ -113,7 +126,8 @@ public final class LandmarkCatalogReloadListener extends
         }
         HolderLookup.RegistryLookup<LootTable> lootTables = lookup.lookupOrThrow(Registries.LOOT_TABLE);
         if (lootTables.get(definition.lootTable()).isEmpty()) {
-            throw new IllegalArgumentException("missing loot table " + definition.lootTable().location());
+            throw new IllegalArgumentException(
+                    "missing loot table " + definition.lootTable().location());
         }
     }
 
@@ -121,15 +135,13 @@ public final class LandmarkCatalogReloadListener extends
     static void validateTemplateSize(ResourceLocation templateId, CompoundTag root) {
         ListTag size = root.getList("size", Tag.TAG_INT);
         if (size.size() != 3) {
-            throw new IllegalArgumentException("structure template " + templateId
-                    + " must declare three size values");
+            throw new IllegalArgumentException("structure template " + templateId + " must declare three size values");
         }
         int width = size.getInt(0);
         int height = size.getInt(1);
         int depth = size.getInt(2);
         if (width <= 0 || height <= 0 || depth <= 0) {
-            throw new IllegalArgumentException("structure template " + templateId
-                    + " must have positive dimensions");
+            throw new IllegalArgumentException("structure template " + templateId + " must have positive dimensions");
         }
         if (width > LandmarkDefinition.MAX_TEMPLATE_HORIZONTAL_SPAN
                 || depth > LandmarkDefinition.MAX_TEMPLATE_HORIZONTAL_SPAN
@@ -148,8 +160,8 @@ public final class LandmarkCatalogReloadListener extends
         if (!path.startsWith(prefix) || !path.endsWith(".json")) {
             throw new IllegalArgumentException("invalid landmark resource path " + fileId);
         }
-        return ResourceLocation.fromNamespaceAndPath(fileId.getNamespace(),
-                path.substring(prefix.length(), path.length() - ".json".length()));
+        return ResourceLocation.fromNamespaceAndPath(
+                fileId.getNamespace(), path.substring(prefix.length(), path.length() - ".json".length()));
     }
 
     private static String safeMessage(Throwable throwable) {
@@ -159,24 +171,28 @@ public final class LandmarkCatalogReloadListener extends
 
     @Override
     protected void apply(LoadResult result, ResourceManager resources, ProfilerFiller profiler) {
-        LandmarkCatalogService.ReloadOutcome outcome = LandmarkCatalogService.get().publish(
-                result.definitions(), result.errors(), result.attemptedAt());
+        LandmarkCatalogService.ReloadOutcome outcome =
+                LandmarkCatalogService.get().publish(result.definitions(), result.errors(), result.attemptedAt());
         if (outcome.applied()) {
             long revision = outcome.activeSnapshot().revision();
             auditAcceptedReload(Math.max(0L, revision - 1L), revision);
-            LOGGER.info("Loaded {} Delvefold landmark definition(s) as catalog revision {}",
-                    outcome.activeSnapshot().definitions().size(), outcome.activeSnapshot().revision());
+            LOGGER.info(
+                    "Loaded {} Delvefold landmark definition(s) as catalog revision {}",
+                    outcome.activeSnapshot().definitions().size(),
+                    outcome.activeSnapshot().revision());
         } else {
-            LOGGER.error("Rejected Delvefold landmark catalog reload; retaining revision {} with {} definition(s)",
-                    outcome.activeSnapshot().revision(), outcome.activeSnapshot().definitions().size());
+            LOGGER.error(
+                    "Rejected Delvefold landmark catalog reload; retaining revision {} with {} definition(s)",
+                    outcome.activeSnapshot().revision(),
+                    outcome.activeSnapshot().definitions().size());
             outcome.diagnostics().errors().forEach(error -> LOGGER.error("Landmark catalog: {}", error));
         }
     }
 
     /**
-     * Flushes the initial datapack reload after the per-save audit writer is ready. Resource
-     * reload callbacks do not expose the command source that initiated {@code /reload}, so both
-     * startup and runtime catalog publications are explicitly attributed to the server.
+     * Flushes the initial datapack reload after the per-save audit writer is ready. Resource reload callbacks do not
+     * expose the command source that initiated {@code /reload}, so both startup and runtime catalog publications are
+     * explicitly attributed to the server.
      */
     public static void flushPendingAudit() {
         AuditMutation pending = PENDING_STARTUP_AUDIT.getAndSet(null);
@@ -209,8 +225,5 @@ public final class LandmarkCatalogReloadListener extends
     }
 
     record LoadResult(
-            Map<ResourceLocation, LandmarkDefinition> definitions,
-            List<String> errors,
-            Instant attemptedAt) {
-    }
+            Map<ResourceLocation, LandmarkDefinition> definitions, List<String> errors, Instant attemptedAt) {}
 }

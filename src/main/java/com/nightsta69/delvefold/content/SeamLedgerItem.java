@@ -11,6 +11,11 @@ import net.minecraft.world.level.Level;
 
 /** Opens the same server-authorized read-only guide as /delvefold guide. */
 public final class SeamLedgerItem extends Item {
+    /**
+     * Creates the guide item with registry-supplied properties.
+     *
+     * @param properties immutable Minecraft item behavior settings
+     */
     public SeamLedgerItem(Properties properties) {
         super(properties);
     }

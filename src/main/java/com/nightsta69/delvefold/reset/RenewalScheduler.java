@@ -21,9 +21,17 @@ public final class RenewalScheduler {
     private static final Set<String> ANNOUNCED = new HashSet<>();
     private static long lastCheckTick;
 
-    private RenewalScheduler() {
-    }
+    private RenewalScheduler() {}
 
+    /**
+     * Polls the opt-in renewal schedule every 400 server ticks and stages due recreation through the normal confirmed
+     * restart journal.
+     *
+     * <p>The handler performs only bounded configuration and player-notification work. Dimension filesystem mutation
+     * remains deferred to ordered restart processing.
+     *
+     * @param event post-tick event for the active server
+     */
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         long tick = server.getTickCount();
@@ -47,9 +55,11 @@ public final class RenewalScheduler {
             return;
         }
         if (renewal.nextRenewalAtEpochMillis() == 0L) {
-            ConfigWriteResult scheduled = DelvefoldConfigService.get().updateSettings(
-                    snapshot.settings().revision(),
-                    settings -> settings.withIdentity(settings.identity().withRenewal(renewal.scheduledFrom(now))));
+            ConfigWriteResult scheduled = DelvefoldConfigService.get()
+                    .updateSettings(
+                            snapshot.settings().revision(),
+                            settings ->
+                                    settings.withIdentity(settings.identity().withRenewal(renewal.scheduledFrom(now))));
             if (!scheduled.saved()) {
                 LOGGER.warn("Could not establish Delvefold renewal schedule: {}", scheduled.issues());
             }
@@ -64,10 +74,13 @@ public final class RenewalScheduler {
             if (remainingMillis <= minutes * 60_000L) {
                 String key = renewal.nextRenewalAtEpochMillis() + ":" + minutes;
                 if (ANNOUNCED.add(key)) {
-                    broadcast(server, Component.translatable(minutes == 1
-                                    ? "message.delvefold.renewal.warning_one"
-                                    : "message.delvefold.renewal.warning_many",
-                            minutes));
+                    broadcast(
+                            server,
+                            Component.translatable(
+                                    minutes == 1
+                                            ? "message.delvefold.renewal.warning_one"
+                                            : "message.delvefold.renewal.warning_many",
+                                    minutes));
                 }
             }
         }
@@ -75,32 +88,42 @@ public final class RenewalScheduler {
 
     private static void stageRenewal(
             MinecraftServer server, ConfigSnapshot snapshot, RenewalSettings renewal, long now) {
-        if (WorldOperationService.get().isEntryBlocked() || WorldOperationService.get().hasPending(server)) {
+        if (WorldOperationService.get().isEntryBlocked()
+                || WorldOperationService.get().hasPending(server)) {
             return;
         }
-        WorldOperationPreview preview = WorldOperationService.get().request(server,
-                WorldOperationRequest.recreate(
-                        snapshot.settings().terrainMode(), snapshot.settings().identity().terrainVariant()),
-                "scheduled-renewal");
+        WorldOperationPreview preview = WorldOperationService.get()
+                .request(
+                        server,
+                        WorldOperationRequest.recreate(
+                                snapshot.settings().terrainMode(),
+                                snapshot.settings().identity().terrainVariant()),
+                        "scheduled-renewal");
         if (!preview.accepted()) {
             LOGGER.error("Scheduled Delvefold renewal was rejected: {}", preview.message());
             return;
         }
         WorldOperationResult result = WorldOperationService.get().confirm(server, preview.confirmationToken());
         if (result.success()) {
-            auditWorldOperation(AuditMutation.Operation.WORLD_OPERATION_ACCEPTED,
+            auditWorldOperation(
+                    AuditMutation.Operation.WORLD_OPERATION_ACCEPTED,
                     snapshot.settings().revision());
-            ConfigWriteResult rescheduled = DelvefoldConfigService.get().updateSettings(
-                    snapshot.settings().revision(),
-                    settings -> settings.withIdentity(settings.identity().withRenewal(renewal.scheduledFrom(now))));
+            ConfigWriteResult rescheduled = DelvefoldConfigService.get()
+                    .updateSettings(
+                            snapshot.settings().revision(),
+                            settings ->
+                                    settings.withIdentity(settings.identity().withRenewal(renewal.scheduledFrom(now))));
             if (!rescheduled.saved()) {
                 WorldOperationResult cancelled = WorldOperationService.get().cancelConfirmed(server);
                 if (cancelled.success()) {
-                    auditWorldOperation(AuditMutation.Operation.WORLD_OPERATION_CANCELLED,
+                    auditWorldOperation(
+                            AuditMutation.Operation.WORLD_OPERATION_CANCELLED,
                             snapshot.settings().revision());
                 }
-                LOGGER.error("Scheduled renewal was cancelled because its next-run time could not be saved: {} ({})",
-                        rescheduled.issues(), cancelled.message());
+                LOGGER.error(
+                        "Scheduled renewal was cancelled because its next-run time could not be saved: {} ({})",
+                        rescheduled.issues(),
+                        cancelled.message());
                 return;
             }
             ANNOUNCED.clear();
@@ -111,15 +134,17 @@ public final class RenewalScheduler {
     }
 
     private static void auditWorldOperation(AuditMutation.Operation operation, long settingsRevision) {
-        DelvefoldAuditService.get().record(new AuditMutation(
-                "server",
-                operation,
-                AuditMutation.ObjectType.WORLD,
-                "mining_world",
-                settingsRevision,
-                settingsRevision));
+        DelvefoldAuditService.get()
+                .record(new AuditMutation(
+                        "server",
+                        operation,
+                        AuditMutation.ObjectType.WORLD,
+                        "mining_world",
+                        settingsRevision,
+                        settingsRevision));
     }
 
+    /** Clears tick timing and warning deduplication state during server-session shutdown. */
     public static void reset() {
         ANNOUNCED.clear();
         lastCheckTick = 0L;

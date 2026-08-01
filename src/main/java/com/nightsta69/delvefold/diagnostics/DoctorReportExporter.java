@@ -1,29 +1,47 @@
 package com.nightsta69.delvefold.diagnostics;
 
 import com.nightsta69.delvefold.config.ConfigJson;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
-/** Writes deterministic, field-whitelisted, redacted doctor-report JSON. */
+/**
+ * Writes deterministic, field-whitelisted, redacted doctor-report JSON.
+ *
+ * <p>Only explicitly modeled export fields are serialized. Free-text identifiers pass through a bounded sanitizer that
+ * removes path-like, socket-like, structured, control-character, and likely secret-bearing values. Export never
+ * serializes complete configuration documents, player records, server addresses, confirmation tokens, or source paths.
+ */
 public final class DoctorReportExporter {
+    /** Creates a redacting exporter with no retained filesystem or report state. */
+    public DoctorReportExporter() {}
+
     private static final int MAX_SAFE_TEXT_LENGTH = 192;
-    private static final Pattern IPV4_SOCKET = Pattern.compile(
-            "(?i)(?:^|[^0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}(?:$|[^0-9])");
-    private static final Pattern HOST_SOCKET = Pattern.compile(
-            "(?i)(?:^|[^a-z0-9_.-])(?:[a-z0-9-]+\\.)+[a-z]{2,63}:[0-9]{1,5}(?:$|[^0-9])");
+    private static final Pattern IPV4_SOCKET =
+            Pattern.compile("(?i)(?:^|[^0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}(?:$|[^0-9])");
+    private static final Pattern HOST_SOCKET =
+            Pattern.compile("(?i)(?:^|[^a-z0-9_.-])(?:[a-z0-9-]+\\.)+[a-z]{2,63}:[0-9]{1,5}(?:$|[^0-9])");
     private static final Pattern IPV6_SOCKET = Pattern.compile("(?i)(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4}:?[0-9]{1,5}");
     private static final Pattern RESOURCE_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
     /**
-     * Writes into an existing exports directory. The directory is never created implicitly, and
-     * symbolic-link directories or output files are rejected.
+     * Atomically writes a redacted report into an existing exports directory.
+     *
+     * <p>The directory is never created implicitly. It and the final output must pass normalized containment and
+     * symbolic-link checks. The generated filename contains the report timestamp in epoch milliseconds; an existing
+     * file for the same timestamp is replaced only by the completed temporary file.
+     *
+     * @param exportsDirectory existing directory authorized for diagnostic exports
+     * @param report immutable report to sanitize and serialize
+     * @return the normalized absolute path of the completed JSON export
+     * @throws IllegalArgumentException if either argument is {@code null}
+     * @throws IOException if the directory or target fails safety checks, or temporary write or final move fails
      */
     public Path export(Path exportsDirectory, DoctorReport report) throws IOException {
         if (exportsDirectory == null || report == null) {
@@ -35,14 +53,14 @@ public final class DoctorReportExporter {
         }
         String filename = "delvefold-doctor-%019d.json".formatted(report.generatedAtEpochMillis());
         Path target = directory.resolve(filename).normalize();
-        if (!target.getParent().equals(directory) || Files.isSymbolicLink(target)) {
+        @Nullable Path parent = target.getParent();
+        if (parent == null || !parent.equals(directory) || Files.isSymbolicLink(target)) {
             throw new IOException("Doctor export target failed path-containment checks");
         }
 
         Path temporary = Files.createTempFile(directory, ".delvefold-doctor-", ".tmp");
         try {
-            Files.writeString(temporary, toRedactedJson(report) + System.lineSeparator(),
-                    StandardCharsets.UTF_8);
+            Files.writeString(temporary, toRedactedJson(report) + System.lineSeparator(), StandardCharsets.UTF_8);
             moveAtomically(temporary, target);
             return target;
         } finally {
@@ -50,7 +68,16 @@ public final class DoctorReportExporter {
         }
     }
 
-    /** Produces the exact redacted representation used by {@link #export(Path, DoctorReport)}. */
+    /**
+     * Produces the exact field-whitelisted, redacted JSON used by {@link #export(Path, DoctorReport)}.
+     *
+     * <p>This method performs no filesystem I/O. Byte counts remain byte estimates from the input report; sanitization
+     * does not make them authoritative disk measurements.
+     *
+     * @param report immutable report to sanitize and serialize
+     * @return compact JSON containing only the export model's approved fields
+     * @throws IllegalArgumentException if {@code report} is {@code null}
+     */
     public String toRedactedJson(DoctorReport report) {
         if (report == null) {
             throw new IllegalArgumentException("report is required");
@@ -62,12 +89,16 @@ public final class DoctorReportExporter {
                 redact(report.versions()),
                 report.dimensions().stream().map(DoctorReportExporter::redact).toList(),
                 redact(report.profile()),
-                report.pendingOperations().stream().map(DoctorReportExporter::redact).toList(),
+                report.pendingOperations().stream()
+                        .map(DoctorReportExporter::redact)
+                        .toList(),
                 redact(report.backups()),
                 redact(report.retention()),
                 new ExportDisk(
-                        report.disk().usableBytes(), report.disk().backupBytes(),
-                        report.disk().estimatedNextBackupBytes(), report.disk().requiredHeadroomBytes(),
+                        report.disk().usableBytes(),
+                        report.disk().backupBytes(),
+                        report.disk().estimatedNextBackupBytes(),
+                        report.disk().requiredHeadroomBytes(),
                         report.disk().sufficient()),
                 report.healthy());
         return ConfigJson.GSON.toJson(export);
@@ -75,28 +106,37 @@ public final class DoctorReportExporter {
 
     private static ExportVersions redact(DoctorReport.VersionInfo versions) {
         return new ExportVersions(
-                safeText(versions.delvefold()), safeText(versions.minecraft()), safeText(versions.neoForge()),
-                versions.publicApi(), versions.networkProtocol(), versions.configSchema());
+                safeText(versions.delvefold()),
+                safeText(versions.minecraft()),
+                safeText(versions.neoForge()),
+                versions.publicApi(),
+                versions.networkProtocol(),
+                versions.configSchema());
     }
 
     private static ExportDimension redact(DoctorReport.DimensionStatus dimension) {
         return new ExportDimension(
-                safeText(dimension.dimensionId()), safeText(dimension.terrain()),
+                safeText(dimension.dimensionId()),
+                safeText(dimension.terrain()),
                 lower(dimension.state().name()));
     }
 
     private static ExportProfile redact(DoctorReport.ProfileHealth profile) {
         return new ExportProfile(
-                safeText(profile.activeProfileId()), profile.revision(), profile.enabledRules(),
-                profile.totalRules(), profile.errorCount(), profile.warningCount(),
+                safeText(profile.activeProfileId()),
+                profile.revision(),
+                profile.enabledRules(),
+                profile.totalRules(),
+                profile.errorCount(),
+                profile.warningCount(),
                 profile.ineffectiveTargets().stream()
                         .map(target -> new ExportIneffectiveTarget(
-                                safeText(target.ruleId()), safeText(target.targetId()),
-                                safeText(target.reasonCode())))
+                                safeText(target.ruleId()), safeText(target.targetId()), safeText(target.reasonCode())))
                         .toList(),
                 profile.findings().stream()
                         .map(finding -> new ExportFinding(
-                                lower(finding.severity().name()), safeText(finding.code()),
+                                lower(finding.severity().name()),
+                                safeText(finding.code()),
                                 safeText(finding.objectId())))
                         .toList(),
                 profile.healthy());
@@ -110,11 +150,16 @@ public final class DoctorReportExporter {
 
     private static ExportBackups redact(DoctorReport.BackupHealth backups) {
         return new ExportBackups(
-                backups.total(), backups.verified(), backups.invalid(), backups.legacy(), backups.pinned(),
+                backups.total(),
+                backups.verified(),
+                backups.invalid(),
+                backups.legacy(),
+                backups.pinned(),
                 backups.totalBytes(),
                 backups.problems().stream()
                         .map(problem -> new ExportBackupProblem(
-                                safeText(problem.backupId()), safeText(problem.state()),
+                                safeText(problem.backupId()),
+                                safeText(problem.state()),
                                 safeText(problem.reasonCode())))
                         .toList(),
                 backups.healthy());
@@ -122,49 +167,86 @@ public final class DoctorReportExporter {
 
     private static ExportRetention redact(DoctorReport.RetentionPreview retention) {
         return new ExportRetention(
-                retention.enabled(), retention.beforeCount(), retention.afterCount(),
-                retention.beforeBytes(), retention.afterBytes(), retention.reclaimableBytes(),
-                retention.constraintsSatisfied(), retention.healthy(),
+                retention.enabled(),
+                retention.beforeCount(),
+                retention.afterCount(),
+                retention.beforeBytes(),
+                retention.afterBytes(),
+                retention.reclaimableBytes(),
+                retention.constraintsSatisfied(),
+                retention.healthy(),
                 retention.prunes().stream()
                         .map(prune -> new ExportRetentionPrune(
-                                safeText(prune.backupId()), prune.createdAtEpochMillis(), prune.sizeBytes(),
-                                prune.reasons().stream().map(DoctorReportExporter::safeText).toList()))
+                                safeText(prune.backupId()),
+                                prune.createdAtEpochMillis(),
+                                prune.sizeBytes(),
+                                prune.reasons().stream()
+                                        .map(DoctorReportExporter::safeText)
+                                        .toList()))
                         .toList(),
-                retention.warnings().stream().map(DoctorReportExporter::safeText).toList(),
+                retention.warnings().stream()
+                        .map(DoctorReportExporter::safeText)
+                        .toList(),
                 redact(retention.lastRun()));
     }
 
     private static ExportRetentionRun redact(DoctorReport.RetentionRun run) {
         return new ExportRetentionRun(
-                run.available(), run.evaluatedAtEpochMillis(), run.enabled(),
-                run.beforeCount(), run.afterCount(), run.proposedCount(),
-                run.proposals().stream().map(proposal -> new ExportRetentionProposal(
-                        safeText(proposal.backupId()),
-                        proposal.reasons().stream().map(DoctorReportExporter::safeText).toList())).toList(),
-                run.protectedCount(), run.constraintsSatisfied(), run.applyRecorded(),
-                run.appliedCount(), run.failureCount(),
+                run.available(),
+                run.evaluatedAtEpochMillis(),
+                run.enabled(),
+                run.beforeCount(),
+                run.afterCount(),
+                run.proposedCount(),
+                run.proposals().stream()
+                        .map(proposal -> new ExportRetentionProposal(
+                                safeText(proposal.backupId()),
+                                proposal.reasons().stream()
+                                        .map(DoctorReportExporter::safeText)
+                                        .toList()))
+                        .toList(),
+                run.protectedCount(),
+                run.constraintsSatisfied(),
+                run.applyRecorded(),
+                run.appliedCount(),
+                run.failureCount(),
                 run.warnings().stream().map(DoctorReportExporter::safeText).toList());
     }
 
-    static String safeText(String input) {
+    static String safeText(@Nullable String input) {
         if (input == null || input.isBlank()) {
             return "unknown";
         }
         String value = input.strip();
         String lower = value.toLowerCase(Locale.ROOT);
-        boolean filesystemLike = value.startsWith("/") || value.startsWith("\\")
-                || value.startsWith("../") || value.contains("/../")
+        boolean filesystemLike = value.startsWith("/")
+                || value.startsWith("\\")
+                || value.startsWith("../")
+                || value.contains("/../")
                 || value.matches("(?i)^[a-z]:\\\\.*")
-                || ((!RESOURCE_ID.matcher(value).matches()) && (lower.contains("/home/")
-                || lower.contains("/users/") || lower.contains("serverconfig/")
-                || lower.contains("world/dimensions/")));
-        boolean secretLike = lower.contains("confirmation_token") || lower.contains("confirmation token")
-                || lower.contains("token=") || lower.contains("password=") || lower.contains("secret=");
-        boolean structured = value.indexOf('{') >= 0 || value.indexOf('}') >= 0
-                || value.indexOf('[') >= 0 || value.indexOf(']') >= 0 || value.contains("://");
+                || (!RESOURCE_ID.matcher(value).matches()
+                        && (lower.contains("/home/")
+                                || lower.contains("/users/")
+                                || lower.contains("serverconfig/")
+                                || lower.contains("world/dimensions/")));
+        boolean secretLike = lower.contains("confirmation_token")
+                || lower.contains("confirmation token")
+                || lower.contains("token=")
+                || lower.contains("password=")
+                || lower.contains("secret=");
+        boolean structured = value.indexOf('{') >= 0
+                || value.indexOf('}') >= 0
+                || value.indexOf('[') >= 0
+                || value.indexOf(']') >= 0
+                || value.contains("://");
         boolean control = value.chars().anyMatch(character -> Character.isISOControl(character));
-        if (value.length() > MAX_SAFE_TEXT_LENGTH || filesystemLike || secretLike || structured
-                || control || IPV4_SOCKET.matcher(value).find() || HOST_SOCKET.matcher(value).find()
+        if (value.length() > MAX_SAFE_TEXT_LENGTH
+                || filesystemLike
+                || secretLike
+                || structured
+                || control
+                || IPV4_SOCKET.matcher(value).find()
+                || HOST_SOCKET.matcher(value).find()
                 || IPV6_SOCKET.matcher(value).matches()) {
             return "[redacted]";
         }
@@ -176,12 +258,7 @@ public final class DoctorReportExporter {
     }
 
     private static void moveAtomically(Path temporary, Path target) throws IOException {
-        try {
-            Files.move(temporary, target,
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+        AtomicFiles.moveReplacing(temporary, target);
     }
 
     private record ExportReport(
@@ -195,9 +272,7 @@ public final class DoctorReportExporter {
             ExportBackups backups,
             ExportRetention retention,
             ExportDisk disk,
-            boolean healthy
-    ) {
-    }
+            boolean healthy) {}
 
     private record ExportVersions(
             String delvefold,
@@ -205,12 +280,9 @@ public final class DoctorReportExporter {
             String neoForge,
             int publicApi,
             int networkProtocol,
-            int configSchema
-    ) {
-    }
+            int configSchema) {}
 
-    private record ExportDimension(String dimensionId, String terrain, String state) {
-    }
+    private record ExportDimension(String dimensionId, String terrain, String state) {}
 
     private record ExportProfile(
             String activeProfileId,
@@ -221,23 +293,14 @@ public final class DoctorReportExporter {
             long warningCount,
             List<ExportIneffectiveTarget> ineffectiveTargets,
             List<ExportFinding> findings,
-            boolean healthy
-    ) {
-    }
+            boolean healthy) {}
 
-    private record ExportIneffectiveTarget(String ruleId, String targetId, String reasonCode) {
-    }
+    private record ExportIneffectiveTarget(String ruleId, String targetId, String reasonCode) {}
 
-    private record ExportFinding(String severity, String code, String objectId) {
-    }
+    private record ExportFinding(String severity, String code, String objectId) {}
 
     private record ExportPendingOperation(
-            String operationId,
-            String operation,
-            String state,
-            long createdAtEpochMillis
-    ) {
-    }
+            String operationId, String operation, String state, long createdAtEpochMillis) {}
 
     private record ExportBackups(
             int total,
@@ -247,12 +310,9 @@ public final class DoctorReportExporter {
             int pinned,
             long totalBytes,
             List<ExportBackupProblem> problems,
-            boolean healthy
-    ) {
-    }
+            boolean healthy) {}
 
-    private record ExportBackupProblem(String backupId, String state, String reasonCode) {
-    }
+    private record ExportBackupProblem(String backupId, String state, String reasonCode) {}
 
     private record ExportRetention(
             boolean enabled,
@@ -265,17 +325,10 @@ public final class DoctorReportExporter {
             boolean healthy,
             List<ExportRetentionPrune> prunes,
             List<String> warnings,
-            ExportRetentionRun lastRun
-    ) {
-    }
+            ExportRetentionRun lastRun) {}
 
     private record ExportRetentionPrune(
-            String backupId,
-            long createdAtEpochMillis,
-            long sizeBytes,
-            List<String> reasons
-    ) {
-    }
+            String backupId, long createdAtEpochMillis, long sizeBytes, List<String> reasons) {}
 
     private record ExportRetentionRun(
             boolean available,
@@ -290,19 +343,14 @@ public final class DoctorReportExporter {
             boolean applyRecorded,
             int appliedCount,
             int failureCount,
-            List<String> warnings
-    ) {
-    }
+            List<String> warnings) {}
 
-    private record ExportRetentionProposal(String backupId, List<String> reasons) {
-    }
+    private record ExportRetentionProposal(String backupId, List<String> reasons) {}
 
     private record ExportDisk(
             long usableBytes,
             long backupBytes,
             long estimatedNextBackupBytes,
             long requiredHeadroomBytes,
-            boolean sufficient
-    ) {
-    }
+            boolean sufficient) {}
 }

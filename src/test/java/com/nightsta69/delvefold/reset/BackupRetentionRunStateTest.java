@@ -32,8 +32,8 @@ class BackupRetentionRunStateTest {
                         "backup-" + String.format("%03d", index), index + 1L, 10, false));
             }
             BackupRetentionSettings settings = new BackupRetentionSettings(true, 2, 0, 0);
-            BackupRetentionPlanner.Plan plan = BackupRetentionPlanner.plan(
-                    settings, candidates, Set.of(), Instant.EPOCH);
+            BackupRetentionPlanner.Plan plan =
+                    BackupRetentionPlanner.plan(settings, candidates, Set.of(), Instant.EPOCH);
             BackupRetentionService.Preview preview = new BackupRetentionService.Preview(
                     saveRoot, settings, Instant.EPOCH, Set.of("pending-logical-id"), plan);
 

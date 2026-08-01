@@ -16,9 +16,15 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Strict bounded codec for the public Seam Ledger snapshot. */
 public final class GuideStreamCodecs {
-    private GuideStreamCodecs() {
-    }
+    private GuideStreamCodecs() {}
 
+    /**
+     * Writes a current-format public guide in protocol 12 field order.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param snapshot immutable redacted guide snapshot
+     * @throws IllegalArgumentException if the format or estimated payload size violates guide bounds
+     */
     public static void write(RegistryFriendlyByteBuf buffer, GuideSnapshot snapshot) {
         if (snapshot.formatVersion() != GuideSnapshot.CURRENT_FORMAT_VERSION) {
             throw new IllegalArgumentException(
@@ -42,6 +48,13 @@ public final class GuideStreamCodecs {
         buffer.writeBoolean(snapshot.truncated());
     }
 
+    /**
+     * Reads a current-format guide while checking the aggregate decode budget after each variable section.
+     *
+     * @param buffer source registry-aware network buffer positioned at the guide's first byte
+     * @return immutable validated and redacted guide snapshot
+     * @throws IllegalArgumentException if format, lengths, counts, ordinals, or aggregate bytes are invalid
+     */
     public static GuideSnapshot read(RegistryFriendlyByteBuf buffer) {
         int startIndex = buffer.readerIndex();
         int format = buffer.readVarInt();
@@ -99,25 +112,30 @@ public final class GuideStreamCodecs {
             writeString(buffer, output.sourceId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
             writeString(buffer, output.iconBlockId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
-        writeCount(buffer, ore.applicability().terrains().size(), GuideLimits.MAX_APPLICABLE_TERRAINS,
-                "guide terrains");
+        writeCount(
+                buffer, ore.applicability().terrains().size(), GuideLimits.MAX_APPLICABLE_TERRAINS, "guide terrains");
         for (String terrain : ore.applicability().terrains()) {
             writeString(buffer, terrain, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
         buffer.writeBoolean(ore.applicability().appliesToActiveTerrain());
         buffer.writeBoolean(ore.applicability().biomeFiltered());
-        writeCount(buffer, ore.applicability().biomeIncludes().size(),
-                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST, "guide biome includes");
+        writeCount(
+                buffer,
+                ore.applicability().biomeIncludes().size(),
+                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                "guide biome includes");
         for (String selector : ore.applicability().biomeIncludes()) {
             writeString(buffer, selector, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
-        writeCount(buffer, ore.applicability().biomeExcludes().size(),
-                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST, "guide biome excludes");
+        writeCount(
+                buffer,
+                ore.applicability().biomeExcludes().size(),
+                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                "guide biome excludes");
         for (String selector : ore.applicability().biomeExcludes()) {
             writeString(buffer, selector, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
-        writeCount(buffer, ore.heightBands().size(), GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY,
-                "guide height bands");
+        writeCount(buffer, ore.heightBands().size(), GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY, "guide height bands");
         for (HeightBand band : ore.heightBands()) {
             writeString(buffer, band.bandId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
             writeString(buffer, band.distribution(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
@@ -166,8 +184,8 @@ public final class GuideStreamCodecs {
             biomeExcludes.add(readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS));
             ensureDecodeBudget(buffer, startIndex);
         }
-        Applicability applicability = new Applicability(
-                terrains, activeTerrain, biomeFiltered, biomeIncludes, biomeExcludes);
+        Applicability applicability =
+                new Applicability(terrains, activeTerrain, biomeFiltered, biomeIncludes, biomeExcludes);
         int bandCount = readCount(buffer, GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY, "guide height bands");
         ensureDecodeBudget(buffer, startIndex);
         List<HeightBand> bands = new ArrayList<>(bandCount);
@@ -175,7 +193,11 @@ public final class GuideStreamCodecs {
             bands.add(new HeightBand(
                     readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS),
                     readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS),
-                    buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readVarInt()));
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readVarInt()));
             ensureDecodeBudget(buffer, startIndex);
         }
         RelativeFrequency frequency = readEnum(buffer, RelativeFrequency.class);
@@ -211,6 +233,8 @@ public final class GuideStreamCodecs {
         return count;
     }
 
+    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());
     }
@@ -227,8 +251,8 @@ public final class GuideStreamCodecs {
     private static void ensureDecodeBudget(RegistryFriendlyByteBuf buffer, int startIndex) {
         int consumed = buffer.readerIndex() - startIndex;
         if (consumed < 0 || consumed > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
-            throw new IllegalArgumentException("Guide payload exceeds its "
-                    + GuideLimits.MAX_ESTIMATED_NETWORK_BYTES + " byte decode budget");
+            throw new IllegalArgumentException(
+                    "Guide payload exceeds its " + GuideLimits.MAX_ESTIMATED_NETWORK_BYTES + " byte decode budget");
         }
     }
 }

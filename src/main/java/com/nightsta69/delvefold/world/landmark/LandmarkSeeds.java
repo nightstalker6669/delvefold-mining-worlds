@@ -12,28 +12,73 @@ public final class LandmarkSeeds {
     private static final long CONTENT_DOMAIN = 0xA54FF53A5F1D36F1L;
     private static final long LOOT_DOMAIN = 0x1F83D9ABFB41BD6BL;
 
-    private LandmarkSeeds() {
-    }
+    private LandmarkSeeds() {}
 
+    /**
+     * Derives the seed supplied to Minecraft's structure-placement grid.
+     *
+     * <p>A generation salt of zero returns the world seed unchanged for compatibility. Nonzero salts are mixed after
+     * fixed generation and placement domain constants, so recreation rotates placement without changing dimensions.
+     *
+     * @param worldSeed server world's 64-bit generation seed
+     * @param generationSalt persisted salt for the created mining-world generation
+     * @return effective seed for structure spacing
+     */
     public static long placementWorldSeed(long worldSeed, long generationSalt) {
-        return generationSalt == 0L ? worldSeed
+        return generationSalt == 0L
+                ? worldSeed
                 : worldSeed ^ mix64(generationSalt ^ GENERATION_DOMAIN ^ PLACEMENT_DOMAIN);
     }
 
+    /**
+     * Derives the independent landmark-density acceptance stream for a chunk.
+     *
+     * @param worldSeed server world's 64-bit generation seed
+     * @param chunk candidate chunk coordinates
+     * @param generationSalt persisted mining-world generation salt
+     * @return deterministic acceptance seed
+     */
     public static long acceptanceSeed(long worldSeed, ChunkPos chunk, long generationSalt) {
         return domainSeed(worldSeed, chunk, generationSalt, ACCEPTANCE_DOMAIN);
     }
 
+    /**
+     * Derives the weighted-definition selection stream for a chunk.
+     *
+     * @param worldSeed server world's 64-bit generation seed
+     * @param chunk candidate chunk coordinates
+     * @param generationSalt persisted mining-world generation salt
+     * @return deterministic selection seed independent of acceptance
+     */
     public static long selectionSeed(long worldSeed, ChunkPos chunk, long generationSalt) {
         return domainSeed(worldSeed, chunk, generationSalt, SELECTION_DOMAIN);
     }
 
+    /**
+     * Derives rotation, placement-height, and template-content randomness for one definition.
+     *
+     * <p>Inputs are mixed in the stable order world/generation, chunk, content domain, then landmark registry ID.
+     * Adding or reordering other catalog definitions therefore does not perturb this definition's content stream.
+     *
+     * @param worldSeed server world's 64-bit generation seed
+     * @param chunk candidate chunk coordinates
+     * @param generationSalt persisted mining-world generation salt
+     * @param definitionId complete landmark definition registry ID
+     * @return deterministic content seed for that definition in that chunk
+     */
     public static long definitionSeed(
             long worldSeed, ChunkPos chunk, long generationSalt, ResourceLocation definitionId) {
-        return mix64(domainSeed(worldSeed, chunk, generationSalt, CONTENT_DOMAIN)
-                ^ stableHash64(definitionId.toString()));
+        return mix64(
+                domainSeed(worldSeed, chunk, generationSalt, CONTENT_DOMAIN) ^ stableHash64(definitionId.toString()));
     }
 
+    /**
+     * Derives a one-time loot seed for a template data marker.
+     *
+     * @param contentSeed definition content seed from {@link #definitionSeed(long, ChunkPos, long, ResourceLocation)}
+     * @param markerPosition packed block position of the structure data marker
+     * @return deterministic loot-table seed independent for that marker position
+     */
     public static long lootSeed(long contentSeed, long markerPosition) {
         return mix64(contentSeed ^ markerPosition ^ LOOT_DOMAIN);
     }
@@ -44,6 +89,12 @@ public final class LandmarkSeeds {
         return mix64(seed ^ domain);
     }
 
+    /**
+     * Applies the fixed 64-bit avalanche mixer used by all landmark seed domains.
+     *
+     * @param value unmixed 64-bit input
+     * @return deterministically avalanched value
+     */
     public static long mix64(long value) {
         value = (value ^ value >>> 30) * 0xBF58476D1CE4E5B9L;
         value = (value ^ value >>> 27) * 0x94D049BB133111EBL;

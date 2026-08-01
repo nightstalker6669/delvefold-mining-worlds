@@ -40,8 +40,7 @@ class DelvefoldDoctorServiceTest {
                 backup("invalid", -1L, false, false, false, true, false),
                 backup("unverified", 200L, false, false, true, true, false));
 
-        DelvefoldDoctorService.BackupAnalysis analysis =
-                DelvefoldDoctorService.analyzeBackups(backups);
+        DelvefoldDoctorService.BackupAnalysis analysis = DelvefoldDoctorService.analyzeBackups(backups);
 
         assertEquals(4, analysis.total());
         assertEquals(1, analysis.verified());
@@ -52,52 +51,64 @@ class DelvefoldDoctorServiceTest {
         assertEquals(-1L, analysis.diskBytes());
         assertEquals(4, analysis.candidates().size());
         Set<String> reasons = analysis.problems().stream()
-                .map(DoctorReport.BackupProblem::reasonCode).collect(java.util.stream.Collectors.toSet());
-        assertTrue(reasons.containsAll(Set.of(
-                "manifest_required", "backup_invalid", "verification_required", "size_unavailable")));
+                .map(DoctorReport.BackupProblem::reasonCode)
+                .collect(java.util.stream.Collectors.toSet());
+        assertTrue(reasons.containsAll(
+                Set.of("manifest_required", "backup_invalid", "verification_required", "size_unavailable")));
     }
 
     @Test
     void mapsRetentionPlanIntoStableRedactedPreview() {
-        List<BackupRetentionPlanner.Candidate> candidates = List.of(
-                candidate("old", 100, 1000),
-                candidate("middle", 10, 2000),
-                candidate("newest", 1, 3000));
-        BackupRetentionPlanner.Plan plan = BackupRetentionPlanner.plan(
-                new BackupRetentionSettings(true, 2, 0, 0), candidates, Set.of(), NOW);
+        List<BackupRetentionPlanner.Candidate> candidates =
+                List.of(candidate("old", 100, 1000), candidate("middle", 10, 2000), candidate("newest", 1, 3000));
+        BackupRetentionPlanner.Plan plan =
+                BackupRetentionPlanner.plan(new BackupRetentionSettings(true, 2, 0, 0), candidates, Set.of(), NOW);
 
         DoctorReport.RetentionPreview preview = DelvefoldDoctorService.retentionPreview(plan);
 
         assertTrue(preview.enabled());
         assertEquals(3, preview.beforeCount());
         assertEquals(2, preview.afterCount());
-        assertEquals(List.of("old"), preview.prunes().stream()
-                .map(DoctorReport.RetentionPrune::backupId).toList());
+        assertEquals(
+                List.of("old"),
+                preview.prunes().stream()
+                        .map(DoctorReport.RetentionPrune::backupId)
+                        .toList());
         assertEquals(List.of("count"), preview.prunes().getFirst().reasons());
         assertEquals(1000L, preview.reclaimableBytes());
     }
 
     @Test
     void includesLastAutomaticRetentionProposalAndBoundedResultCounts() {
-        BackupRetentionPlanner.Plan plan = BackupRetentionPlanner.plan(
-                BackupRetentionSettings.defaults(), List.of(), Set.of(), NOW);
+        BackupRetentionPlanner.Plan plan =
+                BackupRetentionPlanner.plan(BackupRetentionSettings.defaults(), List.of(), Set.of(), NOW);
         BackupRetentionRunState.Snapshot run = new BackupRetentionRunState.Snapshot(
-                NOW.toEpochMilli(), true, 7, 4, 7000L, 4000L, true,
+                NOW.toEpochMilli(),
+                true,
+                7,
+                4,
+                7000L,
+                4000L,
+                true,
                 List.of(new BackupRetentionRunState.Proposal(
-                        "old-backup", List.of(BackupRetentionPlanner.Reason.AGE,
-                        BackupRetentionPlanner.Reason.COUNT))),
+                        "old-backup", List.of(BackupRetentionPlanner.Reason.AGE, BackupRetentionPlanner.Reason.COUNT))),
                 2,
-                List.of("protected-backup"), 3,
+                List.of("protected-backup"),
+                3,
                 List.of(),
-                List.of("old-backup"), 4,
-                List.of("failed-backup"), 5,
+                List.of("old-backup"),
+                4,
+                List.of("failed-backup"),
+                5,
                 true);
 
         DoctorReport.RetentionPreview preview = DelvefoldDoctorService.retentionPreview(plan, run);
 
         assertTrue(preview.lastRun().available());
         assertEquals(3, preview.lastRun().proposedCount());
-        assertEquals(List.of("age", "count"), preview.lastRun().proposals().getFirst().reasons());
+        assertEquals(
+                List.of("age", "count"),
+                preview.lastRun().proposals().getFirst().reasons());
         assertEquals(5, preview.lastRun().appliedCount());
         assertEquals(6, preview.lastRun().failureCount());
         assertEquals(4, preview.lastRun().protectedCount());
@@ -161,8 +172,7 @@ class DelvefoldDoctorServiceTest {
         Path settings = Files.write(config.resolve("settings.json"), new byte[7]);
         ConfigPaths paths = new ConfigPaths(config, ores, settings);
 
-        assertEquals(17L, DelvefoldDoctorService.estimateTreeBytes(
-                temporary.resolve("dimensions/delvefold"), 10));
+        assertEquals(17L, DelvefoldDoctorService.estimateTreeBytes(temporary.resolve("dimensions/delvefold"), 10));
         assertEquals(29L, DelvefoldDoctorService.estimateCurrentBackupBytes(temporary, paths));
 
         Files.write(dimensions.resolve("second.mca"), new byte[1]);
@@ -172,6 +182,7 @@ class DelvefoldDoctorServiceTest {
             Files.createSymbolicLink(dimensions.resolve("unsafe"), target);
             assertEquals(-1L, DelvefoldDoctorService.estimateTreeBytes(dimensions, 20));
         } catch (UnsupportedOperationException | IOException ignored) {
+            // The link-rejection assertion is not applicable on filesystems that cannot create symlinks.
         }
     }
 
@@ -191,31 +202,26 @@ class DelvefoldDoctorServiceTest {
 
     @Test
     void lifecycleInvalidatesReportsAndCompletionCannotRepopulateAClearedSession() throws Exception {
-        String doctor = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/diagnostics/DelvefoldDoctorService.java"));
-        String lifecycle = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/server/DelvefoldServerLifecycle.java"));
+        String doctor = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/diagnostics/DelvefoldDoctorService.java"));
+        String lifecycle = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/server/DelvefoldServerLifecycle.java"));
 
         assertTrue(doctor.contains("boolean currentSession = inFlight.remove(key, future);"));
-        assertTrue(doctor.contains("if (currentSession && failure == null && report != null)"),
+        assertTrue(
+                doctor.contains("if (currentSession && failure == null && report != null)"),
                 "A completed scan from a stopped session must not repopulate the same save key");
         assertTrue(doctor.contains("public void invalidate(MinecraftServer server)"));
         assertTrue(doctor.contains("public void clear()"));
-        assertTrue(lifecycle.contains("DelvefoldDoctorService.get().clear();"),
+        assertTrue(
+                lifecycle.contains("DelvefoldDoctorService.get().clear();"),
                 "Server shutdown must clear reports before the same save can reopen");
     }
 
     private static WorldBackupCatalog.BackupSummary backup(
-            String id,
-            long size,
-            boolean pinned,
-            boolean restorable,
-            boolean valid,
-            boolean manifest,
-            boolean legacy) {
+            String id, long size, boolean pinned, boolean restorable, boolean valid, boolean manifest, boolean legacy) {
         return new WorldBackupCatalog.BackupSummary(
-                id, 1L, "recreate", "flat", size, pinned, restorable, valid,
-                manifest, restorable && manifest, legacy);
+                id, 1L, "recreate", "flat", size, pinned, restorable, valid, manifest, restorable && manifest, legacy);
     }
 
     private static BackupRetentionPlanner.Candidate candidate(String id, long ageDays, long bytes) {

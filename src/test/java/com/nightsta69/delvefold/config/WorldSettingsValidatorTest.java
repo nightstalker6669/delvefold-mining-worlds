@@ -8,8 +8,8 @@ import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
-import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import com.nightsta69.delvefold.config.validation.WorldSettingsValidator;
@@ -20,7 +20,8 @@ class WorldSettingsValidatorTest {
     void acceptsEveryGuideVisibilityMode() {
         for (GuideVisibility visibility : GuideVisibility.values()) {
             assertTrue(WorldSettingsValidator.validate(
-                    WorldSettingsDocument.uninitialized().withGuideVisibility(visibility)).valid());
+                            WorldSettingsDocument.uninitialized().withGuideVisibility(visibility))
+                    .valid());
         }
     }
 
@@ -44,11 +45,15 @@ class WorldSettingsValidatorTest {
 
     @Test
     void rejectsOutOfRangeRenewalSchedule() {
-        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized().withIdentity(
-                new WorldIdentitySettings("Test Mine",
+        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized()
+                .withIdentity(new WorldIdentitySettings(
+                        "Test Mine",
                         com.nightsta69.delvefold.config.model.TerrainVariant.CLASSIC,
                         com.nightsta69.delvefold.config.model.LandmarkPreset.BALANCED,
-                        true, true, true, new RenewalSettings(true, 0, 10081, -1L)));
+                        true,
+                        true,
+                        true,
+                        new RenewalSettings(true, 0, 10081, -1L)));
 
         assertFalse(WorldSettingsValidator.validate(settings).valid());
     }
@@ -57,9 +62,18 @@ class WorldSettingsValidatorTest {
     void rejectsNegativeGenerationSalt() {
         WorldSettingsDocument legacy = WorldSettingsDocument.uninitialized();
         WorldSettingsDocument settings = new WorldSettingsDocument(
-                legacy.schemaVersion(), legacy.revision(), legacy.generationEpoch(), -1L,
-                legacy.lastWorldOperationId(), legacy.initialized(), legacy.terrainMode(), legacy.orePreset(),
-                legacy.gameplay(), legacy.portal(), legacy.activeProfileId(), legacy.identity(),
+                legacy.schemaVersion(),
+                legacy.revision(),
+                legacy.generationEpoch(),
+                -1L,
+                legacy.lastWorldOperationId(),
+                legacy.initialized(),
+                legacy.terrainMode(),
+                legacy.orePreset(),
+                legacy.gameplay(),
+                legacy.portal(),
+                legacy.activeProfileId(),
+                legacy.identity(),
                 legacy.guideVisibility());
 
         assertFalse(WorldSettingsValidator.validate(settings).valid());
@@ -69,21 +83,31 @@ class WorldSettingsValidatorTest {
     void rejectsActiveGenerationSaltWithoutAnInitializedWorld() {
         WorldSettingsDocument legacy = WorldSettingsDocument.uninitialized();
         WorldSettingsDocument settings = new WorldSettingsDocument(
-                legacy.schemaVersion(), legacy.revision(), legacy.generationEpoch(), 42L,
-                legacy.lastWorldOperationId(), false, null, legacy.orePreset(), legacy.gameplay(),
-                legacy.portal(), legacy.activeProfileId(), legacy.identity(), legacy.guideVisibility());
+                legacy.schemaVersion(),
+                legacy.revision(),
+                legacy.generationEpoch(),
+                42L,
+                legacy.lastWorldOperationId(),
+                false,
+                null,
+                legacy.orePreset(),
+                legacy.gameplay(),
+                legacy.portal(),
+                legacy.activeProfileId(),
+                legacy.identity(),
+                legacy.guideVisibility());
 
         assertFalse(WorldSettingsValidator.validate(settings).valid());
     }
 
     @Test
     void acceptsNamespacedProfilesButEnforcesTotalLength() {
-        WorldSettingsDocument valid = WorldSettingsDocument.uninitialized()
-                .withActiveProfile("examplepack:metals/rich_tin");
+        WorldSettingsDocument valid =
+                WorldSettingsDocument.uninitialized().withActiveProfile("examplepack:metals/rich_tin");
         assertTrue(WorldSettingsValidator.validate(valid).valid());
 
-        WorldSettingsDocument tooLong = WorldSettingsDocument.uninitialized()
-                .withActiveProfile("pack:" + "a".repeat(124));
+        WorldSettingsDocument tooLong =
+                WorldSettingsDocument.uninitialized().withActiveProfile("pack:" + "a".repeat(124));
         assertFalse(WorldSettingsValidator.validate(tooLong).valid());
     }
 }

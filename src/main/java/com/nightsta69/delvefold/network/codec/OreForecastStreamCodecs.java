@@ -17,22 +17,33 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Strict bounded codec for the administrative ore-profile forecast. */
 public final class OreForecastStreamCodecs {
+    /** Aggregate encoded forecast budget in bytes. */
     public static final int MAX_NETWORK_BYTES = 24 * 1024;
+    /** Maximum vertical overlay samples in one forecast. */
     public static final int MAX_HEIGHT_SAMPLES = 385;
+    /** Maximum issue details encoded for one forecast rule. */
     public static final int MAX_RULE_ISSUES = 16;
+    /** Maximum missing or shadowed reference details in one forecast. */
     public static final int MAX_REFERENCE_DETAILS = 64;
 
-    private OreForecastStreamCodecs() {
-    }
+    private OreForecastStreamCodecs() {}
 
+    /**
+     * Writes one forecast in protocol 12 declaration order and enforces the aggregate byte budget.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param forecast immutable bounded forecast
+     * @throws IllegalArgumentException if a nested bound, metric, enum, or aggregate byte budget is invalid
+     */
     public static void write(RegistryFriendlyByteBuf buffer, OreProfileForecast forecast) {
         int start = buffer.writerIndex();
         buffer.writeVarInt(forecast.formatVersion());
         writeString(buffer, forecast.profileId());
         buffer.writeVarLong(forecast.profileRevision());
-        buffer.writeBoolean(forecast.activeTerrain() != null);
-        if (forecast.activeTerrain() != null) {
-            writeEnum(buffer, forecast.activeTerrain());
+        TerrainMode activeTerrain = forecast.activeTerrain();
+        buffer.writeBoolean(activeTerrain != null);
+        if (activeTerrain != null) {
+            writeEnum(buffer, activeTerrain);
         }
         writeCount(buffer, forecast.terrainTotals().size(), TerrainMode.values().length, "terrain totals");
         for (TerrainTotals totals : forecast.terrainTotals()) {
@@ -62,6 +73,13 @@ public final class OreForecastStreamCodecs {
         ensureBudget(buffer.writerIndex() - start);
     }
 
+    /**
+     * Reads and validates one protocol 12 forecast without allocating collections beyond declared bounds.
+     *
+     * @param buffer source registry-aware network buffer positioned at the forecast's first byte
+     * @return immutable validated forecast
+     * @throws IllegalArgumentException if encoded values, counts, ordinals, or aggregate bytes exceed protocol bounds
+     */
     public static OreProfileForecast read(RegistryFriendlyByteBuf buffer) {
         int start = buffer.readerIndex();
         int format = buffer.readVarInt();
@@ -77,7 +95,10 @@ public final class OreForecastStreamCodecs {
             terrainTotals.add(new TerrainTotals(
                     readEnum(buffer, TerrainMode.class),
                     buffer.readBoolean(),
-                    readMetric(buffer), readMetric(buffer), readMetric(buffer), readMetric(buffer)));
+                    readMetric(buffer),
+                    readMetric(buffer),
+                    readMetric(buffer),
+                    readMetric(buffer)));
             ensureBudget(buffer.readerIndex() - start);
         }
         int heightCount = readCount(buffer, MAX_HEIGHT_SAMPLES, "height samples");
@@ -98,8 +119,20 @@ public final class OreForecastStreamCodecs {
         ReferenceSummary references = readReferenceSummary(buffer, start);
         boolean truncated = buffer.readBoolean();
         ensureBudget(buffer.readerIndex() - start);
-        return new OreProfileForecast(format, profileId, revision, activeTerrain, terrainTotals, overlay,
-                totalRules, page, pageSize, pageCount, rules, references, truncated);
+        return new OreProfileForecast(
+                format,
+                profileId,
+                revision,
+                activeTerrain,
+                terrainTotals,
+                overlay,
+                totalRules,
+                page,
+                pageSize,
+                pageCount,
+                rules,
+                references,
+                truncated);
     }
 
     private static void writeRule(RegistryFriendlyByteBuf buffer, RuleForecast rule) {
@@ -144,9 +177,22 @@ public final class OreForecastStreamCodecs {
         }
         boolean truncated = buffer.readBoolean();
         ensureBudget(buffer.readerIndex() - start);
-        return new RuleForecast(ruleIndex, ruleId, enabled, required, status,
-                configuredAttempts, configuredWork, effectiveAttempts, effectiveWork,
-                targetCount, effectiveOutputs, missing, shadowed, issues, truncated);
+        return new RuleForecast(
+                ruleIndex,
+                ruleId,
+                enabled,
+                required,
+                status,
+                configuredAttempts,
+                configuredWork,
+                effectiveAttempts,
+                effectiveWork,
+                targetCount,
+                effectiveOutputs,
+                missing,
+                shadowed,
+                issues,
+                truncated);
     }
 
     private static void writeReferenceSummary(RegistryFriendlyByteBuf buffer, ReferenceSummary summary) {
@@ -177,8 +223,15 @@ public final class OreForecastStreamCodecs {
             ensureBudget(buffer.readerIndex() - start);
         }
         boolean truncated = buffer.readBoolean();
-        return new ReferenceSummary(missingBlocks, missingOutputTags, missingHostTags, invalidStates,
-                shadowedOutputs, totalIssues, details, truncated);
+        return new ReferenceSummary(
+                missingBlocks,
+                missingOutputTags,
+                missingHostTags,
+                invalidStates,
+                shadowedOutputs,
+                totalIssues,
+                details,
+                truncated);
     }
 
     private static void writeIssue(RegistryFriendlyByteBuf buffer, ReferenceIssue issue) {
@@ -197,8 +250,14 @@ public final class OreForecastStreamCodecs {
         IssueSeverity severity = readEnum(buffer, IssueSeverity.class);
         int ruleIndex = boundedInt(buffer.readVarInt(), 0, ProtocolLimits.MAX_ORE_RULES - 1, "issue rule index");
         int targetIndex = boundedInt(buffer.readInt(), -1, ProtocolLimits.MAX_VARIANTS - 1, "issue target index");
-        return new ReferenceIssue(kind, severity, ruleIndex, targetIndex,
-                readString(buffer), readString(buffer), readString(buffer),
+        return new ReferenceIssue(
+                kind,
+                severity,
+                ruleIndex,
+                targetIndex,
+                readString(buffer),
+                readString(buffer),
+                readString(buffer),
                 boundedInt(buffer.readVarInt(), 0, 4096, "affected outputs"));
     }
 
@@ -249,6 +308,8 @@ public final class OreForecastStreamCodecs {
         return value;
     }
 
+    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());
     }

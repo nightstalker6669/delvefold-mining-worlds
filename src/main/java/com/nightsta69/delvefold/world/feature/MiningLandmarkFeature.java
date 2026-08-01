@@ -1,12 +1,12 @@
 package com.nightsta69.delvefold.world.feature;
 
-import com.nightsta69.delvefold.config.DelvefoldConfigService;
+import com.mojang.serialization.Codec;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
+import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
-import com.mojang.serialization.Codec;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -19,11 +19,22 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
+import org.jspecify.annotations.Nullable;
 
-/** Small, bounded mining landmarks selected from the active world identity settings. */
+/**
+ * Legacy bounded single-chunk landmarks selected from active world identity settings.
+ *
+ * <p>The reloadable structure catalog supersedes this adapter for multi-chunk templates. Legacy mutations remain
+ * bounded around the currently generating feature origin.
+ */
 public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguration> {
     private static final int UPDATE_NONE = 2;
 
+    /**
+     * Creates the legacy feature with Minecraft's no-configuration codec.
+     *
+     * @param codec platform codec for {@link NoneFeatureConfiguration}
+     */
     public MiningLandmarkFeature(Codec<NoneFeatureConfiguration> codec) {
         super(codec);
     }
@@ -55,7 +66,8 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
         if (choices.isEmpty()) {
             return false;
         }
-        TerrainMode terrain = DelvefoldWorldgen.terrainFor(context.level().getLevel().dimension());
+        @Nullable TerrainMode terrain =
+                DelvefoldWorldgen.terrainFor(context.level().getLevel().dimension());
         if (terrain == null) {
             return false;
         }
@@ -73,25 +85,31 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
             // The placement modifier already consumed the legacy rarity and in-square draws.
             return legacyRandom;
         }
-        return RandomSource.create(GenerationSeedMixer.landmarkContentSeed(
-                worldSeed, chunkPos.toLong(), generationSalt));
+        return RandomSource.create(
+                GenerationSeedMixer.landmarkContentSeed(worldSeed, chunkPos.toLong(), generationSalt));
     }
 
     private static boolean surveyStation(WorldGenLevel level, BlockPos origin, TerrainMode terrain) {
         BlockPos floor = terrain == TerrainMode.CAVERN
                 ? cavernFloor(level, origin)
-                : new BlockPos(origin.getX(), level.getHeight(Heightmap.Types.WORLD_SURFACE_WG,
-                        origin.getX(), origin.getZ()) - 1, origin.getZ());
-        if (floor == null || floor.getY() <= level.getMinBuildHeight() + 2
+                : new BlockPos(
+                        origin.getX(),
+                        level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, origin.getX(), origin.getZ()) - 1,
+                        origin.getZ());
+        if (floor == null
+                || floor.getY() <= level.getMinBuildHeight() + 2
                 || floor.getY() >= level.getMaxBuildHeight() - 6) {
             return false;
         }
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 BlockPos at = floor.offset(dx, 0, dz);
-                set(level, at, (Math.abs(dx) == 2 || Math.abs(dz) == 2)
-                        ? Blocks.COBBLED_DEEPSLATE.defaultBlockState()
-                        : Blocks.POLISHED_DEEPSLATE.defaultBlockState());
+                set(
+                        level,
+                        at,
+                        (Math.abs(dx) == 2 || Math.abs(dz) == 2)
+                                ? Blocks.COBBLED_DEEPSLATE.defaultBlockState()
+                                : Blocks.POLISHED_DEEPSLATE.defaultBlockState());
                 for (int dy = 1; dy <= 3; dy++) {
                     set(level, at.above(dy), Blocks.AIR.defaultBlockState());
                 }
@@ -105,7 +123,7 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
         return true;
     }
 
-    private static BlockPos cavernFloor(WorldGenLevel level, BlockPos origin) {
+    private static @Nullable BlockPos cavernFloor(WorldGenLevel level, BlockPos origin) {
         int top = Math.min(level.getMaxBuildHeight() - 5, 120);
         int bottom = Math.max(level.getMinBuildHeight() + 3, -48);
         for (int y = top; y >= bottom; y--) {
@@ -124,8 +142,8 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
         int maximum = Math.min(level.getMaxBuildHeight() - 8, 48);
         int y = minimum + random.nextInt(Math.max(1, maximum - minimum + 1));
         BlockPos center = new BlockPos(origin.getX(), y, origin.getZ());
-        BlockState accent = random.nextBoolean()
-                ? Blocks.RAW_IRON_BLOCK.defaultBlockState() : Blocks.CALCITE.defaultBlockState();
+        BlockState accent =
+                random.nextBoolean() ? Blocks.RAW_IRON_BLOCK.defaultBlockState() : Blocks.CALCITE.defaultBlockState();
         boolean placed = false;
         for (int dx = -2; dx <= 2; dx++) {
             for (int dy = -2; dy <= 2; dy++) {
@@ -133,8 +151,10 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
                     if (dx * dx + dy * dy + dz * dz > 6 || random.nextFloat() < 0.28F) continue;
                     BlockPos at = center.offset(dx, dy, dz);
                     if (replaceable(level.getBlockState(at))) {
-                        set(level, at, (dx == 0 && dy == 0 && dz == 0)
-                                ? Blocks.RAW_GOLD_BLOCK.defaultBlockState() : accent);
+                        set(
+                                level,
+                                at,
+                                (dx == 0 && dy == 0 && dz == 0) ? Blocks.RAW_GOLD_BLOCK.defaultBlockState() : accent);
                         placed = true;
                     }
                 }
@@ -145,7 +165,8 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
 
     private static boolean faultLine(WorldGenLevel level, BlockPos origin, RandomSource random) {
         int minimum = Math.max(level.getMinBuildHeight() + 4, -56);
-        int surface = Math.min(level.getMaxBuildHeight() - 4,
+        int surface = Math.min(
+                level.getMaxBuildHeight() - 4,
                 level.getHeight(Heightmap.Types.WORLD_SURFACE_WG, origin.getX(), origin.getZ()));
         boolean placed = false;
         for (int y = minimum; y < surface && y < minimum + 96; y++) {
@@ -160,13 +181,20 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
     }
 
     private static boolean replaceable(BlockState state) {
-        return state.is(Blocks.STONE) || state.is(Blocks.DEEPSLATE) || state.is(Blocks.TUFF)
-                || state.is(Blocks.DIRT) || state.is(Blocks.GRASS_BLOCK);
+        return state.is(Blocks.STONE)
+                || state.is(Blocks.DEEPSLATE)
+                || state.is(Blocks.TUFF)
+                || state.is(Blocks.DIRT)
+                || state.is(Blocks.GRASS_BLOCK);
     }
 
     private static void set(WorldGenLevel level, BlockPos position, BlockState state) {
         level.setBlock(position, state, UPDATE_NONE);
     }
 
-    private enum Landmark { SURVEY_STATION, MOTHERLODE, FAULT_LINE }
+    private enum Landmark {
+        SURVEY_STATION,
+        MOTHERLODE,
+        FAULT_LINE
+    }
 }

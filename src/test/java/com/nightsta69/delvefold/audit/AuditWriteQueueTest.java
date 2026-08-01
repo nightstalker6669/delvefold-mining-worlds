@@ -20,8 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AuditWriteQueueTest {
-    private static final Clock FIXED_CLOCK = Clock.fixed(
-            Instant.parse("2026-08-01T12:34:56Z"), ZoneOffset.UTC);
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-08-01T12:34:56Z"), ZoneOffset.UTC);
 
     @TempDir
     Path temporary;
@@ -52,9 +51,8 @@ class AuditWriteQueueTest {
     void boundedQueueRejectsExcessWithoutBlockingCallerAndKeepsAcceptedOrder() throws Exception {
         BlockingSink sink = new BlockingSink();
         List<String> failures = new CopyOnWriteArrayList<>();
-        AuditWriteQueue queue = new AuditWriteQueue(
-                sink, 2, daemonFactory("bounded-audit"),
-                (reason, failure) -> failures.add(reason));
+        AuditWriteQueue queue =
+                new AuditWriteQueue(sink, 2, daemonFactory("bounded-audit"), (reason, failure) -> failures.add(reason));
 
         assertTrue(queue.offer(mutation(0)));
         assertTrue(sink.started.await(2, TimeUnit.SECONDS));

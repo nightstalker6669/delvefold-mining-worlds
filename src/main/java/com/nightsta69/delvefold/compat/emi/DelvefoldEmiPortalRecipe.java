@@ -26,11 +26,19 @@ public final class DelvefoldEmiPortalRecipe extends BasicEmiRecipe {
     private final EmiStack frame;
     private final EmiStack ignition;
 
-    public DelvefoldEmiPortalRecipe(
-            EmiRecipeCategory category,
-            PortalConstructionGuide guide) {
-        super(category, ResourceLocation.fromNamespaceAndPath(
-                PortalConstructionGuide.RECIPE_NAMESPACE, PortalConstructionGuide.RECIPE_PATH), 190, 100);
+    /**
+     * Creates EMI's immutable synthetic view of the in-world construction process.
+     *
+     * @param category EMI category that owns this recipe
+     * @param guide viewer-independent portal geometry and instruction contract
+     */
+    public DelvefoldEmiPortalRecipe(EmiRecipeCategory category, PortalConstructionGuide guide) {
+        super(
+                category,
+                ResourceLocation.fromNamespaceAndPath(
+                        PortalConstructionGuide.RECIPE_NAMESPACE, PortalConstructionGuide.RECIPE_PATH),
+                190,
+                100);
         this.guide = guide;
         this.frame = EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get());
         this.ignition = EmiStack.of(Items.FLINT_AND_STEEL);
@@ -41,32 +49,33 @@ public final class DelvefoldEmiPortalRecipe extends BasicEmiRecipe {
     @Override
     public void addWidgets(WidgetHolder widgets) {
         for (PortalConstructionGuide.FrameCell cell : this.guide.minimumFrameCells()) {
-            widgets.addSlot(this.frame.copy(),
-                    GRID_X + cell.column() * SLOT_STEP,
-                    GRID_Y + cell.row() * SLOT_STEP);
+            widgets.addSlot(this.frame.copy(), GRID_X + cell.column() * SLOT_STEP, GRID_Y + cell.row() * SLOT_STEP);
         }
         widgets.addSlot(this.ignition.copy(), GRID_X + 27, GRID_Y + 36).catalyst(true);
 
         Font font = Minecraft.getInstance().font;
         int y = 4;
-        y = addWrapped(widgets, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.dimensions",
-                        this.guide.minimumInteriorWidth(), this.guide.minimumInteriorHeight(),
-                        this.guide.maximumInteriorWidth(), this.guide.maximumInteriorHeight()), y);
-        y = addWrapped(widgets, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.frames",
-                        this.guide.minimumFrameCount()), y + 2);
-        y = addWrapped(widgets, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.initialize"), y + 2);
-        addWrapped(widgets, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.ignite"), y + 2);
+        y = addWrapped(
+                widgets,
+                font,
+                Component.translatable(
+                        "compat.delvefold.recipe_viewer.portal.dimensions",
+                        this.guide.minimumInteriorWidth(),
+                        this.guide.minimumInteriorHeight(),
+                        this.guide.maximumInteriorWidth(),
+                        this.guide.maximumInteriorHeight()),
+                y);
+        y = addWrapped(
+                widgets,
+                font,
+                Component.translatable("compat.delvefold.recipe_viewer.portal.frames", this.guide.minimumFrameCount()),
+                y + 2);
+        y = addWrapped(
+                widgets, font, Component.translatable("compat.delvefold.recipe_viewer.portal.initialize"), y + 2);
+        addWrapped(widgets, font, Component.translatable("compat.delvefold.recipe_viewer.portal.ignite"), y + 2);
     }
 
-    private static int addWrapped(
-            WidgetHolder widgets,
-            Font font,
-            Component text,
-            int y) {
+    private static int addWrapped(WidgetHolder widgets, Font font, Component text, int y) {
         List<FormattedCharSequence> lines = font.split(text, TEXT_WIDTH);
         for (FormattedCharSequence line : lines) {
             widgets.addText(line, TEXT_X, y, 0x404040, false);

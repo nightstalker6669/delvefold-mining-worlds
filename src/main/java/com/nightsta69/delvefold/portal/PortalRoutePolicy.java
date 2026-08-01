@@ -5,8 +5,7 @@ import com.nightsta69.delvefold.config.model.PortalSettings;
 
 /** Pure direction-aware routing policy shared by transition code and tests. */
 final class PortalRoutePolicy {
-    private PortalRoutePolicy() {
-    }
+    private PortalRoutePolicy() {}
 
     static PortalRoutingMode effectiveMode(PortalSettings settings, boolean returningToOverworld) {
         if (returningToOverworld) {

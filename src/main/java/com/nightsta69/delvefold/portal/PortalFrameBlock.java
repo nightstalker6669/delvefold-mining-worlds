@@ -25,10 +25,17 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /** A Delvefold frame block ignited with vanilla Flint and Steel. */
 public final class PortalFrameBlock extends Block {
+    /** Codec used by Minecraft to serialize the registered portal-frame block type. */
     public static final MapCodec<PortalFrameBlock> CODEC = simpleCodec(PortalFrameBlock::new);
+
     private static final ResourceLocation ACTIVATE_PORTAL_ADVANCEMENT =
             ResourceLocation.fromNamespaceAndPath("delvefold", "activate_portal");
 
+    /**
+     * Creates a frame block with registry-supplied behavior properties.
+     *
+     * @param properties immutable Minecraft block behavior settings
+     */
     public PortalFrameBlock(BlockBehaviour.Properties properties) {
         super(properties);
     }
@@ -85,14 +92,13 @@ public final class PortalFrameBlock extends Block {
                 SoundSource.BLOCKS,
                 1.0F,
                 0.8F + serverLevel.getRandom().nextFloat() * 0.4F);
-        serverLevel.playSound(null, position, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS,
-                0.85F, 1.35F);
-        serverLevel.playSound(null, position, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS,
-                0.7F, 0.75F);
+        serverLevel.playSound(null, position, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.85F, 1.35F);
+        serverLevel.playSound(null, position, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.7F, 0.75F);
         BlockPos center = shape.bottomLeft()
                 .relative(PortalFrameShape.positiveDirection(shape.axis()), (shape.width() - 1) / 2)
                 .above((shape.height() - 1) / 2);
-        serverLevel.sendParticles(ParticleTypes.REVERSE_PORTAL,
+        serverLevel.sendParticles(
+                ParticleTypes.REVERSE_PORTAL,
                 center.getX() + 0.5D,
                 center.getY() + 0.5D,
                 center.getZ() + 0.5D,

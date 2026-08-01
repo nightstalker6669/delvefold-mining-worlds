@@ -5,6 +5,8 @@ import java.util.Objects;
 
 /** Nest-safe, caller-thread attribution captured before an audit mutation enters the async queue. */
 final class AuditActorContext {
+    // Actor stacks belong to this service instance, not to all class loaders in the process.
+    @SuppressWarnings("ThreadLocalUsage")
     private final ThreadLocal<ArrayDeque<Scope>> stacks = new ThreadLocal<>();
 
     DelvefoldAuditService.ActorScope push(String actor) {
@@ -52,6 +54,8 @@ final class AuditActorContext {
         }
 
         @Override
+        // Scope closure intentionally validates the exact owner thread and stack node.
+        @SuppressWarnings("ReferenceEquality")
         public void close() {
             if (closed) {
                 return;

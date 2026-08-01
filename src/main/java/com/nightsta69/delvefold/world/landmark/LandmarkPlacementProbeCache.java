@@ -26,6 +26,5 @@ final class LandmarkPlacementProbeCache {
         return resolved.size();
     }
 
-    record ProbeKey(LandmarkPlacementStyle style, int minY, int maxY) {
-    }
+    record ProbeKey(LandmarkPlacementStyle style, int minY, int maxY) {}
 }

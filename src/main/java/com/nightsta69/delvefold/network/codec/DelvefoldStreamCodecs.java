@@ -4,17 +4,17 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
-import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
-import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalHubSettings;
 import com.nightsta69.delvefold.config.model.PortalRoutingMode;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
+import com.nightsta69.delvefold.config.model.RenewalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
-import com.nightsta69.delvefold.config.model.LandmarkPreset;
-import com.nightsta69.delvefold.config.model.RenewalSettings;
-import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -22,11 +22,24 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
+import org.jspecify.annotations.Nullable;
 
+/**
+ * Shared protocol 12 codecs for administration snapshots and nested configuration drafts.
+ *
+ * <p>Methods write fields in declaration order, reject counts before allocation, and encode enums by declaration
+ * ordinal; callers must use identical client and server versions.
+ */
 public final class DelvefoldStreamCodecs {
-    private DelvefoldStreamCodecs() {
-    }
+    private DelvefoldStreamCodecs() {}
 
+    /**
+     * Writes a complete bounded administration snapshot in protocol 12 field order.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param snapshot immutable server-authoritative snapshot
+     * @throws IllegalArgumentException if any nested collection, identifier, string, metric, or enum is invalid
+     */
     public static void writeSnapshot(RegistryFriendlyByteBuf buffer, AdminSnapshot snapshot) {
         buffer.writeLong(snapshot.oreRevision());
         buffer.writeLong(snapshot.settingsRevision());
@@ -65,8 +78,7 @@ public final class DelvefoldStreamCodecs {
         writeString(buffer, snapshot.portalStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeString(buffer, snapshot.worldStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeEnum(buffer, snapshot.pendingOperation());
-        writeStringList(buffer, snapshot.diagnostics(), ProtocolLimits.MAX_DIAGNOSTICS,
-                ProtocolLimits.MESSAGE_LENGTH);
+        writeStringList(buffer, snapshot.diagnostics(), ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
         buffer.writeVarInt(snapshot.oreRuleTotal());
         buffer.writeVarInt(snapshot.orePage());
         writeCount(buffer, snapshot.oreRules().size(), ProtocolLimits.MAX_ORE_RULES_PER_PAGE, "ore rules");
@@ -75,6 +87,13 @@ public final class DelvefoldStreamCodecs {
         }
     }
 
+    /**
+     * Reads a complete administration snapshot while bounding every collection before allocation.
+     *
+     * @param buffer source registry-aware network buffer positioned at the snapshot's first byte
+     * @return immutable validated administration snapshot
+     * @throws IllegalArgumentException if an encoded count, identifier, metric, ordinal, or paging value is invalid
+     */
     public static AdminSnapshot readSnapshot(RegistryFriendlyByteBuf buffer) {
         long oreRevision = buffer.readLong();
         long settingsRevision = buffer.readLong();
@@ -90,24 +109,35 @@ public final class DelvefoldStreamCodecs {
         int profileCount = readCount(buffer, ProtocolLimits.MAX_PROFILES, "ore profiles");
         List<AdminSnapshot.ProfileDraft> profiles = new ArrayList<>(profileCount);
         for (int index = 0; index < profileCount; index++) {
-            profiles.add(new AdminSnapshot.ProfileDraft(readString(buffer, ProtocolLimits.ID_LENGTH),
-                    buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(), buffer.readLong(),
+            profiles.add(new AdminSnapshot.ProfileDraft(
+                    readString(buffer, ProtocolLimits.ID_LENGTH),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readVarInt(),
+                    buffer.readLong(),
                     buffer.readBoolean()));
         }
         int backupCount = readCount(buffer, ProtocolLimits.MAX_BACKUPS, "world backups");
         List<AdminSnapshot.BackupDraft> backups = new ArrayList<>(backupCount);
         for (int index = 0; index < backupCount; index++) {
             backups.add(new AdminSnapshot.BackupDraft(
-                    readString(buffer, ProtocolLimits.SHORT_TEXT_LENGTH), buffer.readLong(),
-                    readString(buffer, ProtocolLimits.ID_LENGTH), readString(buffer, ProtocolLimits.ID_LENGTH),
-                    buffer.readLong(), buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                    buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean()));
+                    readString(buffer, ProtocolLimits.SHORT_TEXT_LENGTH),
+                    buffer.readLong(),
+                    readString(buffer, ProtocolLimits.ID_LENGTH),
+                    readString(buffer, ProtocolLimits.ID_LENGTH),
+                    buffer.readLong(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean()));
         }
         String portalStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         String worldStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         AdminSnapshot.PendingOperation pendingOperation = readEnum(buffer, AdminSnapshot.PendingOperation.class);
-        List<String> diagnostics = readStringList(buffer, ProtocolLimits.MAX_DIAGNOSTICS,
-                ProtocolLimits.MESSAGE_LENGTH);
+        List<String> diagnostics =
+                readStringList(buffer, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
         int oreRuleTotal = buffer.readVarInt();
         if (oreRuleTotal < 0 || oreRuleTotal > ProtocolLimits.MAX_ORE_RULES) {
             throw new IllegalArgumentException("Invalid total ore rule count: " + oreRuleTotal);
@@ -121,12 +151,35 @@ public final class DelvefoldStreamCodecs {
         for (int index = 0; index < oreCount; index++) {
             rules.add(readOreRule(buffer));
         }
-        return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, identity, capabilities,
-                activeProfileId, profiles,
+        return new AdminSnapshot(
+                oreRevision,
+                settingsRevision,
+                backendReady,
+                initialized,
+                terrain,
+                orePreset,
+                gameplay,
+                portal,
+                identity,
+                capabilities,
+                activeProfileId,
+                profiles,
                 backups,
-                portalStatus, worldStatus, pendingOperation, diagnostics, oreRuleTotal, orePage, rules);
+                portalStatus,
+                worldStatus,
+                pendingOperation,
+                diagnostics,
+                oreRuleTotal,
+                orePage,
+                rules);
     }
 
+    /**
+     * Writes the five capability booleans in their fixed protocol order.
+     *
+     * @param buffer destination network buffer
+     * @param capabilities immutable server-derived player capabilities
+     */
     public static void writeCapabilities(RegistryFriendlyByteBuf buffer, AdminSnapshot.AdminCapabilities capabilities) {
         buffer.writeBoolean(capabilities.canView());
         buffer.writeBoolean(capabilities.canConfigure());
@@ -135,11 +188,27 @@ public final class DelvefoldStreamCodecs {
         buffer.writeBoolean(capabilities.canViewDiagnostics());
     }
 
+    /**
+     * Reads the five capability booleans in their fixed protocol order.
+     *
+     * @param buffer source network buffer
+     * @return immutable capability set
+     */
     public static AdminSnapshot.AdminCapabilities readCapabilities(RegistryFriendlyByteBuf buffer) {
-        return new AdminSnapshot.AdminCapabilities(buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readBoolean(), buffer.readBoolean());
+        return new AdminSnapshot.AdminCapabilities(
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean());
     }
 
+    /**
+     * Writes portal and hub settings in protocol 12 field order.
+     *
+     * @param buffer destination network buffer
+     * @param portal immutable normalized portal settings
+     */
     public static void writePortal(RegistryFriendlyByteBuf buffer, PortalSettings portal) {
         buffer.writeBoolean(portal.enabled());
         buffer.writeBoolean(portal.allowFromOverworldOnly());
@@ -151,13 +220,29 @@ public final class DelvefoldStreamCodecs {
         buffer.writeVarInt(portal.hub().protectionRadius());
     }
 
+    /**
+     * Reads portal and hub settings in protocol 12 field order.
+     *
+     * @param buffer source network buffer
+     * @return immutable portal settings
+     * @throws IllegalArgumentException if the coordinate scale or routing ordinal is invalid
+     */
     public static PortalSettings readPortal(RegistryFriendlyByteBuf buffer) {
-        return new PortalSettings(buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(),
+        return new PortalSettings(
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readVarInt(),
                 readFiniteDouble(buffer, "portal coordinate scale"),
                 readEnum(buffer, PortalRoutingMode.class),
                 new PortalHubSettings(buffer.readInt(), buffer.readInt(), buffer.readVarInt()));
     }
 
+    /**
+     * Writes recreation-locked identity, geology, landmark, and renewal settings in protocol order.
+     *
+     * @param buffer destination network buffer
+     * @param identity immutable normalized identity settings
+     */
     public static void writeIdentity(RegistryFriendlyByteBuf buffer, WorldIdentitySettings identity) {
         writeString(buffer, identity.displayName(), 64);
         writeEnum(buffer, identity.terrainVariant());
@@ -174,17 +259,36 @@ public final class DelvefoldStreamCodecs {
         writeEnum(buffer, renewal.seedMode());
     }
 
+    /**
+     * Reads recreation-locked identity and renewal settings in protocol order.
+     *
+     * @param buffer source network buffer
+     * @return immutable identity settings
+     * @throws IllegalArgumentException if an enum ordinal is invalid
+     */
     public static WorldIdentitySettings readIdentity(RegistryFriendlyByteBuf buffer) {
         return new WorldIdentitySettings(
                 readString(buffer, 64),
                 readEnum(buffer, TerrainVariant.class),
                 readEnum(buffer, LandmarkPreset.class),
-                buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
                 readEnum(buffer, GeologyTheme.class),
-                new RenewalSettings(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt(), buffer.readLong(),
+                new RenewalSettings(
+                        buffer.readBoolean(),
+                        buffer.readVarInt(),
+                        buffer.readVarInt(),
+                        buffer.readLong(),
                         readEnum(buffer, RenewalSeedMode.class)));
     }
 
+    /**
+     * Writes the gameplay preset and six spawn-policy booleans in fixed order.
+     *
+     * @param buffer destination network buffer
+     * @param gameplay immutable gameplay settings
+     */
     public static void writeGameplay(RegistryFriendlyByteBuf buffer, GameplaySettings gameplay) {
         writeEnum(buffer, gameplay.preset());
         buffer.writeBoolean(gameplay.monsters());
@@ -195,6 +299,13 @@ public final class DelvefoldStreamCodecs {
         buffer.writeBoolean(gameplay.phantoms());
     }
 
+    /**
+     * Reads the gameplay preset and six spawn-policy booleans in fixed order.
+     *
+     * @param buffer source network buffer
+     * @return immutable gameplay settings
+     * @throws IllegalArgumentException if the preset ordinal is invalid
+     */
     public static GameplaySettings readGameplay(RegistryFriendlyByteBuf buffer) {
         return new GameplaySettings(
                 readEnum(buffer, GameplayPreset.class),
@@ -206,6 +317,13 @@ public final class DelvefoldStreamCodecs {
                 buffer.readBoolean());
     }
 
+    /**
+     * Writes one ore rule, preserving variant, terrain, biome, and band ordering.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param rule immutable ore-rule draft supplied by the server
+     * @throws IllegalArgumentException if a nested count, identifier, string, number, or enum is invalid
+     */
     public static void writeOreRule(RegistryFriendlyByteBuf buffer, AdminSnapshot.OreRuleDraft rule) {
         writeString(buffer, rule.id(), ProtocolLimits.ID_LENGTH);
         buffer.writeBoolean(rule.enabled());
@@ -230,9 +348,15 @@ public final class DelvefoldStreamCodecs {
             writeEnum(buffer, terrainMode);
         }
 
-        writeStringList(buffer, rule.biomeIncludes(), ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+        writeStringList(
+                buffer,
+                rule.biomeIncludes(),
+                ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
                 ProtocolLimits.ID_LENGTH + 1);
-        writeStringList(buffer, rule.biomeExcludes(), ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+        writeStringList(
+                buffer,
+                rule.biomeExcludes(),
+                ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
                 ProtocolLimits.ID_LENGTH + 1);
 
         writeCount(buffer, rule.bands().size(), ProtocolLimits.MAX_BANDS, "spawn bands");
@@ -241,6 +365,13 @@ public final class DelvefoldStreamCodecs {
         }
     }
 
+    /**
+     * Reads one bounded ore rule in the same field order used by {@link #writeOreRule}.
+     *
+     * @param buffer source registry-aware network buffer
+     * @return immutable ore-rule draft; duplicate block-state properties are rejected
+     * @throws IllegalArgumentException if a nested count, identifier, number, ordinal, or property is invalid
+     */
     public static AdminSnapshot.OreRuleDraft readOreRule(RegistryFriendlyByteBuf buffer) {
         String id = readString(buffer, ProtocolLimits.ID_LENGTH);
         boolean enabled = buffer.readBoolean();
@@ -276,20 +407,27 @@ public final class DelvefoldStreamCodecs {
             }
         }
 
-        List<String> biomeIncludes = readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
-                ProtocolLimits.ID_LENGTH + 1);
-        List<String> biomeExcludes = readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
-                ProtocolLimits.ID_LENGTH + 1);
+        List<String> biomeIncludes =
+                readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST, ProtocolLimits.ID_LENGTH + 1);
+        List<String> biomeExcludes =
+                readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST, ProtocolLimits.ID_LENGTH + 1);
 
         int bandCount = readCount(buffer, ProtocolLimits.MAX_BANDS, "spawn bands");
         List<AdminSnapshot.OreBandDraft> bands = new ArrayList<>(bandCount);
         for (int index = 0; index < bandCount; index++) {
             bands.add(readOreBand(buffer));
         }
-        return new AdminSnapshot.OreRuleDraft(id, enabled, required, primaryBlockId, variants, terrainModes,
-                biomeIncludes, biomeExcludes, bands);
+        return new AdminSnapshot.OreRuleDraft(
+                id, enabled, required, primaryBlockId, variants, terrainModes, biomeIncludes, biomeExcludes, bands);
     }
 
+    /**
+     * Writes one ore band and its optional province settings in protocol 12 order.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param band immutable ore-band draft supplied by the server
+     * @throws IllegalArgumentException if a floating-point value or enum is invalid
+     */
     public static void writeOreBand(RegistryFriendlyByteBuf buffer, AdminSnapshot.OreBandDraft band) {
         writeString(buffer, band.id(), ProtocolLimits.ID_LENGTH);
         buffer.writeVarInt(band.veinSize());
@@ -302,16 +440,24 @@ public final class DelvefoldStreamCodecs {
         buffer.writeInt(band.plateauMaxY());
         writeFiniteDouble(buffer, band.discardOnAirExposure(), "air exposure discard");
         writeEnum(buffer, band.placement());
-        buffer.writeBoolean(band.province() != null);
-        if (band.province() != null) {
-            buffer.writeVarInt(band.province().regionSize());
-            buffer.writeVarInt(band.province().radius());
-            buffer.writeVarInt(band.province().verticalThickness());
-            writeFiniteDouble(buffer, band.province().density(), "province density");
-            buffer.writeVarInt(band.province().perChunkWorkCap());
+        ProvinceSettings province = band.province();
+        buffer.writeBoolean(province != null);
+        if (province != null) {
+            buffer.writeVarInt(province.regionSize());
+            buffer.writeVarInt(province.radius());
+            buffer.writeVarInt(province.verticalThickness());
+            writeFiniteDouble(buffer, province.density(), "province density");
+            buffer.writeVarInt(province.perChunkWorkCap());
         }
     }
 
+    /**
+     * Reads one ore band and its optional province settings in protocol 12 order.
+     *
+     * @param buffer source registry-aware network buffer
+     * @return immutable ore-band draft; province settings are absent when the encoded presence flag is false
+     * @throws IllegalArgumentException if a floating-point value or enum ordinal is invalid
+     */
     public static AdminSnapshot.OreBandDraft readOreBand(RegistryFriendlyByteBuf buffer) {
         String id = readString(buffer, ProtocolLimits.ID_LENGTH);
         int veinSize = buffer.readVarInt();
@@ -327,15 +473,39 @@ public final class DelvefoldStreamCodecs {
         ProvinceSettings province = null;
         if (buffer.readBoolean()) {
             province = new ProvinceSettings(
-                    buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(),
-                    readFiniteDouble(buffer, "province density"), buffer.readVarInt());
+                    buffer.readVarInt(),
+                    buffer.readVarInt(),
+                    buffer.readVarInt(),
+                    readFiniteDouble(buffer, "province density"),
+                    buffer.readVarInt());
         }
         return new AdminSnapshot.OreBandDraft(
-                id, veinSize, attempts, distribution, minY, maxY, peakY,
-                plateauMinY, plateauMaxY, discard, placement, province);
+                id,
+                veinSize,
+                attempts,
+                distribution,
+                minY,
+                maxY,
+                peakY,
+                plateauMinY,
+                plateauMaxY,
+                discard,
+                placement,
+                province);
     }
 
-    public static void writeString(RegistryFriendlyByteBuf buffer, String value, int maximumLength) {
+    /**
+     * Writes a UTF-8 protocol string after enforcing its character limit.
+     *
+     * <p>A {@code null} value is encoded as an empty string; callers must not use this method when null and empty have
+     * different wire meanings.
+     *
+     * @param buffer destination network buffer
+     * @param value value to encode, or {@code null} to encode an empty string
+     * @param maximumLength inclusive maximum character count accepted by the protocol
+     * @throws IllegalArgumentException if {@code value} exceeds {@code maximumLength}
+     */
+    public static void writeString(RegistryFriendlyByteBuf buffer, @Nullable String value, int maximumLength) {
         String safe = value == null ? "" : value;
         if (safe.length() > maximumLength) {
             throw new IllegalArgumentException("String exceeds protocol maximum of " + maximumLength + " characters");
@@ -343,10 +513,25 @@ public final class DelvefoldStreamCodecs {
         buffer.writeUtf(safe, maximumLength);
     }
 
+    /**
+     * Reads a UTF-8 protocol string with an allocation bound.
+     *
+     * @param buffer source network buffer
+     * @param maximumLength inclusive maximum character count accepted by the protocol
+     * @return decoded non-null string owned by the caller
+     * @throws io.netty.handler.codec.DecoderException if the encoded string exceeds the bound or is malformed
+     */
     public static String readString(RegistryFriendlyByteBuf buffer, int maximumLength) {
         return buffer.readUtf(maximumLength);
     }
 
+    /**
+     * Validates and writes one namespaced resource identifier.
+     *
+     * @param buffer destination network buffer
+     * @param value textual resource identifier such as {@code minecraft:iron_ore}
+     * @throws IllegalArgumentException if {@code value} is null, empty, malformed, or exceeds the identifier limit
+     */
     public static void writeResourceId(RegistryFriendlyByteBuf buffer, String value) {
         ResourceLocation id = ResourceLocation.tryParse(value == null ? "" : value);
         if (id == null) {
@@ -355,6 +540,14 @@ public final class DelvefoldStreamCodecs {
         writeString(buffer, id.toString(), ProtocolLimits.ID_LENGTH);
     }
 
+    /**
+     * Reads and validates one namespaced resource identifier.
+     *
+     * @param buffer source network buffer
+     * @return canonical textual resource identifier
+     * @throws IllegalArgumentException if the decoded value is not a resource identifier
+     * @throws io.netty.handler.codec.DecoderException if the encoded string exceeds the identifier limit
+     */
     public static String readResourceId(RegistryFriendlyByteBuf buffer) {
         String value = readString(buffer, ProtocolLimits.ID_LENGTH);
         if (ResourceLocation.tryParse(value) == null) {
@@ -363,10 +556,34 @@ public final class DelvefoldStreamCodecs {
         return value;
     }
 
+    /**
+     * Writes an enum by declaration ordinal for protocol 12.
+     *
+     * <p>Reordering an enum used by this codec is wire-incompatible and requires a protocol-version change.
+     *
+     * @param <E> enum type shared by an identical client and server build
+     * @param buffer destination network buffer
+     * @param value non-null enum value to encode
+     */
     public static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
+        writeEnumOrdinal(buffer, value);
+    }
+
+    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    @SuppressWarnings("EnumOrdinal")
+    private static <E extends Enum<E>> void writeEnumOrdinal(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());
     }
 
+    /**
+     * Reads an enum ordinal and rejects values outside the declaration's bounds.
+     *
+     * @param <E> enum type shared by an identical client and server build
+     * @param buffer source network buffer
+     * @param enumType enum class whose declaration order defines the wire mapping
+     * @return decoded enum constant
+     * @throws IllegalArgumentException if the encoded ordinal is negative or outside the enum declaration
+     */
     public static <E extends Enum<E>> E readEnum(RegistryFriendlyByteBuf buffer, Class<E> enumType) {
         E[] values = enumType.getEnumConstants();
         int ordinal = buffer.readVarInt();
@@ -376,8 +593,8 @@ public final class DelvefoldStreamCodecs {
         return values[ordinal];
     }
 
-    private static void writeStringList(RegistryFriendlyByteBuf buffer, List<String> values, int maximumCount,
-            int maximumLength) {
+    private static void writeStringList(
+            RegistryFriendlyByteBuf buffer, List<String> values, int maximumCount, int maximumLength) {
         writeCount(buffer, values.size(), maximumCount, "strings");
         for (String value : values) {
             writeString(buffer, value, maximumLength);

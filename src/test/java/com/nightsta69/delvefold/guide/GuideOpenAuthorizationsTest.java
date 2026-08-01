@@ -28,8 +28,7 @@ class GuideOpenAuthorizationsTest {
         assertFalse(authorizations.confirm(player, id + 1L, 51L));
         assertTrue(authorizations.confirm(player, id, 51L));
         long expired = authorizations.issue(player, 50L);
-        assertFalse(authorizations.confirm(player, expired,
-                50L + GuideOpenAuthorizations.TTL_TICKS + 1L));
+        assertFalse(authorizations.confirm(player, expired, 50L + GuideOpenAuthorizations.TTL_TICKS + 1L));
     }
 
     @Test

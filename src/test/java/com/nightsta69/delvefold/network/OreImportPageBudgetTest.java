@@ -12,11 +12,11 @@ class OreImportPageBudgetTest {
 
     @Test
     void maximalScanPageStaysBelowTwentyFourKiB() {
-        int candidate = asciiText(ProtocolLimits.ID_LENGTH)
-                + asciiText(ProtocolLimits.ID_LENGTH)
-                + enumValue() + enumValue();
+        int candidate =
+                asciiText(ProtocolLimits.ID_LENGTH) + asciiText(ProtocolLimits.ID_LENGTH) + enumValue() + enumValue();
         int group = 3 * asciiText(ProtocolLimits.ID_LENGTH)
-                + enumValue() + booleanValue()
+                + enumValue()
+                + booleanValue()
                 + varInt(ProtocolLimits.MAX_VARIANTS)
                 + ProtocolLimits.MAX_VARIANTS * candidate;
         int header = asciiText(ProtocolLimits.MAX_IMPORT_TOKEN_LENGTH)
@@ -33,16 +33,18 @@ class OreImportPageBudgetTest {
 
     @Test
     void maximalPreviewPageStaysBelowTwentyFourKiB() {
-        int idList = varInt(ProtocolLimits.MAX_VARIANTS)
-                + ProtocolLimits.MAX_VARIANTS * asciiText(ProtocolLimits.ID_LENGTH);
+        int idList =
+                varInt(ProtocolLimits.MAX_VARIANTS) + ProtocolLimits.MAX_VARIANTS * asciiText(ProtocolLimits.ID_LENGTH);
         int diffEntry = 2 * asciiText(ProtocolLimits.ID_LENGTH)
-                + enumValue() + 2 * idList
+                + enumValue()
+                + 2 * idList
                 + maximumUtf8Text(ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH);
         int header = asciiText(ProtocolLimits.MAX_IMPORT_TOKEN_LENGTH)
                 + NON_NEGATIVE_VAR_LONG_BYTES
                 + asciiText(ProtocolLimits.ID_LENGTH)
                 + 3 * varInt(ProtocolLimits.MAX_IMPORT_GROUPS)
-                + booleanValue() + NON_NEGATIVE_VAR_LONG_BYTES
+                + booleanValue()
+                + NON_NEGATIVE_VAR_LONG_BYTES
                 + varInt(ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE);
         int workloads = varInt(ProtocolLimits.MAX_TERRAIN_MODES)
                 + ProtocolLimits.MAX_TERRAIN_MODES * (enumValue() + 4 * DOUBLE_BYTES);
@@ -50,19 +52,18 @@ class OreImportPageBudgetTest {
                 + asciiText(ProtocolLimits.ID_LENGTH)
                 + maximumUtf8Text(ProtocolLimits.SHORT_TEXT_LENGTH)
                 + maximumUtf8Text(ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH);
-        int issues = varInt(ProtocolLimits.MAX_IMPORT_ISSUES)
-                + ProtocolLimits.MAX_IMPORT_ISSUES * issue;
-        int maximalPage = header
-                + ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE * diffEntry
-                + workloads + issues + booleanValue();
+        int issues = varInt(ProtocolLimits.MAX_IMPORT_ISSUES) + ProtocolLimits.MAX_IMPORT_ISSUES * issue;
+        int maximalPage =
+                header + ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE * diffEntry + workloads + issues + booleanValue();
 
         assertWithinBudget("preview", maximalPage);
     }
 
     private static void assertWithinBudget(String pageType, int bytes) {
-        assertTrue(bytes <= ProtocolLimits.MAX_IMPORT_NETWORK_BYTES,
-                () -> "Maximal " + pageType + " page requires " + bytes
-                        + " bytes, over the " + ProtocolLimits.MAX_IMPORT_NETWORK_BYTES + "-byte budget");
+        assertTrue(
+                bytes <= ProtocolLimits.MAX_IMPORT_NETWORK_BYTES,
+                () -> "Maximal " + pageType + " page requires " + bytes + " bytes, over the "
+                        + ProtocolLimits.MAX_IMPORT_NETWORK_BYTES + "-byte budget");
     }
 
     /** Tokens, resource locations, profile IDs, rule IDs, and validation codes are ASCII by grammar. */

@@ -32,12 +32,12 @@ class OreImportFingerprintsTest {
 
     @Test
     void registryFingerprintChangesWithBlocksOrTagMembership() {
-        OreImportRegistry baseline = registry(List.of(
-                new OreImportRegistry.BlockEntry("example:tin_ore", Set.of("c:ores/tin"))));
-        OreImportRegistry changedTag = registry(List.of(
-                new OreImportRegistry.BlockEntry("example:tin_ore", Set.of("c:ores/lead"))));
-        OreImportRegistry changedBlock = registry(List.of(
-                new OreImportRegistry.BlockEntry("example:raw_tin_block", Set.of("c:ores/tin"))));
+        OreImportRegistry baseline =
+                registry(List.of(new OreImportRegistry.BlockEntry("example:tin_ore", Set.of("c:ores/tin"))));
+        OreImportRegistry changedTag =
+                registry(List.of(new OreImportRegistry.BlockEntry("example:tin_ore", Set.of("c:ores/lead"))));
+        OreImportRegistry changedBlock =
+                registry(List.of(new OreImportRegistry.BlockEntry("example:raw_tin_block", Set.of("c:ores/tin"))));
 
         assertNotEquals(OreImportFingerprints.registry(baseline), OreImportFingerprints.registry(changedTag));
         assertNotEquals(OreImportFingerprints.registry(baseline), OreImportFingerprints.registry(changedBlock));

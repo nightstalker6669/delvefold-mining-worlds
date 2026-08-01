@@ -17,6 +17,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,16 +25,17 @@ import org.junit.jupiter.api.io.TempDir;
 class BackupDeletionGuardTest {
     private static final String RESTORE_OPERATION_ID = "11111111-1111-1111-1111-111111111111";
     private static final String WORLD_OPERATION_ID = "22222222-2222-2222-2222-222222222222";
-    private static final long RESTORE_CREATED_AT = Instant.parse("2026-08-01T00:00:00Z").toEpochMilli();
-    private static final long WORLD_OPERATION_CREATED_AT = Instant.parse("2026-07-31T23:00:00Z").toEpochMilli();
-    private static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter
-            .ofPattern("uuuuMMdd-HHmmss", Locale.ROOT)
-            .withZone(ZoneOffset.UTC);
+    private static final long RESTORE_CREATED_AT =
+            Instant.parse("2026-08-01T00:00:00Z").toEpochMilli();
+    private static final long WORLD_OPERATION_CREATED_AT =
+            Instant.parse("2026-07-31T23:00:00Z").toEpochMilli();
+    private static final DateTimeFormatter BACKUP_TIMESTAMP =
+            DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss", Locale.ROOT).withZone(ZoneOffset.UTC);
 
     @TempDir
     Path saveRoot;
 
-    private BackupDeletionGuard.Reservation openReservation;
+    private BackupDeletionGuard.@Nullable Reservation openReservation;
 
     @AfterEach
     void releaseReservation() {
@@ -44,24 +46,27 @@ class BackupDeletionGuardTest {
 
     @Test
     void draftReferenceRejectsDeletion() {
-        assertThrows(IOException.class, () -> BackupDeletionGuard.get().reserveForTest(
-                saveRoot, "draft-backup", Set.of("draft-backup")));
+        assertThrows(
+                IOException.class,
+                () -> BackupDeletionGuard.get().reserveForTest(saveRoot, "draft-backup", Set.of("draft-backup")));
     }
 
     @Test
     void persistedRestoreAndWorldOperationReferencesRejectDeletion() throws Exception {
         Path config = saveRoot.resolve("serverconfig/delvefold");
         Files.createDirectories(config);
-        Files.writeString(config.resolve("pending_restore.json"), ConfigJson.GSON.toJson(
-                new PendingWorldRestore(
+        Files.writeString(
+                config.resolve("pending_restore.json"),
+                ConfigJson.GSON.toJson(new PendingWorldRestore(
                         PendingWorldRestore.CURRENT_SCHEMA_VERSION,
                         RESTORE_OPERATION_ID,
                         "selected-backup",
                         PendingWorldRestore.Phase.STAGED,
                         RESTORE_CREATED_AT,
                         "tester")));
-        Files.writeString(config.resolve("pending_world_operation.json"), ConfigJson.GSON.toJson(
-                new PendingWorldOperation(
+        Files.writeString(
+                config.resolve("pending_world_operation.json"),
+                ConfigJson.GSON.toJson(new PendingWorldOperation(
                         PendingWorldOperation.CURRENT_SCHEMA_VERSION,
                         WORLD_OPERATION_ID,
                         WorldOperationType.RECREATE,
@@ -75,14 +80,16 @@ class BackupDeletionGuardTest {
                         WORLD_OPERATION_CREATED_AT,
                         "tester")));
 
-        String preRestoreBackup = BACKUP_TIMESTAMP.format(Instant.ofEpochMilli(RESTORE_CREATED_AT))
-                + "-pre-restore-" + RESTORE_OPERATION_ID;
-        String worldOperationBackup = BACKUP_TIMESTAMP.format(Instant.ofEpochMilli(WORLD_OPERATION_CREATED_AT))
-                + '-' + WORLD_OPERATION_ID;
+        String preRestoreBackup = BACKUP_TIMESTAMP.format(Instant.ofEpochMilli(RESTORE_CREATED_AT)) + "-pre-restore-"
+                + RESTORE_OPERATION_ID;
+        String worldOperationBackup =
+                BACKUP_TIMESTAMP.format(Instant.ofEpochMilli(WORLD_OPERATION_CREATED_AT)) + '-' + WORLD_OPERATION_ID;
 
         for (String referenced : Set.of("selected-backup", preRestoreBackup, worldOperationBackup)) {
-            assertThrows(IOException.class, () -> BackupDeletionGuard.get().reserveForTest(
-                    saveRoot, referenced, Set.of()), referenced);
+            assertThrows(
+                    IOException.class,
+                    () -> BackupDeletionGuard.get().reserveForTest(saveRoot, referenced, Set.of()),
+                    referenced);
         }
     }
 
@@ -90,17 +97,16 @@ class BackupDeletionGuardTest {
     void unreferencedReservationPermitsDeletionAndBlocksRestoreUntilReleased() throws Exception {
         BackupDeletionGuard guard = BackupDeletionGuard.get();
         AtomicInteger coordinatedActions = new AtomicInteger();
-        openReservation = guard.reserveForTest(saveRoot, "ordinary-backup", Set.of());
+        BackupDeletionGuard.Reservation reservation = guard.reserveForTest(saveRoot, "ordinary-backup", Set.of());
+        openReservation = reservation;
 
-        assertTrue(openReservation.permitImmediatelyBeforeDelete());
-        assertFalse(guard.coordinateReferenceForTest(
-                saveRoot, "ordinary-backup", coordinatedActions::incrementAndGet));
+        assertTrue(reservation.permitImmediatelyBeforeDelete());
+        assertFalse(guard.coordinateReferenceForTest(saveRoot, "ordinary-backup", coordinatedActions::incrementAndGet));
         assertEquals(0, coordinatedActions.get());
 
-        openReservation.close();
+        reservation.close();
         openReservation = null;
-        assertTrue(guard.coordinateReferenceForTest(
-                saveRoot, "ordinary-backup", coordinatedActions::incrementAndGet));
+        assertTrue(guard.coordinateReferenceForTest(saveRoot, "ordinary-backup", coordinatedActions::incrementAndGet));
         assertEquals(1, coordinatedActions.get());
     }
 }

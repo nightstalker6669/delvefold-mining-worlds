@@ -17,9 +17,17 @@ public final class DelvefoldGuideService {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final GuideOpenAuthorizations OPEN_AUTHORIZATIONS = new GuideOpenAuthorizations();
 
-    private DelvefoldGuideService() {
-    }
+    private DelvefoldGuideService() {}
 
+    /**
+     * Authorizes and sends one read-only guide snapshot to a player on the server thread.
+     *
+     * <p>The method checks current visibility, issues a short-lived opaque acknowledgement identifier, and discards
+     * that identifier if packet delivery fails.
+     *
+     * @param player requesting server player
+     * @return success when a payload was sent, otherwise a localized denial result
+     */
     public static OpenResult openFor(ServerPlayer player) {
         ConfigSnapshot config;
         try {
@@ -31,7 +39,7 @@ public final class DelvefoldGuideService {
         boolean operator = AdminAccess.canConfigure(player);
         if (!GuideAccessPolicy.allows(config.settings().guideVisibility(), operator)) {
             String key = config.settings().guideVisibility()
-                    == com.nightsta69.delvefold.config.model.GuideVisibility.DISABLED
+                            == com.nightsta69.delvefold.config.model.GuideVisibility.DISABLED
                     ? "message.delvefold.guide.disabled"
                     : "message.delvefold.guide.operators_only";
             return OpenResult.denied(Component.translatable(key));
@@ -39,7 +47,9 @@ public final class DelvefoldGuideService {
 
         try {
             GuideSnapshot snapshot = GuideSnapshotBuilder.build(
-                    config, System.currentTimeMillis(), WorldOperationService.get().isEntryBlocked());
+                    config,
+                    System.currentTimeMillis(),
+                    WorldOperationService.get().isEntryBlocked());
             long authorizationId = OPEN_AUTHORIZATIONS.issue(
                     player.getUUID(), player.getServer().getTickCount());
             try {
@@ -50,12 +60,21 @@ public final class DelvefoldGuideService {
             }
             return OpenResult.success();
         } catch (RuntimeException exception) {
-            LOGGER.error("Could not open the Delvefold guide for {}", player.getGameProfile().getName(), exception);
+            LOGGER.error(
+                    "Could not open the Delvefold guide for {}",
+                    player.getGameProfile().getName(),
+                    exception);
             return OpenResult.denied(Component.translatable("message.delvefold.guide.unavailable"));
         }
     }
 
-    /** Awards consultation only for the one client opening that the server just authorized. */
+    /**
+     * Awards consultation only for the one client opening that the server just authorized.
+     *
+     * @param player server player acknowledging the opened screen
+     * @param authorizationId opaque, short-lived identifier issued by {@link #openFor(ServerPlayer)}
+     * @return {@code true} only when authorization, current visibility, and advancement triggering all succeed
+     */
     public static boolean confirmOpened(ServerPlayer player, long authorizationId) {
         if (!OPEN_AUTHORIZATIONS.confirm(
                 player.getUUID(), authorizationId, player.getServer().getTickCount())) {
@@ -72,6 +91,12 @@ public final class DelvefoldGuideService {
         return SeamLedgerAdvancements.triggerConsulted(player);
     }
 
+    /**
+     * Immutable outcome of a server-side guide-open attempt.
+     *
+     * @param opened whether a payload was successfully authorized and sent
+     * @param message localized denial component, or an empty component on success
+     */
     public record OpenResult(boolean opened, Component message) {
         private static OpenResult success() {
             return new OpenResult(true, Component.empty());

@@ -26,24 +26,31 @@ class AsyncAuditMutationTrackerTest {
         AtomicBoolean oldAudited = new AtomicBoolean();
         tracker.beginSession(SAVE_ROOT);
         tracker.openSession(SAVE_ROOT);
-        tracker.startTracked(SAVE_ROOT, () -> oldSource,
-                (result, failure) -> oldAudited.set(failure == null));
+        var unusedOldTracking =
+                tracker.startTracked(SAVE_ROOT, () -> oldSource, (result, failure) -> oldAudited.set(failure == null));
 
         tracker.stopAccepting(SAVE_ROOT);
         AtomicBoolean lateFactoryInvoked = new AtomicBoolean();
-        CompletableFuture<String> rejected = tracker.startTracked(SAVE_ROOT, () -> {
-            lateFactoryInvoked.set(true);
-            return CompletableFuture.completedFuture("late mutation");
-        }, (result, failure) -> { });
+        CompletableFuture<String> rejected = tracker.startTracked(
+                SAVE_ROOT,
+                () -> {
+                    lateFactoryInvoked.set(true);
+                    return CompletableFuture.completedFuture("late mutation");
+                },
+                (result, failure) -> {});
 
         assertThrows(CompletionException.class, rejected::join);
         assertFalse(lateFactoryInvoked.get(), "Closing must reject before the mutation source starts");
-        assertThrows(IllegalStateException.class, () -> tracker.beginSession(SAVE_ROOT),
+        assertThrows(
+                IllegalStateException.class,
+                () -> tracker.beginSession(SAVE_ROOT),
                 "A new save session must not replace a pending callback from the old session");
 
         oldSource.complete("old mutation");
         tracker.drain(SAVE_ROOT);
-        assertThrows(IllegalStateException.class, () -> tracker.beginSession(SAVE_ROOT),
+        assertThrows(
+                IllegalStateException.class,
+                () -> tracker.beginSession(SAVE_ROOT),
                 "Even a drained generation remains isolated until lifecycle explicitly ends it");
         tracker.endSession(SAVE_ROOT);
         assertTrue(oldAudited.get());
@@ -51,7 +58,9 @@ class AsyncAuditMutationTrackerTest {
         AtomicBoolean newAudited = new AtomicBoolean();
         tracker.beginSession(SAVE_ROOT);
         tracker.openSession(SAVE_ROOT);
-        tracker.startTracked(SAVE_ROOT, () -> CompletableFuture.completedFuture("new mutation"),
+        var unusedNewTracking = tracker.startTracked(
+                SAVE_ROOT,
+                () -> CompletableFuture.completedFuture("new mutation"),
                 (result, failure) -> newAudited.set(failure == null));
         tracker.stopAccepting(SAVE_ROOT);
         tracker.drain(SAVE_ROOT);
@@ -69,7 +78,7 @@ class AsyncAuditMutationTrackerTest {
         ExecutorService workers = Executors.newFixedThreadPool(2);
         tracker.beginSession(SAVE_ROOT);
         tracker.openSession(SAVE_ROOT);
-        tracker.startTracked(SAVE_ROOT, () -> source, (result, failure) -> {
+        var unusedTracking = tracker.startTracked(SAVE_ROOT, () -> source, (result, failure) -> {
             auditEntered.countDown();
             try {
                 releaseAudit.await();
@@ -86,7 +95,9 @@ class AsyncAuditMutationTrackerTest {
             tracker.stopAccepting(SAVE_ROOT);
             Future<?> drain = workers.submit(() -> tracker.drain(SAVE_ROOT));
 
-            assertThrows(TimeoutException.class, () -> drain.get(200, TimeUnit.MILLISECONDS),
+            assertThrows(
+                    TimeoutException.class,
+                    () -> drain.get(200, TimeUnit.MILLISECONDS),
                     "Shutdown must not pass the audit barrier while its callback is still running");
             releaseAudit.countDown();
             completion.get(5, TimeUnit.SECONDS);

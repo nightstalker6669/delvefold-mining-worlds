@@ -42,11 +42,12 @@ class BackupRetentionServiceTest {
                 NOW.toEpochMilli(),
                 "tester");
         Files.writeString(config.resolve("pending_restore.json"), ConfigJson.GSON.toJson(restore));
-        PendingWorldOperation operation = operation(
-                WORLD_OPERATION_ID, NOW.minus(1, ChronoUnit.HOURS).toEpochMilli());
+        PendingWorldOperation operation =
+                operation(WORLD_OPERATION_ID, NOW.minus(1, ChronoUnit.HOURS).toEpochMilli());
         Files.writeString(config.resolve("pending_world_operation.json"), ConfigJson.GSON.toJson(operation));
 
-        assertEquals(Set.of(
+        assertEquals(
+                Set.of(
                         "selected-backup",
                         "20260801-000000-pre-restore-" + RESTORE_OPERATION_ID,
                         "20260731-230000-" + WORLD_OPERATION_ID),
@@ -59,8 +60,9 @@ class BackupRetentionServiceTest {
         Files.createDirectories(config);
         Files.writeString(config.resolve("pending_restore.json"), "not json");
 
-        assertThrows(IOException.class, () -> BackupRetentionService.preview(
-                saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW));
+        assertThrows(
+                IOException.class,
+                () -> BackupRetentionService.preview(saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW));
     }
 
     @Test
@@ -72,8 +74,9 @@ class BackupRetentionServiceTest {
                  "backup_mode":"keep_backup","created_at_epoch_millis":1785542400000,
                  "requested_by":"tester"}
                 """);
-        assertThrows(IOException.class, () -> BackupRetentionService.preview(
-                saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW));
+        assertThrows(
+                IOException.class,
+                () -> BackupRetentionService.preview(saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW));
 
         Files.delete(config.resolve("pending_world_operation.json"));
         Files.writeString(config.resolve("pending_restore.json"), """
@@ -81,25 +84,25 @@ class BackupRetentionServiceTest {
                  "backup_id":"selected-backup","created_at_epoch_millis":1785542400000,
                  "requested_by":"tester"}
                 """);
-        assertThrows(IOException.class, () -> BackupRetentionService.preview(
-                saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW));
+        assertThrows(
+                IOException.class,
+                () -> BackupRetentionService.preview(saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW));
     }
 
     @Test
     void previewAndApplyProtectPendingNewestAndNewlyPinnedBackups() throws Exception {
-        createBackup("a-old", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(),
-                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        createBackup("b-old", NOW.minus(90, ChronoUnit.DAYS).toEpochMilli(),
-                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        createBackup("c-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(),
-                "cccccccc-cccc-cccc-cccc-cccccccccccc");
-        createBackup("d-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(),
-                "dddddddd-dddd-dddd-dddd-dddddddddddd");
+        createBackup("a-old", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        createBackup("b-old", NOW.minus(90, ChronoUnit.DAYS).toEpochMilli(), "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        createBackup("c-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(), "cccccccc-cccc-cccc-cccc-cccccccccccc");
+        createBackup("d-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(), "dddddddd-dddd-dddd-dddd-dddddddddddd");
 
         BackupRetentionSettings settings = new BackupRetentionSettings(true, 2, 0, 0);
         BackupRetentionService.Preview preview = BackupRetentionService.preview(saveRoot, settings, NOW);
-        assertEquals(List.of("a-old", "b-old"),
-                preview.plan().prunes().stream().map(BackupRetentionPlanner.Prune::id).toList());
+        assertEquals(
+                List.of("a-old", "b-old"),
+                preview.plan().prunes().stream()
+                        .map(BackupRetentionPlanner.Prune::id)
+                        .toList());
 
         new WorldBackupCatalog(saveRoot).setPinned("a-old", true);
         BackupRetentionService.ApplyResult applied = BackupRetentionService.apply(preview);
@@ -114,58 +117,60 @@ class BackupRetentionServiceTest {
 
     @Test
     void pendingRestoreReferenceFlowsIntoThePlanner() throws Exception {
-        createBackup("a-selected", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(),
-                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        createBackup("b-old", NOW.minus(90, ChronoUnit.DAYS).toEpochMilli(),
-                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        createBackup("c-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(),
-                "cccccccc-cccc-cccc-cccc-cccccccccccc");
-        createBackup("d-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(),
-                "dddddddd-dddd-dddd-dddd-dddddddddddd");
+        createBackup(
+                "a-selected", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        createBackup("b-old", NOW.minus(90, ChronoUnit.DAYS).toEpochMilli(), "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        createBackup("c-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(), "cccccccc-cccc-cccc-cccc-cccccccccccc");
+        createBackup("d-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(), "dddddddd-dddd-dddd-dddd-dddddddddddd");
         Path config = saveRoot.resolve("serverconfig/delvefold");
         Files.createDirectories(config);
-        Files.writeString(config.resolve("pending_restore.json"), ConfigJson.GSON.toJson(new PendingWorldRestore(
-                PendingWorldRestore.CURRENT_SCHEMA_VERSION,
-                RESTORE_OPERATION_ID,
-                "a-selected",
-                PendingWorldRestore.Phase.REQUESTED,
-                NOW.toEpochMilli(),
-                "tester")));
+        Files.writeString(
+                config.resolve("pending_restore.json"),
+                ConfigJson.GSON.toJson(new PendingWorldRestore(
+                        PendingWorldRestore.CURRENT_SCHEMA_VERSION,
+                        RESTORE_OPERATION_ID,
+                        "a-selected",
+                        PendingWorldRestore.Phase.REQUESTED,
+                        NOW.toEpochMilli(),
+                        "tester")));
 
-        BackupRetentionService.Preview preview = BackupRetentionService.preview(
-                saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW);
+        BackupRetentionService.Preview preview =
+                BackupRetentionService.preview(saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW);
 
         assertTrue(preview.protectedBackupIds().contains("a-selected"));
-        assertEquals(List.of("b-old"),
-                preview.plan().prunes().stream().map(BackupRetentionPlanner.Prune::id).toList());
+        assertEquals(
+                List.of("b-old"),
+                preview.plan().prunes().stream()
+                        .map(BackupRetentionPlanner.Prune::id)
+                        .toList());
     }
 
     @Test
     void previewPreservesUnsafeBackupsAndPrunesOnlyVerifiedEligibleBackup() throws Exception {
-        createBackup("a-eligible", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(),
-                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        Path legacy = createBackup("b-legacy", NOW.minus(90, ChronoUnit.DAYS).toEpochMilli(),
-                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        createBackup(
+                "a-eligible", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        Path legacy = createBackup(
+                "b-legacy", NOW.minus(90, ChronoUnit.DAYS).toEpochMilli(), "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
         Files.delete(legacy.resolve(BackupManifest.FILE_NAME));
         Files.deleteIfExists(legacy.resolve(BackupVerificationReceipt.FILE_NAME));
-        Path unverified = createBackup("c-unverified", NOW.minus(80, ChronoUnit.DAYS).toEpochMilli(),
-                "cccccccc-cccc-cccc-cccc-cccccccccccc");
+        Path unverified = createBackup(
+                "c-unverified", NOW.minus(80, ChronoUnit.DAYS).toEpochMilli(), "cccccccc-cccc-cccc-cccc-cccccccccccc");
         Files.delete(unverified.resolve(BackupVerificationReceipt.FILE_NAME));
-        Path invalid = createBackup("d-invalid", NOW.minus(70, ChronoUnit.DAYS).toEpochMilli(),
-                "dddddddd-dddd-dddd-dddd-dddddddddddd");
+        Path invalid = createBackup(
+                "d-invalid", NOW.minus(70, ChronoUnit.DAYS).toEpochMilli(), "dddddddd-dddd-dddd-dddd-dddddddddddd");
         Files.delete(invalid.resolve("config/serverconfig/delvefold/settings.json"));
-        createBackup("e-unknown-time", 0L,
-                "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
-        createBackup("f-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(),
-                "ffffffff-ffff-ffff-ffff-ffffffffffff");
-        createBackup("g-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(),
-                "99999999-9999-9999-9999-999999999999");
+        createBackup("e-unknown-time", 0L, "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+        createBackup("f-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(), "ffffffff-ffff-ffff-ffff-ffffffffffff");
+        createBackup("g-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(), "99999999-9999-9999-9999-999999999999");
 
-        BackupRetentionService.Preview preview = BackupRetentionService.preview(
-                saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW);
+        BackupRetentionService.Preview preview =
+                BackupRetentionService.preview(saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW);
 
-        assertEquals(List.of("a-eligible"),
-                preview.plan().prunes().stream().map(BackupRetentionPlanner.Prune::id).toList());
+        assertEquals(
+                List.of("a-eligible"),
+                preview.plan().prunes().stream()
+                        .map(BackupRetentionPlanner.Prune::id)
+                        .toList());
         assertTrue(preview.plan().protections().containsKey("b-legacy"));
         assertTrue(preview.plan().protections().containsKey("c-unverified"));
         assertTrue(preview.plan().protections().containsKey("d-invalid"));
@@ -180,16 +185,17 @@ class BackupRetentionServiceTest {
 
     @Test
     void applyRechecksCurrentVerificationBeforeDeleting() throws Exception {
-        Path old = createBackup("a-old", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(),
-                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
-        createBackup("b-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(),
-                "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-        createBackup("c-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(),
-                "cccccccc-cccc-cccc-cccc-cccccccccccc");
-        BackupRetentionService.Preview preview = BackupRetentionService.preview(
-                saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW);
-        assertEquals(List.of("a-old"),
-                preview.plan().prunes().stream().map(BackupRetentionPlanner.Prune::id).toList());
+        Path old = createBackup(
+                "a-old", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        createBackup("b-newer", NOW.minus(2, ChronoUnit.DAYS).toEpochMilli(), "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        createBackup("c-newest", NOW.minus(1, ChronoUnit.DAYS).toEpochMilli(), "cccccccc-cccc-cccc-cccc-cccccccccccc");
+        BackupRetentionService.Preview preview =
+                BackupRetentionService.preview(saveRoot, new BackupRetentionSettings(true, 2, 0, 0), NOW);
+        assertEquals(
+                List.of("a-old"),
+                preview.plan().prunes().stream()
+                        .map(BackupRetentionPlanner.Prune::id)
+                        .toList());
 
         Files.delete(old.resolve(BackupVerificationReceipt.FILE_NAME));
         BackupRetentionService.ApplyResult applied = BackupRetentionService.apply(preview);
@@ -201,10 +207,9 @@ class BackupRetentionServiceTest {
 
     @Test
     void disabledRetentionIsAnApplyNoOp() throws Exception {
-        createBackup("only", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(),
-                "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
-        BackupRetentionService.Preview preview = BackupRetentionService.preview(
-                saveRoot, BackupRetentionSettings.defaults(), NOW);
+        createBackup("only", NOW.minus(100, ChronoUnit.DAYS).toEpochMilli(), "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
+        BackupRetentionService.Preview preview =
+                BackupRetentionService.preview(saveRoot, BackupRetentionSettings.defaults(), NOW);
 
         BackupRetentionService.ApplyResult result = BackupRetentionService.apply(preview);
 
@@ -218,12 +223,13 @@ class BackupRetentionServiceTest {
         Path dimension = Files.createDirectories(backup.resolve("dimensions/delvefold/delve_flat"));
         Files.writeString(dimension.resolve("level.dat"), "dimension-data");
         Files.createDirectories(backup.resolve("config/serverconfig/delvefold"));
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/settings.json"),
+        Files.writeString(
+                backup.resolve("config/serverconfig/delvefold/settings.json"),
                 ConfigJson.GSON.toJson(WorldSettingsDocument.uninitialized()));
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/ores.json"),
+        Files.writeString(
+                backup.resolve("config/serverconfig/delvefold/ores.json"),
                 ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
-        Files.writeString(backup.resolve("operation.json"),
-                ConfigJson.GSON.toJson(operation(operationId, createdAt)));
+        Files.writeString(backup.resolve("operation.json"), ConfigJson.GSON.toJson(operation(operationId, createdAt)));
         new BackupManifestService().createVerifiedManifest(backup);
         return backup;
     }

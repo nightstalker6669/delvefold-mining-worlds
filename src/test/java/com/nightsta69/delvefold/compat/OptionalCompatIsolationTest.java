@@ -15,16 +15,19 @@ class OptionalCompatIsolationTest {
     @Test
     void optionalViewerApisStayInsideTheirDedicatedPackages() throws IOException {
         try (var sources = Files.walk(JAVA_ROOT)) {
-            List<Path> javaFiles = sources.filter(path -> path.toString().endsWith(".java")).toList();
+            List<Path> javaFiles =
+                    sources.filter(path -> path.toString().endsWith(".java")).toList();
             for (Path source : javaFiles) {
                 String normalized = source.toString().replace('\\', '/');
                 String text = Files.readString(source);
                 if (text.contains("mezz.jei")) {
-                    assertTrue(normalized.contains("/compat/jei/"),
+                    assertTrue(
+                            normalized.contains("/compat/jei/"),
                             () -> "JEI reference escaped optional package: " + source);
                 }
                 if (text.contains("dev.emi")) {
-                    assertTrue(normalized.contains("/compat/emi/"),
+                    assertTrue(
+                            normalized.contains("/compat/emi/"),
                             () -> "EMI reference escaped optional package: " + source);
                 }
             }

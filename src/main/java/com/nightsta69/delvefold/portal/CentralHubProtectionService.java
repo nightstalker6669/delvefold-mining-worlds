@@ -11,8 +11,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 /** Stateless protection policy for the vertical column surrounding a configured central hub. */
 final class CentralHubProtectionService {
-    private CentralHubProtectionService() {
-    }
+    private CentralHubProtectionService() {}
 
     static boolean isProtected(ServerLevel level, BlockPos position, PortalSettings settings) {
         return isProtected(position, settings, DelvefoldWorldgen.isMiningLevel(level.dimension()));
@@ -25,16 +24,12 @@ final class CentralHubProtectionService {
                 && isInsideRadius(position, settings.hub());
     }
 
-    static boolean mayModify(
-            ServerPlayer player, ServerLevel level, BlockPos position, PortalSettings settings) {
-        return modificationAllowed(
-                isProtected(level, position, settings), AdminAccess.canManageWorld(player));
+    static boolean mayModify(ServerPlayer player, ServerLevel level, BlockPos position, PortalSettings settings) {
+        return modificationAllowed(isProtected(level, position, settings), AdminAccess.canManageWorld(player));
     }
 
-    static boolean mayModify(
-            ServerPlayer player, BlockPos position, PortalSettings settings, boolean miningLevel) {
-        return modificationAllowed(
-                isProtected(position, settings, miningLevel), AdminAccess.canManageWorld(player));
+    static boolean mayModify(ServerPlayer player, BlockPos position, PortalSettings settings, boolean miningLevel) {
+        return modificationAllowed(isProtected(position, settings, miningLevel), AdminAccess.canManageWorld(player));
     }
 
     static boolean modificationAllowed(boolean protectedPosition, boolean hasWorldManagementPermission) {

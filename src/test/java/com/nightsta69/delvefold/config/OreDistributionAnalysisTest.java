@@ -13,7 +13,12 @@ class OreDistributionAnalysisTest {
         var result = OreDistributionAnalysis.analyze(SpawnBand.uniform("main", 8, 10, 0, 9, 0));
 
         assertEquals(10, result.samples().size());
-        assertEquals(1.0D, result.samples().stream().mapToDouble(sample -> sample.probability()).sum(), 1.0E-9);
+        assertEquals(
+                1.0D,
+                result.samples().stream()
+                        .mapToDouble(sample -> sample.probability())
+                        .sum(),
+                1.0E-9);
         assertEquals(1.0D, result.samples().getFirst().expectedAttempts(), 1.0E-9);
         assertEquals(80.0D, result.workUnits(), 1.0E-9);
     }
@@ -22,7 +27,9 @@ class OreDistributionAnalysisTest {
     void trianglePeaksAtConfiguredHeight() {
         var result = OreDistributionAnalysis.analyze(SpawnBand.triangle("main", 4, 8, -4, 4, 2, 0));
 
-        var peak = result.samples().stream().max(java.util.Comparator.comparingDouble(sample -> sample.probability())).orElseThrow();
+        var peak = result.samples().stream()
+                .max(java.util.Comparator.comparingDouble(sample -> sample.probability()))
+                .orElseThrow();
         assertEquals(2, peak.y());
         assertTrue(peak.probability() > result.samples().getFirst().probability());
     }

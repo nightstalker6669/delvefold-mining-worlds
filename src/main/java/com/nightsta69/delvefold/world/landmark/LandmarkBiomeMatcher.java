@@ -11,9 +11,18 @@ import net.minecraft.world.level.biome.Biome;
 
 /** Runtime matcher for exact biome IDs and biome tags in landmark definitions. */
 public final class LandmarkBiomeMatcher {
-    private LandmarkBiomeMatcher() {
-    }
+    private LandmarkBiomeMatcher() {}
 
+    /**
+     * Evaluates a landmark's include and exclude selectors against one biome holder.
+     *
+     * <p>Selectors beginning with {@code #} are biome tags; all others are exact biome IDs. An empty include list
+     * includes every biome, while any matching exclusion always wins.
+     *
+     * @param selectors validated include/exclude selector set
+     * @param biome biome holder from the generation registry
+     * @return {@code true} when the biome is included and not excluded
+     */
     public static boolean matches(LandmarkBiomeSelectors selectors, Holder<Biome> biome) {
         Objects.requireNonNull(selectors, "selectors");
         Objects.requireNonNull(biome, "biome");
@@ -28,7 +37,6 @@ public final class LandmarkBiomeMatcher {
         if (id == null) {
             return false;
         }
-        return tag ? biome.is(TagKey.create(Registries.BIOME, id))
-                : biome.is(ResourceKey.create(Registries.BIOME, id));
+        return tag ? biome.is(TagKey.create(Registries.BIOME, id)) : biome.is(ResourceKey.create(Registries.BIOME, id));
     }
 }

@@ -2,6 +2,7 @@ package com.nightsta69.delvefold.reset;
 
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
+import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
@@ -13,28 +14,42 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.RelativeMovement;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import org.jspecify.annotations.Nullable;
 
 /** Prevents offline players from reappearing inside deleted or regenerated mining terrain. */
 public final class MiningPlayerSafety {
     private static final String GENERATION_EPOCH_TAG = "DelvefoldGenerationEpoch";
 
-    private MiningPlayerSafety() {
-    }
+    private MiningPlayerSafety() {}
 
-    /** Called after a successful portal transition into the active mining world. */
+    /**
+     * Records the active generation epoch after a successful server-authorized portal transition into the mining world.
+     *
+     * @param player server player whose persistent data follows them across logout and login
+     */
     public static void markCurrentEpoch(ServerPlayer player) {
         try {
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
             if (snapshot.settings().initialized()) {
-                player.getPersistentData().putLong(GENERATION_EPOCH_TAG, snapshot.settings().generationEpoch());
+                player.getPersistentData()
+                        .putLong(GENERATION_EPOCH_TAG, snapshot.settings().generationEpoch());
             }
         } catch (IllegalStateException ignored) {
             // An absent tag is fail-safe: the player will be evacuated on their next login.
         }
     }
 
+    /**
+     * Evacuates a returning player when their mining dimension or recorded generation epoch is no longer active.
+     *
+     * <p>This server-thread event fails safe: unavailable configuration, a pending lifecycle operation, a stale epoch,
+     * or the wrong managed dimension returns the player to the Overworld shared spawn.
+     *
+     * @param event NeoForge login event; non-server players and players outside mining dimensions are ignored
+     */
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player) || !isMiningLevel(player.level().dimension())) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+                || !isMiningLevel(player.level().dimension())) {
             return;
         }
 
@@ -47,11 +62,15 @@ public final class MiningPlayerSafety {
         }
 
         var settings = snapshot.settings();
+        @Nullable TerrainMode activeTerrain = settings.terrainMode();
         boolean epochMatches = player.getPersistentData().contains(GENERATION_EPOCH_TAG, Tag.TAG_LONG)
                 && player.getPersistentData().getLong(GENERATION_EPOCH_TAG) == settings.generationEpoch();
         boolean activeDimension = settings.initialized()
-                && player.level().dimension().equals(DelvefoldWorldgen.levelFor(
-                        settings.terrainMode(), settings.identity().terrainVariant()));
+                && activeTerrain != null
+                && player.level()
+                        .dimension()
+                        .equals(DelvefoldWorldgen.levelFor(
+                                activeTerrain, settings.identity().terrainVariant()));
         if (WorldOperationService.get().isEntryBlocked() || !activeDimension || !epochMatches) {
             evacuate(player, "message.delvefold.player_safety.evacuated");
         }
@@ -61,7 +80,7 @@ public final class MiningPlayerSafety {
         evacuate(player, null);
     }
 
-    private static void evacuate(ServerPlayer player, String messageKey) {
+    private static void evacuate(ServerPlayer player, @Nullable String messageKey) {
         ServerLevel overworld = player.getServer().overworld();
         BlockPos spawn = overworld.getSharedSpawnPos();
         player.teleportTo(
@@ -71,8 +90,7 @@ public final class MiningPlayerSafety {
                 spawn.getZ() + 0.5D,
                 Set.<RelativeMovement>of(),
                 player.getYRot(),
-                player.getXRot()
-        );
+                player.getXRot());
         if (messageKey != null) {
             player.sendSystemMessage(Component.translatable(messageKey));
         }

@@ -4,25 +4,47 @@ import com.nightsta69.delvefold.admin.AdminLocalizedComponents;
 import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import java.util.Set;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 
-/** Localized display projection that keeps issue codes and JSON paths machine-stable. */
+/**
+ * Localized display projection that keeps issue codes and JSON paths machine-stable.
+ *
+ * <p>Only the small allowlist of explicitly technical issue codes exposes its supplied detail text. Other diagnostics
+ * map to bounded translation keys so arbitrary parser or registry details do not leak into ordinary player-facing UI.
+ */
 public final class ConfigIssueMessages {
     private static final Set<String> TECHNICAL_DETAILS = Set.of(
-            "json.invalid", "profile.invalid", "initialize.failed", "ores.save_failed",
-            "settings.save_failed", "profile.activate_failed");
+            "json.invalid",
+            "profile.invalid",
+            "initialize.failed",
+            "ores.save_failed",
+            "settings.save_failed",
+            "profile.activate_failed");
 
-    private ConfigIssueMessages() {
-    }
+    private ConfigIssueMessages() {}
 
+    /**
+     * Encodes an issue as Delvefold's locale-independent structured translation string.
+     *
+     * @param issue issue to project; its stable severity, code, and path are retained
+     * @return encoded localized-message representation suitable for network transport
+     * @throws NullPointerException if {@code issue} is {@code null}
+     */
     public static String encode(ConfigIssue issue) {
         ConfigIssue safe = java.util.Objects.requireNonNull(issue, "issue");
-        String severity = AdminLocalizedMessage.encode(
-                "message.delvefold.config_issue.severity."
-                        + safe.severity().name().toLowerCase(java.util.Locale.ROOT));
-        return AdminLocalizedMessage.encode("message.delvefold.config_issue.row",
-                severity, safe.code(), safe.path(), detail(safe));
+        String severity = AdminLocalizedMessage.encode("message.delvefold.config_issue.severity."
+                + safe.severity().name().toLowerCase(java.util.Locale.ROOT));
+        return AdminLocalizedMessage.encode(
+                "message.delvefold.config_issue.row", severity, safe.code(), safe.path(), detail(safe));
     }
 
+    /**
+     * Resolves an issue directly to a client-displayable Minecraft component.
+     *
+     * @param issue issue to localize
+     * @return component resolved through the same bounded projection as {@link #encode(ConfigIssue)}
+     * @throws NullPointerException if {@code issue} is {@code null}
+     */
     public static Component component(ConfigIssue issue) {
         return AdminLocalizedComponents.resolve(encode(issue));
     }
@@ -41,7 +63,8 @@ public final class ConfigIssueMessages {
             key = "message.delvefold.config_issue.detail.non_negative";
         } else if (code.equals("settings.generation_salt.uninitialized")) {
             key = "message.delvefold.config_issue.detail.generation_salt";
-        } else if (code.endsWith(".too_long") || code.equals("settings.operation_id.too_long")
+        } else if (code.endsWith(".too_long")
+                || code.equals("settings.operation_id.too_long")
                 || code.equals("settings.identity.name")) {
             key = "message.delvefold.config_issue.detail.length";
         } else if (code.contains("duplicate")) {
@@ -86,8 +109,11 @@ public final class ConfigIssueMessages {
             key = "message.delvefold.config_issue.detail.selection_required";
         } else if (code.contains("unexpected")) {
             key = "message.delvefold.config_issue.detail.unexpected";
-        } else if (code.contains("invalid") || code.contains("interval") || code.contains("warning")
-                || code.contains("time") || code.contains("retention")) {
+        } else if (code.contains("invalid")
+                || code.contains("interval")
+                || code.contains("warning")
+                || code.contains("time")
+                || code.contains("retention")) {
             key = "message.delvefold.config_issue.detail.range";
         } else {
             key = "message.delvefold.config_issue.detail.invalid";
@@ -95,7 +121,7 @@ public final class ConfigIssueMessages {
         return localized(key);
     }
 
-    private static String localized(String translationKey, Object... arguments) {
+    private static String localized(String translationKey, @Nullable Object... arguments) {
         return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 }

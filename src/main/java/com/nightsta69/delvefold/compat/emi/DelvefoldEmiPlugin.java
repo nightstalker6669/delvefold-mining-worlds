@@ -18,6 +18,9 @@ import net.neoforged.fml.ModList;
 /** Optional EMI information page; this class is discovered only when EMI is installed. */
 @EmiEntrypoint
 public final class DelvefoldEmiPlugin implements EmiPlugin {
+    /** Creates the EMI entry point discovered through EMI's client plugin metadata. */
+    public DelvefoldEmiPlugin() {}
+
     @Override
     public void register(EmiRegistry registry) {
         EmiRecipeCategory portalConstruction = new EmiRecipeCategory(
@@ -25,11 +28,9 @@ public final class DelvefoldEmiPlugin implements EmiPlugin {
                         PortalConstructionGuide.RECIPE_NAMESPACE, PortalConstructionGuide.RECIPE_PATH),
                 EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get()));
         registry.addCategory(portalConstruction);
-        registry.addWorkstation(portalConstruction,
-                EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get()));
+        registry.addWorkstation(portalConstruction, EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get()));
         registry.addWorkstation(portalConstruction, EmiStack.of(Items.FLINT_AND_STEEL));
-        registry.addRecipe(new DelvefoldEmiPortalRecipe(
-                portalConstruction, PortalConstructionGuide.INSTANCE));
+        registry.addRecipe(new DelvefoldEmiPortalRecipe(portalConstruction, PortalConstructionGuide.INSTANCE));
         if (!ModList.get().isLoaded("jei")) {
             registry.addRecipe(new EmiInfoRecipe(
                     List.of(EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get())),

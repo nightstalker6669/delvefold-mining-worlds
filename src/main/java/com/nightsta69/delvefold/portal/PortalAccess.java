@@ -10,13 +10,13 @@ import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nullable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
+import org.jspecify.annotations.Nullable;
 
 /** Resolves portal policy without ever opening initialization UI or mutating configuration. */
 final class PortalAccess {
@@ -27,8 +27,7 @@ final class PortalAccess {
     private static final long MESSAGE_INTERVAL_TICKS = 40L;
     private static final Map<UUID, Long> LAST_MESSAGE_TICK = new ConcurrentHashMap<>();
 
-    private PortalAccess() {
-    }
+    private PortalAccess() {}
 
     static Result forIgnition(ServerLevel source, ServerPlayer player) {
         ConfigSnapshot snapshot = snapshot();
@@ -36,9 +35,10 @@ final class PortalAccess {
             return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
         }
         if (!snapshot.settings().initialized()) {
-            return Result.denied(AdminAccess.canConfigure(player)
-                    ? Component.translatable("message.delvefold.portal.uninitialized_admin")
-                    : Component.translatable("message.delvefold.portal.uninitialized_player"));
+            return Result.denied(
+                    AdminAccess.canConfigure(player)
+                            ? Component.translatable("message.delvefold.portal.uninitialized_admin")
+                            : Component.translatable("message.delvefold.portal.uninitialized_player"));
         }
         if (!AdminAccess.canUsePortal(player)) {
             return Result.denied(Component.translatable("message.delvefold.portal.permission_denied"));
@@ -46,8 +46,16 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
-        return resolveDestination(source, snapshot.settings().terrainMode(),
-                snapshot.settings().identity().terrainVariant(), snapshot.settings().portal(), true);
+        @Nullable TerrainMode terrain = snapshot.settings().terrainMode();
+        if (terrain == null) {
+            return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
+        }
+        return resolveDestination(
+                source,
+                terrain,
+                snapshot.settings().identity().terrainVariant(),
+                snapshot.settings().portal(),
+                true);
     }
 
     static Result forTransition(ServerLevel source, ServerPlayer player) {
@@ -62,9 +70,10 @@ final class PortalAccess {
             return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
         }
         if (!snapshot.settings().initialized()) {
-            return Result.denied(AdminAccess.canConfigure(player)
-                    ? Component.translatable("message.delvefold.portal.uninitialized_admin")
-                    : Component.translatable("message.delvefold.portal.uninitialized_player"));
+            return Result.denied(
+                    AdminAccess.canConfigure(player)
+                            ? Component.translatable("message.delvefold.portal.uninitialized_admin")
+                            : Component.translatable("message.delvefold.portal.uninitialized_player"));
         }
         if (!AdminAccess.canUsePortal(player)) {
             return Result.denied(Component.translatable("message.delvefold.portal.permission_denied"));
@@ -72,8 +81,16 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
-        return resolveDestination(source, snapshot.settings().terrainMode(),
-                snapshot.settings().identity().terrainVariant(), snapshot.settings().portal(), true);
+        @Nullable TerrainMode terrain = snapshot.settings().terrainMode();
+        if (terrain == null) {
+            return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
+        }
+        return resolveDestination(
+                source,
+                terrain,
+                snapshot.settings().identity().terrainVariant(),
+                snapshot.settings().portal(),
+                true);
     }
 
     static int cooldownTicks(PortalSettings settings) {
@@ -130,8 +147,7 @@ final class PortalAccess {
         return Result.allowed(target, settings, false);
     }
 
-    @Nullable
-    private static ConfigSnapshot snapshot() {
+    private static @Nullable ConfigSnapshot snapshot() {
         try {
             return DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {
@@ -141,7 +157,9 @@ final class PortalAccess {
 
     private static PortalSettings settingsOrDefault() {
         ConfigSnapshot snapshot = snapshot();
-        return snapshot == null ? PortalSettings.defaults() : snapshot.settings().portal();
+        return snapshot == null
+                ? PortalSettings.defaults()
+                : snapshot.settings().portal();
     }
 
     record Result(

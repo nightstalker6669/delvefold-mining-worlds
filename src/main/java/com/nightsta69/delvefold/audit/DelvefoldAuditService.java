@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.util.Objects;
 import net.minecraft.server.MinecraftServer;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /** Server-lifecycle facade for failure-contained Delvefold mutation auditing. */
@@ -16,18 +17,30 @@ public final class DelvefoldAuditService {
     private final Object lock = new Object();
     private final Clock clock;
     private final AuditActorContext actors = new AuditActorContext();
-    private MinecraftServer server;
-    private AuditWriteQueue writer;
+    private @Nullable MinecraftServer server;
+    private @Nullable AuditWriteQueue writer;
 
     DelvefoldAuditService(Clock clock) {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    /**
+     * Returns the process-wide lifecycle facade.
+     *
+     * @return audit service whose writer is attached and detached with a server save
+     */
     public static DelvefoldAuditService get() {
         return INSTANCE;
     }
 
-    /** Initializes this save's audit directory. A logging failure never aborts server startup. */
+    /**
+     * Initializes this save's audit directory and bounded daemon writer.
+     *
+     * <p>A logging failure is contained and never aborts server startup or an accepted gameplay operation.
+     *
+     * @param minecraftServer server whose normalized save configuration owns the log
+     * @return {@code true} when the writer is accepting entries; {@code false} after contained initialization failure
+     */
     public boolean start(MinecraftServer minecraftServer) {
         Objects.requireNonNull(minecraftServer, "minecraftServer");
         synchronized (lock) {
@@ -38,8 +51,8 @@ public final class DelvefoldAuditService {
                 Path directory = auditDirectory(ConfigPaths.forServer(minecraftServer));
                 RotatingAuditLog replacement = new RotatingAuditLog(directory, clock);
                 replacement.prepare();
-                AuditWriteQueue replacementWriter = new AuditWriteQueue(
-                        replacement, DelvefoldAuditService::reportWriteFailure);
+                AuditWriteQueue replacementWriter =
+                        new AuditWriteQueue(replacement, DelvefoldAuditService::reportWriteFailure);
                 server = minecraftServer;
                 writer = replacementWriter;
                 return true;
@@ -52,8 +65,15 @@ public final class DelvefoldAuditService {
         }
     }
 
+    // A lifecycle stop may only detach the exact server instance that installed this writer.
+    /**
+     * Detaches only the writer owned by the supplied server, then synchronously drains and closes it.
+     *
+     * @param minecraftServer server instance completing shutdown
+     */
+    @SuppressWarnings("ReferenceEquality")
     public void stop(MinecraftServer minecraftServer) {
-        AuditWriteQueue current = null;
+        @Nullable AuditWriteQueue current = null;
         synchronized (lock) {
             if (server == minecraftServer) {
                 server = null;
@@ -65,10 +85,13 @@ public final class DelvefoldAuditService {
     }
 
     /**
-     * Records one accepted mutation. Returns false when auditing is unavailable; logging failures
-     * are contained and must never roll back the already-accepted gameplay operation.
+     * Records one accepted mutation. Returns false when auditing is unavailable; logging failures are contained and
+     * must never roll back the already-accepted gameplay operation.
+     *
+     * @param mutation redacted whitelisted mutation, or {@code null} to record a contained drop
+     * @return {@code true} when accepted by the bounded writer queue; {@code false} when invalid, full, or unavailable
      */
-    public boolean record(AuditMutation mutation) {
+    public boolean record(@Nullable AuditMutation mutation) {
         if (mutation == null) {
             LOGGER.warn("Delvefold dropped a null audit mutation");
             return false;
@@ -91,32 +114,45 @@ public final class DelvefoldAuditService {
         return current.offer(captured);
     }
 
+    /**
+     * Reports whether the current server writer still accepts mutations.
+     *
+     * @return {@code true} only between successful start and stop admission closure
+     */
     public boolean available() {
         synchronized (lock) {
-            return writer != null && writer.accepting();
+            AuditWriteQueue current = writer;
+            return current != null && current.accepting();
         }
     }
 
     /**
-     * Attributes every nested audit mutation on this caller thread to {@code actor} until closed.
-     * Scopes are nest-safe and must be closed in reverse order on their owning thread.
+     * Attributes every nested audit mutation on this caller thread to {@code actor} until closed. Scopes are nest-safe
+     * and must be closed in reverse order on their owning thread.
+     *
+     * @param actor validated player identifier, {@code console}, or {@code server}
+     * @return thread-owned scope that restores the prior actor when closed
      */
     public ActorScope pushActor(String actor) {
         return actors.push(actor);
     }
 
-    /** Returns the innermost scoped actor, or {@code server} when no caller scope is active. */
+    /**
+     * Returns the innermost scoped actor for the current thread.
+     *
+     * @return scoped actor, or {@code server} when no caller scope is active
+     */
     public String currentActorOrServer() {
         return actors.currentActorOrServer();
     }
 
-    private static void closeContained(AuditWriteQueue current) {
+    private static void closeContained(@Nullable AuditWriteQueue current) {
         if (current != null) {
             current.close();
         }
     }
 
-    private static void reportWriteFailure(String reason, Throwable failure) {
+    private static void reportWriteFailure(String reason, @Nullable Throwable failure) {
         if (failure == null) {
             LOGGER.warn("Delvefold dropped an audit mutation: {}", reason);
         } else {
@@ -124,7 +160,8 @@ public final class DelvefoldAuditService {
         }
     }
 
-    /** Closeable token returned by {@link #pushActor(String)}. */
+    /** Closeable, thread-owned token returned by {@link #pushActor(String)}. */
+    @FunctionalInterface
     public interface ActorScope extends AutoCloseable {
         @Override
         void close();

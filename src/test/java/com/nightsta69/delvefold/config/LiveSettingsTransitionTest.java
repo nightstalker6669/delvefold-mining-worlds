@@ -14,8 +14,8 @@ class LiveSettingsTransitionTest {
     void allowsLiveSeedPolicyChangesWithoutReplacingTheActiveSalt() {
         var active = com.nightsta69.delvefold.config.model.WorldSettingsDocument.uninitialized()
                 .initialize(TerrainMode.FLAT, OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE);
-        var selected = active.withIdentity(active.identity().withRenewal(
-                active.identity().renewal().withSeedMode(RenewalSeedMode.ROTATE_ON_RECREATE)));
+        var selected = active.withIdentity(active.identity()
+                .withRenewal(active.identity().renewal().withSeedMode(RenewalSeedMode.ROTATE_ON_RECREATE)));
 
         assertTrue(LiveSettingsTransition.validate(active, selected).isEmpty());
         assertEquals(active.generationSalt(), selected.generationSalt());
@@ -32,10 +32,19 @@ class LiveSettingsTransitionTest {
                 null,
                 "manual-edit");
         var lifecycleMutation = new com.nightsta69.delvefold.config.model.WorldSettingsDocument(
-                recreated.schemaVersion(), recreated.revision(), recreated.generationEpoch(), 42L,
-                recreated.lastWorldOperationId(), recreated.initialized(), recreated.terrainMode(),
-                recreated.orePreset(), recreated.gameplay(), recreated.portal(), recreated.activeProfileId(),
-                recreated.identity(), recreated.guideVisibility());
+                recreated.schemaVersion(),
+                recreated.revision(),
+                recreated.generationEpoch(),
+                42L,
+                recreated.lastWorldOperationId(),
+                recreated.initialized(),
+                recreated.terrainMode(),
+                recreated.orePreset(),
+                recreated.gameplay(),
+                recreated.portal(),
+                recreated.activeProfileId(),
+                recreated.identity(),
+                recreated.guideVisibility());
 
         var issues = LiveSettingsTransition.validate(active, lifecycleMutation);
 

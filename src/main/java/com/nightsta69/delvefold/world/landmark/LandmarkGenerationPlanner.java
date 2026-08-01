@@ -13,8 +13,7 @@ import java.util.function.Function;
 
 /** Pure definition/candidate selection against exactly one immutable catalog revision. */
 final class LandmarkGenerationPlanner {
-    private LandmarkGenerationPlanner() {
-    }
+    private LandmarkGenerationPlanner() {}
 
     static <T> Optional<Selection<T>> select(
             LandmarkCatalogSnapshot catalog,
@@ -41,7 +40,11 @@ final class LandmarkGenerationPlanner {
                         identity,
                         definition -> placeable.containsKey(definition.id()),
                         deterministicSeed)
-                .map(definition -> new Selection<>(definition, placeable.get(definition.id())));
+                .map(definition -> new Selection<>(
+                        definition,
+                        Objects.requireNonNull(
+                                placeable.get(definition.id()),
+                                "selected landmark must have a resolved placement candidate")));
     }
 
     record Selection<T>(LandmarkDefinition definition, T candidate) {

@@ -3,8 +3,8 @@ package com.nightsta69.delvefold.world.feature;
 import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
-import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
+import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import com.nightsta69.delvefold.world.feature.MiningOreConfiguration.OreDefinition;
@@ -17,11 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
@@ -30,16 +28,24 @@ import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.OreFeature;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/** Places every enabled entry in the mining ore table with an ID-stable random stream. */
+/**
+ * Places every enabled entry in the mining ore table with an ID-stable random stream.
+ *
+ * <p>Vein attempts derive from world seed, chunk coordinates, persisted generation salt, rule/band ID, then attempt
+ * index. Province placement may derive centers from neighboring regions, but applies only candidate positions inside
+ * the currently generating chunk and behind {@link WorldGenLevel#ensureCanWrite(BlockPos)}.
+ */
 public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<ResourceLocation> WARNED_MISSING_BLOCKS = ConcurrentHashMap.newKeySet();
     private static final long COUNT_SALT = 0x94D049BB133111EBL;
     private static final long ATTEMPT_SALT = 0xBF58476D1CE4E5B9L;
-    private volatile RuntimeOreProfile runtimeProfile;
+    private volatile @Nullable RuntimeOreProfile runtimeProfile;
 
+    /** Creates the feature with the optional-mod-safe fallback ore-table codec. */
     public MiningOreFeature() {
         super(MiningOreConfiguration.CODEC);
     }
@@ -88,9 +94,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
                     continue;
                 }
                 BlockPos origin = new BlockPos(
-                        chunkPos.getMinBlockX() + random.nextInt(16),
-                        y,
-                        chunkPos.getMinBlockZ() + random.nextInt(16));
+                        chunkPos.getMinBlockX() + random.nextInt(16), y, chunkPos.getMinBlockZ() + random.nextInt(16));
                 placedAny |= Feature.ORE.place(new FeaturePlaceContext<>(
                         java.util.Optional.empty(),
                         context.level(),
@@ -105,11 +109,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     }
 
     static boolean placeProvinceBand(
-            WorldGenLevel level,
-            ChunkPos chunkPos,
-            CompiledBand band,
-            long worldSeed,
-            long generationSalt) {
+            WorldGenLevel level, ChunkPos chunkPos, CompiledBand band, long worldSeed, long generationSalt) {
         ProvincePlacementPlanner.Plan plan = ProvincePlacementPlanner.plan(
                 worldSeed,
                 generationSalt,
@@ -123,10 +123,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     }
 
     static boolean applyProvincePlan(
-            WorldGenLevel level,
-            ChunkPos chunkPos,
-            CompiledBand band,
-            ProvincePlacementPlanner.Plan plan) {
+            WorldGenLevel level, ChunkPos chunkPos, CompiledBand band, ProvincePlacementPlanner.Plan plan) {
         boolean placedAny = false;
         BlockPos.MutableBlockPos position = new BlockPos.MutableBlockPos();
         int chunkMinX = chunkPos.getMinBlockX();
@@ -138,8 +135,10 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
             OreConfiguration ore = band.ore(RandomSource.create(province.outputSeed()));
             for (ProvincePlacementPlanner.Candidate candidate : province.candidates()) {
                 // The planner owns this invariant; retain the guard at the mutation boundary too.
-                if (candidate.x() < chunkMinX || candidate.x() > chunkMaxX
-                        || candidate.z() < chunkMinZ || candidate.z() > chunkMaxZ
+                if (candidate.x() < chunkMinX
+                        || candidate.x() > chunkMaxX
+                        || candidate.z() < chunkMinZ
+                        || candidate.z() > chunkMaxZ
                         || level.isOutsideBuildHeight(candidate.y())) {
                     continue;
                 }
@@ -150,13 +149,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
                 var existing = level.getBlockState(position);
                 RandomSource random = RandomSource.create(candidate.placementSeed());
                 for (OreConfiguration.TargetBlockState target : ore.targetStates) {
-                    if (OreFeature.canPlaceOre(
-                            existing,
-                            level::getBlockState,
-                            random,
-                            ore,
-                            target,
-                            position)) {
+                    if (OreFeature.canPlaceOre(existing, level::getBlockState, random, ore, target, position)) {
                         placedAny |= level.setBlock(position, target.state, 2);
                         break;
                     }
@@ -186,10 +179,9 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
                 continue;
             }
 
-            long definitionSeed = seedFor(
-                    context.level().getSeed(), chunkPos, definition.id(), generationSalt);
-            OreConfiguration ore = new OreConfiguration(
-                    targets, definition.veinSize(), definition.discardChanceOnAirExposure());
+            long definitionSeed = seedFor(context.level().getSeed(), chunkPos, definition.id(), generationSalt);
+            OreConfiguration ore =
+                    new OreConfiguration(targets, definition.veinSize(), definition.discardChanceOnAirExposure());
 
             for (int attempt = 0; attempt < definition.veinsPerChunk(); attempt++) {
                 RandomSource random = randomForAttempt(definitionSeed, attempt);
@@ -198,12 +190,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
                         definition.pickY(random, minY, maxY),
                         chunkPos.getMinBlockZ() + random.nextInt(16));
                 placedAny |= Feature.ORE.place(new FeaturePlaceContext<>(
-                        java.util.Optional.empty(),
-                        context.level(),
-                        context.chunkGenerator(),
-                        random,
-                        origin,
-                        ore));
+                        java.util.Optional.empty(), context.level(), context.chunkGenerator(), random, origin, ore));
             }
         }
 
@@ -211,7 +198,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     }
 
     RuntimeOreProfile profileFor(OreProfileDocument document) {
-        RuntimeOreProfile current = runtimeProfile;
+        @Nullable RuntimeOreProfile current = runtimeProfile;
         if (current != null && current.source().equals(document)) {
             return current;
         }
@@ -236,12 +223,12 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         runtimeProfile = null;
     }
 
-    private static OreProfileDocument currentOreDocument() {
+    private static @Nullable OreProfileDocument currentOreDocument() {
         ConfigSnapshot snapshot = currentSnapshot();
         return snapshot == null ? null : snapshot.ores();
     }
 
-    private static ConfigSnapshot currentSnapshot() {
+    private static @Nullable ConfigSnapshot currentSnapshot() {
         try {
             return DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {
@@ -249,12 +236,13 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         }
     }
 
-    private static TerrainMode terrainMode(FeaturePlaceContext<MiningOreConfiguration> context) {
+    private static @Nullable TerrainMode terrainMode(FeaturePlaceContext<MiningOreConfiguration> context) {
         return DelvefoldWorldgen.terrainFor(context.level().getLevel().dimension());
     }
 
     private static List<OreConfiguration.TargetBlockState> resolveTargets(OreDefinition definition) {
-        List<OreConfiguration.TargetBlockState> resolved = new ArrayList<>(definition.targets().size());
+        List<OreConfiguration.TargetBlockState> resolved =
+                new ArrayList<>(definition.targets().size());
         for (OreTarget target : definition.targets()) {
             Block output = BuiltInRegistries.BLOCK.getOptional(target.block()).orElse(null);
             if (output == null) {
@@ -266,8 +254,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
                 }
                 continue;
             }
-            resolved.add(OreConfiguration.target(
-                    new TagMatchTest(target.replaceable()), output.defaultBlockState()));
+            resolved.add(OreConfiguration.target(new TagMatchTest(target.replaceable()), output.defaultBlockState()));
         }
         return resolved;
     }
@@ -280,8 +267,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         return GenerationSeedMixer.oreSeed(worldSeed, chunkPos.toLong(), salt, 0L);
     }
 
-    static long seedFor(
-            long worldSeed, ChunkPos chunkPos, ResourceLocation oreId, long generationSalt) {
+    static long seedFor(long worldSeed, ChunkPos chunkPos, ResourceLocation oreId, long generationSalt) {
         return seedFor(worldSeed, chunkPos, oreId.toString(), generationSalt);
     }
 

@@ -3,6 +3,7 @@ package com.nightsta69.delvefold.diagnostics;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Small access-ordered cache whose keys are normalized save roots. */
 final class DoctorReportCache {
@@ -16,7 +17,7 @@ final class DoctorReportCache {
         this.maximumSaves = maximumSaves;
     }
 
-    synchronized Entry get(Path saveRoot) {
+    synchronized @Nullable Entry get(Path saveRoot) {
         return entries.get(key(saveRoot));
     }
 
@@ -24,8 +25,7 @@ final class DoctorReportCache {
         if (cachedAtEpochMillis < 0L) {
             throw new IllegalArgumentException("cachedAtEpochMillis must not be negative");
         }
-        entries.put(key(saveRoot), new Entry(
-                Objects.requireNonNull(report, "report"), cachedAtEpochMillis));
+        entries.put(key(saveRoot), new Entry(Objects.requireNonNull(report, "report"), cachedAtEpochMillis));
         while (entries.size() > maximumSaves) {
             entries.remove(entries.keySet().iterator().next());
         }
@@ -47,6 +47,5 @@ final class DoctorReportCache {
         return Objects.requireNonNull(saveRoot, "saveRoot").toAbsolutePath().normalize();
     }
 
-    record Entry(DoctorReport report, long cachedAtEpochMillis) {
-    }
+    record Entry(DoctorReport report, long cachedAtEpochMillis) {}
 }

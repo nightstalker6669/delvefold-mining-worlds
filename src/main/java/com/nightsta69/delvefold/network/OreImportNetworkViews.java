@@ -1,6 +1,5 @@
 package com.nightsta69.delvefold.network;
 
-import com.nightsta69.delvefold.config.importer.OreImportModels;
 import com.nightsta69.delvefold.config.importer.OreImportModels.DiffEntry;
 import com.nightsta69.delvefold.config.importer.OreImportModels.DiscoveryResult;
 import com.nightsta69.delvefold.config.importer.OreImportModels.Group;
@@ -21,13 +20,31 @@ import java.util.List;
 
 /** Converts server-only discovery/plan sessions into bounded display pages. */
 public final class OreImportNetworkViews {
-    private OreImportNetworkViews() {
-    }
+    private OreImportNetworkViews() {}
 
+    /**
+     * Projects an issued server scan session into one bounded client page.
+     *
+     * @param issued immutable issued scan and opaque session token
+     * @param revision non-negative ore revision against which the scan was created
+     * @param baseProfileId profile used as the import base
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only scan view
+     */
     public static ScanView scan(IssuedScan issued, long revision, String baseProfileId, int requestedPage) {
         return scan(issued.scanToken(), issued.discovery(), revision, baseProfileId, requestedPage);
     }
 
+    /**
+     * Projects discovery output and its server-owned token into one bounded client page.
+     *
+     * @param token opaque scan token; never a filesystem path or confirmation secret
+     * @param discovery immutable server discovery result
+     * @param revision non-negative source ore revision
+     * @param baseProfileId profile used as the import base
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only scan view
+     */
     public static ScanView scan(
             String token, DiscoveryResult discovery, long revision, String baseProfileId, int requestedPage) {
         int total = discovery.groups().size();
@@ -38,14 +55,39 @@ public final class OreImportNetworkViews {
         List<GroupView> groups = discovery.groups().subList(start, end).stream()
                 .map(OreImportNetworkViews::group)
                 .toList();
-        return new ScanView(token, revision, baseProfileId, page, pages, total,
-                discovery.scannedBlocks(), discovery.truncated(), groups);
+        return new ScanView(
+                token,
+                revision,
+                baseProfileId,
+                page,
+                pages,
+                total,
+                discovery.scannedBlocks(),
+                discovery.truncated(),
+                groups);
     }
 
+    /**
+     * Projects an issued non-mutating preview session into one bounded client page.
+     *
+     * @param issued immutable plan and opaque commit token
+     * @param revision non-negative source ore revision
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only preview view
+     */
     public static PreviewView preview(IssuedPreview issued, long revision, int requestedPage) {
         return preview(issued.commitToken(), issued.plan(), revision, requestedPage);
     }
 
+    /**
+     * Projects a validated plan into a bounded diff, workload, and issue page without activating a profile.
+     *
+     * @param token opaque server commit token binding a later create request to this plan
+     * @param plan immutable import plan
+     * @param revision non-negative source ore revision
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only preview view
+     */
     public static PreviewView preview(String token, Plan plan, long revision, int requestedPage) {
         int total = plan.diff().size();
         int pages = pageCount(total, ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE);
@@ -65,29 +107,45 @@ public final class OreImportNetworkViews {
                 .toList();
         List<ConfigIssue> sourceIssues = plan.validation().issues();
         int issueLimit = ProtocolLimits.MAX_IMPORT_ISSUES;
-        List<ValidationIssueView> issues = sourceIssues.stream().limit(issueLimit)
+        List<ValidationIssueView> issues = sourceIssues.stream()
+                .limit(issueLimit)
                 .map(issue -> new ValidationIssueView(
-                        issue.severity(), bounded(issue.code(), ProtocolLimits.ID_LENGTH),
+                        issue.severity(),
+                        bounded(issue.code(), ProtocolLimits.ID_LENGTH),
                         bounded(issue.path(), ProtocolLimits.SHORT_TEXT_LENGTH),
                         bounded(ConfigIssueMessages.encode(issue), ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH)))
                 .toList();
-        return new PreviewView(token, revision, plan.baseProfileId(), page, pages, total,
-                plan.valid(), plan.addedRuleCount(), diff, workloads, issues,
+        return new PreviewView(
+                token,
+                revision,
+                plan.baseProfileId(),
+                page,
+                pages,
+                total,
+                plan.valid(),
+                plan.addedRuleCount(),
+                diff,
+                workloads,
+                issues,
                 sourceIssues.size() > issueLimit);
     }
 
     private static GroupView group(Group group) {
         List<CandidateView> candidates = group.candidates().stream()
-                .map(candidate -> new CandidateView(candidate.blockId(), candidate.replaceTag(),
-                        candidate.hostKind(), candidate.evidence()))
+                .map(candidate -> new CandidateView(
+                        candidate.blockId(), candidate.replaceTag(), candidate.hostKind(), candidate.evidence()))
                 .toList();
-        return new GroupView(group.id(), group.namespace(), group.material(),
-                group.evidence(), group.reviewRequired(), candidates);
+        return new GroupView(
+                group.id(), group.namespace(), group.material(), group.evidence(), group.reviewRequired(), candidates);
     }
 
     private static DiffView diff(DiffEntry entry) {
-        return new DiffView(entry.groupId(), entry.status(), entry.ruleId(),
-                entry.addedBlocks(), entry.skippedBlocks(),
+        return new DiffView(
+                entry.groupId(),
+                entry.status(),
+                entry.ruleId(),
+                entry.addedBlocks(),
+                entry.skippedBlocks(),
                 bounded(entry.message(), ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH));
     }
 

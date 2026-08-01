@@ -4,7 +4,6 @@ import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -17,13 +16,13 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.level.PistonEvent;
+import org.jspecify.annotations.Nullable;
 
 /** NeoForge adapter that applies central-hub protection to player and environmental mutations. */
 public final class CentralHubProtectionEvents {
     private static final AtomicBoolean REGISTERED = new AtomicBoolean();
 
-    private CentralHubProtectionEvents() {
-    }
+    private CentralHubProtectionEvents() {}
 
     /** Registers once on the game bus; call from the common mod bootstrap. */
     public static void register() {
@@ -58,8 +57,7 @@ public final class CentralHubProtectionEvents {
     }
 
     private static void onPlace(BlockEvent.EntityPlaceEvent event) {
-        if (event instanceof BlockEvent.EntityMultiPlaceEvent
-                || !(event.getLevel() instanceof ServerLevel level)) {
+        if (event instanceof BlockEvent.EntityMultiPlaceEvent || !(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
         PortalSettings settings = settings();
@@ -88,8 +86,7 @@ public final class CentralHubProtectionEvents {
     }
 
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (!(event.getLevel() instanceof ServerLevel level)
-                || !(event.getEntity() instanceof ServerPlayer player)) {
+        if (!(event.getLevel() instanceof ServerLevel level) || !(event.getEntity() instanceof ServerPlayer)) {
             return;
         }
         PortalSettings settings = settings();
@@ -101,8 +98,7 @@ public final class CentralHubProtectionEvents {
     static void applyRightClick(
             PlayerInteractEvent.RightClickBlock event, PortalSettings settings, boolean miningLevel) {
         if (event.getEntity() instanceof ServerPlayer player
-                && !CentralHubProtectionService.mayModify(
-                        player, event.getPos(), settings, miningLevel)) {
+                && !CentralHubProtectionService.mayModify(player, event.getPos(), settings, miningLevel)) {
             notifyDenied(player);
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.FAIL);
@@ -111,22 +107,19 @@ public final class CentralHubProtectionEvents {
 
     private static void onFluidPlace(BlockEvent.FluidPlaceBlockEvent event) {
         if (event.getLevel() instanceof ServerLevel level
-                && (protectedAt(level, event.getPos())
-                        || protectedAt(level, event.getLiquidPos()))) {
+                && (protectedAt(level, event.getPos()) || protectedAt(level, event.getLiquidPos()))) {
             event.setCanceled(true);
         }
     }
 
     private static void onFarmlandTrample(BlockEvent.FarmlandTrampleEvent event) {
-        if (event.getLevel() instanceof ServerLevel level
-                && deny(level, event.getPos(), event.getEntity())) {
+        if (event.getLevel() instanceof ServerLevel level && deny(level, event.getPos(), event.getEntity())) {
             event.setCanceled(true);
         }
     }
 
     private static void onLivingDestroyBlock(LivingDestroyBlockEvent event) {
-        if (event.getEntity().level() instanceof ServerLevel level
-                && deny(level, event.getPos(), event.getEntity())) {
+        if (event.getEntity().level() instanceof ServerLevel level && deny(level, event.getPos(), event.getEntity())) {
             event.setCanceled(true);
         }
     }
@@ -135,15 +128,13 @@ public final class CentralHubProtectionEvents {
         if (!(event.getLevel() instanceof ServerLevel level)) {
             return;
         }
-        boolean intersects = protectedAt(level, event.getPos())
-                || protectedAt(level, event.getFaceOffsetPos());
+        boolean intersects = protectedAt(level, event.getPos()) || protectedAt(level, event.getFaceOffsetPos());
         var resolver = event.getStructureHelper();
         if (!intersects && resolver != null && resolver.resolve()) {
             intersects = resolver.getToPush().stream()
                             .anyMatch(position -> protectedAt(level, position)
                                     || protectedAt(level, position.relative(event.getDirection())))
-                    || resolver.getToDestroy().stream()
-                            .anyMatch(position -> protectedAt(level, position));
+                    || resolver.getToDestroy().stream().anyMatch(position -> protectedAt(level, position));
         }
         if (intersects) {
             event.setCanceled(true);
@@ -197,8 +188,7 @@ public final class CentralHubProtectionEvents {
         return settings != null && CentralHubProtectionService.isProtected(level, position, settings);
     }
 
-    @Nullable
-    private static PortalSettings settings() {
+    private static @Nullable PortalSettings settings() {
         try {
             return DelvefoldConfigService.get().snapshot().settings().portal();
         } catch (IllegalStateException ignored) {

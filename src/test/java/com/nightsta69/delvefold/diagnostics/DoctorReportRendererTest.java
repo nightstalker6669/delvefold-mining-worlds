@@ -28,7 +28,9 @@ class DoctorReportRendererTest {
 
         List<String> first = renderer.render(report);
         assertEquals(first, renderer.render(report));
-        assertEquals("message.delvefold.doctor.line.header", decoded(first.getFirst()).translationKey());
+        assertEquals(
+                "message.delvefold.doctor.line.header",
+                decoded(first.getFirst()).translationKey());
         assertEquals(List.of("1", "123"), decoded(first.getFirst()).arguments());
         assertTrue(decoded(first.get(2)).arguments().contains("1.3.0"));
         int dimensionA = indexWithArgument(first, "delvefold:a");
@@ -37,7 +39,8 @@ class DoctorReportRendererTest {
         int zinc = indexWithArgument(first, "zinc");
         assertTrue(dimensionA < dimensionZ);
         assertTrue(copper < zinc);
-        assertTrue(first.stream().map(DoctorReportRendererTest::decoded)
+        assertTrue(first.stream()
+                .map(DoctorReportRendererTest::decoded)
                 .anyMatch(line -> line.translationKey().equals("message.delvefold.doctor.line.disk")));
     }
 
@@ -47,19 +50,28 @@ class DoctorReportRendererTest {
         for (int index = 0; index < 200; index++) {
             dimensions.add(new DoctorReport.DimensionStatus(
                     index == 0 ? "/home/alice/secret-world" : "delvefold:dimension_" + index,
-                    "wild", DoctorReport.DimensionState.ACTIVE));
+                    "wild",
+                    DoctorReport.DimensionState.ACTIVE));
         }
         DoctorReport report = new DoctorReport(
-                1, 1L, DoctorReport.VersionInfo.unknown(), dimensions,
-                DoctorReport.ProfileHealth.unknown(), List.of(), DoctorReport.BackupHealth.empty(),
+                1,
+                1L,
+                DoctorReport.VersionInfo.unknown(),
+                dimensions,
+                DoctorReport.ProfileHealth.unknown(),
+                List.of(),
+                DoctorReport.BackupHealth.empty(),
                 DoctorReport.DiskEstimate.unknown());
 
         List<String> lines = new DoctorReportRenderer().render(report);
         assertTrue(lines.size() <= DoctorReportRenderer.MAX_LINES);
         assertTrue(lines.stream().allMatch(line -> line.length() <= DoctorReportRenderer.MAX_LINE_CHARACTERS));
-        int bytes = lines.stream().mapToInt(line -> line.getBytes(StandardCharsets.UTF_8).length).sum();
+        int bytes = lines.stream()
+                .mapToInt(line -> line.getBytes(StandardCharsets.UTF_8).length)
+                .sum();
         assertTrue(bytes <= DoctorReportRenderer.MAX_TOTAL_UTF8_BYTES);
-        assertEquals("message.delvefold.doctor.line.truncated",
+        assertEquals(
+                "message.delvefold.doctor.line.truncated",
                 decoded(lines.getLast()).translationKey());
         String joined = lines.stream()
                 .map(DoctorReportRendererTest::decoded)

@@ -44,7 +44,10 @@ class LandmarkResourceContractTest {
             assertTrue(definition.get("weight").getAsInt() >= 1, id);
             assertTrue(definition.get("weight").getAsInt() <= 1000, id);
             assertFalse(definition.getAsJsonArray("terrain_modes").isEmpty(), id);
-            assertTrue(definition.get("min_y").getAsInt() <= definition.get("max_y").getAsInt(), id);
+            assertTrue(
+                    definition.get("min_y").getAsInt()
+                            <= definition.get("max_y").getAsInt(),
+                    id);
 
             String template = definition.get("template").getAsString().replace("delvefold:", "");
             assertTrue(seen.add(template), "Duplicate template " + template);
@@ -82,10 +85,18 @@ class LandmarkResourceContractTest {
     @Test
     void structureSetUsesTheGenerationSaltedPlacementAndBundledStructure() throws Exception {
         JsonObject structureSet = readJson(DATA.resolve("worldgen/structure_set/mining_landmarks.json"));
-        assertEquals("delvefold:mining_landmark",
-                structureSet.getAsJsonArray("structures").get(0).getAsJsonObject().get("structure").getAsString());
+        assertEquals(
+                "delvefold:mining_landmark",
+                structureSet
+                        .getAsJsonArray("structures")
+                        .get(0)
+                        .getAsJsonObject()
+                        .get("structure")
+                        .getAsString());
         JsonObject placement = structureSet.getAsJsonObject("placement");
-        assertEquals("delvefold:generation_salted_random_spread", placement.get("type").getAsString());
+        assertEquals(
+                "delvefold:generation_salted_random_spread",
+                placement.get("type").getAsString());
         assertEquals(12, placement.get("spacing").getAsInt());
         assertEquals(6, placement.get("separation").getAsInt());
     }
@@ -94,8 +105,10 @@ class LandmarkResourceContractTest {
     void templateBlueprintAndGeneratorCoverExactlyTheShippedAssets() throws Exception {
         JsonObject blueprints = readJson(Path.of("tools/landmark_templates.json"));
         Set<String> blueprintIds = new HashSet<>();
-        blueprints.getAsJsonArray("templates").forEach(template ->
-                blueprintIds.add(template.getAsJsonObject().get("id").getAsString()));
+        blueprints
+                .getAsJsonArray("templates")
+                .forEach(template ->
+                        blueprintIds.add(template.getAsJsonObject().get("id").getAsString()));
         assertEquals(Set.copyOf(IDS), blueprintIds);
         String generator = Files.readString(Path.of("tools/generate_landmark_templates.py"));
         assertTrue(generator.contains("gzip.compress(build(template), compresslevel=9, mtime=0)"));

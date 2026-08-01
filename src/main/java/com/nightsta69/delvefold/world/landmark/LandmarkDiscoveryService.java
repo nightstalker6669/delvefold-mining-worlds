@@ -19,18 +19,27 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
+import org.jspecify.annotations.Nullable;
 
 /** Bounded server-side enter detection shared by the advancement and public discovery event. */
 public final class LandmarkDiscoveryService {
+    /** Advancement ID awarded after the server observes entry into a landmark piece. */
     public static final ResourceLocation ADVANCEMENT =
             ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "discover_landmark");
+    /** Criterion name awarded within {@link #ADVANCEMENT}. */
     public static final String CRITERION = "discover";
+
     private static final Map<UUID, Visit> CURRENT_VISITS = new ConcurrentHashMap<>();
     private static boolean registered;
 
-    private LandmarkDiscoveryService() {
-    }
+    private LandmarkDiscoveryService() {}
 
+    /**
+     * Registers idempotent server-side discovery listeners on NeoForge's gameplay bus.
+     *
+     * <p>Player positions are sampled every 20 ticks (one second at the normal 20 ticks per second). Visit state is
+     * removed on logout and server stop; neither coordinates nor visits are persisted.
+     */
     public static synchronized void register() {
         if (registered) {
             return;
@@ -38,7 +47,8 @@ public final class LandmarkDiscoveryService {
         registered = true;
         IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener(PlayerTickEvent.Post.class, LandmarkDiscoveryService::onPlayerTick);
-        bus.addListener(PlayerEvent.PlayerLoggedOutEvent.class,
+        bus.addListener(
+                PlayerEvent.PlayerLoggedOutEvent.class,
                 event -> CURRENT_VISITS.remove(event.getEntity().getUUID()));
         bus.addListener(ServerStoppingEvent.class, event -> CURRENT_VISITS.clear());
     }
@@ -52,8 +62,8 @@ public final class LandmarkDiscoveryService {
             return;
         }
         ServerLevel level = player.serverLevel();
-        StructureStart start = level.structureManager().getStructureWithPieceAt(
-                player.blockPosition(), LandmarkRegistries.LANDMARKS);
+        StructureStart start =
+                level.structureManager().getStructureWithPieceAt(player.blockPosition(), LandmarkRegistries.LANDMARKS);
         if (!start.isValid()) {
             CURRENT_VISITS.remove(player.getUUID());
             return;
@@ -62,13 +72,14 @@ public final class LandmarkDiscoveryService {
                 .filter(candidate -> candidate.getBoundingBox().isInside(player.blockPosition()))
                 .filter(LandmarkTemplatePiece.class::isInstance)
                 .map(LandmarkTemplatePiece.class::cast)
-                .findFirst().orElse(null);
+                .findFirst()
+                .orElse(null);
         if (piece == null) {
             CURRENT_VISITS.remove(player.getUUID());
             return;
         }
         Visit visit = new Visit(level.dimension(), start.getChunkPos(), piece.landmarkId());
-        Visit previous = CURRENT_VISITS.put(player.getUUID(), visit);
+        @Nullable Visit previous = CURRENT_VISITS.put(player.getUUID(), visit);
         if (!isVisitTransition(previous, visit)) {
             return;
         }
@@ -86,10 +97,9 @@ public final class LandmarkDiscoveryService {
         CURRENT_VISITS.clear();
     }
 
-    static boolean isVisitTransition(Visit previous, Visit current) {
+    static boolean isVisitTransition(@Nullable Visit previous, @Nullable Visit current) {
         return current != null && !current.equals(previous);
     }
 
-    record Visit(ResourceKey<Level> dimension, ChunkPos startChunk, ResourceLocation landmarkId) {
-    }
+    record Visit(ResourceKey<Level> dimension, ChunkPos startChunk, ResourceLocation landmarkId) {}
 }

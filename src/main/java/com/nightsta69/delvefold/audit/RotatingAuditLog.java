@@ -3,23 +3,26 @@ package com.nightsta69.delvefold.audit;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.Clock;
 import java.time.Instant;
 
 /** Thread-safe JSON-lines mutation log with bounded, deterministic rotation. */
 public final class RotatingAuditLog implements AutoCloseable {
+    /** Production rotation threshold in bytes: 10 MiB. */
     public static final long ROTATE_BYTES = 10L * 1024L * 1024L;
+
     /** Includes the active log, so production retains the active file and four archives. */
     public static final int RETAINED_FILES = 5;
+
+    /** Stable JSON-lines file name for the currently active audit generation. */
     public static final String ACTIVE_FILENAME = "delvefold-audit.jsonl";
 
     private static final Gson JSON = new GsonBuilder()
@@ -34,10 +37,21 @@ public final class RotatingAuditLog implements AutoCloseable {
     private final int retainedFiles;
     private boolean closed;
 
+    /**
+     * Creates a production writer using UTC timestamps and production rotation limits.
+     *
+     * @param directory normalized on construction; created lazily by {@link #prepare()}
+     */
     public RotatingAuditLog(Path directory) {
         this(directory, Clock.systemUTC());
     }
 
+    /**
+     * Creates a production-limit writer with an injectable timestamp source.
+     *
+     * @param directory normalized on construction; symbolic links are rejected before I/O
+     * @param clock timestamp source used for each accepted entry
+     */
     public RotatingAuditLog(Path directory, Clock clock) {
         this(directory, clock, ROTATE_BYTES, RETAINED_FILES);
     }
@@ -56,7 +70,13 @@ public final class RotatingAuditLog implements AutoCloseable {
         this.retainedFiles = retainedFiles;
     }
 
-    /** Appends and durably flushes one accepted mutation, rotating before the size limit is crossed. */
+    /**
+     * Appends and durably flushes one accepted mutation, rotating before the size limit is crossed.
+     *
+     * @param mutation already-redacted whitelisted mutation
+     * @return immutable entry containing the UTC timestamp and serialized logical fields that were written
+     * @throws IOException if safety validation, rotation, writing, or file forcing fails
+     */
     public synchronized AuditEntry append(AuditMutation mutation) throws IOException {
         checkOpen();
         if (mutation == null) {
@@ -84,7 +104,11 @@ public final class RotatingAuditLog implements AutoCloseable {
         return entry;
     }
 
-    /** Creates and validates the log directory without writing an audit event. */
+    /**
+     * Creates and validates the log directory without writing an audit event.
+     *
+     * @throws IOException if the directory, active file, or retained archives fail safety checks
+     */
     public synchronized void prepare() throws IOException {
         checkOpen();
         ensureDirectory();
@@ -94,10 +118,22 @@ public final class RotatingAuditLog implements AutoCloseable {
         }
     }
 
+    /**
+     * Returns the immutable normalized path of the active generation.
+     *
+     * @return active JSON-lines path; the file may not exist before the first append
+     */
     public Path activePath() {
         return active;
     }
 
+    /**
+     * Resolves one retained archive generation under the configured directory.
+     *
+     * @param generation one-based archive generation below {@link #RETAINED_FILES}
+     * @return normalized archive path; generation one is the newest archive
+     * @throws IllegalArgumentException if the generation falls outside the retention window
+     */
     public Path archivePath(int generation) {
         if (generation < 1 || generation >= retainedFiles) {
             throw new IllegalArgumentException("Archive generation is outside the retention window");
@@ -105,13 +141,21 @@ public final class RotatingAuditLog implements AutoCloseable {
         return directory.resolve("delvefold-audit." + generation + ".jsonl");
     }
 
-    /** Forces every accepted byte in the active file to stable storage. */
+    /**
+     * Forces every accepted byte in the active file to stable storage.
+     *
+     * @throws IOException if the path is unsafe, the writer is closed, or forcing the file fails
+     */
     public synchronized void flush() throws IOException {
         checkOpen();
         forceActive();
     }
 
-    /** Flushes before making this writer permanently unavailable. */
+    /**
+     * Flushes before making this writer permanently unavailable; repeated closes are no-ops.
+     *
+     * @throws IOException if the final file force fails
+     */
     @Override
     public synchronized void close() throws IOException {
         if (closed) {
@@ -156,8 +200,8 @@ public final class RotatingAuditLog implements AutoCloseable {
     }
 
     private void appendDurably(byte[] line) throws IOException {
-        try (FileChannel channel = FileChannel.open(active,
-                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND)) {
+        try (FileChannel channel = FileChannel.open(
+                active, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND)) {
             ByteBuffer buffer = ByteBuffer.wrap(line);
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
@@ -189,11 +233,6 @@ public final class RotatingAuditLog implements AutoCloseable {
     }
 
     private static void move(Path source, Path destination) throws IOException {
-        try {
-            Files.move(source, destination,
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
-        }
+        AtomicFiles.moveReplacing(source, destination);
     }
 }

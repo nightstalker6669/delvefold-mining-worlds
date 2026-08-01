@@ -20,8 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class RotatingAuditLogTest {
-    private static final Clock FIXED_CLOCK = Clock.fixed(
-            Instant.parse("2026-08-01T12:34:56Z"), ZoneOffset.UTC);
+    private static final Clock FIXED_CLOCK = Clock.fixed(Instant.parse("2026-08-01T12:34:56Z"), ZoneOffset.UTC);
 
     @TempDir
     Path temporary;
@@ -60,9 +59,15 @@ class RotatingAuditLogTest {
         assertThrows(IllegalArgumentException.class, () -> mutation("console", "127.0.0.1:25565"));
         assertThrows(IllegalArgumentException.class, () -> mutation("console", "server.example.com:25565"));
         assertThrows(IllegalArgumentException.class, () -> mutation("console", "{complete-profile-json}"));
-        assertThrows(IllegalArgumentException.class, () -> new AuditMutation(
-                "console", AuditMutation.Operation.CONFIGURATION_ACCEPTED,
-                AuditMutation.ObjectType.SETTINGS, "settings", -2L, 1L));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new AuditMutation(
+                        "console",
+                        AuditMutation.Operation.CONFIGURATION_ACCEPTED,
+                        AuditMutation.ObjectType.SETTINGS,
+                        "settings",
+                        -2L,
+                        1L));
     }
 
     @Test
@@ -71,14 +76,19 @@ class RotatingAuditLogTest {
         RotatingAuditLog log = new RotatingAuditLog(auditDirectory, FIXED_CLOCK, 240L, 3);
         for (int revision = 0; revision < 7; revision++) {
             log.append(new AuditMutation(
-                    "console", AuditMutation.Operation.CONFIGURATION_ACCEPTED,
-                    AuditMutation.ObjectType.SETTINGS, "settings-" + revision,
-                    revision - 1L, revision));
+                    "console",
+                    AuditMutation.Operation.CONFIGURATION_ACCEPTED,
+                    AuditMutation.ObjectType.SETTINGS,
+                    "settings-" + revision,
+                    revision - 1L,
+                    revision));
         }
 
         List<Path> files;
         try (Stream<Path> listed = Files.list(auditDirectory)) {
-            files = listed.sorted(Comparator.comparing(path -> path.getFileName().toString())).toList();
+            files = listed.sorted(
+                            Comparator.comparing(path -> path.getFileName().toString()))
+                    .toList();
         }
         assertEquals(3, files.size());
         assertTrue(Files.exists(log.activePath()));
@@ -104,9 +114,15 @@ class RotatingAuditLogTest {
     @Test
     void refusesOversizedEntriesAndSymbolicLinkLogTargets() throws Exception {
         RotatingAuditLog tiny = new RotatingAuditLog(temporary.resolve("tiny"), FIXED_CLOCK, 128L, 2);
-        assertThrows(IOException.class, () -> tiny.append(new AuditMutation(
-                "console", AuditMutation.Operation.CONFIGURATION_ACCEPTED,
-                AuditMutation.ObjectType.SETTINGS, "x".repeat(100), 0L, 1L)));
+        assertThrows(
+                IOException.class,
+                () -> tiny.append(new AuditMutation(
+                        "console",
+                        AuditMutation.Operation.CONFIGURATION_ACCEPTED,
+                        AuditMutation.ObjectType.SETTINGS,
+                        "x".repeat(100),
+                        0L,
+                        1L)));
 
         Path directory = Files.createDirectory(temporary.resolve("symlink-audit"));
         Path target = Files.writeString(temporary.resolve("target.jsonl"), "do not overwrite");
@@ -122,7 +138,11 @@ class RotatingAuditLogTest {
 
     private static AuditMutation mutation(String actor, String objectId) {
         return new AuditMutation(
-                actor, AuditMutation.Operation.CONFIGURATION_ACCEPTED,
-                AuditMutation.ObjectType.SETTINGS, objectId, 0L, 1L);
+                actor,
+                AuditMutation.Operation.CONFIGURATION_ACCEPTED,
+                AuditMutation.ObjectType.SETTINGS,
+                objectId,
+                0L,
+                1L);
     }
 }

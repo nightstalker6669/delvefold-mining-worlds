@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.1 — Code Quality and Maintainability
+
+- Completed a behavior-preserving internal cleanup of the 1.3 codebase. Public API version 1, network protocol 12, configuration and ore-profile schema 2, registry IDs, command paths, permission rules, and deterministic world-generation inputs remain unchanged.
+- Standardized all Java sources with a pinned formatter and made formatting, import ordering, unused-import removal, UTF-8/LF handling, and final-newline checks part of the normal build.
+- Enabled complete applicable Java compiler lint with warnings treated as errors, Error Prone correctness analysis, JSpecify nullness contracts, NullAway, Checkstyle documentation coverage, and full Javadoc/doclint validation.
+- Marked every production and test package as null-marked, replaced legacy nullable annotations with precise JSpecify type-use annotations, and documented every public or protected production contract, including record components, ranges, units, ownership, thread expectations, redaction boundaries, and lifecycle effects where applicable.
+- Narrowed warning suppressions to declaration-owned, reviewed Minecraft, NeoForge, JEI, or compatibility boundaries. Source-hygiene tests now reject broad, stale, package-level, multi-category, or unapproved suppressions.
+- Added shared, tested infrastructure for atomic file replacement, validated lifecycle trees and journals, and named executor/thread ownership while preserving the separate audit, backup-verification, backup-catalog, and Doctor worker queues.
+- Separated backup administration from the network-facing admin adapter and moved ore-rule document edits out of the Brigadier command controller. Commands and GUI requests still reach the same server-authoritative services with the same permissions, revisions, localization, and result ordering.
+- Split configuration transitions, live-reload policy, and profile-catalog operations into focused collaborators behind the stable `DelvefoldConfigService` facade. Persistence ordering, immutable snapshot publication, lifecycle locks, audit events, and last-known-good reload behavior are preserved.
+- Extracted dashboard, ore-rule wizard, ore-import, forecast, picker, backup, and shared scrolling state/layout models from screen rendering. Drafts survive resize, compact layouts retain reachable controls, keyboard scrolling only consumes input when movement occurs, and focus can reveal off-screen widgets.
+- Cached immutable guide, forecast, icon, distribution, tooltip-wrapping, and layout presentation data outside render loops, eliminating repeated frame-invariant work without changing server snapshots or visible values.
+- Expanded characterization and pure behavior coverage from 365 to 601 JUnit tests. New tests lock public JVM descriptors, command structure, configuration transitions, ore edits, admin backup dispatch, GUI drafts/layout/scrolling, source contracts, null-marking coverage, suppressions, asynchronous isolation, and deterministic generation behavior.
+- Re-ran all 35 NeoForge GameTests covering portal behavior, travel, terrain variants, ore placement, and deterministic selection. A dedicated-server smoke reached ready state and shut down with orderly saves for vanilla and all six Delvefold dimensions.
+- Kept JEI and EMI optional and isolated. The release JAR continues to support base, JEI-only, EMI-only, and combined client installations without bundling either recipe-viewer implementation library.
+- Documented the final package architecture, compatibility boundary, threading model, quality policy, analyzer exception, acceptance gates, and implementation evidence for future maintainers.
+
+This release changes maintainability and validation, not gameplay or save data. Existing Delvefold 1.3.0 worlds and profiles load without migration, and identical 1.3.1 clients and servers continue to use protocol 12. CurseForge publication remains a manual project-owner step.
+
 ## 1.3.0 — Server Operations
 
 - Added SHA-256 backup manifests containing normalized relative paths, file sizes, and backup metadata. New lifecycle and pre-restore backups are manifested and verified before they become restorable.

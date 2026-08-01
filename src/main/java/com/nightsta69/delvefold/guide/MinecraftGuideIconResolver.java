@@ -13,9 +13,11 @@ import net.minecraft.world.level.block.Block;
 final class MinecraftGuideIconResolver implements GuideIconResolver {
     static final MinecraftGuideIconResolver INSTANCE = new MinecraftGuideIconResolver();
 
-    private MinecraftGuideIconResolver() {
-    }
+    private MinecraftGuideIconResolver() {}
 
+    // Minecraft items are canonical registry singletons; AIR identity is the platform's
+    // sentinel contract and avoids accepting blocks whose item representation is that sentinel.
+    @SuppressWarnings("ReferenceEquality")
     @Override
     public Optional<String> representativeBlock(GuideSnapshot.OutputKind kind, String sourceId) {
         ResourceLocation id = ResourceLocation.tryParse(sourceId);
@@ -23,7 +25,8 @@ final class MinecraftGuideIconResolver implements GuideIconResolver {
             return Optional.empty();
         }
         if (kind == GuideSnapshot.OutputKind.BLOCK) {
-            return BuiltInRegistries.BLOCK.getOptional(id)
+            return BuiltInRegistries.BLOCK
+                    .getOptional(id)
                     .filter(block -> block.asItem() != Items.AIR)
                     .map(block -> BuiltInRegistries.BLOCK.getKey(block).toString());
         }

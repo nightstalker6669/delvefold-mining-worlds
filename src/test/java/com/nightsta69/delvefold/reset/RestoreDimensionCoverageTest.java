@@ -21,13 +21,12 @@ class RestoreDimensionCoverageTest {
                 "delve_wild_expansive");
 
         assertEquals(expected, DelvefoldDimensionFolders.ALL);
-        assertThrows(UnsupportedOperationException.class,
-                () -> DelvefoldDimensionFolders.ALL.add("unsafe"));
+        assertThrows(UnsupportedOperationException.class, () -> DelvefoldDimensionFolders.ALL.add("unsafe"));
 
         // WorldRestoreService loads Minecraft server classes, so verify its use of the
         // independently tested immutable folder catalog without loading it in plain JUnit.
-        String restore = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/reset/WorldRestoreService.java"));
+        String restore =
+                Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/reset/WorldRestoreService.java"));
         assertTrue(restore.contains("private static final List<String> DIMENSIONS = DelvefoldDimensionFolders.ALL;"));
         assertTrue(restore.contains("return DIMENSIONS;"));
     }
