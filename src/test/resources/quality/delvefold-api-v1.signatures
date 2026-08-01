@@ -1,0 +1,36 @@
+# Delvefold API version 1 JVM descriptor baseline captured from v1.3.0.
+# Format: KIND|binary class name|member name|JVM descriptor
+FIELD|com.nightsta69.delvefold.api.DelvefoldApi|API_VERSION|I
+METHOD|com.nightsta69.delvefold.api.DelvefoldApi|activeWorld|()Ljava/util/Optional;
+METHOD|com.nightsta69.delvefold.api.DelvefoldApi|activeGuide|()Ljava/util/Optional;
+METHOD|com.nightsta69.delvefold.api.DelvefoldApi|worldView|(Lcom/nightsta69/delvefold/config/model/WorldSettingsDocument;)Ljava/util/Optional;
+METHOD|com.nightsta69.delvefold.api.DelvefoldApi|registerOreProfileJson|(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+METHOD|com.nightsta69.delvefold.api.DelvefoldApi|unregisterOreProfile|(Ljava/lang/String;Ljava/lang/String;)Z
+CONSTRUCTOR|com.nightsta69.delvefold.api.MiningWorldView|<init>|(Ljava/lang/String;Lnet/minecraft/resources/ResourceLocation;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;JZ)V
+METHOD|com.nightsta69.delvefold.api.MiningWorldView|displayName|()Ljava/lang/String;
+METHOD|com.nightsta69.delvefold.api.MiningWorldView|dimensionId|()Lnet/minecraft/resources/ResourceLocation;
+METHOD|com.nightsta69.delvefold.api.MiningWorldView|terrain|()Ljava/lang/String;
+METHOD|com.nightsta69.delvefold.api.MiningWorldView|terrainVariant|()Ljava/lang/String;
+METHOD|com.nightsta69.delvefold.api.MiningWorldView|activeProfileId|()Ljava/lang/String;
+METHOD|com.nightsta69.delvefold.api.MiningWorldView|generationEpoch|()J
+METHOD|com.nightsta69.delvefold.api.MiningWorldView|renewalEnabled|()Z
+CONSTRUCTOR|com.nightsta69.delvefold.api.event.DelvefoldLandmarkDiscoveredEvent|<init>|(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/resources/ResourceLocation;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/world/level/ChunkPos;)V
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldLandmarkDiscoveredEvent|player|()Lnet/minecraft/server/level/ServerPlayer;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldLandmarkDiscoveredEvent|landmarkId|()Lnet/minecraft/resources/ResourceLocation;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldLandmarkDiscoveredEvent|dimension|()Lnet/minecraft/resources/ResourceKey;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldLandmarkDiscoveredEvent|startChunk|()Lnet/minecraft/world/level/ChunkPos;
+CONSTRUCTOR|com.nightsta69.delvefold.api.event.DelvefoldOreProfileActivatedEvent|<init>|(Ljava/lang/String;Ljava/lang/String;)V
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldOreProfileActivatedEvent|previousProfileId|()Ljava/lang/String;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldOreProfileActivatedEvent|currentProfileId|()Ljava/lang/String;
+CONSTRUCTOR|com.nightsta69.delvefold.api.event.DelvefoldPortalTravelEvent|<init>|(Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/resources/ResourceKey;Lnet/minecraft/resources/ResourceKey;)V
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldPortalTravelEvent|player|()Lnet/minecraft/server/level/ServerPlayer;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldPortalTravelEvent|source|()Lnet/minecraft/resources/ResourceKey;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldPortalTravelEvent|destination|()Lnet/minecraft/resources/ResourceKey;
+CONSTRUCTOR|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent|<init>|(Lcom/nightsta69/delvefold/api/event/DelvefoldWorldLifecycleEvent$Action;Ljava/util/Optional;Ljava/util/Optional;Ljava/lang/String;)V
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent|action|()Lcom/nightsta69/delvefold/api/event/DelvefoldWorldLifecycleEvent$Action;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent|previous|()Ljava/util/Optional;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent|current|()Ljava/util/Optional;
+METHOD|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent|operationId|()Ljava/lang/String;
+FIELD|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent$Action|INITIALIZED|Lcom/nightsta69/delvefold/api/event/DelvefoldWorldLifecycleEvent$Action;
+FIELD|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent$Action|RECREATED|Lcom/nightsta69/delvefold/api/event/DelvefoldWorldLifecycleEvent$Action;
+FIELD|com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent$Action|DELETED|Lcom/nightsta69/delvefold/api/event/DelvefoldWorldLifecycleEvent$Action;

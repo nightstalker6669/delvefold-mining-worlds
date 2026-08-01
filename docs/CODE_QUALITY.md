@@ -1,0 +1,345 @@
+# Delvefold Code-Quality Baseline and Policy
+
+This document captures the measurable v1.3.0 baseline and defines the acceptance
+policy for the behavior-preserving 1.3.1 cleanup. Measurements are taken from
+the released source layout before formatting or structural edits. Generated
+resources and Gradle build output are excluded.
+
+## Baseline inventory
+
+| Measure | v1.3.0 baseline |
+| --- | ---: |
+| Production Java files | 246 |
+| Production Java lines | 36,043 |
+| JUnit Java files | 86 |
+| JUnit Java lines | 8,847 |
+| Passing JUnit tests | 365 |
+| Passing NeoForge GameTests | 35 |
+| Production files containing at least one Javadoc block | 175 |
+| Production files containing no Javadoc block | 71 |
+| Explicit production nullability annotations | 10 |
+| Existing `@SuppressWarnings` sites | 2 |
+| Validated JSON files | 61 |
+| Validated literal translation keys | 599 |
+
+The source audit found no wildcard imports, trailing whitespace, debug
+`System.out`/`printStackTrace` calls, or tracked build/run output. Those are
+useful positives to preserve; they do not replace semantic analysis.
+
+### Existing automated enforcement
+
+The v1.3.0 Gradle build uses Java 21 and currently enables only
+`-Xlint:deprecation` and `-Xlint:unchecked`. `check` runs JUnit plus repository
+tasks that parse shipped JSON and verify literal Delvefold translation keys.
+GitHub Actions separately runs GameTests, a dedicated-server startup smoke, and
+base/JEI/EMI/both client smokes. JAR ordering and timestamps are configured for
+reproducible output.
+
+Formatting, Javadoc/doclint, general compiler lint, nullness, Error Prone, and a
+documentation-presence policy are not yet enforced at baseline.
+
+### Baseline warnings and debt
+
+- Javadoc reaches the tool's 100-warning output cap. The dominant category is
+  undocumented record components, accompanied by missing public/protected type,
+  constructor, method, and field contracts.
+- Java compilation reports two Minecraft/NeoForge deprecation/removal warnings:
+  the mock-server-player GameTest helper used by `PortalGameTests`, and the
+  structure-placement construction seam used by
+  `GenerationSaltedRandomSpreadPlacement`.
+- The 10 explicit nullable boundaries use the legacy `javax.annotation.Nullable`
+  annotation and are concentrated in portal event/transition integration.
+- The two existing suppressions are a broad unchecked suppression in
+  `DelvefoldPermissions` and a removal suppression at the JEI category boundary.
+  Both require review, narrowing, and a written third-party rationale if they
+  cannot be removed.
+
+## Concentration and hotspot inventory
+
+Line count does not prove poor design, but large controllers and multi-domain
+services carry the highest regression and review risk. The baseline leaders are:
+
+| Production class | Lines | Primary concern to separate |
+| --- | ---: | --- |
+| `DelvefoldCommands` | 1,726 | Brigadier tree construction, suggestions, permissions, handlers, formatting, and lifecycle/admin dispatch are co-located. |
+| `DelvefoldOreRuleWizardScreen` | 1,448 | Draft state, validation, layout, navigation, rendering, widget ownership, and network submission are intertwined. |
+| `DelvefoldDashboardScreen` | 1,252 | Multiple administration tabs, capabilities, scrolling, rendering, and action state share one controller. |
+| `DelvefoldDoctorService` | 820 | Collection, filesystem inspection, concurrency, caching, redaction inputs, and report assembly span several diagnostic domains. |
+| `DefaultDelvefoldAdminService` | 818 | Network-facing authorization, view assembly, config mutation, lifecycle dispatch, async completions, and localization share one adapter. |
+| `WorldOperationService` | 746 | Request state, confirmation, journals, startup transaction, file trees, backups, rollback, history, and auditing are tightly coupled. |
+| `DelvefoldConfigService` | 682 | Runtime publication, mutation coordination, persistence, profile operations, lifecycle transitions, events, and forecasts share one facade. |
+| `DelvefoldOreImportScreen` | 669 | Paged scan/preview display, selection, session state, layout, rendering, and request handling are co-located. |
+| `OreImportSessionService` | 623 | Admission, rate limiting, token binding, expiration, scan/preview/commit sessions, and result construction share one stateful service. |
+| `OreProfileForecastBuilder` | 616 | Profile aggregation, terrain analysis, issue generation, paging, and network-budget truncation share one builder. |
+| `DelvefoldSetupScreen` | 596 | Three-step draft state, responsive sections, rendering, and submission share one screen. |
+
+The cleanup does not impose a maximum line count. A facade may remain large when
+its breadth is public API or declarative registration. Success means each moved
+responsibility has a clear owner, dependency direction, and characterization
+test—not that every file falls below an arbitrary threshold.
+
+### Performance-sensitive paths
+
+The following paths require equivalence tests and before/after evidence:
+
+- ore host/tag resolution, weighted output selection, band/province planning,
+  and per-block placement;
+- geology strata/decorations and landmark candidate/spacing/biome selection;
+- portal frame scans, POI searches, safe-site searches, and hub integrity checks;
+- client render loops that wrap text, rebuild derived lists, or lay out large ore
+  and backup collections;
+- backup catalog traversal, SHA-256 verification, retention measurement, restore
+  staging, and Doctor disk estimates;
+- config/profile parsing, validation, import discovery, and forecast aggregation;
+- audit admission, queue drain, rotation, and stop-session races.
+
+No optimization is accepted solely because it appears shorter or more clever.
+It must remove measured repeated work, preserve ordering and deterministic
+outputs, avoid moving blocking work onto the server thread, and have a focused
+regression test.
+
+## Target quality toolchain
+
+The 1.3.1 branch pins every analysis tool and connects each check to Gradle's
+`check` lifecycle and both build/release workflows.
+
+| Concern | Required tool and policy |
+| --- | --- |
+| Formatting | Spotless 8.9.0 with Palantir Java Format 2.96.0, import ordering, unused-import removal, Javadoc formatting, annotation placement, UTF-8, LF, and final newline. |
+| Compiler diagnostics | Temurin Java 21, complete applicable lint, and warnings promoted to errors after baseline deprecations are resolved. Use `-XDaddTypeAnnotationsToSymbol=true` for reliable JDK 21 type-use analysis. |
+| General static analysis | Error Prone Gradle plugin 5.1.0 with Error Prone 2.50.0. Findings are errors unless a narrow, documented third-party exception is unavoidable. |
+| Nullness | JSpecify 1.0.0 plus NullAway 0.13.8, applied to production and tests with `OnlyNullMarked=true` and explicit null marking required. |
+| Documentation | Checkstyle 13.4.2 for public/protected documentation presence and Javadoc with full doclint plus warning-as-error for semantic validity. |
+| Repository resources | Existing JSON parsing and translation-key validation remain mandatory. |
+| Runtime compatibility | Existing unit tests, GameTests, dedicated-server smoke, and four recipe-viewer client smokes remain mandatory. |
+
+JSpecify is a compile-time API contract (`compileOnlyApi`) so downstream API
+consumers can see type-use annotations. JSpecify, NullAway, Error Prone,
+Checkstyle, Spotless, Palantir Format, JEI, and EMI implementation libraries
+must not be embedded in the release JAR.
+
+NullAway's experimental full JSpecify generic mode is explicitly outside 1.3.1
+because its documented wildcard/generic coverage is incomplete. Standard
+JSpecify annotations and NullAway checking remain required. Enabling an
+experimental mode later requires a separate compatibility review.
+
+## Annotation policy
+
+“Annotate everything” means every relevant contract is explicit; it does not
+mean adding redundant metadata to every declaration.
+
+### Nullness
+
+- Add a documented `package-info.java` carrying `@NullMarked` to every production
+  package and every test-only package.
+- Under a null-marked package, unannotated reference types are non-null.
+  `@Nullable` appears only where `null` is an intentional part of the contract.
+- Replace `javax.annotation.Nullable` with `org.jspecify.annotations.Nullable`.
+  Place it on the actual type use, including generic arguments, arrays, nested
+  types, and varargs elements where applicable.
+- Null returned by Minecraft/NeoForge callbacks must be modeled explicitly at
+  the platform adapter. Internal pure code should receive a validated non-null
+  value or a deliberately modeled `Optional`/result.
+- Do not change a public JVM descriptor merely to eliminate null. In particular,
+  do not replace a public nullable return type with `Optional` during this
+  compatibility release.
+- Do not use `Objects.requireNonNull` as a substitute for annotating the declared
+  contract. It remains appropriate for fail-fast validation at trust boundaries.
+
+### Standard semantic annotations
+
+- Require `@Override` on every override and interface implementation method.
+- Use `@FunctionalInterface` where an interface intentionally has one abstract
+  method and that promise is part of maintainability.
+- Use `@SafeVarargs` only where the body has been reviewed and generic varargs are
+  demonstrably safe.
+- Retain NeoForge/Minecraft registration, distribution, GameTest, codec, and event
+  annotations where the platform consumes them.
+- Do not add `@Deprecated`, serialization annotations, thread annotations, or
+  framework metadata without a real consumer and documented compatibility need.
+- Do not use annotations as decoration: redundant `@NonNull`, blanket generated
+  markers, or unchecked claims that a tool does not verify are disallowed.
+
+## Documentation policy
+
+Javadoc is required for every public or protected production type, constructor,
+method, field, record component, and enum contract, except an override whose
+contract is completely inherited and whose behavior adds no relevant caveat.
+
+Documentation must state the facts a caller cannot safely infer from the method
+body or name:
+
+- units (ticks, seconds, bytes, blocks, chunks, revisions, epoch milliseconds);
+- valid ranges, bounds, normalization, and sentinel meanings;
+- ownership, immutability, snapshot lifetime, and whether returned collections
+  are defensive/unmodifiable views;
+- calling thread, synchronization, asynchronous completion thread, and shutdown
+  behavior;
+- deterministic inputs, random-sequence compatibility, and chunk-write scope;
+- permissions, token binding, redaction, and path-validation boundaries;
+- failure containment, rejected versus exceptional results, and thrown
+  exceptions;
+- whether a setting applies live, to new chunks, or only after recreation.
+
+Private implementation documentation is selective. It is required for
+non-obvious concurrency, filesystem transactions, recovery states, token
+security, deterministic seed mixing, codec compatibility, server/client thread
+handoff, and intentionally surprising platform workarounds. It is not required
+for trivial accessors, widgets, obvious local loops, or prose that merely repeats
+the code.
+
+Comments must remain true across refactors. A stale or speculative comment is a
+defect. Public documentation must use contract language rather than promise a
+specific private class layout.
+
+## Suppression policy
+
+Warnings are fixed at their source whenever possible. A suppression is allowed
+only when all of these conditions hold:
+
+1. the finding originates from a verified Minecraft, NeoForge, JEI, EMI, JDK, or
+   analysis-tool limitation rather than Delvefold logic;
+2. no supported API or type-safe expression removes it without changing behavior;
+3. the annotation is placed on the smallest declaration that triggers the
+   finding—never on a package or broad service class;
+4. an adjacent comment names the external limitation and explains why the code
+   remains safe;
+5. a test covers the assumption when it can fail at runtime.
+
+The cleanup adds a source-contract test that rejects package-wide or blanket
+suppressions and rejects suppression categories outside an explicit allowlist.
+`@SuppressWarnings("all")`, unchecked/raw suppression of an entire subsystem,
+and disabling Error Prone or NullAway for a package are prohibited. Any new
+allowlisted category requires review and an update to this document.
+
+## Cleanup controls
+
+The refactor is divided into auditable stages to make semantic drift visible:
+
+1. **Characterization baseline:** freeze public JVM descriptors and add tests for
+   command trees, codecs, schema-2 serialization, seeds, GUI state/layout, and
+   lifecycle recovery before moving code.
+2. **Mechanical formatting:** apply the formatter in one isolated commit with no
+   strings, resources, data, protocol, or behavioral edits.
+3. **Contracts:** introduce package null marking, nullable boundaries, semantic
+   annotations, Javadocs, and zero-warning enforcement independently from class
+   extraction.
+4. **Shared infrastructure:** consolidate atomic-file, safe-tree, journal, and
+   thread-factory primitives only behind failure and concurrency tests.
+5. **Responsibility extraction:** retain stable facades while moving commands,
+   admin handlers, diagnostics collectors, GUI state/layout, configuration
+   coordination, and import security into package-private collaborators.
+6. **Performance review:** compare deterministic counters and Java Flight
+   Recorder evidence; accept only tested, behavior-equivalent improvements.
+7. **Release audit:** compare the final API, wire/data contracts, deterministic
+   outputs, JAR contents, runtime smokes, and checksum with the expected 1.3.1
+   artifact.
+
+Each stage receives a focused commit and must pass the relevant gates before the
+next stage begins. If a formatter or extraction obscures a semantic change, the
+change is split again.
+
+## Required acceptance gates
+
+The completed branch must satisfy all of the following:
+
+- `spotlessCheck`, Checkstyle, Javadoc/doclint, Error Prone, NullAway, and full
+  compiler lint pass with zero unexplained warnings;
+- all JUnit tests, JSON validation, translation validation, and
+  `git diff --check` pass;
+- public API JVM descriptors match the v1.3.0 baseline;
+- command paths, arguments, aliases, suggestions, localization, and permissions
+  match their characterization snapshot;
+- every network codec round-trips valid boundary values and rejects oversized,
+  malformed, or wrong-format data before unsafe allocation;
+- schema-2 settings/profiles parse and serialize canonically with existing
+  defaults and without load-only rewrites;
+- stable generation produces the same ore, province, geology, and landmark
+  decisions for fixed seeds/salts/chunks;
+- lifecycle tests cover request, confirm, cancel, expiration, simultaneous
+  operation rejection, shutdown, startup commit, rollback, corrupt journal,
+  verified restore, legacy upgrade, and retained staging;
+- GUI state/layout tests cover 854x480 and 1080p at GUI scales 1 through 4,
+  including keyboard focus, narration, scrolling, resize, and unsaved drafts;
+- all 35-or-more NeoForge GameTests pass, followed by dedicated-server startup
+  and orderly shutdown;
+- base, JEI-only, EMI-only, and JEI+EMI clients start with the expected optional
+  integrations and no server-side viewer dependency;
+- Java Flight Recorder review finds no new blocking server-thread I/O and no
+  material regression in generation or rendering hotspots;
+- the release JAR is reproducible, contains the expected API/version manifest,
+  excludes analysis/viewer libraries, and matches its published SHA-256 file.
+
+## Evidence ledger
+
+Fill this ledger during implementation. Evidence should reference a test name,
+Gradle task output, JFR recording/summary, API descriptor file, or release asset;
+subjective statements such as “looks faster” are not sufficient.
+
+### Static quality
+
+| Measure | v1.3.0 before | 1.3.1 after | Evidence |
+| --- | ---: | ---: | --- |
+| Compiler warnings | 2 deprecation/removal | _pending_ | _pending_ |
+| Javadoc warnings | at least 100 (output capped) | _pending_ | _pending_ |
+| Production packages with `@NullMarked` | 0 | _pending_ | _pending_ |
+| Test-only packages with `@NullMarked` | 0 | _pending_ | _pending_ |
+| Explicit nullable boundaries | 10 legacy annotations | _pending_ | _pending_ |
+| Suppression sites/categories | 2 sites | _pending_ | _pending_ |
+| Error Prone findings | not enforced | _pending_ | _pending_ |
+| NullAway findings | not enforced | _pending_ | _pending_ |
+| Checkstyle findings | not enforced | _pending_ | _pending_ |
+
+### Structure
+
+| Hotspot | Before | Intended after | Evidence |
+| --- | ---: | --- | --- |
+| `DelvefoldCommands` | 1,726 lines | Stable facade plus domain command modules; exact tree unchanged. | _pending_ |
+| `DelvefoldOreRuleWizardScreen` | 1,448 lines | Stable screen plus immutable draft, validation, layout, and section collaborators. | _pending_ |
+| `DelvefoldDashboardScreen` | 1,252 lines | Stable screen plus tab/section controllers and cached derived layout. | _pending_ |
+| `DelvefoldDoctorService` | 820 lines | Stable service plus independent collectors and unchanged redaction/rendering. | _pending_ |
+| `DefaultDelvefoldAdminService` | 818 lines | Stable adapter plus package-private operation handlers. | _pending_ |
+| `WorldOperationService` | 746 lines | Stable lifecycle service using tested shared journal/file primitives. | _pending_ |
+| `DelvefoldConfigService` | 682 lines | Stable facade with separated mutation, publication, and transition planning. | _pending_ |
+| `DelvefoldOreImportScreen` | 669 lines | Stable screen with separated paged display/selection/session state. | _pending_ |
+
+### Performance and threading
+
+| Scenario | Before evidence | After evidence | Acceptance |
+| --- | --- | --- | --- |
+| Representative dense ore/province chunk generation | _pending JFR/counters_ | _pending_ | Identical placement hashes/work bounds; no material CPU/allocation regression. |
+| Landmark selection and structure placement | _pending JFR/counters_ | _pending_ | Identical candidate decisions/spacing and bounded cache behavior. |
+| Ore wizard/dashboard render and resize | _pending JFR/allocation sample_ | _pending_ | No per-frame rebuild of revision/resize-invariant data; no layout regression. |
+| Backup catalog with large backup set | _pending JFR/operation counts_ | _pending_ | Traversal remains off tick thread; snapshots/results unchanged. |
+| Large backup verification | _pending thread/JFR evidence_ | _pending_ | Hashing remains on verifier pool; server thread only coordinates completion. |
+| Doctor refresh/export | _pending thread/JFR evidence_ | _pending_ | Disk work remains on Doctor worker and export stays redacted. |
+| Audit shutdown with in-flight mutation | _pending concurrency test_ | _pending_ | No cross-save writes, lost accepted mutations, or indefinite drain. |
+
+### Compatibility and release
+
+| Contract | Baseline | Final evidence |
+| --- | --- | --- |
+| API descriptors | v1.3.0 JAR, API 1 | _pending descriptor comparison_ |
+| Network protocol | 12 | _pending codec/manifest verification_ |
+| Settings and ore schema | 2 / 2 | _pending canonical fixtures_ |
+| Stable generation | v1.3.0 fixed vectors | _pending hash/vector comparison_ |
+| Unit/GameTests | 365 / 35 passing | _pending final counts_ |
+| Dedicated server | startup and orderly stop pass | _pending final smoke_ |
+| Recipe viewers | base, JEI, EMI, both pass | _pending final matrix_ |
+| Release artifact | `delvefold-1.21.1-1.3.1.jar` | _pending SHA-256 and asset link_ |
+
+## Out of scope for 1.3.1
+
+- feature, command, payload, schema, registry, dimension, or generation changes;
+- protocol or API-version increments;
+- live unloading/deletion of a loaded mining dimension;
+- experimental NullAway JSpecify generic mode;
+- mandatory coverage percentages, SpotBugs, PMD, or an architectural rewrite
+  driven only by tool count;
+- Fabric support, multiple simultaneous mining worlds, or unrestricted entity
+  portal travel;
+- automatic CurseForge publishing.
+
+If static analysis exposes a defect whose correct fix would change an observable
+contract, stop and document it for a separately scoped patch instead of hiding a
+behavior change inside the cleanup.
