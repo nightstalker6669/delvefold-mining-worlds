@@ -10,18 +10,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class ProvinceSettingsLayoutTest {
     @ParameterizedTest
-    @CsvSource({
-            "320,240,true",
-            "427,240,true",
-            "854,480,false",
-            "1920,1080,false"
-    })
-    void fieldsRemainContainedAndSeparatedAtSupportedGuiSizes(
-            int screenWidth, int screenHeight, boolean compact) {
+    @CsvSource({"320,240,true", "427,240,true", "854,480,false", "1920,1080,false"})
+    void fieldsRemainContainedAndSeparatedAtSupportedGuiSizes(int screenWidth, int screenHeight, boolean compact) {
         ProvinceSettingsLayout layout = ProvinceSettingsLayout.forScreen(screenWidth, screenHeight);
         List<ProvinceSettingsLayout.Field> fields = List.of(
-                layout.region(), layout.radius(), layout.verticalThickness(),
-                layout.density(), layout.workCap());
+                layout.region(), layout.radius(), layout.verticalThickness(), layout.density(), layout.workCap());
 
         assertEquals(compact, layout.compact());
         for (ProvinceSettingsLayout.Field field : fields) {

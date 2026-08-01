@@ -17,25 +17,43 @@ import org.junit.jupiter.api.Test;
 class NetworkSurfaceCompatibilityTest {
     private static final Path NETWORK = Path.of("src/main/java/com/nightsta69/delvefold/network");
     private static final Set<String> TO_SERVER = Set.of(
-            "AdminActionPayload", "BackupActionPayload", "DeleteOreRulePayload", "ForecastRequestPayload",
-            "GameplayUpdatePayload", "GuideOpenedPayload", "IdentityUpdatePayload", "InitializeWorldPayload",
-            "OpenGuiRequestPayload", "OreImportCreatePayload", "OreImportPreviewPageRequestPayload",
-            "OreImportPreviewRequestPayload", "OreImportScanPageRequestPayload", "OreImportScanRequestPayload",
-            "OrePageRequestPayload", "PortalUpdatePayload", "ProfileActionPayload", "ProfileExportRequestPayload",
+            "AdminActionPayload",
+            "BackupActionPayload",
+            "DeleteOreRulePayload",
+            "ForecastRequestPayload",
+            "GameplayUpdatePayload",
+            "GuideOpenedPayload",
+            "IdentityUpdatePayload",
+            "InitializeWorldPayload",
+            "OpenGuiRequestPayload",
+            "OreImportCreatePayload",
+            "OreImportPreviewPageRequestPayload",
+            "OreImportPreviewRequestPayload",
+            "OreImportScanPageRequestPayload",
+            "OreImportScanRequestPayload",
+            "OrePageRequestPayload",
+            "PortalUpdatePayload",
+            "ProfileActionPayload",
+            "ProfileExportRequestPayload",
             "SaveOreRulePayload");
     private static final Set<String> TO_CLIENT = Set.of(
-            "ActionResultPayload", "OpenForecastPayload", "OpenGuiPayload", "OpenGuidePayload",
-            "OpenOreImportPreviewPayload", "OpenOreImportScanPayload", "ProfileExportPayload");
-    private static final Set<String> CODEC_FILES = Set.of(
-            "DelvefoldStreamCodecs", "GuideStreamCodecs", "OreForecastStreamCodecs", "OreImportStreamCodecs");
+            "ActionResultPayload",
+            "OpenForecastPayload",
+            "OpenGuiPayload",
+            "OpenGuidePayload",
+            "OpenOreImportPreviewPayload",
+            "OpenOreImportScanPayload",
+            "ProfileExportPayload");
+    private static final Set<String> CODEC_FILES =
+            Set.of("DelvefoldStreamCodecs", "GuideStreamCodecs", "OreForecastStreamCodecs", "OreImportStreamCodecs");
     private static final Pattern REGISTRATION = Pattern.compile(
-            "registrar\\.playTo(Server|Client)\\(\\s*(\\w+)\\.TYPE\\s*,\\s*\\2\\.STREAM_CODEC\\s*,",
-            Pattern.DOTALL);
+            "registrar\\.playTo(Server|Client)\\(\\s*(\\w+)\\.TYPE\\s*,\\s*\\2\\.STREAM_CODEC\\s*,", Pattern.DOTALL);
 
     @Test
     void protocolTwelveRegistersTheExactVersion130PayloadInventory() throws Exception {
         String source = Files.readString(NETWORK.resolve("DelvefoldNetwork.java"));
-        assertTrue(source.matches("(?s).*public\\s+static\\s+final\\s+String\\s+PROTOCOL_VERSION\\s*=\\s*\"12\"\\s*;.*"));
+        assertTrue(
+                source.matches("(?s).*public\\s+static\\s+final\\s+String\\s+PROTOCOL_VERSION\\s*=\\s*\"12\"\\s*;.*"));
 
         Map<String, Set<String>> actual = new TreeMap<>();
         actual.put("Server", new TreeSet<>());
@@ -54,8 +72,7 @@ class NetworkSurfaceCompatibilityTest {
         Path payloadDirectory = NETWORK.resolve("payload");
         Set<String> payloadFiles;
         try (var files = Files.list(payloadDirectory)) {
-            payloadFiles = files
-                    .filter(path -> path.getFileName().toString().endsWith("Payload.java"))
+            payloadFiles = files.filter(path -> path.getFileName().toString().endsWith("Payload.java"))
                     .map(path -> path.getFileName().toString().replaceFirst("\\.java$", ""))
                     .collect(Collectors.toCollection(TreeSet::new));
         }
@@ -66,9 +83,11 @@ class NetworkSurfaceCompatibilityTest {
         for (String payload : expected) {
             String source = Files.readString(payloadDirectory.resolve(payload + ".java"));
             assertTrue(source.contains("implements CustomPacketPayload"), payload + " must remain a custom payload");
-            assertTrue(source.matches("(?s).*public\\s+static\\s+final\\s+.*\\bTYPE\\s*=.*"),
+            assertTrue(
+                    source.matches("(?s).*public\\s+static\\s+final\\s+.*\\bTYPE\\s*=.*"),
                     payload + " must expose its stable payload type");
-            assertTrue(source.matches("(?s).*public\\s+static\\s+final\\s+StreamCodec<.*\\bSTREAM_CODEC\\s*=.*"),
+            assertTrue(
+                    source.matches("(?s).*public\\s+static\\s+final\\s+StreamCodec<.*\\bSTREAM_CODEC\\s*=.*"),
                     payload + " must expose its bounded stream codec");
         }
     }
@@ -76,8 +95,8 @@ class NetworkSurfaceCompatibilityTest {
     @Test
     void protocolCodecUtilityInventoryRemainsStable() throws Exception {
         try (var files = Files.list(NETWORK.resolve("codec"))) {
-            Set<String> actual = files
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
+            Set<String> actual = files.filter(
+                            path -> path.getFileName().toString().endsWith(".java"))
                     .map(path -> path.getFileName().toString().replaceFirst("\\.java$", ""))
                     .collect(Collectors.toCollection(TreeSet::new));
             assertEquals(new TreeSet<>(CODEC_FILES), actual, "Protocol codec source inventory changed");

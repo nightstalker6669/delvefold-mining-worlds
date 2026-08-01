@@ -7,10 +7,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-public record GameplayUpdatePayload(long expectedRevision, GameplaySettings gameplay)
-        implements CustomPacketPayload {
-    public static final Type<GameplayUpdatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "update_gameplay"));
+public record GameplayUpdatePayload(long expectedRevision, GameplaySettings gameplay) implements CustomPacketPayload {
+    public static final Type<GameplayUpdatePayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "update_gameplay"));
     public static final StreamCodec<RegistryFriendlyByteBuf, GameplayUpdatePayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeLong(payload.expectedRevision());

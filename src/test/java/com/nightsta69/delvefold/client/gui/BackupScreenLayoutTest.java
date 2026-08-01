@@ -13,10 +13,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class BackupScreenLayoutTest {
     @ParameterizedTest(name = "{0}x{1} at GUI scale {2}")
-    @CsvSource({
-            "854,480,2,427,240,2,STACKED",
-            "1920,1080,4,480,270,5,INLINE"
-    })
+    @CsvSource({"854,480,2,427,240,2,STACKED", "1920,1080,4,480,270,5,INLINE"})
     void effectiveCompactResolutionsKeepEveryBackupActionAboveTheFooter(
             int physicalWidth,
             int physicalHeight,
@@ -71,42 +68,45 @@ class BackupScreenLayoutTest {
         assertTrue(footer.compact());
         assertTrue(footer.wrapped());
         assertFooterContainedAndSeparated(layout, footer);
-        assertTrue(layout.actionBounds(layout.pageSize() - 1, 3).bottom() < footer.cancel().y());
+        assertTrue(layout.actionBounds(layout.pageSize() - 1, 3).bottom()
+                < footer.cancel().y());
     }
 
     @Test
     void screenUsesTheResponsivePageSizeAndSharedActionGeometry() throws IOException {
-        String source = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldBackupScreen.java"));
+        String source = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldBackupScreen.java"));
 
         assertTrue(source.contains("BackupScreenLayout layout = layout();"));
         assertTrue(source.contains("int pageSize = layout.pageSize();"));
         assertTrue(source.contains("layout.actionBounds(row, 3)"));
         assertTrue(source.contains("layout.footer(pageCount > 1, snapshot.restorePending())"));
-        assertFalse(source.contains("PAGE_SIZE"),
+        assertFalse(
+                source.contains("PAGE_SIZE"),
                 "A fixed backup page size would overlap the footer again at compact GUI scales");
     }
 
     @Test
     void everyWorldManagementBackupActionReflectsTheServerCapability() throws IOException {
-        String source = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldBackupScreen.java"));
+        String source = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldBackupScreen.java"));
 
         assertTrue(source.contains("boolean canManageWorld = snapshot.capabilities().canManageWorld();"));
         assertTrue(source.contains("pin.active = canManageWorld;"));
         assertTrue(source.contains("verify.active = backup.valid() && canManageWorld;"));
         assertTrue(source.contains("delete.active = !backup.pinned() && canManageWorld;"));
         assertTrue(source.contains("cancelRestore.active = canManageWorld;"));
-        assertTrue(source.contains("screen.delvefold.backup.manage_permission"),
+        assertTrue(
+                source.contains("screen.delvefold.backup.manage_permission"),
                 "Disabled management actions need a non-color permission explanation");
     }
 
     @Test
     void eachScreenOnlyOffersTheCancellationOwnedByItsPendingOperation() throws IOException {
-        String backups = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldBackupScreen.java"));
-        String dashboard = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldDashboardScreen.java"));
+        String backups = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldBackupScreen.java"));
+        String dashboard = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldDashboardScreen.java"));
 
         assertTrue(backups.contains("if (snapshot.restorePending())"));
         assertTrue(dashboard.contains("if (this.snapshot.worldOperationPending())"));
@@ -114,13 +114,10 @@ class BackupScreenLayoutTest {
         assertFalse(dashboard.contains("snapshot.resetPending()"));
     }
 
-    private static void assertFooterContainedAndSeparated(
-            BackupScreenLayout layout, BackupScreenLayout.Footer footer) {
+    private static void assertFooterContainedAndSeparated(BackupScreenLayout layout, BackupScreenLayout.Footer footer) {
         int left = layout.listX() - 10;
         int right = layout.listX() + layout.listWidth() + 10;
-        BackupScreenLayout.Bounds[] bounds = {
-                footer.back(), footer.previous(), footer.next(), footer.cancel()
-        };
+        BackupScreenLayout.Bounds[] bounds = {footer.back(), footer.previous(), footer.next(), footer.cancel()};
         for (BackupScreenLayout.Bounds button : bounds) {
             assertTrue(button.x() >= left);
             assertTrue(button.right() <= right);
@@ -151,8 +148,7 @@ class BackupScreenLayoutTest {
         }
     }
 
-    private static void assertContained(
-            BackupScreenLayout layout, BackupScreenLayout.Bounds bounds) {
+    private static void assertContained(BackupScreenLayout layout, BackupScreenLayout.Bounds bounds) {
         assertTrue(bounds.x() >= layout.listX());
         assertTrue(bounds.right() <= layout.listX() + layout.listWidth());
         assertTrue(bounds.y() >= layout.listTop());

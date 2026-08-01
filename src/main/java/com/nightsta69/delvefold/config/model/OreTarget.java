@@ -1,16 +1,11 @@
 package com.nightsta69.delvefold.config.model;
 
-import java.util.Map;
 import java.util.Collections;
+import java.util.Map;
 import java.util.TreeMap;
 
 /** An exact block or output block tag, plus its host tag and relative selection weight. */
-public record OreTarget(
-        String block,
-        String blockTag,
-        Map<String, String> state,
-        String replaceTag,
-        Integer weight) {
+public record OreTarget(String block, String blockTag, Map<String, String> state, String replaceTag, Integer weight) {
     public static final int DEFAULT_WEIGHT = 1;
     public static final int MIN_WEIGHT = 1;
     public static final int MAX_WEIGHT = 1000;
@@ -18,9 +13,7 @@ public record OreTarget(
     public OreTarget {
         block = block == null ? "" : block.trim();
         blockTag = blockTag == null ? "" : stripHash(blockTag.trim());
-        state = state == null || state.isEmpty()
-                ? Map.of()
-                : Collections.unmodifiableMap(new TreeMap<>(state));
+        state = state == null || state.isEmpty() ? Map.of() : Collections.unmodifiableMap(new TreeMap<>(state));
         replaceTag = replaceTag == null ? "" : replaceTag.trim();
         weight = weight == null ? DEFAULT_WEIGHT : weight;
     }

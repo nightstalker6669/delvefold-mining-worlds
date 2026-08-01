@@ -17,17 +17,16 @@ import java.util.Objects;
 
 /** Transactional creation of the pre-restore snapshot while the server is offline. */
 final class RestoreCurrentBackupTransaction {
-    private RestoreCurrentBackupTransaction() {
+    private RestoreCurrentBackupTransaction() {}
+
+    static void backup(Path configDirectory, Path activeRoot, Path preRestore, PendingWorldRestore pending)
+            throws IOException {
+        backup(configDirectory, activeRoot, preRestore, pending, RestoreCurrentBackupTransaction::moveDirectory);
     }
 
-    static void backup(Path configDirectory, Path activeRoot, Path preRestore,
-            PendingWorldRestore pending) throws IOException {
-        backup(configDirectory, activeRoot, preRestore, pending,
-                RestoreCurrentBackupTransaction::moveDirectory);
-    }
-
-    static void backup(Path configDirectory, Path activeRoot, Path preRestore,
-            PendingWorldRestore pending, DirectoryMover mover) throws IOException {
+    static void backup(
+            Path configDirectory, Path activeRoot, Path preRestore, PendingWorldRestore pending, DirectoryMover mover)
+            throws IOException {
         Objects.requireNonNull(pending, "pending");
         Objects.requireNonNull(mover, "mover");
         Path config = requireDirectory(configDirectory, "Active configuration");
@@ -148,8 +147,8 @@ final class RestoreCurrentBackupTransaction {
         if (Files.isSymbolicLink(path) || !Files.isRegularFile(path)) {
             throw new IOException("Active settings failed safety checks");
         }
-        WorldSettingsDocument settings = ConfigJson.GSON.fromJson(
-                Files.readString(path, StandardCharsets.UTF_8), WorldSettingsDocument.class);
+        WorldSettingsDocument settings =
+                ConfigJson.GSON.fromJson(Files.readString(path, StandardCharsets.UTF_8), WorldSettingsDocument.class);
         if (settings == null || !settings.initialized()) {
             throw new IOException("Active settings are not initialized");
         }
@@ -183,14 +182,14 @@ final class RestoreCurrentBackupTransaction {
     }
 
     private static void writeJson(Path target, Object value) throws IOException {
-        byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator())
-                .getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
         Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
+        Path temporary =
+                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
         boolean moved = false;
         try {
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (FileChannel channel =
+                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 ByteBuffer buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
@@ -219,8 +218,7 @@ final class RestoreCurrentBackupTransaction {
         }
     }
 
-    private record DimensionMove(Path active, Path backup) {
-    }
+    private record DimensionMove(Path active, Path backup) {}
 
     @FunctionalInterface
     interface DirectoryMover {

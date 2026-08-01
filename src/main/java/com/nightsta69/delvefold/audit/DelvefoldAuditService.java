@@ -38,8 +38,8 @@ public final class DelvefoldAuditService {
                 Path directory = auditDirectory(ConfigPaths.forServer(minecraftServer));
                 RotatingAuditLog replacement = new RotatingAuditLog(directory, clock);
                 replacement.prepare();
-                AuditWriteQueue replacementWriter = new AuditWriteQueue(
-                        replacement, DelvefoldAuditService::reportWriteFailure);
+                AuditWriteQueue replacementWriter =
+                        new AuditWriteQueue(replacement, DelvefoldAuditService::reportWriteFailure);
                 server = minecraftServer;
                 writer = replacementWriter;
                 return true;
@@ -65,8 +65,8 @@ public final class DelvefoldAuditService {
     }
 
     /**
-     * Records one accepted mutation. Returns false when auditing is unavailable; logging failures
-     * are contained and must never roll back the already-accepted gameplay operation.
+     * Records one accepted mutation. Returns false when auditing is unavailable; logging failures are contained and
+     * must never roll back the already-accepted gameplay operation.
      */
     public boolean record(AuditMutation mutation) {
         if (mutation == null) {
@@ -98,8 +98,8 @@ public final class DelvefoldAuditService {
     }
 
     /**
-     * Attributes every nested audit mutation on this caller thread to {@code actor} until closed.
-     * Scopes are nest-safe and must be closed in reverse order on their owning thread.
+     * Attributes every nested audit mutation on this caller thread to {@code actor} until closed. Scopes are nest-safe
+     * and must be closed in reverse order on their owning thread.
      */
     public ActorScope pushActor(String actor) {
         return actors.push(actor);

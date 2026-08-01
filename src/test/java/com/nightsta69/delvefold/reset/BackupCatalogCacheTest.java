@@ -58,8 +58,8 @@ class BackupCatalogCacheTest {
         ManualExecutor executor = new ManualExecutor();
         MutableClock clock = new MutableClock();
         AtomicInteger loads = new AtomicInteger();
-        BackupCatalogCache cache = new BackupCatalogCache(executor, clock, 100L, 16,
-                ignored -> List.of(summary("v" + loads.incrementAndGet())));
+        BackupCatalogCache cache = new BackupCatalogCache(
+                executor, clock, 100L, 16, ignored -> List.of(summary("v" + loads.incrementAndGet())));
 
         cache.snapshot(Path.of("save"));
         executor.runNext();
@@ -81,8 +81,8 @@ class BackupCatalogCacheTest {
         ManualExecutor executor = new ManualExecutor();
         MutableClock clock = new MutableClock();
         AtomicInteger loads = new AtomicInteger();
-        BackupCatalogCache cache = new BackupCatalogCache(executor, clock, 10_000L, 16,
-                ignored -> List.of(summary("v" + loads.incrementAndGet())));
+        BackupCatalogCache cache = new BackupCatalogCache(
+                executor, clock, 10_000L, 16, ignored -> List.of(summary("v" + loads.incrementAndGet())));
         Path root = Path.of("save");
         cache.snapshot(root);
         executor.runNext();
@@ -101,8 +101,8 @@ class BackupCatalogCacheTest {
     @Test
     void cacheBoundsSavesAndClearPreventsLatePublication() {
         ManualExecutor executor = new ManualExecutor();
-        BackupCatalogCache cache = new BackupCatalogCache(executor, new MutableClock(), 1_000L, 3,
-                ignored -> List.of(summary("loaded")));
+        BackupCatalogCache cache =
+                new BackupCatalogCache(executor, new MutableClock(), 1_000L, 3, ignored -> List.of(summary("loaded")));
 
         for (int index = 0; index < 8; index++) {
             cache.snapshot(Path.of("save-" + index));
@@ -118,14 +118,13 @@ class BackupCatalogCacheTest {
     @Test
     void deletionWalkRunsOnExecutorAndCompletesAfterRefresh() throws IOException {
         ManualExecutor executor = new ManualExecutor();
-        BackupCatalogCache cache = new BackupCatalogCache(executor, new MutableClock(), 1_000L, 16,
-                ignored -> List.of());
+        BackupCatalogCache cache =
+                new BackupCatalogCache(executor, new MutableClock(), 1_000L, 16, ignored -> List.of());
         Path backup = temporaryDirectory.resolve("delvefold_backups/to-delete");
         Files.createDirectories(backup);
         Files.writeString(backup.resolve("large-region-file"), "data");
 
-        var reservation = BackupDeletionGuard.get().reserveForTest(
-                temporaryDirectory, "to-delete", Set.of());
+        var reservation = BackupDeletionGuard.get().reserveForTest(temporaryDirectory, "to-delete", Set.of());
         var deletion = cache.deleteAndRefreshAsync(temporaryDirectory, "to-delete", reservation);
         assertTrue(Files.exists(backup), "the caller thread must not start walking the backup");
         assertFalse(deletion.isDone());
@@ -135,34 +134,30 @@ class BackupCatalogCacheTest {
         assertFalse(deletion.isDone(), "completion waits for the refreshed immutable catalog");
         executor.runNext();
         assertTrue(deletion.join());
-        assertTrue(BackupDeletionGuard.get().coordinateReferenceForTest(
-                temporaryDirectory, "to-delete", () -> { }));
+        assertTrue(BackupDeletionGuard.get().coordinateReferenceForTest(temporaryDirectory, "to-delete", () -> {}));
     }
 
     @Test
     void revokedReservationPreventsAQueuedDeletionWalk() throws IOException {
         ManualExecutor executor = new ManualExecutor();
-        BackupCatalogCache cache = new BackupCatalogCache(executor, new MutableClock(), 1_000L, 16,
-                ignored -> List.of());
+        BackupCatalogCache cache =
+                new BackupCatalogCache(executor, new MutableClock(), 1_000L, 16, ignored -> List.of());
         Path backup = temporaryDirectory.resolve("delvefold_backups/kept");
         Files.createDirectories(backup);
         Files.writeString(backup.resolve("large-region-file"), "data");
-        var reservation = BackupDeletionGuard.get().reserveForTest(
-                temporaryDirectory, "kept", Set.of());
+        var reservation = BackupDeletionGuard.get().reserveForTest(temporaryDirectory, "kept", Set.of());
 
         var deletion = cache.deleteAndRefreshAsync(temporaryDirectory, "kept", reservation);
         reservation.close();
         executor.runAll();
 
-        assertTrue(Files.exists(backup),
-                "the worker must recheck its reservation immediately before filesystem deletion");
+        assertTrue(
+                Files.exists(backup), "the worker must recheck its reservation immediately before filesystem deletion");
         assertTrue(deletion.isCompletedExceptionally());
     }
 
     private static WorldBackupCatalog.BackupSummary summary(String id) {
-        return new WorldBackupCatalog.BackupSummary(
-                id, 1L, "delete", "flat", 2L, false, true, true,
-                true, true, false);
+        return new WorldBackupCatalog.BackupSummary(id, 1L, "delete", "flat", 2L, false, true, true, true, true, false);
     }
 
     private static final class ManualExecutor implements Executor {

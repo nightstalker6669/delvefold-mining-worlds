@@ -3,8 +3,8 @@ package com.nightsta69.delvefold.world.feature;
 import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
-import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
+import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
@@ -55,8 +55,8 @@ final class RuntimeOreProfile {
                     .map(group -> new CompiledTargetGroup(
                             group.replaceable(),
                             group.outputs().stream()
-                                    .map(output -> new CompiledOutput(output.state(), output.selectionWeight(),
-                                            output.cumulativeWeight()))
+                                    .map(output -> new CompiledOutput(
+                                            output.state(), output.selectionWeight(), output.cumulativeWeight()))
                                     .toList(),
                             group.legacyUniform(),
                             group.totalWeight()))
@@ -72,10 +72,14 @@ final class RuntimeOreProfile {
                 }
                 ProvinceSettings province = band.province();
                 boolean effectiveProvince = band.placement() == OreBandPlacement.PROVINCE
-                        && province != null && province.regionSize() > 0 && province.radius() > 0
+                        && province != null
+                        && province.regionSize() > 0
+                        && province.radius() > 0
                         && province.radius() <= province.regionSize()
-                        && province.verticalThickness() > 0 && Double.isFinite(province.density())
-                        && province.density() > 0.0D && province.density() <= 1.0D
+                        && province.verticalThickness() > 0
+                        && Double.isFinite(province.density())
+                        && province.density() > 0.0D
+                        && province.density() <= 1.0D
                         && province.perChunkWorkCap() > 0;
                 if ((band.placement() == OreBandPlacement.VEIN && band.attemptsPerChunk() <= 0.0D)
                         || (band.placement() == OreBandPlacement.PROVINCE && !effectiveProvince)) {
@@ -124,27 +128,46 @@ final class RuntimeOreProfile {
 
     private static void logTargetIssues(OreTargetResolution.Result resolution) {
         for (OreTargetResolution.Issue issue : resolution.issues()) {
-            String key = issue.ruleId() + '|' + issue.targetIndex() + '|' + issue.kind() + '|'
-                    + issue.referenceId();
+            String key = issue.ruleId() + '|' + issue.targetIndex() + '|' + issue.kind() + '|' + issue.referenceId();
             switch (issue.kind()) {
-                case INVALID_HOST_TAG -> warnOnce(key,
-                        "Skipping ore rule {} target {} because its replacement tag ID is unavailable",
-                        issue.ruleId(), issue.sourceId());
-                case INVALID_WEIGHT -> warnOnce(key,
-                        "Skipping ore rule {} target {} because its configured weight is invalid",
-                        issue.ruleId(), issue.sourceId());
-                case MISSING_BLOCK, MISSING_OUTPUT_TAG -> warnOnce(key,
-                        "Skipping ore rule {} target {} because it resolves to no installed output blocks",
-                        issue.ruleId(), issue.sourceId());
-                case INVALID_STATE_PROPERTY, INVALID_STATE_VALUE -> warnOnce(key,
-                        "Ignoring invalid block-state setting {} for target {} in ore rule {}",
-                        issue.referenceId(), issue.sourceId(), issue.ruleId());
-                case SHADOWED_OUTPUT -> warnOnce(key,
-                        "Deduplicating overlapping output {} for target {} in ore rule {}",
-                        issue.referenceId(), issue.sourceId(), issue.ruleId());
-                case SHADOWED_TARGET -> warnOnce(key,
-                        "Ore rule {} target {} is ineffective because every resolved state overlaps an earlier target",
-                        issue.ruleId(), issue.sourceId());
+                case INVALID_HOST_TAG ->
+                    warnOnce(
+                            key,
+                            "Skipping ore rule {} target {} because its replacement tag ID is unavailable",
+                            issue.ruleId(),
+                            issue.sourceId());
+                case INVALID_WEIGHT ->
+                    warnOnce(
+                            key,
+                            "Skipping ore rule {} target {} because its configured weight is invalid",
+                            issue.ruleId(),
+                            issue.sourceId());
+                case MISSING_BLOCK, MISSING_OUTPUT_TAG ->
+                    warnOnce(
+                            key,
+                            "Skipping ore rule {} target {} because it resolves to no installed output blocks",
+                            issue.ruleId(),
+                            issue.sourceId());
+                case INVALID_STATE_PROPERTY, INVALID_STATE_VALUE ->
+                    warnOnce(
+                            key,
+                            "Ignoring invalid block-state setting {} for target {} in ore rule {}",
+                            issue.referenceId(),
+                            issue.sourceId(),
+                            issue.ruleId());
+                case SHADOWED_OUTPUT ->
+                    warnOnce(
+                            key,
+                            "Deduplicating overlapping output {} for target {} in ore rule {}",
+                            issue.referenceId(),
+                            issue.sourceId(),
+                            issue.ruleId());
+                case SHADOWED_TARGET ->
+                    warnOnce(
+                            key,
+                            "Ore rule {} target {} is ineffective because every resolved state overlaps an earlier target",
+                            issue.ruleId(),
+                            issue.sourceId());
                 case MISSING_HOST_TAG -> {
                     // Validation already reports this; runtime retains its prior empty-host behavior.
                 }
@@ -155,9 +178,12 @@ final class RuntimeOreProfile {
     private static HeightSampler compileHeight(SpawnBand band) {
         if (band.distribution() == HeightDistribution.TRIANGLE && band.peakY() != null) {
             int peak = band.peakY();
-            return weighted(band.minY(), band.maxY(), y -> y <= peak
-                    ? (double) (y - band.minY() + 1) / (peak - band.minY() + 1)
-                    : (double) (band.maxY() - y + 1) / (band.maxY() - peak + 1));
+            return weighted(
+                    band.minY(),
+                    band.maxY(),
+                    y -> y <= peak
+                            ? (double) (y - band.minY() + 1) / (peak - band.minY() + 1)
+                            : (double) (band.maxY() - y + 1) / (band.maxY() - peak + 1));
         }
         if (band.distribution() == HeightDistribution.TRAPEZOID
                 && band.plateauMinY() != null
@@ -235,10 +261,7 @@ final class RuntimeOreProfile {
     }
 
     record CompiledTargetGroup(
-            TagKey<Block> replaceable,
-            List<CompiledOutput> outputs,
-            boolean legacyUniform,
-            double totalWeight) {
+            TagKey<Block> replaceable, List<CompiledOutput> outputs, boolean legacyUniform, double totalWeight) {
         CompiledTargetGroup {
             outputs = List.copyOf(outputs);
             if (outputs.isEmpty() || !(totalWeight > 0.0D) || !Double.isFinite(totalWeight)) {
@@ -269,11 +292,9 @@ final class RuntimeOreProfile {
         }
     }
 
-    record CompiledOutput(BlockState state, double selectionWeight, double cumulativeWeight) {
-    }
+    record CompiledOutput(BlockState state, double selectionWeight, double cumulativeWeight) {}
 
-    private record SelectionKey(TerrainMode terrainMode, ResourceKey<Biome> biome) {
-    }
+    private record SelectionKey(TerrainMode terrainMode, ResourceKey<Biome> biome) {}
 
     @FunctionalInterface
     interface HeightSampler {

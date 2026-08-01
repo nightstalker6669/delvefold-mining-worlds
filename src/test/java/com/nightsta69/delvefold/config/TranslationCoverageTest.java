@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.nightsta69.delvefold.compat.PortalConstructionGuide;
 import com.nightsta69.delvefold.config.analysis.OreDistributionAnalysis;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
@@ -16,7 +17,6 @@ import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
-import com.nightsta69.delvefold.compat.PortalConstructionGuide;
 import com.nightsta69.delvefold.guide.GuideSnapshot;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -65,26 +65,32 @@ class TranslationCoverageTest {
                 assertKey(language, "option.delvefold.guide_visibility." + value.serializedName());
             }
             for (GuideSnapshot.PortalStatus value : GuideSnapshot.PortalStatus.values()) {
-                assertKey(language, "screen.delvefold.guide.portal."
-                        + value.name().toLowerCase(java.util.Locale.ROOT));
+                assertKey(
+                        language,
+                        "screen.delvefold.guide.portal." + value.name().toLowerCase(java.util.Locale.ROOT));
             }
             for (GuideSnapshot.RelativeFrequency value : GuideSnapshot.RelativeFrequency.values()) {
-                assertKey(language, "screen.delvefold.guide.frequency."
-                        + value.name().toLowerCase(java.util.Locale.ROOT));
+                assertKey(
+                        language,
+                        "screen.delvefold.guide.frequency." + value.name().toLowerCase(java.util.Locale.ROOT));
             }
             for (HeightDistribution value : HeightDistribution.values()) {
-                assertKey(language, "screen.delvefold.guide.distribution."
-                        + value.name().toLowerCase(java.util.Locale.ROOT));
-                assertKey(language, "option.delvefold.height_distribution."
-                        + value.name().toLowerCase(java.util.Locale.ROOT));
+                assertKey(
+                        language,
+                        "screen.delvefold.guide.distribution." + value.name().toLowerCase(java.util.Locale.ROOT));
+                assertKey(
+                        language,
+                        "option.delvefold.height_distribution." + value.name().toLowerCase(java.util.Locale.ROOT));
             }
             for (OreBandPlacement value : OreBandPlacement.values()) {
-                assertKey(language, "option.delvefold.ore_band_placement."
-                        + value.name().toLowerCase(java.util.Locale.ROOT));
+                assertKey(
+                        language,
+                        "option.delvefold.ore_band_placement." + value.name().toLowerCase(java.util.Locale.ROOT));
             }
             for (OreDistributionAnalysis.Density value : OreDistributionAnalysis.Density.values()) {
-                assertKey(language, "screen.delvefold.ore_wizard.density."
-                        + value.name().toLowerCase(java.util.Locale.ROOT));
+                assertKey(
+                        language,
+                        "screen.delvefold.ore_wizard.density." + value.name().toLowerCase(java.util.Locale.ROOT));
             }
             assertKey(language, "screen.delvefold.guide.empty");
             assertKey(language, "screen.delvefold.guide.narration");

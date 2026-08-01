@@ -6,9 +6,9 @@ import java.util.regex.Pattern;
 /**
  * Whitelisted input for one accepted Delvefold configuration or lifecycle mutation.
  *
- * <p>There is deliberately no arbitrary metadata field: confirmation tokens, configuration
- * documents, addresses, filesystem paths, and unrelated player information have no place in the
- * audit API and therefore cannot be serialized by the logger.</p>
+ * <p>There is deliberately no arbitrary metadata field: confirmation tokens, configuration documents, addresses,
+ * filesystem paths, and unrelated player information have no place in the audit API and therefore cannot be serialized
+ * by the logger.
  */
 public record AuditMutation(
         String actor,
@@ -16,14 +16,13 @@ public record AuditMutation(
         ObjectType affectedObjectType,
         String affectedObjectId,
         long oldRevision,
-        long newRevision
-) {
+        long newRevision) {
     private static final Pattern ACTOR = Pattern.compile("[A-Za-z0-9_@ \\-]{1,64}");
     private static final Pattern OBJECT_ID = Pattern.compile("[A-Za-z0-9_#./:\\-]{1,160}");
-    private static final Pattern IPV4_SOCKET = Pattern.compile(
-            "(?:^|[^0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}(?:$|[^0-9])");
-    private static final Pattern HOST_SOCKET = Pattern.compile(
-            "(?i)(?:^|[^a-z0-9_.-])(?:[a-z0-9-]+\\.)+[a-z]{2,63}:[0-9]{1,5}(?:$|[^0-9])");
+    private static final Pattern IPV4_SOCKET =
+            Pattern.compile("(?:^|[^0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}(?:$|[^0-9])");
+    private static final Pattern HOST_SOCKET =
+            Pattern.compile("(?i)(?:^|[^a-z0-9_.-])(?:[a-z0-9-]+\\.)+[a-z]{2,63}:[0-9]{1,5}(?:$|[^0-9])");
     private static final Pattern IPV6_SOCKET = Pattern.compile("(?i)(?:[0-9a-f]{0,4}:){2,}[0-9a-f]{0,4}:?[0-9]{1,5}");
 
     public AuditMutation {
@@ -31,8 +30,10 @@ public record AuditMutation(
         if (operation == null || affectedObjectType == null) {
             throw new IllegalArgumentException("Audit operation and object type are required");
         }
-        if (affectedObjectId == null || !OBJECT_ID.matcher(affectedObjectId).matches()
-                || affectedObjectId.startsWith("/") || affectedObjectId.contains("../")
+        if (affectedObjectId == null
+                || !OBJECT_ID.matcher(affectedObjectId).matches()
+                || affectedObjectId.startsWith("/")
+                || affectedObjectId.contains("../")
                 || IPV4_SOCKET.matcher(affectedObjectId).find()
                 || HOST_SOCKET.matcher(affectedObjectId).find()
                 || IPV6_SOCKET.matcher(affectedObjectId).matches()) {

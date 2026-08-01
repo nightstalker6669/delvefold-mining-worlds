@@ -14,8 +14,7 @@ public record WorldSettingsDocument(
         String activeProfileId,
         WorldIdentitySettings identity,
         GuideVisibility guideVisibility,
-        BackupRetentionSettings backupRetention
-) {
+        BackupRetentionSettings backupRetention) {
     public static final int CURRENT_SCHEMA_VERSION = 2;
     private static final long GENERATION_SALT_DOMAIN = 0x6A09E667F3BCC909L;
 
@@ -25,7 +24,8 @@ public record WorldSettingsDocument(
         gameplay = gameplay == null ? GameplaySettings.fromPreset(GameplayPreset.SAFE) : gameplay;
         portal = portal == null ? PortalSettings.defaults() : portal;
         activeProfileId = activeProfileId == null || activeProfileId.isBlank()
-                ? orePreset.serializedName() : activeProfileId.trim();
+                ? orePreset.serializedName()
+                : activeProfileId.trim();
         identity = identity == null ? WorldIdentitySettings.defaults() : identity;
         guideVisibility = guideVisibility == null ? GuideVisibility.PUBLIC : guideVisibility;
         backupRetention = backupRetention == null ? BackupRetentionSettings.defaults() : backupRetention;
@@ -48,10 +48,21 @@ public record WorldSettingsDocument(
             PortalSettings portal,
             String activeProfileId,
             WorldIdentitySettings identity,
-            GuideVisibility guideVisibility
-    ) {
-        this(schemaVersion, revision, generationEpoch, generationSalt, lastWorldOperationId, initialized, terrainMode,
-                orePreset, gameplay, portal, activeProfileId, identity, guideVisibility,
+            GuideVisibility guideVisibility) {
+        this(
+                schemaVersion,
+                revision,
+                generationEpoch,
+                generationSalt,
+                lastWorldOperationId,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                activeProfileId,
+                identity,
+                guideVisibility,
                 BackupRetentionSettings.defaults());
     }
 
@@ -68,10 +79,21 @@ public record WorldSettingsDocument(
             PortalSettings portal,
             String activeProfileId,
             WorldIdentitySettings identity,
-            GuideVisibility guideVisibility
-    ) {
-        this(schemaVersion, revision, generationEpoch, 0L, lastWorldOperationId, initialized, terrainMode,
-                orePreset, gameplay, portal, activeProfileId, identity, guideVisibility,
+            GuideVisibility guideVisibility) {
+        this(
+                schemaVersion,
+                revision,
+                generationEpoch,
+                0L,
+                lastWorldOperationId,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                activeProfileId,
+                identity,
+                guideVisibility,
                 BackupRetentionSettings.defaults());
     }
 
@@ -87,10 +109,21 @@ public record WorldSettingsDocument(
             GameplaySettings gameplay,
             PortalSettings portal,
             String activeProfileId,
-            WorldIdentitySettings identity
-    ) {
-        this(schemaVersion, revision, generationEpoch, 0L, lastWorldOperationId, initialized, terrainMode,
-                orePreset, gameplay, portal, activeProfileId, identity, GuideVisibility.PUBLIC,
+            WorldIdentitySettings identity) {
+        this(
+                schemaVersion,
+                revision,
+                generationEpoch,
+                0L,
+                lastWorldOperationId,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                activeProfileId,
+                identity,
+                GuideVisibility.PUBLIC,
                 BackupRetentionSettings.defaults());
     }
 
@@ -109,15 +142,17 @@ public record WorldSettingsDocument(
                 OrePreset.VANILLA_BALANCED.serializedName(),
                 WorldIdentitySettings.defaults(),
                 GuideVisibility.PUBLIC,
-                BackupRetentionSettings.defaults()
-        );
+                BackupRetentionSettings.defaults());
     }
 
     public WorldSettingsDocument initialize(TerrainMode mode, OrePreset preset, GameplayPreset gameplayPreset) {
         return initialize(mode, preset, gameplayPreset, identity);
     }
 
-    public WorldSettingsDocument initialize(TerrainMode mode, OrePreset preset, GameplayPreset gameplayPreset,
+    public WorldSettingsDocument initialize(
+            TerrainMode mode,
+            OrePreset preset,
+            GameplayPreset gameplayPreset,
             WorldIdentitySettings replacementIdentity) {
         if (initialized) {
             throw new IllegalStateException("Delvefold is already initialized");
@@ -138,8 +173,7 @@ public record WorldSettingsDocument(
                 preset.serializedName(),
                 selectedIdentity,
                 guideVisibility,
-                backupRetention
-        );
+                backupRetention);
     }
 
     public WorldSettingsDocument markDeleted() {
@@ -161,25 +195,34 @@ public record WorldSettingsDocument(
                 activeProfileId,
                 identity,
                 guideVisibility,
-                backupRetention
-        );
+                backupRetention);
     }
 
     public WorldSettingsDocument recreate(TerrainMode mode, OrePreset preset, GameplayPreset gameplayPreset) {
         return recreate(mode, identity.terrainVariant(), preset, gameplayPreset, lastWorldOperationId);
     }
 
-    public WorldSettingsDocument recreate(TerrainMode mode, OrePreset preset, GameplayPreset gameplayPreset, String operationId) {
+    public WorldSettingsDocument recreate(
+            TerrainMode mode, OrePreset preset, GameplayPreset gameplayPreset, String operationId) {
         return recreate(mode, identity.terrainVariant(), preset, gameplayPreset, operationId);
     }
 
-    public WorldSettingsDocument recreate(TerrainMode mode, TerrainVariant variant, OrePreset preset,
-            GameplayPreset gameplayPreset, String operationId) {
+    public WorldSettingsDocument recreate(
+            TerrainMode mode,
+            TerrainVariant variant,
+            OrePreset preset,
+            GameplayPreset gameplayPreset,
+            String operationId) {
         return recreate(mode, variant, identity.geologyTheme(), preset, gameplayPreset, operationId);
     }
 
-    public WorldSettingsDocument recreate(TerrainMode mode, TerrainVariant variant, GeologyTheme geologyTheme,
-            OrePreset preset, GameplayPreset gameplayPreset, String operationId) {
+    public WorldSettingsDocument recreate(
+            TerrainMode mode,
+            TerrainVariant variant,
+            GeologyTheme geologyTheme,
+            OrePreset preset,
+            GameplayPreset gameplayPreset,
+            String operationId) {
         if (!initialized) {
             throw new IllegalStateException("Delvefold must be initialized before it can be recreated");
         }
@@ -198,8 +241,7 @@ public record WorldSettingsDocument(
                 activeProfileId,
                 identity.withTerrainAndGeology(variant, geologyTheme),
                 guideVisibility,
-                backupRetention
-        );
+                backupRetention);
     }
 
     public WorldSettingsDocument withGameplay(GameplaySettings replacement) {
@@ -217,8 +259,7 @@ public record WorldSettingsDocument(
                 activeProfileId,
                 identity,
                 guideVisibility,
-                backupRetention
-        );
+                backupRetention);
     }
 
     public WorldSettingsDocument withPortal(PortalSettings replacement) {
@@ -236,35 +277,78 @@ public record WorldSettingsDocument(
                 activeProfileId,
                 identity,
                 guideVisibility,
-                backupRetention
-        );
+                backupRetention);
     }
 
     public WorldSettingsDocument withActiveProfile(String replacement) {
-        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
+        return new WorldSettingsDocument(
+                CURRENT_SCHEMA_VERSION,
+                revision,
+                generationEpoch,
+                generationSalt,
                 lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, replacement, identity, guideVisibility,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                replacement,
+                identity,
+                guideVisibility,
                 backupRetention);
     }
 
     public WorldSettingsDocument withIdentity(WorldIdentitySettings replacement) {
-        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
+        return new WorldSettingsDocument(
+                CURRENT_SCHEMA_VERSION,
+                revision,
+                generationEpoch,
+                generationSalt,
                 lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, replacement, guideVisibility,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                activeProfileId,
+                replacement,
+                guideVisibility,
                 backupRetention);
     }
 
     public WorldSettingsDocument withGuideVisibility(GuideVisibility replacement) {
-        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
+        return new WorldSettingsDocument(
+                CURRENT_SCHEMA_VERSION,
+                revision,
+                generationEpoch,
+                generationSalt,
                 lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, identity, replacement,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                activeProfileId,
+                identity,
+                replacement,
                 backupRetention);
     }
 
     public WorldSettingsDocument withBackupRetention(BackupRetentionSettings replacement) {
-        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
+        return new WorldSettingsDocument(
+                CURRENT_SCHEMA_VERSION,
+                revision,
+                generationEpoch,
+                generationSalt,
                 lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, identity, guideVisibility,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                activeProfileId,
+                identity,
+                guideVisibility,
                 replacement);
     }
 

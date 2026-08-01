@@ -23,9 +23,11 @@ class EcosystemProfileRegistryTest {
         } finally {
             EcosystemProfileRegistry.unregisterScriptProfile("test_owner", id);
         }
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> EcosystemProfileRegistry.registerScriptJson("test_owner", "not_namespaced", EMPTY_PROFILE));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> EcosystemProfileRegistry.registerScriptJson("test_owner", "testpack:bad", "{}"));
     }
 }

@@ -28,9 +28,13 @@ class DoctorReportBuilderTest {
                 .backups(4, 2, 1, 1, 1, 4096L)
                 .addBackupProblem("backup-z", "invalid", "hash_mismatch")
                 .retention(new DoctorReport.RetentionPreview(
-                        true, 4, 3, 4096L, 3072L, false,
-                        List.of(new DoctorReport.RetentionPrune(
-                                "backup-a", 1L, 1024L, List.of("count"))),
+                        true,
+                        4,
+                        3,
+                        4096L,
+                        3072L,
+                        false,
+                        List.of(new DoctorReport.RetentionPrune("backup-a", 1L, 1024L, List.of("count"))),
                         List.of("max_count_protected")))
                 .disk(1024L, 4096L, 2048L, 3072L);
 
@@ -45,9 +49,11 @@ class DoctorReportBuilderTest {
         assertFalse(report.disk().sufficient());
         assertEquals(1024L, report.retention().reclaimableBytes());
         assertFalse(report.healthy());
-        assertThrows(UnsupportedOperationException.class,
-                () -> report.dimensions().add(new DoctorReport.DimensionStatus(
-                        "delvefold:other", "wild", DoctorReport.DimensionState.ACTIVE)));
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> report.dimensions()
+                        .add(new DoctorReport.DimensionStatus(
+                                "delvefold:other", "wild", DoctorReport.DimensionState.ACTIVE)));
         assertThrows(IllegalStateException.class, builder::build);
     }
 
@@ -55,16 +61,21 @@ class DoctorReportBuilderTest {
     void reportAndNestedViewsDefensivelyCopyCallerLists() {
         List<DoctorReport.IneffectiveTarget> targets = new ArrayList<>();
         targets.add(new DoctorReport.IneffectiveTarget("iron", "minecraft:iron_ore", "no_host_blocks"));
-        DoctorReport.ProfileHealth profile = new DoctorReport.ProfileHealth(
-                "balanced", 1L, 1, 1, 0L, 0L, targets, List.of());
+        DoctorReport.ProfileHealth profile =
+                new DoctorReport.ProfileHealth("balanced", 1L, 1, 1, 0L, 0L, targets, List.of());
         targets.clear();
 
         List<DoctorReport.DimensionStatus> dimensions = new ArrayList<>();
-        dimensions.add(new DoctorReport.DimensionStatus(
-                "delvefold:delve_flat", "flat", DoctorReport.DimensionState.ACTIVE));
+        dimensions.add(
+                new DoctorReport.DimensionStatus("delvefold:delve_flat", "flat", DoctorReport.DimensionState.ACTIVE));
         DoctorReport report = new DoctorReport(
-                DoctorReport.CURRENT_FORMAT_VERSION, 1L, DoctorReport.VersionInfo.unknown(),
-                dimensions, profile, List.of(), DoctorReport.BackupHealth.empty(),
+                DoctorReport.CURRENT_FORMAT_VERSION,
+                1L,
+                DoctorReport.VersionInfo.unknown(),
+                dimensions,
+                profile,
+                List.of(),
+                DoctorReport.BackupHealth.empty(),
                 new DoctorReport.DiskEstimate(1L, 0L, 0L, 1L));
         dimensions.clear();
 
@@ -75,13 +86,11 @@ class DoctorReportBuilderTest {
     @Test
     void rejectsImpossibleCountsAndNegativeTimestamps() {
         assertThrows(IllegalArgumentException.class, () -> new DoctorReportBuilder(-1L));
-        assertThrows(IllegalArgumentException.class, () -> new DoctorReport.ProfileHealth(
-                "bad", 0L, 2, 1, 0L, 0L, List.of(), List.of()));
-        assertThrows(IllegalArgumentException.class, () -> new DoctorReport.BackupHealth(
-                1, 2, 0, 0, 0, 0L, List.of()));
-        assertThrows(IllegalArgumentException.class, () -> new DoctorReport.BackupHealth(
-                1, 1, 1, 0, 0, 0L, List.of()));
-        assertThrows(IllegalArgumentException.class, () -> new DoctorReport.DiskEstimate(
-                -2L, 0L, 0L, 0L));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new DoctorReport.ProfileHealth("bad", 0L, 2, 1, 0L, 0L, List.of(), List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new DoctorReport.BackupHealth(1, 2, 0, 0, 0, 0L, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new DoctorReport.BackupHealth(1, 1, 1, 0, 0, 0L, List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new DoctorReport.DiskEstimate(-2L, 0L, 0L, 0L));
     }
 }

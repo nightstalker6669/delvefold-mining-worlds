@@ -85,14 +85,13 @@ public final class PortalFrameBlock extends Block {
                 SoundSource.BLOCKS,
                 1.0F,
                 0.8F + serverLevel.getRandom().nextFloat() * 0.4F);
-        serverLevel.playSound(null, position, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS,
-                0.85F, 1.35F);
-        serverLevel.playSound(null, position, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS,
-                0.7F, 0.75F);
+        serverLevel.playSound(null, position, SoundEvents.BEACON_ACTIVATE, SoundSource.BLOCKS, 0.85F, 1.35F);
+        serverLevel.playSound(null, position, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.7F, 0.75F);
         BlockPos center = shape.bottomLeft()
                 .relative(PortalFrameShape.positiveDirection(shape.axis()), (shape.width() - 1) / 2)
                 .above((shape.height() - 1) / 2);
-        serverLevel.sendParticles(ParticleTypes.REVERSE_PORTAL,
+        serverLevel.sendParticles(
+                ParticleTypes.REVERSE_PORTAL,
                 center.getX() + 0.5D,
                 center.getY() + 0.5D,
                 center.getZ() + 0.5D,

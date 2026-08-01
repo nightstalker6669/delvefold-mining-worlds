@@ -1,6 +1,5 @@
 package com.nightsta69.delvefold.network;
 
-import com.nightsta69.delvefold.config.importer.OreImportModels;
 import com.nightsta69.delvefold.config.importer.OreImportModels.DiffEntry;
 import com.nightsta69.delvefold.config.importer.OreImportModels.DiscoveryResult;
 import com.nightsta69.delvefold.config.importer.OreImportModels.Group;
@@ -21,8 +20,7 @@ import java.util.List;
 
 /** Converts server-only discovery/plan sessions into bounded display pages. */
 public final class OreImportNetworkViews {
-    private OreImportNetworkViews() {
-    }
+    private OreImportNetworkViews() {}
 
     public static ScanView scan(IssuedScan issued, long revision, String baseProfileId, int requestedPage) {
         return scan(issued.scanToken(), issued.discovery(), revision, baseProfileId, requestedPage);
@@ -38,8 +36,16 @@ public final class OreImportNetworkViews {
         List<GroupView> groups = discovery.groups().subList(start, end).stream()
                 .map(OreImportNetworkViews::group)
                 .toList();
-        return new ScanView(token, revision, baseProfileId, page, pages, total,
-                discovery.scannedBlocks(), discovery.truncated(), groups);
+        return new ScanView(
+                token,
+                revision,
+                baseProfileId,
+                page,
+                pages,
+                total,
+                discovery.scannedBlocks(),
+                discovery.truncated(),
+                groups);
     }
 
     public static PreviewView preview(IssuedPreview issued, long revision, int requestedPage) {
@@ -65,29 +71,45 @@ public final class OreImportNetworkViews {
                 .toList();
         List<ConfigIssue> sourceIssues = plan.validation().issues();
         int issueLimit = ProtocolLimits.MAX_IMPORT_ISSUES;
-        List<ValidationIssueView> issues = sourceIssues.stream().limit(issueLimit)
+        List<ValidationIssueView> issues = sourceIssues.stream()
+                .limit(issueLimit)
                 .map(issue -> new ValidationIssueView(
-                        issue.severity(), bounded(issue.code(), ProtocolLimits.ID_LENGTH),
+                        issue.severity(),
+                        bounded(issue.code(), ProtocolLimits.ID_LENGTH),
                         bounded(issue.path(), ProtocolLimits.SHORT_TEXT_LENGTH),
                         bounded(ConfigIssueMessages.encode(issue), ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH)))
                 .toList();
-        return new PreviewView(token, revision, plan.baseProfileId(), page, pages, total,
-                plan.valid(), plan.addedRuleCount(), diff, workloads, issues,
+        return new PreviewView(
+                token,
+                revision,
+                plan.baseProfileId(),
+                page,
+                pages,
+                total,
+                plan.valid(),
+                plan.addedRuleCount(),
+                diff,
+                workloads,
+                issues,
                 sourceIssues.size() > issueLimit);
     }
 
     private static GroupView group(Group group) {
         List<CandidateView> candidates = group.candidates().stream()
-                .map(candidate -> new CandidateView(candidate.blockId(), candidate.replaceTag(),
-                        candidate.hostKind(), candidate.evidence()))
+                .map(candidate -> new CandidateView(
+                        candidate.blockId(), candidate.replaceTag(), candidate.hostKind(), candidate.evidence()))
                 .toList();
-        return new GroupView(group.id(), group.namespace(), group.material(),
-                group.evidence(), group.reviewRequired(), candidates);
+        return new GroupView(
+                group.id(), group.namespace(), group.material(), group.evidence(), group.reviewRequired(), candidates);
     }
 
     private static DiffView diff(DiffEntry entry) {
-        return new DiffView(entry.groupId(), entry.status(), entry.ruleId(),
-                entry.addedBlocks(), entry.skippedBlocks(),
+        return new DiffView(
+                entry.groupId(),
+                entry.status(),
+                entry.ruleId(),
+                entry.addedBlocks(),
+                entry.skippedBlocks(),
                 bounded(entry.message(), ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH));
     }
 

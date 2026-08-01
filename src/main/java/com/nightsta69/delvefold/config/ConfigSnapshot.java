@@ -10,6 +10,4 @@ public record ConfigSnapshot(
         WorldSettingsDocument settings,
         ValidationReport validation,
         Instant loadedAt,
-        String diskHash
-) {
-}
+        String diskHash) {}

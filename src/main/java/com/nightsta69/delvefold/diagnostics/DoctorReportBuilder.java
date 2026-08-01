@@ -40,24 +40,27 @@ public final class DoctorReportBuilder {
         this.generatedAtEpochMillis = generatedAtEpochMillis;
     }
 
-    public DoctorReportBuilder versions(String delvefold, String minecraft, String neoForge,
-                                        int publicApi, int networkProtocol, int configSchema) {
+    public DoctorReportBuilder versions(
+            String delvefold, String minecraft, String neoForge, int publicApi, int networkProtocol, int configSchema) {
         checkMutable();
-        versions = new DoctorReport.VersionInfo(
-                delvefold, minecraft, neoForge, publicApi, networkProtocol, configSchema);
+        versions =
+                new DoctorReport.VersionInfo(delvefold, minecraft, neoForge, publicApi, networkProtocol, configSchema);
         return this;
     }
 
-    public DoctorReportBuilder addDimension(String dimensionId, String terrain,
-                                            DoctorReport.DimensionState state) {
+    public DoctorReportBuilder addDimension(String dimensionId, String terrain, DoctorReport.DimensionState state) {
         checkMutable();
         dimensions.add(new DoctorReport.DimensionStatus(dimensionId, terrain, state));
         return this;
     }
 
-    public DoctorReportBuilder profile(String activeProfileId, long revision,
-                                       int enabledRules, int totalRules,
-                                       long errorCount, long warningCount) {
+    public DoctorReportBuilder profile(
+            String activeProfileId,
+            long revision,
+            int enabledRules,
+            int totalRules,
+            long errorCount,
+            long warningCount) {
         checkMutable();
         this.profileId = activeProfileId;
         this.profileRevision = revision;
@@ -74,23 +77,21 @@ public final class DoctorReportBuilder {
         return this;
     }
 
-    public DoctorReportBuilder addProfileFinding(DoctorReport.Severity severity,
-                                                 String code, String objectId) {
+    public DoctorReportBuilder addProfileFinding(DoctorReport.Severity severity, String code, String objectId) {
         checkMutable();
         profileFindings.add(new DoctorReport.Finding(severity, code, objectId));
         return this;
     }
 
-    public DoctorReportBuilder addPendingOperation(String operationId, String operation,
-                                                   String state, long createdAtEpochMillis) {
+    public DoctorReportBuilder addPendingOperation(
+            String operationId, String operation, String state, long createdAtEpochMillis) {
         checkMutable();
-        pendingOperations.add(new DoctorReport.PendingOperationStatus(
-                operationId, operation, state, createdAtEpochMillis));
+        pendingOperations.add(
+                new DoctorReport.PendingOperationStatus(operationId, operation, state, createdAtEpochMillis));
         return this;
     }
 
-    public DoctorReportBuilder backups(int total, int verified, int invalid, int legacy,
-                                       int pinned, long totalBytes) {
+    public DoctorReportBuilder backups(int total, int verified, int invalid, int legacy, int pinned, long totalBytes) {
         checkMutable();
         this.backupTotal = total;
         this.backupVerified = verified;
@@ -113,11 +114,10 @@ public final class DoctorReportBuilder {
         return this;
     }
 
-    public DoctorReportBuilder disk(long usableBytes, long backupBytes,
-                                    long estimatedNextBackupBytes, long requiredHeadroomBytes) {
+    public DoctorReportBuilder disk(
+            long usableBytes, long backupBytes, long estimatedNextBackupBytes, long requiredHeadroomBytes) {
         checkMutable();
-        disk = new DoctorReport.DiskEstimate(
-                usableBytes, backupBytes, estimatedNextBackupBytes, requiredHeadroomBytes);
+        disk = new DoctorReport.DiskEstimate(usableBytes, backupBytes, estimatedNextBackupBytes, requiredHeadroomBytes);
         return this;
     }
 
@@ -131,13 +131,26 @@ public final class DoctorReportBuilder {
         checkMutable();
         built = true;
         DoctorReport.ProfileHealth profile = new DoctorReport.ProfileHealth(
-                profileId, profileRevision, enabledRules, totalRules, profileErrors, profileWarnings,
-                ineffectiveTargets, profileFindings);
+                profileId,
+                profileRevision,
+                enabledRules,
+                totalRules,
+                profileErrors,
+                profileWarnings,
+                ineffectiveTargets,
+                profileFindings);
         DoctorReport.BackupHealth backups = new DoctorReport.BackupHealth(
-                backupTotal, backupVerified, backupInvalid, backupLegacy, backupPinned,
-                backupBytes, backupProblems);
-        return new DoctorReport(DoctorReport.CURRENT_FORMAT_VERSION, generatedAtEpochMillis,
-                versions, dimensions, profile, pendingOperations, backups, retention, disk);
+                backupTotal, backupVerified, backupInvalid, backupLegacy, backupPinned, backupBytes, backupProblems);
+        return new DoctorReport(
+                DoctorReport.CURRENT_FORMAT_VERSION,
+                generatedAtEpochMillis,
+                versions,
+                dimensions,
+                profile,
+                pendingOperations,
+                backups,
+                retention,
+                disk);
     }
 
     private void checkMutable() {

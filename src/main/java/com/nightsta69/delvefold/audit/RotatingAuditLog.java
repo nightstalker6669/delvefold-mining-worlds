@@ -20,6 +20,7 @@ public final class RotatingAuditLog implements AutoCloseable {
     public static final long ROTATE_BYTES = 10L * 1024L * 1024L;
     /** Includes the active log, so production retains the active file and four archives. */
     public static final int RETAINED_FILES = 5;
+
     public static final String ACTIVE_FILENAME = "delvefold-audit.jsonl";
 
     private static final Gson JSON = new GsonBuilder()
@@ -156,8 +157,8 @@ public final class RotatingAuditLog implements AutoCloseable {
     }
 
     private void appendDurably(byte[] line) throws IOException {
-        try (FileChannel channel = FileChannel.open(active,
-                StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND)) {
+        try (FileChannel channel = FileChannel.open(
+                active, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.APPEND)) {
             ByteBuffer buffer = ByteBuffer.wrap(line);
             while (buffer.hasRemaining()) {
                 channel.write(buffer);
@@ -190,8 +191,7 @@ public final class RotatingAuditLog implements AutoCloseable {
 
     private static void move(Path source, Path destination) throws IOException {
         try {
-            Files.move(source, destination,
-                    StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (AtomicMoveNotSupportedException exception) {
             Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
         }

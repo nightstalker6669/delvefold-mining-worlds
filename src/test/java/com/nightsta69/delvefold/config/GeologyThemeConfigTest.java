@@ -19,8 +19,13 @@ class GeologyThemeConfigTest {
     @Test
     void legacyIdentityConstructorAndMissingJsonFieldDefaultToClassic() {
         WorldIdentitySettings legacy = new WorldIdentitySettings(
-                "Legacy Mine", TerrainVariant.EXPANSIVE, LandmarkPreset.ABUNDANT,
-                true, true, true, RenewalSettings.disabled());
+                "Legacy Mine",
+                TerrainVariant.EXPANSIVE,
+                LandmarkPreset.ABUNDANT,
+                true,
+                true,
+                true,
+                RenewalSettings.disabled());
         assertEquals(GeologyTheme.CLASSIC, legacy.geologyTheme());
 
         var json = JsonParser.parseString(ConfigJson.GSON.toJson(legacy)).getAsJsonObject();
@@ -33,9 +38,12 @@ class GeologyThemeConfigTest {
     void everyThemeUsesItsStableLowercaseJsonName() {
         for (GeologyTheme theme : GeologyTheme.values()) {
             assertEquals(theme, GeologyTheme.parse(theme.serializedName()));
-            String json = ConfigJson.GSON.toJson(WorldIdentitySettings.defaults().withGeologyTheme(theme));
+            String json =
+                    ConfigJson.GSON.toJson(WorldIdentitySettings.defaults().withGeologyTheme(theme));
             assertTrue(json.contains("\"geology_theme\": \"" + theme.serializedName() + "\""));
-            assertEquals(theme, ConfigJson.GSON.fromJson(json, WorldIdentitySettings.class).geologyTheme());
+            assertEquals(
+                    theme,
+                    ConfigJson.GSON.fromJson(json, WorldIdentitySettings.class).geologyTheme());
         }
     }
 
@@ -44,10 +52,16 @@ class GeologyThemeConfigTest {
         WorldIdentitySettings crystal = WorldIdentitySettings.defaults().withGeologyTheme(GeologyTheme.CRYSTAL);
 
         assertEquals(GeologyTheme.CRYSTAL, crystal.withDisplayName("Renamed").geologyTheme());
-        assertEquals(GeologyTheme.CRYSTAL, crystal.withTerrainVariant(TerrainVariant.EXPANSIVE).geologyTheme());
-        assertEquals(GeologyTheme.CRYSTAL, crystal.withRenewal(RenewalSettings.disabled()).geologyTheme());
-        assertEquals(GeologyTheme.CRYSTAL,
-                crystal.withLandmarks(LandmarkPreset.PURE_MINING, false, false, false).geologyTheme());
+        assertEquals(
+                GeologyTheme.CRYSTAL,
+                crystal.withTerrainVariant(TerrainVariant.EXPANSIVE).geologyTheme());
+        assertEquals(
+                GeologyTheme.CRYSTAL,
+                crystal.withRenewal(RenewalSettings.disabled()).geologyTheme());
+        assertEquals(
+                GeologyTheme.CRYSTAL,
+                crystal.withLandmarks(LandmarkPreset.PURE_MINING, false, false, false)
+                        .geologyTheme());
     }
 
     @Test
@@ -56,13 +70,12 @@ class GeologyThemeConfigTest {
         WorldSettingsDocument initialized = WorldSettingsDocument.uninitialized()
                 .initialize(TerrainMode.FLAT, OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE, volcanic);
 
-        WorldSettingsDocument preserved = initialized.recreate(
-                TerrainMode.WILD, TerrainVariant.EXPANSIVE, null, null, "preserve");
+        WorldSettingsDocument preserved =
+                initialized.recreate(TerrainMode.WILD, TerrainVariant.EXPANSIVE, null, null, "preserve");
         assertEquals(GeologyTheme.VOLCANIC, preserved.identity().geologyTheme());
 
-        WorldSettingsDocument changed = preserved.recreate(
-                TerrainMode.CAVERN, TerrainVariant.CLASSIC, GeologyTheme.LUSH,
-                null, null, "change");
+        WorldSettingsDocument changed =
+                preserved.recreate(TerrainMode.CAVERN, TerrainVariant.CLASSIC, GeologyTheme.LUSH, null, null, "change");
         assertEquals(GeologyTheme.LUSH, changed.identity().geologyTheme());
     }
 }

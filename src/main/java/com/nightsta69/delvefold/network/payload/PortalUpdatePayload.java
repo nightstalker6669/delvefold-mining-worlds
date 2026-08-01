@@ -8,8 +8,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 public record PortalUpdatePayload(long expectedRevision, PortalSettings portal) implements CustomPacketPayload {
-    public static final Type<PortalUpdatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "update_portal"));
+    public static final Type<PortalUpdatePayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "update_portal"));
     public static final StreamCodec<RegistryFriendlyByteBuf, PortalUpdatePayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeLong(payload.expectedRevision());

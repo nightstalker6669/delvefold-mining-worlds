@@ -27,14 +27,13 @@ class GeologyThemePlannerTest {
     @Test
     void classicIsABitForBitNoOp() {
         assertTrue(plan(GeologyTheme.CLASSIC, Phase.STRATA, 0L).placements().isEmpty());
-        assertTrue(plan(GeologyTheme.CLASSIC, Phase.DECORATIONS, 0L).placements().isEmpty());
+        assertTrue(
+                plan(GeologyTheme.CLASSIC, Phase.DECORATIONS, 0L).placements().isEmpty());
     }
 
     @Test
     void absentPhaseUsesTheCompatibilityStrataDefault() {
-        assertEquals(
-                plan(GeologyTheme.VOLCANIC, Phase.STRATA, 0L),
-                plan(GeologyTheme.VOLCANIC, null, 0L));
+        assertEquals(plan(GeologyTheme.VOLCANIC, Phase.STRATA, 0L), plan(GeologyTheme.VOLCANIC, null, 0L));
     }
 
     @Test
@@ -54,12 +53,11 @@ class GeologyThemePlannerTest {
         int minimumX = chunkX * 16;
         int minimumZ = chunkZ * 16;
         for (GeologyTheme theme : STRATA_PALETTES.keySet()) {
-            var plan = GeologyThemePlanner.plan(
-                    theme, Phase.STRATA, 0x5EEDL, chunkX, chunkZ, 0L, MINIMUM_Y, MAXIMUM_Y);
+            var plan = GeologyThemePlanner.plan(theme, Phase.STRATA, 0x5EEDL, chunkX, chunkZ, 0L, MINIMUM_Y, MAXIMUM_Y);
             assertFalse(plan.placements().isEmpty());
             assertTrue(plan.placements().size() <= GeologyThemePlanner.MAX_STRATA_PLACEMENTS);
-            assertTrue(plan.placements().stream().allMatch(placement ->
-                    placement.role() == Role.STRATA
+            assertTrue(plan.placements().stream()
+                    .allMatch(placement -> placement.role() == Role.STRATA
                             && placement.position().x() >= minimumX
                             && placement.position().x() < minimumX + 16
                             && placement.position().z() >= minimumZ
@@ -67,8 +65,12 @@ class GeologyThemePlannerTest {
                             && placement.position().y() >= MINIMUM_Y
                             && placement.position().y() <= MAXIMUM_Y
                             && STRATA_PALETTES.get(theme).contains(placement.material())));
-            assertEquals(plan.placements().size(), plan.placements().stream()
-                    .map(GeologyThemePlanner.Placement::position).distinct().count());
+            assertEquals(
+                    plan.placements().size(),
+                    plan.placements().stream()
+                            .map(GeologyThemePlanner.Placement::position)
+                            .distinct()
+                            .count());
         }
     }
 
@@ -76,13 +78,18 @@ class GeologyThemePlannerTest {
     void decorationAndFluidBudgetsAreHardLimits() {
         for (GeologyTheme theme : STRATA_PALETTES.keySet()) {
             var plan = plan(theme, Phase.DECORATIONS, 0L);
-            long fluids = plan.placements().stream().filter(value -> value.role() == Role.FLUID).count();
-            assertEquals(GeologyThemePlanner.MAX_DECORATION_PLACEMENTS, plan.placements().size());
+            long fluids = plan.placements().stream()
+                    .filter(value -> value.role() == Role.FLUID)
+                    .count();
+            assertEquals(
+                    GeologyThemePlanner.MAX_DECORATION_PLACEMENTS,
+                    plan.placements().size());
             assertTrue(fluids <= GeologyThemePlanner.MAX_FLUID_PLACEMENTS);
             assertTrue(plan.placements().stream().allMatch(value -> value.role() != Role.STRATA));
-            assertTrue(plan.placements().stream().filter(value -> value.role() == Role.FLUID)
-                    .allMatch(value -> value.material() == (theme == GeologyTheme.VOLCANIC
-                            ? Material.LAVA : Material.WATER)));
+            assertTrue(plan.placements().stream()
+                    .filter(value -> value.role() == Role.FLUID)
+                    .allMatch(value ->
+                            value.material() == (theme == GeologyTheme.VOLCANIC ? Material.LAVA : Material.WATER)));
         }
     }
 
@@ -97,7 +104,6 @@ class GeologyThemePlannerTest {
     }
 
     private static GeologyThemePlanner.Plan plan(GeologyTheme theme, Phase phase, long generationSalt) {
-        return GeologyThemePlanner.plan(
-                theme, phase, 0x123456789ABCDEFL, -7, 11, generationSalt, MINIMUM_Y, MAXIMUM_Y);
+        return GeologyThemePlanner.plan(theme, phase, 0x123456789ABCDEFL, -7, 11, generationSalt, MINIMUM_Y, MAXIMUM_Y);
     }
 }

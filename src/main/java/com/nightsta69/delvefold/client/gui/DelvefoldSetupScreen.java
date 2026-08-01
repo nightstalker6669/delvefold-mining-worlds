@@ -5,12 +5,12 @@ import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.GeologyTheme;
-import com.nightsta69.delvefold.config.model.OrePreset;
-import com.nightsta69.delvefold.config.model.TerrainMode;
-import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
+import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -90,8 +90,14 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int tabWidth = (width - gap * 2) / 3;
         for (Step value : Step.values()) {
             int tabX = x + value.ordinal() * (tabWidth + gap);
-            this.addButton(tabX, this.contentTop(), tabWidth, 22,
-                    Component.translatable("screen.delvefold.setup.step", value.ordinal() + 1,
+            this.addButton(
+                    tabX,
+                    this.contentTop(),
+                    tabWidth,
+                    22,
+                    Component.translatable(
+                            "screen.delvefold.setup.step",
+                            value.ordinal() + 1,
                             Component.translatable(value.translationKey)),
                     this.step == value ? Style.TAB_SELECTED : Style.GHOST,
                     button -> moveTo(value));
@@ -106,20 +112,36 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
 
         int footerY = this.panelTop + this.panelHeight - 29;
         if (this.step == Step.TERRAIN) {
-            this.addButton(x, footerY, 76, 22, Component.translatable("gui.cancel"), Style.GHOST,
-                    button -> this.onClose());
+            this.addButton(
+                    x, footerY, 76, 22, Component.translatable("gui.cancel"), Style.GHOST, button -> this.onClose());
         } else {
-            this.addButton(x, footerY, 76, 22, Component.translatable("screen.delvefold.back"), Style.GHOST,
+            this.addButton(
+                    x,
+                    footerY,
+                    76,
+                    22,
+                    Component.translatable("screen.delvefold.back"),
+                    Style.GHOST,
                     button -> moveTo(Step.values()[this.step.ordinal() - 1]));
         }
 
         if (this.step != Step.REVIEW) {
-            this.addButton(this.contentRight() - 104, footerY, 104, 22,
-                    Component.translatable("screen.delvefold.continue"), Style.PRIMARY,
+            this.addButton(
+                    this.contentRight() - 104,
+                    footerY,
+                    104,
+                    22,
+                    Component.translatable("screen.delvefold.continue"),
+                    Style.PRIMARY,
                     button -> moveTo(Step.values()[this.step.ordinal() + 1]));
         } else {
-            this.initializeButton = this.addButton(this.contentRight() - 172, footerY, 172, 22,
-                    Component.translatable("screen.delvefold.setup.initialize"), Style.PRIMARY,
+            this.initializeButton = this.addButton(
+                    this.contentRight() - 172,
+                    footerY,
+                    172,
+                    22,
+                    Component.translatable("screen.delvefold.setup.initialize"),
+                    Style.PRIMARY,
                     button -> initialize());
             this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
         }
@@ -130,8 +152,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int bodyTop = bodyTop();
         int width = this.contentWidth() - 24;
         int gap = 8;
-        int helpHeight = wrappedTextHeight(
-                Component.translatable("screen.delvefold.setup.terrain.help"), width);
+        int helpHeight = wrappedTextHeight(Component.translatable("screen.delvefold.setup.terrain.help"), width);
         this.terrainModeOptionsTop = Math.max(38, 23 + helpHeight + 6);
         this.terrainVariantLabelTop = this.terrainModeOptionsTop + 45;
         this.terrainVariantOptionsTop = this.terrainModeOptionsTop + 54;
@@ -143,9 +164,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int detailHeight = noticeHeight(terrainDetail(), width);
         this.terrainSeedHelpTop = this.terrainNoticeTop + detailHeight + 6;
         int seedHelpHeight = wrappedTextHeight(seedModeHelp(), width);
-        this.terrainGeologyHelpTop = Math.max(
-                this.terrainNoticeTop + 72,
-                this.terrainSeedHelpTop + seedHelpHeight + 6);
+        this.terrainGeologyHelpTop = Math.max(this.terrainNoticeTop + 72, this.terrainSeedHelpTop + seedHelpHeight + 6);
         int geologyHelpHeight = wrappedTextHeight(geologyThemeHelp(), width);
         this.bodyVirtualBottom = bodyTop + this.terrainGeologyHelpTop + geologyHelpHeight + 8;
 
@@ -153,9 +172,13 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int optionWidth = (width - gap * 2) / 3;
         for (TerrainMode mode : TerrainMode.values()) {
             int optionX = x + mode.ordinal() * (optionWidth + gap);
-            this.addBodyButton(optionX, y, optionWidth, 42,
-                    DelvefoldText.choice(this.terrainMode == mode,
-                            DelvefoldText.option("terrain", mode.serializedName())),
+            this.addBodyButton(
+                    optionX,
+                    y,
+                    optionWidth,
+                    42,
+                    DelvefoldText.choice(
+                            this.terrainMode == mode, DelvefoldText.option("terrain", mode.serializedName())),
                     this.terrainMode == mode ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.terrainMode = mode;
@@ -167,8 +190,13 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int variantWidth = (width - gap) / 2;
         for (TerrainVariant variant : TerrainVariant.values()) {
             int optionX = x + variant.ordinal() * (variantWidth + gap);
-            this.addBodyButton(optionX, variantY, variantWidth, 24,
-                    DelvefoldText.choice(this.terrainVariant == variant,
+            this.addBodyButton(
+                    optionX,
+                    variantY,
+                    variantWidth,
+                    24,
+                    DelvefoldText.choice(
+                            this.terrainVariant == variant,
                             DelvefoldText.option("terrain_variant", variant.serializedName())),
                     this.terrainVariant == variant ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
@@ -179,13 +207,17 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         }
         int geologyY = bodyTop + this.terrainGeologyOptionsTop;
         int geologyGap = 4;
-        int geologyWidth = Math.max(1, (width - geologyGap * (GeologyTheme.values().length - 1))
-                / GeologyTheme.values().length);
+        int geologyWidth =
+                Math.max(1, (width - geologyGap * (GeologyTheme.values().length - 1)) / GeologyTheme.values().length);
         for (GeologyTheme theme : GeologyTheme.values()) {
             int optionX = x + theme.ordinal() * (geologyWidth + geologyGap);
-            this.addBodyButton(optionX, geologyY, geologyWidth, 24,
-                    DelvefoldText.choice(this.geologyTheme == theme,
-                            DelvefoldText.option("geology_theme", theme.serializedName())),
+            this.addBodyButton(
+                    optionX,
+                    geologyY,
+                    geologyWidth,
+                    24,
+                    DelvefoldText.choice(
+                            this.geologyTheme == theme, DelvefoldText.option("geology_theme", theme.serializedName())),
                     this.geologyTheme == theme ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.geologyTheme = theme;
@@ -197,8 +229,13 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int seedModeWidth = (width - gap) / 2;
         for (RenewalSeedMode mode : RenewalSeedMode.values()) {
             int optionX = x + mode.ordinal() * (seedModeWidth + gap);
-            this.addBodyButton(optionX, seedModeY, seedModeWidth, 24,
-                    DelvefoldText.choice(this.renewalSeedMode == mode,
+            this.addBodyButton(
+                    optionX,
+                    seedModeY,
+                    seedModeWidth,
+                    24,
+                    DelvefoldText.choice(
+                            this.renewalSeedMode == mode,
                             DelvefoldText.option("renewal_seed_mode", mode.serializedName())),
                     this.renewalSeedMode == mode ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
@@ -217,30 +254,32 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int oreHelpTop = RESOURCE_OPTIONS_TOP + 37;
         int oreHelpHeight = wrappedTextHeight(oreDescription(), width);
         int gameplayTitleMinimum = RESOURCE_GAMEPLAY_OPTIONS_TOP - 16;
-        this.resourceGameplayTitleTop = Math.max(
-                gameplayTitleMinimum, oreHelpTop + oreHelpHeight + 8);
-        this.resourceGameplayOptionsTop = this.resourceGameplayTitleTop
-                + (RESOURCE_GAMEPLAY_OPTIONS_TOP - gameplayTitleMinimum);
-        this.resourceGameplayHelpTop = this.resourceGameplayOptionsTop
-                + (RESOURCE_GAMEPLAY_HELP_TOP - RESOURCE_GAMEPLAY_OPTIONS_TOP);
+        this.resourceGameplayTitleTop = Math.max(gameplayTitleMinimum, oreHelpTop + oreHelpHeight + 8);
+        this.resourceGameplayOptionsTop =
+                this.resourceGameplayTitleTop + (RESOURCE_GAMEPLAY_OPTIONS_TOP - gameplayTitleMinimum);
+        this.resourceGameplayHelpTop =
+                this.resourceGameplayOptionsTop + (RESOURCE_GAMEPLAY_HELP_TOP - RESOURCE_GAMEPLAY_OPTIONS_TOP);
         int gameplayHelpHeight = wrappedTextHeight(gameplayDescription(), width);
         this.resourceLandmarkTitleTop = Math.max(
-                this.resourceGameplayTitleTop
-                        + (RESOURCE_LANDMARK_TITLE_TOP - gameplayTitleMinimum),
+                this.resourceGameplayTitleTop + (RESOURCE_LANDMARK_TITLE_TOP - gameplayTitleMinimum),
                 this.resourceGameplayHelpTop + gameplayHelpHeight + 8);
-        this.resourceLandmarkOptionsTop = this.resourceLandmarkTitleTop
-                + (RESOURCE_LANDMARK_OPTIONS_TOP - RESOURCE_LANDMARK_TITLE_TOP);
-        this.resourceLandmarkHelpTop = this.resourceLandmarkOptionsTop
-                + (RESOURCE_LANDMARK_HELP_TOP - RESOURCE_LANDMARK_OPTIONS_TOP);
+        this.resourceLandmarkOptionsTop =
+                this.resourceLandmarkTitleTop + (RESOURCE_LANDMARK_OPTIONS_TOP - RESOURCE_LANDMARK_TITLE_TOP);
+        this.resourceLandmarkHelpTop =
+                this.resourceLandmarkOptionsTop + (RESOURCE_LANDMARK_HELP_TOP - RESOURCE_LANDMARK_OPTIONS_TOP);
         int landmarkHelpHeight = wrappedTextHeight(landmarkDescription(), width);
         this.bodyVirtualBottom = y + this.resourceLandmarkHelpTop + landmarkHelpHeight + 8;
 
         int optionWidth = (width - gap * 2) / 3;
         for (OrePreset preset : OrePreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
-            this.addBodyButton(optionX, y + RESOURCE_OPTIONS_TOP, optionWidth, 32,
-                    DelvefoldText.choice(this.orePreset == preset,
-                            DelvefoldText.option("ore_preset", preset.serializedName())),
+            this.addBodyButton(
+                    optionX,
+                    y + RESOURCE_OPTIONS_TOP,
+                    optionWidth,
+                    32,
+                    DelvefoldText.choice(
+                            this.orePreset == preset, DelvefoldText.option("ore_preset", preset.serializedName())),
                     this.orePreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.orePreset = preset;
@@ -251,9 +290,13 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int gameplayY = y + this.resourceGameplayOptionsTop;
         for (GameplayPreset preset : GameplayPreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
-            this.addBodyButton(optionX, gameplayY, optionWidth, 32,
-                    DelvefoldText.choice(this.gameplayPreset == preset,
-                            DelvefoldText.option("gameplay", preset.serializedName())),
+            this.addBodyButton(
+                    optionX,
+                    gameplayY,
+                    optionWidth,
+                    32,
+                    DelvefoldText.choice(
+                            this.gameplayPreset == preset, DelvefoldText.option("gameplay", preset.serializedName())),
                     this.gameplayPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.gameplayPreset = preset;
@@ -264,9 +307,13 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int landmarkY = y + this.resourceLandmarkOptionsTop;
         for (LandmarkPreset preset : LandmarkPreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
-            this.addBodyButton(optionX, landmarkY, optionWidth, 28,
-                    DelvefoldText.choice(this.landmarkPreset == preset,
-                            DelvefoldText.option("landmark", preset.serializedName())),
+            this.addBodyButton(
+                    optionX,
+                    landmarkY,
+                    optionWidth,
+                    28,
+                    DelvefoldText.choice(
+                            this.landmarkPreset == preset, DelvefoldText.option("landmark", preset.serializedName())),
                     this.landmarkPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.landmarkPreset = preset;
@@ -280,8 +327,13 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int x = this.contentLeft() + 10;
         int y = bodyTop() + 153;
         int width = this.contentWidth() - 20;
-        this.confirmationButton = this.addBodyButton(x, y, width, 24,
-                confirmationLabel(), this.lockConfirmed ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+        this.confirmationButton = this.addBodyButton(
+                x,
+                y,
+                width,
+                24,
+                confirmationLabel(),
+                this.lockConfirmed ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                 button -> toggleConfirmation());
         this.bodyVirtualBottom = reviewVirtualBottom();
     }
@@ -313,25 +365,38 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.bodyVirtualBottom = reviewVirtualBottom();
         setBodyScrollOffset(this.bodyScrollOffset);
         DelvefoldClientRequests.send(new InitializeWorldPayload(
-                this.snapshot.oreRevision(), this.snapshot.settingsRevision(), this.terrainMode, this.orePreset,
-                GameplaySettings.fromPreset(this.gameplayPreset), selectedIdentity(), true));
+                this.snapshot.oreRevision(),
+                this.snapshot.settingsRevision(),
+                this.terrainMode,
+                this.orePreset,
+                GameplaySettings.fromPreset(this.gameplayPreset),
+                selectedIdentity(),
+                true));
     }
 
     private WorldIdentitySettings selectedIdentity() {
         WorldIdentitySettings source = this.snapshot.identity();
         boolean enabled = this.landmarkPreset != LandmarkPreset.PURE_MINING;
         RenewalSettings renewal = source.renewal();
-        return new WorldIdentitySettings(source.displayName(), this.terrainVariant, this.landmarkPreset,
-                enabled && source.surveyStations(), enabled && source.motherlodes(),
-                enabled && source.faultLines(), this.geologyTheme, new RenewalSettings(
-                        renewal.enabled(), renewal.intervalDays(), renewal.warningMinutes(),
-                        renewal.nextRenewalAtEpochMillis(), this.renewalSeedMode));
+        return new WorldIdentitySettings(
+                source.displayName(),
+                this.terrainVariant,
+                this.landmarkPreset,
+                enabled && source.surveyStations(),
+                enabled && source.motherlodes(),
+                enabled && source.faultLines(),
+                this.geologyTheme,
+                new RenewalSettings(
+                        renewal.enabled(),
+                        renewal.intervalDays(),
+                        renewal.warningMinutes(),
+                        renewal.nextRenewalAtEpochMillis(),
+                        this.renewalSeedMode));
     }
 
     private Component confirmationLabel() {
-        return Component.translatable(this.lockConfirmed
-                ? "screen.delvefold.setup.confirmed"
-                : "screen.delvefold.setup.confirm");
+        return Component.translatable(
+                this.lockConfirmed ? "screen.delvefold.setup.confirmed" : "screen.delvefold.setup.confirm");
     }
 
     private int bodyTop() {
@@ -339,8 +404,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private int wrappedTextHeight(Component text, int width) {
-        return Math.max(this.font.lineHeight,
-                this.font.split(text, Math.max(1, width)).size() * this.font.lineHeight);
+        return Math.max(
+                this.font.lineHeight, this.font.split(text, Math.max(1, width)).size() * this.font.lineHeight);
     }
 
     private int noticeHeight(Component text, int width) {
@@ -351,28 +416,26 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int contentBottom = 153 + 24 + 8;
         Component status = reviewStatus();
         if (!status.getString().isEmpty()) {
-            contentBottom = Math.max(contentBottom,
-                    190 + noticeHeight(status, this.contentWidth() - 20) + 8);
+            contentBottom = Math.max(contentBottom, 190 + noticeHeight(status, this.contentWidth() - 20) + 8);
         }
         return bodyTop() + contentBottom;
     }
 
     private Component terrainDetail() {
-        return Component.translatable("screen.delvefold.setup.terrain.detail",
-                Component.translatable("screen.delvefold.setup.terrain.detail."
-                        + this.terrainMode.serializedName()),
-                Component.translatable("screen.delvefold.setup.terrain.scale."
-                        + this.terrainVariant.serializedName()));
+        return Component.translatable(
+                "screen.delvefold.setup.terrain.detail",
+                Component.translatable("screen.delvefold.setup.terrain.detail." + this.terrainMode.serializedName()),
+                Component.translatable("screen.delvefold.setup.terrain.scale." + this.terrainVariant.serializedName()));
     }
 
     private Component seedModeHelp() {
-        return Component.translatable("screen.delvefold.setup.terrain.seed_mode.help."
-                + this.renewalSeedMode.serializedName());
+        return Component.translatable(
+                "screen.delvefold.setup.terrain.seed_mode.help." + this.renewalSeedMode.serializedName());
     }
 
     private Component geologyThemeHelp() {
-        return Component.translatable("screen.delvefold.setup.terrain.geology_theme.help."
-                + this.geologyTheme.serializedName());
+        return Component.translatable(
+                "screen.delvefold.setup.terrain.geology_theme.help." + this.geologyTheme.serializedName());
     }
 
     private Component reviewStatus() {
@@ -390,8 +453,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
             }
         }
         VerticalScrollLayout layout = bodyScrollLayout();
-        graphics.enableScissor(this.contentLeft() + 1, layout.viewportTop(),
-                this.contentRight() - 1, layout.viewportBottom());
+        graphics.enableScissor(
+                this.contentLeft() + 1, layout.viewportTop(), this.contentRight() - 1, layout.viewportBottom());
         for (AbstractWidget widget : this.bodyWidgets) {
             widget.render(graphics, mouseX, mouseY, partialTick);
         }
@@ -401,11 +464,12 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         VerticalScrollLayout layout = bodyScrollLayout();
-        if (mouseX >= this.contentLeft() && mouseX < this.contentRight()
-                && mouseY >= layout.viewportTop() && mouseY < layout.viewportBottom()
+        if (mouseX >= this.contentLeft()
+                && mouseX < this.contentRight()
+                && mouseY >= layout.viewportTop()
+                && mouseY < layout.viewportBottom()
                 && layout.maximumScroll() > 0) {
-            setBodyScrollOffset(this.bodyScrollOffset
-                    - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
+            setBodyScrollOffset(this.bodyScrollOffset - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -475,51 +539,160 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
 
     private void renderTerrain(GuiGraphics graphics, int x, int y, int width) {
         this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.terrain.title"), x + 10, y + 8);
-        graphics.drawWordWrap(this.font, Component.translatable("screen.delvefold.setup.terrain.help"),
-                x + 12, y + 23, width - 24, MUTED_TEXT);
+        graphics.drawWordWrap(
+                this.font,
+                Component.translatable("screen.delvefold.setup.terrain.help"),
+                x + 12,
+                y + 23,
+                width - 24,
+                MUTED_TEXT);
         Component detail = terrainDetail();
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.terrain.scale"),
-                x + 12, y + this.terrainVariantLabelTop, MUTED_TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.terrain.geology_theme"),
-                x + 12, y + this.terrainGeologyLabelTop, MUTED_TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.terrain.seed_mode"),
-                x + 12, y + this.terrainSeedLabelTop, MUTED_TEXT, false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.terrain.scale"),
+                x + 12,
+                y + this.terrainVariantLabelTop,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.terrain.geology_theme"),
+                x + 12,
+                y + this.terrainGeologyLabelTop,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.terrain.seed_mode"),
+                x + 12,
+                y + this.terrainSeedLabelTop,
+                MUTED_TEXT,
+                false);
         drawNotice(graphics, x + 12, y + this.terrainNoticeTop, width - 24, detail, ACCENT);
-        graphics.drawWordWrap(this.font, seedModeHelp(),
-                x + 12, y + this.terrainSeedHelpTop, width - 24, DIM_TEXT);
-        graphics.drawWordWrap(this.font, geologyThemeHelp(),
-                x + 12, y + this.terrainGeologyHelpTop, width - 24, DIM_TEXT);
+        graphics.drawWordWrap(this.font, seedModeHelp(), x + 12, y + this.terrainSeedHelpTop, width - 24, DIM_TEXT);
+        graphics.drawWordWrap(
+                this.font, geologyThemeHelp(), x + 12, y + this.terrainGeologyHelpTop, width - 24, DIM_TEXT);
     }
 
     private void renderResources(GuiGraphics graphics, int x, int y, int width) {
         this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.resources.ores"), x + 10, y + 8);
         graphics.drawWordWrap(this.font, oreDescription(), x + 12, y + 76, width - 24, MUTED_TEXT);
-        this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.resources.gameplay"),
-                x + 10, y + this.resourceGameplayTitleTop);
-        graphics.drawWordWrap(this.font, gameplayDescription(), x + 12, y + this.resourceGameplayHelpTop,
-                width - 24, DIM_TEXT);
-        this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.resources.landmarks"),
-                x + 10, y + this.resourceLandmarkTitleTop);
-        graphics.drawWordWrap(this.font, landmarkDescription(), x + 12, y + this.resourceLandmarkHelpTop,
-                width - 24, DIM_TEXT);
+        this.drawSectionTitle(
+                graphics,
+                Component.translatable("screen.delvefold.setup.resources.gameplay"),
+                x + 10,
+                y + this.resourceGameplayTitleTop);
+        graphics.drawWordWrap(
+                this.font, gameplayDescription(), x + 12, y + this.resourceGameplayHelpTop, width - 24, DIM_TEXT);
+        this.drawSectionTitle(
+                graphics,
+                Component.translatable("screen.delvefold.setup.resources.landmarks"),
+                x + 10,
+                y + this.resourceLandmarkTitleTop);
+        graphics.drawWordWrap(
+                this.font, landmarkDescription(), x + 12, y + this.resourceLandmarkHelpTop, width - 24, DIM_TEXT);
     }
 
     private void renderReview(GuiGraphics graphics, int x, int y, int width) {
         this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.setup.review.title"), x + 10, y + 8);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.terrain"), x + 14, y + 29, MUTED_TEXT, false);
-        graphics.drawString(this.font, DelvefoldText.option("terrain", this.terrainMode.serializedName()), x + width / 2, y + 29, TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.ore"), x + 14, y + 45, MUTED_TEXT, false);
-        graphics.drawString(this.font, DelvefoldText.option("ore_preset", this.orePreset.serializedName()), x + width / 2, y + 45, TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.gameplay"), x + 14, y + 61, MUTED_TEXT, false);
-        graphics.drawString(this.font, DelvefoldText.option("gameplay", this.gameplayPreset.serializedName()), x + width / 2, y + 61, TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.scale"), x + 14, y + 77, MUTED_TEXT, false);
-        graphics.drawString(this.font, DelvefoldText.option("terrain_variant", this.terrainVariant.serializedName()), x + width / 2, y + 77, TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.geology_theme"), x + 14, y + 93, MUTED_TEXT, false);
-        graphics.drawString(this.font, DelvefoldText.option("geology_theme", this.geologyTheme.serializedName()), x + width / 2, y + 93, TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.landmarks"), x + 14, y + 109, MUTED_TEXT, false);
-        graphics.drawString(this.font, DelvefoldText.option("landmark", this.landmarkPreset.serializedName()), x + width / 2, y + 109, TEXT, false);
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.seed_mode"), x + 14, y + 125, MUTED_TEXT, false);
-        graphics.drawString(this.font, DelvefoldText.option("renewal_seed_mode", this.renewalSeedMode.serializedName()), x + width / 2, y + 125, TEXT, false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.review.terrain"),
+                x + 14,
+                y + 29,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                DelvefoldText.option("terrain", this.terrainMode.serializedName()),
+                x + width / 2,
+                y + 29,
+                TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.review.ore"),
+                x + 14,
+                y + 45,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                DelvefoldText.option("ore_preset", this.orePreset.serializedName()),
+                x + width / 2,
+                y + 45,
+                TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.review.gameplay"),
+                x + 14,
+                y + 61,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                DelvefoldText.option("gameplay", this.gameplayPreset.serializedName()),
+                x + width / 2,
+                y + 61,
+                TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.review.scale"),
+                x + 14,
+                y + 77,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                DelvefoldText.option("terrain_variant", this.terrainVariant.serializedName()),
+                x + width / 2,
+                y + 77,
+                TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.review.geology_theme"),
+                x + 14,
+                y + 93,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                DelvefoldText.option("geology_theme", this.geologyTheme.serializedName()),
+                x + width / 2,
+                y + 93,
+                TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.review.landmarks"),
+                x + 14,
+                y + 109,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                DelvefoldText.option("landmark", this.landmarkPreset.serializedName()),
+                x + width / 2,
+                y + 109,
+                TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.setup.review.seed_mode"),
+                x + 14,
+                y + 125,
+                MUTED_TEXT,
+                false);
+        graphics.drawString(
+                this.font,
+                DelvefoldText.option("renewal_seed_mode", this.renewalSeedMode.serializedName()),
+                x + width / 2,
+                y + 125,
+                TEXT,
+                false);
 
         Component status = reviewStatus();
         int color = !this.snapshot.backendReady() ? DANGER : this.localStatusColor;
@@ -578,8 +751,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         if (status.getString().isEmpty()) {
             status = Component.translatable("screen.delvefold.status.ready");
         }
-        return Component.translatable("screen.delvefold.setup.narration",
-                Component.translatable(this.step.translationKey), status);
+        return Component.translatable(
+                "screen.delvefold.setup.narration", Component.translatable(this.step.translationKey), status);
     }
 
     private enum Step {

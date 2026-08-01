@@ -12,8 +12,7 @@ import net.neoforged.neoforge.event.entity.living.MobSpawnEvent;
 
 /** Applies live gameplay presets only to natural generation in Delvefold dimensions. */
 public final class SpawnPolicy {
-    private SpawnPolicy() {
-    }
+    private SpawnPolicy() {}
 
     public static void onPositionCheck(MobSpawnEvent.PositionCheck event) {
         ResourceKey<Level> dimension = event.getLevel().getLevel().dimension();
@@ -58,9 +57,7 @@ public final class SpawnPolicy {
     }
 
     private static boolean isNatural(MobSpawnType type) {
-        return type == MobSpawnType.NATURAL
-                || type == MobSpawnType.CHUNK_GENERATION
-                || type == MobSpawnType.PATROL;
+        return type == MobSpawnType.NATURAL || type == MobSpawnType.CHUNK_GENERATION || type == MobSpawnType.PATROL;
     }
 
     private static boolean isDelvefold(ResourceKey<Level> dimension) {

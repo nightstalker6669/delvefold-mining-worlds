@@ -6,10 +6,12 @@ import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfigur
 
 /** Data-selected phase for the shared runtime geology-theme feature. */
 public record GeologyThemeConfiguration(Phase phase) implements FeatureConfiguration {
-    public static final Codec<GeologyThemeConfiguration> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.STRING.xmap(Phase::parse, Phase::serializedName)
-                    .fieldOf("phase").forGetter(GeologyThemeConfiguration::phase)
-    ).apply(instance, GeologyThemeConfiguration::new));
+    public static final Codec<GeologyThemeConfiguration> CODEC =
+            RecordCodecBuilder.create(instance -> instance.group(Codec.STRING
+                            .xmap(Phase::parse, Phase::serializedName)
+                            .fieldOf("phase")
+                            .forGetter(GeologyThemeConfiguration::phase))
+                    .apply(instance, GeologyThemeConfiguration::new));
 
     public GeologyThemeConfiguration {
         phase = phase == null ? Phase.STRATA : phase;

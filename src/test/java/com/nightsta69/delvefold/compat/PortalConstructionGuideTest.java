@@ -32,7 +32,6 @@ class PortalConstructionGuideTest {
 
     @Test
     void invalidFrameCountDimensionsAreRejected() {
-        assertThrows(IllegalArgumentException.class,
-                () -> PortalConstructionGuide.frameCount(0, 3));
+        assertThrows(IllegalArgumentException.class, () -> PortalConstructionGuide.frameCount(0, 3));
     }
 }

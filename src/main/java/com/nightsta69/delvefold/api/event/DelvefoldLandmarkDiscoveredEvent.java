@@ -16,10 +16,7 @@ public final class DelvefoldLandmarkDiscoveredEvent extends Event {
     private final ChunkPos startChunk;
 
     public DelvefoldLandmarkDiscoveredEvent(
-            ServerPlayer player,
-            ResourceLocation landmarkId,
-            ResourceKey<Level> dimension,
-            ChunkPos startChunk) {
+            ServerPlayer player, ResourceLocation landmarkId, ResourceKey<Level> dimension, ChunkPos startChunk) {
         this.player = Objects.requireNonNull(player, "player");
         this.landmarkId = Objects.requireNonNull(landmarkId, "landmarkId");
         this.dimension = Objects.requireNonNull(dimension, "dimension");

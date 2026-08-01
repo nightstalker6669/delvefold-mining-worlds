@@ -20,19 +20,69 @@ class CommandSurfaceCompatibilityTest {
             Path.of("src/main/java/com/nightsta69/delvefold/command/DelvefoldCommandNames.java");
     private static final Pattern LITERAL = Pattern.compile("Commands\\.literal\\(\\s*\"([^\"]+)\"\\s*\\)");
     private static final Set<String> DOMAIN_LITERALS = Set.of(
-            "add", "add-tag", "backup", "band", "cancel", "config", "configure", "confirm",
-            "create", "delete", "disable", "doctor", "duplicate", "enable", "export",
-            "geology-theme", "gui", "guide", "hub", "identity", "import", "initialize",
-            "landmarks", "list", "name", "ore", "overwrite", "pin", "placement", "portal",
-            "profile", "province", "recreate", "reload", "remove", "remove-tag", "renewal",
-            "request", "restore", "retention", "routing", "save-current", "scan", "seed-mode",
-            "select", "set", "set-tag-weight", "set-weight", "show", "status", "target", "unpin",
-            "validate", "variant", "verify", "visibility", "world");
+            "add",
+            "add-tag",
+            "backup",
+            "band",
+            "cancel",
+            "config",
+            "configure",
+            "confirm",
+            "create",
+            "delete",
+            "disable",
+            "doctor",
+            "duplicate",
+            "enable",
+            "export",
+            "geology-theme",
+            "gui",
+            "guide",
+            "hub",
+            "identity",
+            "import",
+            "initialize",
+            "landmarks",
+            "list",
+            "name",
+            "ore",
+            "overwrite",
+            "pin",
+            "placement",
+            "portal",
+            "profile",
+            "province",
+            "recreate",
+            "reload",
+            "remove",
+            "remove-tag",
+            "renewal",
+            "request",
+            "restore",
+            "retention",
+            "routing",
+            "save-current",
+            "scan",
+            "seed-mode",
+            "select",
+            "set",
+            "set-tag-weight",
+            "set-weight",
+            "show",
+            "status",
+            "target",
+            "unpin",
+            "validate",
+            "variant",
+            "verify",
+            "visibility",
+            "world");
 
     @Test
     void delvefoldRemainsTheOnlyRegisteredRoot() throws Exception {
         String names = compact(Files.readString(COMMAND_NAMES));
-        assertTrue(names.contains("REGISTERED_ROOTS=List.of(\"delvefold\")"),
+        assertTrue(
+                names.contains("REGISTERED_ROOTS=List.of(\"delvefold\")"),
                 "The public root must remain /delvefold with no legacy or accidental aliases");
     }
 
@@ -42,8 +92,8 @@ class CommandSurfaceCompatibilityTest {
         assertTrue(commands.contains("publicstaticvoidonRegisterCommands(RegisterCommandsEventevent){"
                 + "register(event.getDispatcher());}"));
         assertTrue(commands.contains("publicstaticvoidregister(CommandDispatcher<CommandSourceStack>dispatcher){"));
-        assertTrue(commands.contains("for(Stringname:DelvefoldCommandNames.REGISTERED_ROOTS){"
-                + "dispatcher.register(root(name));}"));
+        assertTrue(commands.contains(
+                "for(Stringname:DelvefoldCommandNames.REGISTERED_ROOTS){" + "dispatcher.register(root(name));}"));
     }
 
     @Test
@@ -51,8 +101,7 @@ class CommandSurfaceCompatibilityTest {
         Set<String> actual = new TreeSet<>();
         Set<Path> commandSources;
         try (var files = Files.list(COMMAND_PACKAGE)) {
-            commandSources = files
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
+            commandSources = files.filter(path -> path.getFileName().toString().endsWith(".java"))
                     .collect(Collectors.toSet());
         }
         for (Path commandSource : commandSources) {
@@ -61,7 +110,9 @@ class CommandSurfaceCompatibilityTest {
                 actual.add(matcher.group(1));
             }
         }
-        assertEquals(new TreeSet<>(DOMAIN_LITERALS), actual,
+        assertEquals(
+                new TreeSet<>(DOMAIN_LITERALS),
+                actual,
                 "A command literal was removed, renamed, or added without an intentional compatibility decision");
     }
 

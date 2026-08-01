@@ -10,8 +10,8 @@ class RestartBoundLifecycleCharacterizationTest {
     @Test
     void confirmationPersistsIntentAndEvacuatesWithoutMutatingLoadedDimensionFolders() throws IOException {
         String worldOperations = ProductionSources.read("reset/WorldOperationService.java");
-        String worldConfirmation = ProductionSources.block(
-                worldOperations, "private WorldOperationResult confirmCoordinated(");
+        String worldConfirmation =
+                ProductionSources.block(worldOperations, "private WorldOperationResult confirmCoordinated(");
         assertTrue(worldConfirmation.contains("writeJsonAtomically(pendingPath(server), draft.operation())"));
         assertTrue(worldConfirmation.contains("entryBlocked.set(true)"));
         assertTrue(worldConfirmation.contains("evacuateMiningPlayersForOperation(server)"));
@@ -19,8 +19,8 @@ class RestartBoundLifecycleCharacterizationTest {
         assertFalse(worldConfirmation.contains("deleteTree("));
 
         String restores = ProductionSources.read("reset/WorldRestoreService.java");
-        String restoreConfirmation = ProductionSources.block(
-                restores, "private WorldOperationResult confirmCoordinated(");
+        String restoreConfirmation =
+                ProductionSources.block(restores, "private WorldOperationResult confirmCoordinated(");
         assertTrue(restoreConfirmation.contains("writePending(pendingPath(server), draft.operation())"));
         assertTrue(restoreConfirmation.contains("entryBlocked.set(true)"));
         assertTrue(restoreConfirmation.contains("evacuateMiningPlayersForOperation(server)"));

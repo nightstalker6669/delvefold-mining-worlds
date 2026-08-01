@@ -18,15 +18,15 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 public final class MiningPlayerSafety {
     private static final String GENERATION_EPOCH_TAG = "DelvefoldGenerationEpoch";
 
-    private MiningPlayerSafety() {
-    }
+    private MiningPlayerSafety() {}
 
     /** Called after a successful portal transition into the active mining world. */
     public static void markCurrentEpoch(ServerPlayer player) {
         try {
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
             if (snapshot.settings().initialized()) {
-                player.getPersistentData().putLong(GENERATION_EPOCH_TAG, snapshot.settings().generationEpoch());
+                player.getPersistentData()
+                        .putLong(GENERATION_EPOCH_TAG, snapshot.settings().generationEpoch());
             }
         } catch (IllegalStateException ignored) {
             // An absent tag is fail-safe: the player will be evacuated on their next login.
@@ -34,7 +34,8 @@ public final class MiningPlayerSafety {
     }
 
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        if (!(event.getEntity() instanceof ServerPlayer player) || !isMiningLevel(player.level().dimension())) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+                || !isMiningLevel(player.level().dimension())) {
             return;
         }
 
@@ -50,8 +51,10 @@ public final class MiningPlayerSafety {
         boolean epochMatches = player.getPersistentData().contains(GENERATION_EPOCH_TAG, Tag.TAG_LONG)
                 && player.getPersistentData().getLong(GENERATION_EPOCH_TAG) == settings.generationEpoch();
         boolean activeDimension = settings.initialized()
-                && player.level().dimension().equals(DelvefoldWorldgen.levelFor(
-                        settings.terrainMode(), settings.identity().terrainVariant()));
+                && player.level()
+                        .dimension()
+                        .equals(DelvefoldWorldgen.levelFor(
+                                settings.terrainMode(), settings.identity().terrainVariant()));
         if (WorldOperationService.get().isEntryBlocked() || !activeDimension || !epochMatches) {
             evacuate(player, "message.delvefold.player_safety.evacuated");
         }
@@ -71,8 +74,7 @@ public final class MiningPlayerSafety {
                 spawn.getZ() + 0.5D,
                 Set.<RelativeMovement>of(),
                 player.getYRot(),
-                player.getXRot()
-        );
+                player.getXRot());
         if (messageKey != null) {
             player.sendSystemMessage(Component.translatable(messageKey));
         }

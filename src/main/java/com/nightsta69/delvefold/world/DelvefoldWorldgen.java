@@ -5,10 +5,10 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.world.feature.GenerationSaltedLandmarkPlacement;
 import com.nightsta69.delvefold.world.feature.GeologyThemeFeature;
-import com.nightsta69.delvefold.world.feature.MiningOreFeature;
 import com.nightsta69.delvefold.world.feature.MiningLandmarkFeature;
-import net.minecraft.core.registries.Registries;
+import com.nightsta69.delvefold.world.feature.MiningOreFeature;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
@@ -16,8 +16,8 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.placement.PlacementModifierType;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.world.level.levelgen.placement.PlacementModifierType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -25,9 +25,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 /**
  * Static registrations and resource keys for Delvefold world generation.
  *
- * <p>The three terrain variants deliberately use separate level keys. A server may change which
- * one its portal targets without ever changing the generator attached to an existing level and
- * producing seams between old and new chunks.</p>
+ * <p>The three terrain variants deliberately use separate level keys. A server may change which one its portal targets
+ * without ever changing the generator attached to an existing level and producing seams between old and new chunks.
  */
 public final class DelvefoldWorldgen {
     private static final DeferredRegister<Feature<?>> FEATURES =
@@ -39,13 +38,14 @@ public final class DelvefoldWorldgen {
             FEATURES.register("mining_ores", MiningOreFeature::new);
     public static final DeferredHolder<Feature<?>, GeologyThemeFeature> GEOLOGY_THEME_FEATURE =
             FEATURES.register("geology_theme", GeologyThemeFeature::new);
-    public static final DeferredHolder<Feature<?>, MiningLandmarkFeature> MINING_LANDMARK_FEATURE =
-            FEATURES.register("mining_landmark",
-                    () -> new MiningLandmarkFeature(net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
-    public static final DeferredHolder<PlacementModifierType<?>,
-            PlacementModifierType<GenerationSaltedLandmarkPlacement>> GENERATION_SALTED_LANDMARK_PLACEMENT =
-            PLACEMENT_MODIFIERS.register("generation_salted_landmark",
-                    () -> () -> GenerationSaltedLandmarkPlacement.CODEC);
+    public static final DeferredHolder<Feature<?>, MiningLandmarkFeature> MINING_LANDMARK_FEATURE = FEATURES.register(
+            "mining_landmark",
+            () -> new MiningLandmarkFeature(
+                    net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
+    public static final DeferredHolder<
+                    PlacementModifierType<?>, PlacementModifierType<GenerationSaltedLandmarkPlacement>>
+            GENERATION_SALTED_LANDMARK_PLACEMENT = PLACEMENT_MODIFIERS.register(
+                    "generation_salted_landmark", () -> () -> GenerationSaltedLandmarkPlacement.CODEC);
 
     public static final ResourceKey<Level> FLAT_LEVEL = levelKey("delve_flat");
     public static final ResourceKey<Level> CAVERN_LEVEL = levelKey("delve_cavern");
@@ -65,25 +65,24 @@ public final class DelvefoldWorldgen {
     public static final ResourceKey<Biome> MINING_CAVERN_BIOME = biomeKey("mining_cavern");
     public static final ResourceKey<Biome> MINING_WILD_BIOME = biomeKey("mining_wild");
 
-    public static final ResourceKey<ConfiguredFeature<?, ?>> MINING_ORES_CONFIGURED = ResourceKey.create(
-            Registries.CONFIGURED_FEATURE, id("mining_ores"));
-    public static final ResourceKey<PlacedFeature> MINING_ORES_PLACED = ResourceKey.create(
-            Registries.PLACED_FEATURE, id("mining_ores"));
-    public static final ResourceKey<ConfiguredFeature<?, ?>> GEOLOGY_STRATA_CONFIGURED = ResourceKey.create(
-            Registries.CONFIGURED_FEATURE, id("geology_strata"));
-    public static final ResourceKey<PlacedFeature> GEOLOGY_STRATA_PLACED = ResourceKey.create(
-            Registries.PLACED_FEATURE, id("geology_strata"));
-    public static final ResourceKey<ConfiguredFeature<?, ?>> GEOLOGY_DECORATIONS_CONFIGURED = ResourceKey.create(
-            Registries.CONFIGURED_FEATURE, id("geology_decorations"));
-    public static final ResourceKey<PlacedFeature> GEOLOGY_DECORATIONS_PLACED = ResourceKey.create(
-            Registries.PLACED_FEATURE, id("geology_decorations"));
-    public static final ResourceKey<ConfiguredFeature<?, ?>> MINING_LANDMARK_CONFIGURED = ResourceKey.create(
-            Registries.CONFIGURED_FEATURE, id("mining_landmark"));
-    public static final ResourceKey<PlacedFeature> MINING_LANDMARK_PLACED = ResourceKey.create(
-            Registries.PLACED_FEATURE, id("mining_landmark"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> MINING_ORES_CONFIGURED =
+            ResourceKey.create(Registries.CONFIGURED_FEATURE, id("mining_ores"));
+    public static final ResourceKey<PlacedFeature> MINING_ORES_PLACED =
+            ResourceKey.create(Registries.PLACED_FEATURE, id("mining_ores"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> GEOLOGY_STRATA_CONFIGURED =
+            ResourceKey.create(Registries.CONFIGURED_FEATURE, id("geology_strata"));
+    public static final ResourceKey<PlacedFeature> GEOLOGY_STRATA_PLACED =
+            ResourceKey.create(Registries.PLACED_FEATURE, id("geology_strata"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> GEOLOGY_DECORATIONS_CONFIGURED =
+            ResourceKey.create(Registries.CONFIGURED_FEATURE, id("geology_decorations"));
+    public static final ResourceKey<PlacedFeature> GEOLOGY_DECORATIONS_PLACED =
+            ResourceKey.create(Registries.PLACED_FEATURE, id("geology_decorations"));
+    public static final ResourceKey<ConfiguredFeature<?, ?>> MINING_LANDMARK_CONFIGURED =
+            ResourceKey.create(Registries.CONFIGURED_FEATURE, id("mining_landmark"));
+    public static final ResourceKey<PlacedFeature> MINING_LANDMARK_PLACED =
+            ResourceKey.create(Registries.PLACED_FEATURE, id("mining_landmark"));
 
-    private DelvefoldWorldgen() {
-    }
+    private DelvefoldWorldgen() {}
 
     public static void register(IEventBus modEventBus) {
         FEATURES.register(modEventBus);
@@ -104,8 +103,11 @@ public final class DelvefoldWorldgen {
     }
 
     public static boolean isMiningLevel(ResourceKey<Level> key) {
-        return key.equals(FLAT_LEVEL) || key.equals(CAVERN_LEVEL) || key.equals(WILD_LEVEL)
-                || key.equals(FLAT_EXPANSIVE_LEVEL) || key.equals(CAVERN_EXPANSIVE_LEVEL)
+        return key.equals(FLAT_LEVEL)
+                || key.equals(CAVERN_LEVEL)
+                || key.equals(WILD_LEVEL)
+                || key.equals(FLAT_EXPANSIVE_LEVEL)
+                || key.equals(CAVERN_EXPANSIVE_LEVEL)
                 || key.equals(WILD_EXPANSIVE_LEVEL);
     }
 

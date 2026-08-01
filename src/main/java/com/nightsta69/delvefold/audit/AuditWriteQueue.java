@@ -12,8 +12,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Bounded, ordered handoff from gameplay callers to the audit filesystem writer.
  *
- * <p>The single daemon worker is the only thread that may call the sink. Shutdown stops accepting
- * new entries, drains every accepted entry in FIFO order, flushes it, and only then closes it.</p>
+ * <p>The single daemon worker is the only thread that may call the sink. Shutdown stops accepting new entries, drains
+ * every accepted entry in FIFO order, flushes it, and only then closes it.
  */
 final class AuditWriteQueue implements AutoCloseable {
     static final int DEFAULT_CAPACITY = 2_048;
@@ -37,7 +37,10 @@ final class AuditWriteQueue implements AutoCloseable {
             throw new IllegalArgumentException("Audit queue capacity must be positive");
         }
         this.executor = new ThreadPoolExecutor(
-                1, 1, 0L, TimeUnit.MILLISECONDS,
+                1,
+                1,
+                0L,
+                TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(capacity),
                 Objects.requireNonNull(threadFactory, "threadFactory"),
                 new ThreadPoolExecutor.AbortPolicy());
@@ -108,8 +111,7 @@ final class AuditWriteQueue implements AutoCloseable {
 
     private static ThreadFactory productionThreadFactory() {
         return task -> {
-            Thread thread = new Thread(task,
-                    "Delvefold Audit Writer " + WORKER_IDS.incrementAndGet());
+            Thread thread = new Thread(task, "Delvefold Audit Writer " + WORKER_IDS.incrementAndGet());
             thread.setDaemon(true);
             return thread;
         };

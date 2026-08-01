@@ -11,8 +11,7 @@ import net.minecraft.world.level.biome.Biome;
 
 /** Runtime matcher for exact biome IDs and biome tags in landmark definitions. */
 public final class LandmarkBiomeMatcher {
-    private LandmarkBiomeMatcher() {
-    }
+    private LandmarkBiomeMatcher() {}
 
     public static boolean matches(LandmarkBiomeSelectors selectors, Holder<Biome> biome) {
         Objects.requireNonNull(selectors, "selectors");
@@ -28,7 +27,6 @@ public final class LandmarkBiomeMatcher {
         if (id == null) {
             return false;
         }
-        return tag ? biome.is(TagKey.create(Registries.BIOME, id))
-                : biome.is(ResourceKey.create(Registries.BIOME, id));
+        return tag ? biome.is(TagKey.create(Registries.BIOME, id)) : biome.is(ResourceKey.create(Registries.BIOME, id));
     }
 }

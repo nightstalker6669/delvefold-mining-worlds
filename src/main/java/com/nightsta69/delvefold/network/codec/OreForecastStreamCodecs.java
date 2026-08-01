@@ -22,8 +22,7 @@ public final class OreForecastStreamCodecs {
     public static final int MAX_RULE_ISSUES = 16;
     public static final int MAX_REFERENCE_DETAILS = 64;
 
-    private OreForecastStreamCodecs() {
-    }
+    private OreForecastStreamCodecs() {}
 
     public static void write(RegistryFriendlyByteBuf buffer, OreProfileForecast forecast) {
         int start = buffer.writerIndex();
@@ -77,7 +76,10 @@ public final class OreForecastStreamCodecs {
             terrainTotals.add(new TerrainTotals(
                     readEnum(buffer, TerrainMode.class),
                     buffer.readBoolean(),
-                    readMetric(buffer), readMetric(buffer), readMetric(buffer), readMetric(buffer)));
+                    readMetric(buffer),
+                    readMetric(buffer),
+                    readMetric(buffer),
+                    readMetric(buffer)));
             ensureBudget(buffer.readerIndex() - start);
         }
         int heightCount = readCount(buffer, MAX_HEIGHT_SAMPLES, "height samples");
@@ -98,8 +100,20 @@ public final class OreForecastStreamCodecs {
         ReferenceSummary references = readReferenceSummary(buffer, start);
         boolean truncated = buffer.readBoolean();
         ensureBudget(buffer.readerIndex() - start);
-        return new OreProfileForecast(format, profileId, revision, activeTerrain, terrainTotals, overlay,
-                totalRules, page, pageSize, pageCount, rules, references, truncated);
+        return new OreProfileForecast(
+                format,
+                profileId,
+                revision,
+                activeTerrain,
+                terrainTotals,
+                overlay,
+                totalRules,
+                page,
+                pageSize,
+                pageCount,
+                rules,
+                references,
+                truncated);
     }
 
     private static void writeRule(RegistryFriendlyByteBuf buffer, RuleForecast rule) {
@@ -144,9 +158,22 @@ public final class OreForecastStreamCodecs {
         }
         boolean truncated = buffer.readBoolean();
         ensureBudget(buffer.readerIndex() - start);
-        return new RuleForecast(ruleIndex, ruleId, enabled, required, status,
-                configuredAttempts, configuredWork, effectiveAttempts, effectiveWork,
-                targetCount, effectiveOutputs, missing, shadowed, issues, truncated);
+        return new RuleForecast(
+                ruleIndex,
+                ruleId,
+                enabled,
+                required,
+                status,
+                configuredAttempts,
+                configuredWork,
+                effectiveAttempts,
+                effectiveWork,
+                targetCount,
+                effectiveOutputs,
+                missing,
+                shadowed,
+                issues,
+                truncated);
     }
 
     private static void writeReferenceSummary(RegistryFriendlyByteBuf buffer, ReferenceSummary summary) {
@@ -177,8 +204,15 @@ public final class OreForecastStreamCodecs {
             ensureBudget(buffer.readerIndex() - start);
         }
         boolean truncated = buffer.readBoolean();
-        return new ReferenceSummary(missingBlocks, missingOutputTags, missingHostTags, invalidStates,
-                shadowedOutputs, totalIssues, details, truncated);
+        return new ReferenceSummary(
+                missingBlocks,
+                missingOutputTags,
+                missingHostTags,
+                invalidStates,
+                shadowedOutputs,
+                totalIssues,
+                details,
+                truncated);
     }
 
     private static void writeIssue(RegistryFriendlyByteBuf buffer, ReferenceIssue issue) {
@@ -197,8 +231,14 @@ public final class OreForecastStreamCodecs {
         IssueSeverity severity = readEnum(buffer, IssueSeverity.class);
         int ruleIndex = boundedInt(buffer.readVarInt(), 0, ProtocolLimits.MAX_ORE_RULES - 1, "issue rule index");
         int targetIndex = boundedInt(buffer.readInt(), -1, ProtocolLimits.MAX_VARIANTS - 1, "issue target index");
-        return new ReferenceIssue(kind, severity, ruleIndex, targetIndex,
-                readString(buffer), readString(buffer), readString(buffer),
+        return new ReferenceIssue(
+                kind,
+                severity,
+                ruleIndex,
+                targetIndex,
+                readString(buffer),
+                readString(buffer),
+                readString(buffer),
                 boundedInt(buffer.readVarInt(), 0, 4096, "affected outputs"));
     }
 

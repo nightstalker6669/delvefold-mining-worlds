@@ -9,8 +9,7 @@ import java.util.function.Predicate;
 
 /** Pure deterministic preset filtering and weighted definition selection. */
 public final class LandmarkSelector {
-    private LandmarkSelector() {
-    }
+    private LandmarkSelector() {}
 
     public static boolean accepts(LandmarkPreset preset, long deterministicSeed) {
         if (preset == null || preset == LandmarkPreset.PURE_MINING) {
@@ -46,7 +45,8 @@ public final class LandmarkSelector {
                 .filter(definition -> categoryEnabled(definition.category(), identity))
                 .filter(filter)
                 .toList();
-        long totalWeight = candidates.stream().mapToLong(LandmarkDefinition::weight).sum();
+        long totalWeight =
+                candidates.stream().mapToLong(LandmarkDefinition::weight).sum();
         if (totalWeight <= 0L) {
             return Optional.empty();
         }

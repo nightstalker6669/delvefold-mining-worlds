@@ -14,9 +14,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 /** Registrations for the reloadable landmark structure subsystem. */
 public final class LandmarkRegistries {
-    public static final TagKey<Structure> LANDMARKS = TagKey.create(
-            Registries.STRUCTURE,
-            ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "landmarks"));
+    public static final TagKey<Structure> LANDMARKS =
+            TagKey.create(Registries.STRUCTURE, ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "landmarks"));
 
     private static final DeferredRegister<StructureType<?>> STRUCTURE_TYPES =
             DeferredRegister.create(Registries.STRUCTURE_TYPE, Delvefold.MOD_ID);
@@ -29,13 +28,12 @@ public final class LandmarkRegistries {
             STRUCTURE_TYPES.register("landmark", () -> () -> DelvefoldLandmarkStructure.CODEC);
     public static final DeferredHolder<StructurePieceType, StructurePieceType> LANDMARK_PIECE =
             PIECE_TYPES.register("landmark_piece", () -> LandmarkTemplatePiece::new);
-    public static final DeferredHolder<StructurePlacementType<?>,
-            StructurePlacementType<GenerationSaltedRandomSpreadPlacement>> GENERATION_SALTED_RANDOM_SPREAD =
-            PLACEMENT_TYPES.register("generation_salted_random_spread",
-                    () -> () -> GenerationSaltedRandomSpreadPlacement.CODEC);
+    public static final DeferredHolder<
+                    StructurePlacementType<?>, StructurePlacementType<GenerationSaltedRandomSpreadPlacement>>
+            GENERATION_SALTED_RANDOM_SPREAD = PLACEMENT_TYPES.register(
+                    "generation_salted_random_spread", () -> () -> GenerationSaltedRandomSpreadPlacement.CODEC);
 
-    private LandmarkRegistries() {
-    }
+    private LandmarkRegistries() {}
 
     public static void register(IEventBus modBus) {
         STRUCTURE_TYPES.register(modBus);

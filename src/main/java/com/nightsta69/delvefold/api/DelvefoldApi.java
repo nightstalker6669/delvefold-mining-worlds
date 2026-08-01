@@ -12,8 +12,7 @@ import java.util.Optional;
 public final class DelvefoldApi {
     public static final int API_VERSION = 1;
 
-    private DelvefoldApi() {
-    }
+    private DelvefoldApi() {}
 
     public static Optional<MiningWorldView> activeWorld() {
         try {
@@ -26,8 +25,8 @@ public final class DelvefoldApi {
     /**
      * Returns the bounded, read-only player guide for the active server.
      *
-     * <p>The guide intentionally excludes seeds, horizontal coordinates,
-     * filesystem paths, confirmation data, and administration diagnostics.</p>
+     * <p>The guide intentionally excludes seeds, horizontal coordinates, filesystem paths, confirmation data, and
+     * administration diagnostics.
      */
     public static Optional<GuideSnapshot> activeGuide() {
         return GuideSnapshotService.current();
@@ -38,7 +37,8 @@ public final class DelvefoldApi {
             return Optional.empty();
         }
         var dimension = DelvefoldWorldgen.levelFor(
-                settings.terrainMode(), settings.identity().terrainVariant()).location();
+                        settings.terrainMode(), settings.identity().terrainVariant())
+                .location();
         return Optional.of(new MiningWorldView(
                 settings.identity().displayName(),
                 dimension,

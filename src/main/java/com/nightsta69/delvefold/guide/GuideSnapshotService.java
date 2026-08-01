@@ -6,8 +6,7 @@ import java.util.Optional;
 
 /** Minimal read-only bridge from the live server state to the public guide contract. */
 public final class GuideSnapshotService {
-    private GuideSnapshotService() {
-    }
+    private GuideSnapshotService() {}
 
     public static Optional<GuideSnapshot> current() {
         return current(System.currentTimeMillis());

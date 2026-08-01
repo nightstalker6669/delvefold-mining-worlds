@@ -30,8 +30,7 @@ import java.util.TreeSet;
 
 /** Builds a validated profile-copy preview without mutating or activating any configuration. */
 public final class OreImportPlanner {
-    private OreImportPlanner() {
-    }
+    private OreImportPlanner() {}
 
     public static Plan plan(
             OreProfileDocument base,
@@ -42,17 +41,18 @@ public final class OreImportPlanner {
         Objects.requireNonNull(registry, "registry");
         List<Group> safeSelected = selected == null ? List.of() : List.copyOf(selected);
         if (safeSelected.size() > OreImportModels.MAX_SELECTED_GROUPS) {
-            throw new IllegalArgumentException(localized(
-                    "message.delvefold.import.plan.selection_limit", OreImportModels.MAX_SELECTED_GROUPS));
+            throw new IllegalArgumentException(
+                    localized("message.delvefold.import.plan.selection_limit", OreImportModels.MAX_SELECTED_GROUPS));
         }
 
         // Reject input-order ambiguity and then plan in stable group-ID order.
         TreeMap<String, Group> groups = new TreeMap<>();
         for (Group group : safeSelected) {
-            Group previous = groups.putIfAbsent(Objects.requireNonNull(group, "selected group").id(), group);
+            Group previous = groups.putIfAbsent(
+                    Objects.requireNonNull(group, "selected group").id(), group);
             if (previous != null && !previous.equals(group)) {
-                throw new IllegalArgumentException(localized(
-                        "message.delvefold.import.plan.selection_conflict", group.id()));
+                throw new IllegalArgumentException(
+                        localized("message.delvefold.import.plan.selection_conflict", group.id()));
             }
         }
 
@@ -78,9 +78,8 @@ public final class OreImportPlanner {
 
             if (addedCandidates.isEmpty()) {
                 List<String> skipped = sortedUnion(covered, reviewRequired);
-                DiffStatus status = reviewRequired.isEmpty()
-                        ? DiffStatus.SKIPPED_COVERED
-                        : DiffStatus.SKIPPED_REVIEW_REQUIRED;
+                DiffStatus status =
+                        reviewRequired.isEmpty() ? DiffStatus.SKIPPED_COVERED : DiffStatus.SKIPPED_REVIEW_REQUIRED;
                 String message = reviewRequired.isEmpty()
                         ? localized("message.delvefold.import.diff_message.covered")
                         : covered.isEmpty()
@@ -98,7 +97,8 @@ public final class OreImportPlanner {
             usedRuleIds.add(ruleId);
             addedCandidates.forEach(candidate -> coveredBlocks.add(candidate.blockId()));
 
-            List<String> added = addedCandidates.stream().map(Candidate::blockId).sorted().toList();
+            List<String> added =
+                    addedCandidates.stream().map(Candidate::blockId).sorted().toList();
             List<String> skipped = sortedUnion(covered, reviewRequired);
             DiffStatus status = skipped.isEmpty() ? DiffStatus.ADDED : DiffStatus.PARTIALLY_ADDED;
             String message = skipped.isEmpty()
@@ -108,19 +108,10 @@ public final class OreImportPlanner {
         }
 
         OreProfileDocument proposed = new OreProfileDocument(
-                OreProfileDocument.CURRENT_SCHEMA_VERSION,
-                base.revision(),
-                base.profile(),
-                proposedRules);
+                OreProfileDocument.CURRENT_SCHEMA_VERSION, base.revision(), base.profile(), proposedRules);
         ValidationReport validation = OreConfigValidator.validate(
                 proposed, validationLookup == null ? RegistryLookup.SKIP : validationLookup);
-        return new Plan(
-                base.profile(),
-                proposed,
-                diff,
-                workload(base),
-                workload(proposed),
-                validation);
+        return new Plan(base.profile(), proposed, diff, workload(base), workload(proposed), validation);
     }
 
     /** Public hook for the whole-profile forecast layer; validation remains the final authority. */
@@ -130,8 +121,8 @@ public final class OreImportPlanner {
         Map<TerrainMode, TerrainWorkload> result = new EnumMap<>(TerrainMode.class);
         for (TerrainMode terrain : TerrainMode.values()) {
             OreWorkBudgetAnalysis.Budget terrainBudget = budget.terrain(terrain);
-            result.put(terrain, new TerrainWorkload(
-                    terrainBudget.attemptsPerChunk(), terrainBudget.workUnitsPerChunk()));
+            result.put(
+                    terrain, new TerrainWorkload(terrainBudget.attemptsPerChunk(), terrainBudget.workUnitsPerChunk()));
         }
         return new Workload(result);
     }
@@ -143,8 +134,11 @@ public final class OreImportPlanner {
                 if (target.tagDriven()) {
                     List<String> members = registry.tagMembers(target.blockTag());
                     if (members != null) {
-                        members.stream().filter(Objects::nonNull).map(String::trim)
-                                .filter(value -> !value.isEmpty()).forEach(covered::add);
+                        members.stream()
+                                .filter(Objects::nonNull)
+                                .map(String::trim)
+                                .filter(value -> !value.isEmpty())
+                                .forEach(covered::add);
                     }
                 } else if (!target.block().isBlank()) {
                     covered.add(target.block());
@@ -171,8 +165,7 @@ public final class OreImportPlanner {
                 return candidate;
             }
         }
-        throw new IllegalStateException(localized(
-                "message.delvefold.import.plan.rule_id_failed", group.id()));
+        throw new IllegalStateException(localized("message.delvefold.import.plan.rule_id_failed", group.id()));
     }
 
     private static String boundedRuleId(String value, String suffix) {

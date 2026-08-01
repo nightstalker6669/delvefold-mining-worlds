@@ -14,18 +14,22 @@ class BackupCatalogAsyncContractTest {
     @Test
     void adminSnapshotsAndGuiVerificationUseOnlyTheAsyncCatalogView() throws IOException {
         String admin = read("admin/DefaultDelvefoldAdminService.java");
-        String snapshotMethod = between(admin, "public AdminSnapshot snapshot(", "\n    @Override\n    public OreProfileForecast");
-        String backupMethod = between(admin, "public ServiceResult performBackup(", "\n    @Override\n    public ServiceResult perform(");
+        String snapshotMethod =
+                between(admin, "public AdminSnapshot snapshot(", "\n    @Override\n    public OreProfileForecast");
+        String backupMethod = between(
+                admin, "public ServiceResult performBackup(", "\n    @Override\n    public ServiceResult perform(");
 
         assertTrue(snapshotMethod.contains("BackupCatalogCache.get().snapshot(saveRoot)"));
         assertTrue(snapshotMethod.contains("backupCatalog.refreshing()"));
         assertFalse(snapshotMethod.contains("new WorldBackupCatalog"));
         assertFalse(snapshotMethod.contains(".list()"));
         assertTrue(backupMethod.contains("cachedCatalog.backups().stream()"));
-        assertFalse(backupMethod.contains("catalog.list()"),
+        assertFalse(
+                backupMethod.contains("catalog.list()"),
                 "GUI verify and restore must not parse manifests on the server thread");
         assertTrue(backupMethod.contains("requestCached("));
-        assertTrue(backupMethod.contains("deleteAndRefreshAsync(server, backupId)"),
+        assertTrue(
+                backupMethod.contains("deleteAndRefreshAsync(server, backupId)"),
                 "GUI deletion must capture pending-operation references on the server thread");
         assertFalse(backupMethod.contains("catalog.delete("));
     }
@@ -37,15 +41,20 @@ class BackupCatalogAsyncContractTest {
         String cache = read("reset/BackupCatalogCache.java");
         String restore = read("reset/WorldRestoreService.java");
 
-        assertTrue(command.contains("deleteAndRefreshAsync(server, id)"),
+        assertTrue(
+                command.contains("deleteAndRefreshAsync(server, id)"),
                 "commands must not schedule a path-only deletion");
-        assertTrue(admin.contains("deleteAndRefreshAsync(server, backupId)"),
+        assertTrue(
+                admin.contains("deleteAndRefreshAsync(server, backupId)"),
                 "GUI actions must not schedule a path-only deletion");
-        assertTrue(cache.contains("BackupDeletionGuard.get().reserve(server, backupId)"),
+        assertTrue(
+                cache.contains("BackupDeletionGuard.get().reserve(server, backupId)"),
                 "the cache entry point must capture the deletion reservation before queuing work");
-        assertTrue(cache.contains("permitImmediatelyBeforeDelete()"),
+        assertTrue(
+                cache.contains("permitImmediatelyBeforeDelete()"),
                 "the worker must recheck that its reservation is still active immediately before deletion");
-        assertTrue(restore.contains("coordinateRestoreRequest("),
+        assertTrue(
+                restore.contains("coordinateRestoreRequest("),
                 "restore draft creation must be atomic with deletion reservation checks");
     }
 
@@ -54,7 +63,8 @@ class BackupCatalogAsyncContractTest {
         String lifecycle = read("server/DelvefoldServerLifecycle.java");
         assertTrue(lifecycle.contains("BackupCatalogCache.get().refresh(saveRoot)"));
         assertTrue(lifecycle.contains("BackupCatalogCache.get().clear()"));
-        assertTrue(lifecycle.contains("BackupDeletionGuard.get().clear(event.getServer())"),
+        assertTrue(
+                lifecycle.contains("BackupDeletionGuard.get().clear(event.getServer())"),
                 "server shutdown must revoke any queued deletion reservations");
     }
 

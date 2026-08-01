@@ -14,11 +14,10 @@ import net.minecraft.world.level.storage.LevelResource;
 /**
  * Coordinates backup deletion with operations that retain a logical backup reference.
  *
- * <p>The server thread captures both JVM-local drafts and persisted journals before a
- * deletion is queued. A reservation then remains active until the asynchronous worker
- * has finished deleting and refreshing the catalog. Restore draft creation uses the
- * same lock, so a restore cannot acquire a reference in the scheduling window between
- * the server-thread check and the worker-thread filesystem walk.</p>
+ * <p>The server thread captures both JVM-local drafts and persisted journals before a deletion is queued. A reservation
+ * then remains active until the asynchronous worker has finished deleting and refreshing the catalog. Restore draft
+ * creation uses the same lock, so a restore cannot acquire a reference in the scheduling window between the
+ * server-thread check and the worker-thread filesystem walk.
  */
 public final class BackupDeletionGuard {
     private static final BackupDeletionGuard INSTANCE = new BackupDeletionGuard();
@@ -26,8 +25,7 @@ public final class BackupDeletionGuard {
     private final Object lock = new Object();
     private final Map<Key, Reservation> reservations = new HashMap<>();
 
-    private BackupDeletionGuard() {
-    }
+    private BackupDeletionGuard() {}
 
     public static BackupDeletionGuard get() {
         return INSTANCE;
@@ -45,8 +43,7 @@ public final class BackupDeletionGuard {
     }
 
     /** Test seam that also exercises persisted-journal collection without a live server. */
-    Reservation reserveForTest(Path saveRoot, String backupId, Set<String> inMemoryReferences)
-            throws IOException {
+    Reservation reserveForTest(Path saveRoot, String backupId, Set<String> inMemoryReferences) throws IOException {
         Path root = normalize(saveRoot);
         synchronized (lock) {
             Set<String> referenced = new LinkedHashSet<>(BackupRetentionService.protectedBackupIds(root));
@@ -58,11 +55,11 @@ public final class BackupDeletionGuard {
     }
 
     /**
-     * Serializes restore draft creation with deletion reservation for the selected ID.
-     * Both suppliers execute on the caller (server) thread.
+     * Serializes restore draft creation with deletion reservation for the selected ID. Both suppliers execute on the
+     * caller (server) thread.
      */
-    public <T> T coordinateRestoreRequest(MinecraftServer server, String backupId,
-            Supplier<T> allowed, Supplier<T> rejected) {
+    public <T> T coordinateRestoreRequest(
+            MinecraftServer server, String backupId, Supplier<T> allowed, Supplier<T> rejected) {
         Objects.requireNonNull(server, "server");
         Objects.requireNonNull(allowed, "allowed");
         Objects.requireNonNull(rejected, "rejected");
@@ -117,8 +114,7 @@ public final class BackupDeletionGuard {
 
     private boolean permitLocked(Reservation reservation) {
         synchronized (lock) {
-            return !reservation.closed && !reservation.revoked
-                    && reservations.get(reservation.key) == reservation;
+            return !reservation.closed && !reservation.revoked && reservations.get(reservation.key) == reservation;
         }
     }
 
@@ -140,8 +136,7 @@ public final class BackupDeletionGuard {
         return backupId == null ? "" : backupId;
     }
 
-    private record Key(Path saveRoot, String backupId) {
-    }
+    private record Key(Path saveRoot, String backupId) {}
 
     public enum Reason {
         REFERENCED,

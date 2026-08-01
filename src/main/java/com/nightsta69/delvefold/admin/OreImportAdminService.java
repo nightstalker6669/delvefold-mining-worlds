@@ -28,8 +28,7 @@ import org.slf4j.Logger;
 /** Permission-checked server boundary for scan, preview, paging, and strict profile creation. */
 public final class OreImportAdminService {
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final OreImportAdminService INSTANCE = new OreImportAdminService(
-            OreImportSessionService.get());
+    private static final OreImportAdminService INSTANCE = new OreImportAdminService(OreImportSessionService.get());
 
     private final OreImportSessionService sessions;
 
@@ -41,18 +40,15 @@ public final class OreImportAdminService {
         return INSTANCE;
     }
 
-    public ViewResult<ScanView> scan(
-            ServerPlayer player, long expectedOreRevision, boolean includeVanilla) {
+    public ViewResult<ScanView> scan(ServerPlayer player, long expectedOreRevision, boolean includeVanilla) {
         requireConfigure(player);
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         if (snapshot.ores().revision() != expectedOreRevision) {
-            return ViewResult.rejected(ActionStatus.STALE,
-                    localized("message.delvefold.import.scan.revision_changed"));
+            return ViewResult.rejected(ActionStatus.STALE, localized("message.delvefold.import.scan.revision_changed"));
         }
         var admission = sessions.mayIssueScan(player.getUUID());
         if (!admission.accepted()) {
-            return ViewResult.rejected(ActionStatus.REJECTED,
-                    localized("message.delvefold.import.rate_limited"));
+            return ViewResult.rejected(ActionStatus.REJECTED, localized("message.delvefold.import.rate_limited"));
         }
         try {
             ImportContext context = context();
@@ -63,8 +59,7 @@ public final class OreImportAdminService {
                     issued, snapshot.ores().revision(), snapshot.ores().profile(), 0));
         } catch (RuntimeException exception) {
             LOGGER.warn("Ore discovery failed for {}", player.getGameProfile().getName(), exception);
-            return ViewResult.rejected(ActionStatus.ERROR,
-                    localized("message.delvefold.import.scan.failed"));
+            return ViewResult.rejected(ActionStatus.ERROR, localized("message.delvefold.import.scan.failed"));
         }
     }
 
@@ -80,13 +75,11 @@ public final class OreImportAdminService {
             return ViewResult.accepted(OreImportNetworkViews.scan(
                     access.scan(), snapshot.ores().revision(), snapshot.ores().profile(), page));
         } catch (RuntimeException exception) {
-            return ViewResult.rejected(ActionStatus.ERROR,
-                    localized("message.delvefold.import.scan_page.failed"));
+            return ViewResult.rejected(ActionStatus.ERROR, localized("message.delvefold.import.scan_page.failed"));
         }
     }
 
-    public ViewResult<PreviewView> preview(
-            ServerPlayer player, String scanToken, List<String> selectedGroupIds) {
+    public ViewResult<PreviewView> preview(ServerPlayer player, String scanToken, List<String> selectedGroupIds) {
         requireConfigure(player);
         try {
             ImportContext context = context();
@@ -96,19 +89,17 @@ public final class OreImportAdminService {
             }
             Map<String, OreImportModels.Group> available = new LinkedHashMap<>();
             access.scan().discovery().groups().forEach(group -> available.put(group.id(), group));
-            List<OreImportModels.Group> selected = selectedGroupIds.stream()
-                    .map(available::get)
-                    .toList();
+            List<OreImportModels.Group> selected =
+                    selectedGroupIds.stream().map(available::get).toList();
             if (selected.stream().anyMatch(Objects::isNull)) {
-                return ViewResult.rejected(ActionStatus.REJECTED,
-                        localized("message.delvefold.import.selection_unknown"));
+                return ViewResult.rejected(
+                        ActionStatus.REJECTED, localized("message.delvefold.import.selection_unknown"));
             }
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
-            OreImportModels.Plan plan = OreImportPlanner.plan(
-                    snapshot.ores(), selected, context.registry(), context.registry());
+            OreImportModels.Plan plan =
+                    OreImportPlanner.plan(snapshot.ores(), selected, context.registry(), context.registry());
             PreviewRequest request = new PreviewRequest(snapshot.ores().profile(), selectedGroupIds);
-            var issue = sessions.issuePreview(
-                    player.getUUID(), scanToken, context.binding(), request, plan);
+            var issue = sessions.issuePreview(player.getUUID(), scanToken, context.binding(), request, plan);
             if (!issue.accepted()) {
                 return sessionRejected(issue.status());
             }
@@ -117,9 +108,9 @@ public final class OreImportAdminService {
         } catch (IllegalArgumentException exception) {
             return ViewResult.rejected(ActionStatus.REJECTED, exception.getMessage());
         } catch (RuntimeException exception) {
-            LOGGER.warn("Ore import preview failed for {}", player.getGameProfile().getName(), exception);
-            return ViewResult.rejected(ActionStatus.ERROR,
-                    localized("message.delvefold.import.preview.failed"));
+            LOGGER.warn(
+                    "Ore import preview failed for {}", player.getGameProfile().getName(), exception);
+            return ViewResult.rejected(ActionStatus.ERROR, localized("message.delvefold.import.preview.failed"));
         }
     }
 
@@ -132,10 +123,11 @@ public final class OreImportAdminService {
                 return sessionRejected(access.status());
             }
             return ViewResult.accepted(OreImportNetworkViews.preview(
-                    access.preview(), DelvefoldConfigService.get().snapshot().ores().revision(), page));
+                    access.preview(),
+                    DelvefoldConfigService.get().snapshot().ores().revision(),
+                    page));
         } catch (RuntimeException exception) {
-            return ViewResult.rejected(ActionStatus.ERROR,
-                    localized("message.delvefold.import.preview_page.failed"));
+            return ViewResult.rejected(ActionStatus.ERROR, localized("message.delvefold.import.preview_page.failed"));
         }
     }
 
@@ -144,34 +136,46 @@ public final class OreImportAdminService {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         try {
             ImportContext context = context();
-            var attempt = sessions.consumeCommit(
-                    player.getUUID(), commitToken, context.binding(), targetProfileId);
+            var attempt = sessions.consumeCommit(player.getUUID(), commitToken, context.binding(), targetProfileId);
             if (!attempt.accepted()) {
-                return new ServiceResult(status(attempt.status()), snapshot.ores().revision(),
-                        message(attempt.status()), attempt.status() == OreImportSessionService.Status.REVISION_CHANGED);
+                return new ServiceResult(
+                        status(attempt.status()),
+                        snapshot.ores().revision(),
+                        message(attempt.status()),
+                        attempt.status() == OreImportSessionService.Status.REVISION_CHANGED);
             }
-            var write = DelvefoldConfigService.get().createNewProfile(
-                    attempt.targetProfileId(), attempt.plan().proposedProfile());
+            var write = DelvefoldConfigService.get()
+                    .createNewProfile(attempt.targetProfileId(), attempt.plan().proposedProfile());
             if (!write.saved()) {
-                return new ServiceResult(ActionStatus.REJECTED, snapshot.ores().revision(),
-                        write.message(), true);
+                return new ServiceResult(ActionStatus.REJECTED, snapshot.ores().revision(), write.message(), true);
             }
-            return new ServiceResult(ActionStatus.ACCEPTED, snapshot.ores().revision(),
-                    localized("message.delvefold.import.profile_created", attempt.targetProfileId()), true);
+            return new ServiceResult(
+                    ActionStatus.ACCEPTED,
+                    snapshot.ores().revision(),
+                    localized("message.delvefold.import.profile_created", attempt.targetProfileId()),
+                    true);
         } catch (IOException | IllegalArgumentException exception) {
-            return new ServiceResult(ActionStatus.REJECTED, snapshot.ores().revision(),
-                    localized("message.delvefold.import.profile_failed", exception.getMessage()), true);
+            return new ServiceResult(
+                    ActionStatus.REJECTED,
+                    snapshot.ores().revision(),
+                    localized("message.delvefold.import.profile_failed", exception.getMessage()),
+                    true);
         } catch (RuntimeException exception) {
-            LOGGER.warn("Ore import profile creation failed for {}", player.getGameProfile().getName(), exception);
-            return new ServiceResult(ActionStatus.ERROR, snapshot.ores().revision(),
-                    localized("message.delvefold.import.profile_internal_error"), false);
+            LOGGER.warn(
+                    "Ore import profile creation failed for {}",
+                    player.getGameProfile().getName(),
+                    exception);
+            return new ServiceResult(
+                    ActionStatus.ERROR,
+                    snapshot.ores().revision(),
+                    localized("message.delvefold.import.profile_internal_error"),
+                    false);
         }
     }
 
     private static ImportContext context() {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
-        MinecraftOreImportRegistry.CachedSnapshot registrySnapshot =
-                MinecraftOreImportRegistry.cachedSnapshot();
+        MinecraftOreImportRegistry.CachedSnapshot registrySnapshot = MinecraftOreImportRegistry.cachedSnapshot();
         SnapshotBinding binding = new SnapshotBinding(
                 snapshot.ores().revision(),
                 registrySnapshot.fingerprint(),
@@ -184,8 +188,7 @@ public final class OreImportAdminService {
     }
 
     private static ActionStatus status(OreImportSessionService.Status status) {
-        return status == OreImportSessionService.Status.REVISION_CHANGED
-                ? ActionStatus.STALE : ActionStatus.REJECTED;
+        return status == OreImportSessionService.Status.REVISION_CHANGED ? ActionStatus.STALE : ActionStatus.REJECTED;
     }
 
     private static String message(OreImportSessionService.Status status) {
@@ -193,7 +196,7 @@ public final class OreImportAdminService {
             case ACCEPTED -> localized("message.delvefold.import.session.accepted");
             case RATE_LIMITED -> localized("message.delvefold.import.rate_limited");
             case NO_ACTIVE_SCAN, NO_ACTIVE_PREVIEW, INVALID_TOKEN, EXPIRED ->
-                    localized("message.delvefold.import.session.expired");
+                localized("message.delvefold.import.session.expired");
             case REVISION_CHANGED -> localized("message.delvefold.import.session.revision_changed");
             case REGISTRY_CHANGED -> localized("message.delvefold.import.session.registry_changed");
             case BASE_CHANGED -> localized("message.delvefold.import.session.base_changed");
@@ -212,8 +215,7 @@ public final class OreImportAdminService {
         }
     }
 
-    private record ImportContext(MinecraftOreImportRegistry registry, SnapshotBinding binding) {
-    }
+    private record ImportContext(MinecraftOreImportRegistry registry, SnapshotBinding binding) {}
 
     public record ViewResult<T>(ActionStatus status, String message, T view) {
         public ViewResult {

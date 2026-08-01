@@ -20,12 +20,15 @@ class SeamLedgerContentTest {
         JsonObject recipe = resource("/data/delvefold/recipe/seam_ledger.json");
         assertEquals("minecraft:crafting_shapeless", recipe.get("type").getAsString());
         assertEquals("misc", recipe.get("category").getAsString());
-        assertEquals("delvefold:seam_ledger", recipe.getAsJsonObject("result").get("id").getAsString());
+        assertEquals(
+                "delvefold:seam_ledger",
+                recipe.getAsJsonObject("result").get("id").getAsString());
         assertEquals(1, recipe.getAsJsonObject("result").get("count").getAsInt());
 
         Set<String> ingredients = new HashSet<>();
         JsonArray ingredientArray = recipe.getAsJsonArray("ingredients");
-        ingredientArray.forEach(element -> ingredients.add(element.getAsJsonObject().get("item").getAsString()));
+        ingredientArray.forEach(
+                element -> ingredients.add(element.getAsJsonObject().get("item").getAsString()));
         assertEquals(Set.of("minecraft:book", "minecraft:compass", "minecraft:copper_ingot"), ingredients);
         assertEquals(3, ingredientArray.size());
     }
@@ -34,7 +37,8 @@ class SeamLedgerContentTest {
     void modelReusesTheVanillaWritableBookTexture() {
         JsonObject model = resource("/assets/delvefold/models/item/seam_ledger.json");
         assertEquals("minecraft:item/generated", model.get("parent").getAsString());
-        assertEquals("minecraft:item/writable_book",
+        assertEquals(
+                "minecraft:item/writable_book",
                 model.getAsJsonObject("textures").get("layer0").getAsString());
     }
 
@@ -43,15 +47,20 @@ class SeamLedgerContentTest {
         JsonObject obtain = resource("/data/delvefold/advancement/obtain_seam_ledger.json");
         assertEquals("delvefold:root", obtain.get("parent").getAsString());
         JsonObject obtainCriterion = obtain.getAsJsonObject("criteria").getAsJsonObject("obtain");
-        assertEquals("minecraft:inventory_changed", obtainCriterion.get("trigger").getAsString());
-        String requiredItem = obtainCriterion.getAsJsonObject("conditions")
-                .getAsJsonArray("items").get(0).getAsJsonObject().get("items").getAsString();
+        assertEquals(
+                "minecraft:inventory_changed", obtainCriterion.get("trigger").getAsString());
+        String requiredItem = obtainCriterion
+                .getAsJsonObject("conditions")
+                .getAsJsonArray("items")
+                .get(0)
+                .getAsJsonObject()
+                .get("items")
+                .getAsString();
         assertEquals("delvefold:seam_ledger", requiredItem);
 
         JsonObject consult = resource("/data/delvefold/advancement/consult_seam_ledger.json");
         assertEquals("delvefold:obtain_seam_ledger", consult.get("parent").getAsString());
-        JsonObject consultCriterion = consult.getAsJsonObject("criteria")
-                .getAsJsonObject("consult");
+        JsonObject consultCriterion = consult.getAsJsonObject("criteria").getAsJsonObject("consult");
         assertNotNull(consultCriterion);
         assertEquals("minecraft:impossible", consultCriterion.get("trigger").getAsString());
     }

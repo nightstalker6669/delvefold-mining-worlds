@@ -62,12 +62,9 @@ record BackupScreenLayout(
         }
 
         int available = Math.max(0, listBottom - listTop);
-        int pageSize = available < rowHeight
-                ? 1
-                : Math.min(MAX_PAGE_SIZE, 1 + (available - rowHeight) / rowStep);
+        int pageSize = available < rowHeight ? 1 : Math.min(MAX_PAGE_SIZE, 1 + (available - rowHeight) / rowStep);
         return new BackupScreenLayout(
-                listX, listTop, listWidth, listBottom, footerTop, footerY,
-                rowHeight, rowStep, pageSize, mode);
+                listX, listTop, listWidth, listBottom, footerTop, footerY, rowHeight, rowStep, pageSize, mode);
     }
 
     /** Mirrors {@link DelvefoldScreen}'s panel sizing without requiring a Minecraft client. */
@@ -95,8 +92,7 @@ record BackupScreenLayout(
         return switch (this.actionMode) {
             case INLINE -> inlineActionBounds(row, action);
             case STACKED -> distributedActionBounds(row, action, 4, rowY(row) + 23);
-            case GRID -> distributedActionBounds(row, action % 2, 2,
-                    rowY(row) + 23 + (action / 2) * 24);
+            case GRID -> distributedActionBounds(row, action % 2, 2, rowY(row) + 23 + (action / 2) * 24);
         };
     }
 
@@ -119,13 +115,13 @@ record BackupScreenLayout(
                 ? new Bounds(left + 142, this.footerY, FOOTER_NATURAL_WIDTHS[2], FOOTER_BUTTON_HEIGHT)
                 : null;
         Bounds cancel = showCancel
-                ? new Bounds(right - FOOTER_NATURAL_WIDTHS[3], this.footerY,
-                        FOOTER_NATURAL_WIDTHS[3], FOOTER_BUTTON_HEIGHT)
+                ? new Bounds(
+                        right - FOOTER_NATURAL_WIDTHS[3], this.footerY, FOOTER_NATURAL_WIDTHS[3], FOOTER_BUTTON_HEIGHT)
                 : null;
 
         Bounds lastNavigation = showPagination ? next : back;
-        boolean naturalFits = lastNavigation.right() <= right
-                && (cancel == null || lastNavigation.right() + 6 <= cancel.x());
+        boolean naturalFits =
+                lastNavigation.right() <= right && (cancel == null || lastNavigation.right() + 6 <= cancel.x());
         if (naturalFits) {
             return new Footer(back, previous, next, cancel, false, false);
         }
@@ -145,11 +141,15 @@ record BackupScreenLayout(
 
         Bounds[] navigation = showPagination
                 ? distributedBounds(left, width, this.footerY, 3, 4, FOOTER_BUTTON_HEIGHT)
-                : new Bounds[] {new Bounds(left, this.footerY,
-                        Math.min(width, FOOTER_NATURAL_WIDTHS[0]), FOOTER_BUTTON_HEIGHT)};
+                : new Bounds[] {
+                    new Bounds(left, this.footerY, Math.min(width, FOOTER_NATURAL_WIDTHS[0]), FOOTER_BUTTON_HEIGHT)
+                };
         Bounds wrappedCancel = showCancel
-                ? new Bounds(right - Math.min(width, FOOTER_NATURAL_WIDTHS[3]), this.footerY - 24,
-                        Math.min(width, FOOTER_NATURAL_WIDTHS[3]), FOOTER_BUTTON_HEIGHT)
+                ? new Bounds(
+                        right - Math.min(width, FOOTER_NATURAL_WIDTHS[3]),
+                        this.footerY - 24,
+                        Math.min(width, FOOTER_NATURAL_WIDTHS[3]),
+                        FOOTER_BUTTON_HEIGHT)
                 : null;
         return new Footer(
                 navigation[0],
@@ -172,8 +172,7 @@ record BackupScreenLayout(
         return distributedBounds(this.listX, this.listWidth, y, columns, GAP, BUTTON_HEIGHT)[column];
     }
 
-    private static Bounds[] compactFooterBounds(
-            int left, int width, int y, int[] actions, int gap) {
+    private static Bounds[] compactFooterBounds(int left, int width, int y, int[] actions, int gap) {
         int[] widths = new int[actions.length];
         int used = gap * (actions.length - 1);
         for (int index = 0; index < actions.length; index++) {
@@ -204,8 +203,7 @@ record BackupScreenLayout(
         return result;
     }
 
-    private static Footer footerFrom(
-            int[] actions, Bounds[] bounds, boolean wrapped, boolean compact) {
+    private static Footer footerFrom(int[] actions, Bounds[] bounds, boolean wrapped, boolean compact) {
         Bounds[] byAction = new Bounds[FOOTER_NATURAL_WIDTHS.length];
         for (int index = 0; index < actions.length; index++) {
             byAction[actions[index]] = bounds[index];
@@ -213,8 +211,7 @@ record BackupScreenLayout(
         return new Footer(byAction[0], byAction[1], byAction[2], byAction[3], wrapped, compact);
     }
 
-    private static Bounds[] distributedBounds(
-            int left, int width, int y, int columns, int gap, int height) {
+    private static Bounds[] distributedBounds(int left, int width, int y, int columns, int gap, int height) {
         int available = width - gap * (columns - 1);
         int baseWidth = available / columns;
         int remainder = available % columns;
@@ -241,14 +238,7 @@ record BackupScreenLayout(
         GRID
     }
 
-    record Footer(
-            Bounds back,
-            Bounds previous,
-            Bounds next,
-            Bounds cancel,
-            boolean wrapped,
-            boolean compact) {
-    }
+    record Footer(Bounds back, Bounds previous, Bounds next, Bounds cancel, boolean wrapped, boolean compact) {}
 
     record Bounds(int x, int y, int width, int height) {
         int right() {
@@ -260,8 +250,10 @@ record BackupScreenLayout(
         }
 
         boolean overlaps(Bounds other) {
-            return this.x < other.right() && this.right() > other.x
-                    && this.y < other.bottom() && this.bottom() > other.y;
+            return this.x < other.right()
+                    && this.right() > other.x
+                    && this.y < other.bottom()
+                    && this.bottom() > other.y;
         }
     }
 }

@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 public final class GuideLimits {
     /** Leaves headroom below Minecraft's custom-payload ceiling for codec overhead. */
     public static final int MAX_ESTIMATED_NETWORK_BYTES = 24 * 1024;
+
     public static final int MAX_WORLD_NAME_CHARACTERS = 64;
     public static final int MAX_IDENTIFIER_CHARACTERS = 128;
     public static final int MAX_ORE_ENTRIES = 96;
@@ -15,8 +16,7 @@ public final class GuideLimits {
     public static final int MAX_BIOME_SELECTORS_PER_LIST = 16;
     public static final long MAX_RENEWAL_COUNTDOWN_SECONDS = 3650L * 86_400L;
 
-    private GuideLimits() {
-    }
+    private GuideLimits() {}
 
     static String boundedText(String value, int maximumCharacters) {
         String source = value == null ? "" : value.trim();

@@ -15,18 +15,16 @@ import java.util.regex.Pattern;
 public final class EcosystemProfileRegistry {
     public static final int MAX_PROFILE_BYTES = 256 * 1024;
     private static final System.Logger LOGGER = System.getLogger(EcosystemProfileRegistry.class.getName());
-    private static final Pattern PROFILE_ID = Pattern.compile(
-            "(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+");
-    private static final AtomicReference<Map<String, RegisteredProfile>> DATAPACKS =
-            new AtomicReference<>(Map.of());
+    private static final Pattern PROFILE_ID = Pattern.compile("(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+");
+    private static final AtomicReference<Map<String, RegisteredProfile>> DATAPACKS = new AtomicReference<>(Map.of());
     private static final Map<String, RegisteredProfile> SCRIPTS = new ConcurrentHashMap<>();
 
-    private EcosystemProfileRegistry() {
-    }
+    private EcosystemProfileRegistry() {}
 
     public static Map<String, RegisteredProfile> profiles() {
         Map<String, RegisteredProfile> merged = new LinkedHashMap<>(DATAPACKS.get());
-        SCRIPTS.entrySet().stream().sorted(Map.Entry.comparingByKey())
+        SCRIPTS.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> merged.put(entry.getKey(), entry.getValue()));
         return Map.copyOf(merged);
     }
@@ -42,17 +40,14 @@ public final class EcosystemProfileRegistry {
         String safeId = validateNamespacedProfileId(id);
         OreProfileDocument document = parseProfile(safeId, json);
         SCRIPTS.put(safeId, new RegisteredProfile(document, "script:" + safeOwner));
-        LOGGER.log(System.Logger.Level.INFO,
-                "Registered Delvefold script profile {0} from {1}", safeId, safeOwner);
+        LOGGER.log(System.Logger.Level.INFO, "Registered Delvefold script profile {0} from {1}", safeId, safeOwner);
     }
 
     public static boolean unregisterScriptProfile(String owner, String id) {
         String safeOwner = validateOwner(owner);
         String safeId = validateNamespacedProfileId(id);
         RegisteredProfile existing = SCRIPTS.get(safeId);
-        return existing != null
-                && existing.source().equals("script:" + safeOwner)
-                && SCRIPTS.remove(safeId, existing);
+        return existing != null && existing.source().equals("script:" + safeOwner) && SCRIPTS.remove(safeId, existing);
     }
 
     public static String validateProfileId(String id) {
@@ -68,7 +63,8 @@ public final class EcosystemProfileRegistry {
     private static String validateNamespacedProfileId(String id) {
         String normalized = validateProfileId(id);
         if (!normalized.contains(":")) {
-            throw new IllegalArgumentException("Ecosystem profile IDs must be namespaced (example: packname:rich_ores)");
+            throw new IllegalArgumentException(
+                    "Ecosystem profile IDs must be namespaced (example: packname:rich_ores)");
         }
         return normalized;
     }
@@ -89,8 +85,8 @@ public final class EcosystemProfileRegistry {
         try {
             JsonElement parsed = StrictConfigStructure.parseAndValidate(json, OreProfileDocument.class);
             OreProfileDocument decoded = ConfigJson.GSON.fromJson(parsed, OreProfileDocument.class);
-            OreProfileDocument normalized = new OreProfileDocument(
-                    OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, id, decoded.rules());
+            OreProfileDocument normalized =
+                    new OreProfileDocument(OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, id, decoded.rules());
             var validation = OreConfigValidator.validate(normalized, RegistryLookup.SKIP);
             if (!validation.valid()) {
                 throw new IllegalArgumentException("Profile validation failed: " + validation.issues());
@@ -118,5 +114,4 @@ public final class EcosystemProfileRegistry {
             source = source == null || source.isBlank() ? "unknown" : source;
         }
     }
-
 }

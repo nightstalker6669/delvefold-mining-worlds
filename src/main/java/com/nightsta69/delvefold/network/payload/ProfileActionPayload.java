@@ -14,9 +14,10 @@ public record ProfileActionPayload(
         String sourceId,
         String targetId,
         String json,
-        boolean overwrite) implements CustomPacketPayload {
-    public static final Type<ProfileActionPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "profile_action"));
+        boolean overwrite)
+        implements CustomPacketPayload {
+    public static final Type<ProfileActionPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "profile_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ProfileActionPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeLong(payload.expectedOreRevision());
@@ -26,7 +27,8 @@ public record ProfileActionPayload(
                 DelvefoldStreamCodecs.writeString(buffer, payload.json(), ProtocolLimits.MAX_PROFILE_CLIPBOARD_CHARS);
                 buffer.writeBoolean(payload.overwrite());
             },
-            buffer -> new ProfileActionPayload(buffer.readLong(),
+            buffer -> new ProfileActionPayload(
+                    buffer.readLong(),
                     DelvefoldStreamCodecs.readEnum(buffer, ProfileOperation.class),
                     DelvefoldStreamCodecs.readString(buffer, ProtocolLimits.ID_LENGTH),
                     DelvefoldStreamCodecs.readString(buffer, ProtocolLimits.ID_LENGTH),

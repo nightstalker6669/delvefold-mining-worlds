@@ -12,8 +12,7 @@ public final class DelvefoldPortalTravelEvent extends Event implements ICancella
     private final ResourceKey<Level> source;
     private final ResourceKey<Level> destination;
 
-    public DelvefoldPortalTravelEvent(ServerPlayer player, ResourceKey<Level> source,
-            ResourceKey<Level> destination) {
+    public DelvefoldPortalTravelEvent(ServerPlayer player, ResourceKey<Level> source, ResourceKey<Level> destination) {
         this.player = java.util.Objects.requireNonNull(player, "player");
         this.source = java.util.Objects.requireNonNull(source, "source");
         this.destination = java.util.Objects.requireNonNull(destination, "destination");

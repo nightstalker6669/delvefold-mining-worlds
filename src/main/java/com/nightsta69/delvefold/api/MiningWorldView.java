@@ -10,5 +10,4 @@ public record MiningWorldView(
         String terrainVariant,
         String activeProfileId,
         long generationEpoch,
-        boolean renewalEnabled) {
-}
+        boolean renewalEnabled) {}

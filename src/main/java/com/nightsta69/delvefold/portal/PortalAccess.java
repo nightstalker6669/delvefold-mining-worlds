@@ -27,8 +27,7 @@ final class PortalAccess {
     private static final long MESSAGE_INTERVAL_TICKS = 40L;
     private static final Map<UUID, Long> LAST_MESSAGE_TICK = new ConcurrentHashMap<>();
 
-    private PortalAccess() {
-    }
+    private PortalAccess() {}
 
     static Result forIgnition(ServerLevel source, ServerPlayer player) {
         ConfigSnapshot snapshot = snapshot();
@@ -36,9 +35,10 @@ final class PortalAccess {
             return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
         }
         if (!snapshot.settings().initialized()) {
-            return Result.denied(AdminAccess.canConfigure(player)
-                    ? Component.translatable("message.delvefold.portal.uninitialized_admin")
-                    : Component.translatable("message.delvefold.portal.uninitialized_player"));
+            return Result.denied(
+                    AdminAccess.canConfigure(player)
+                            ? Component.translatable("message.delvefold.portal.uninitialized_admin")
+                            : Component.translatable("message.delvefold.portal.uninitialized_player"));
         }
         if (!AdminAccess.canUsePortal(player)) {
             return Result.denied(Component.translatable("message.delvefold.portal.permission_denied"));
@@ -46,8 +46,12 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
-        return resolveDestination(source, snapshot.settings().terrainMode(),
-                snapshot.settings().identity().terrainVariant(), snapshot.settings().portal(), true);
+        return resolveDestination(
+                source,
+                snapshot.settings().terrainMode(),
+                snapshot.settings().identity().terrainVariant(),
+                snapshot.settings().portal(),
+                true);
     }
 
     static Result forTransition(ServerLevel source, ServerPlayer player) {
@@ -62,9 +66,10 @@ final class PortalAccess {
             return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
         }
         if (!snapshot.settings().initialized()) {
-            return Result.denied(AdminAccess.canConfigure(player)
-                    ? Component.translatable("message.delvefold.portal.uninitialized_admin")
-                    : Component.translatable("message.delvefold.portal.uninitialized_player"));
+            return Result.denied(
+                    AdminAccess.canConfigure(player)
+                            ? Component.translatable("message.delvefold.portal.uninitialized_admin")
+                            : Component.translatable("message.delvefold.portal.uninitialized_player"));
         }
         if (!AdminAccess.canUsePortal(player)) {
             return Result.denied(Component.translatable("message.delvefold.portal.permission_denied"));
@@ -72,8 +77,12 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
-        return resolveDestination(source, snapshot.settings().terrainMode(),
-                snapshot.settings().identity().terrainVariant(), snapshot.settings().portal(), true);
+        return resolveDestination(
+                source,
+                snapshot.settings().terrainMode(),
+                snapshot.settings().identity().terrainVariant(),
+                snapshot.settings().portal(),
+                true);
     }
 
     static int cooldownTicks(PortalSettings settings) {
@@ -130,8 +139,7 @@ final class PortalAccess {
         return Result.allowed(target, settings, false);
     }
 
-    @Nullable
-    private static ConfigSnapshot snapshot() {
+    @Nullable private static ConfigSnapshot snapshot() {
         try {
             return DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {
@@ -141,7 +149,9 @@ final class PortalAccess {
 
     private static PortalSettings settingsOrDefault() {
         ConfigSnapshot snapshot = snapshot();
-        return snapshot == null ? PortalSettings.defaults() : snapshot.settings().portal();
+        return snapshot == null
+                ? PortalSettings.defaults()
+                : snapshot.settings().portal();
     }
 
     record Result(

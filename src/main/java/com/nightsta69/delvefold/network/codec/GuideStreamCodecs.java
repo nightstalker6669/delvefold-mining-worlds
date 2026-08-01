@@ -16,8 +16,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Strict bounded codec for the public Seam Ledger snapshot. */
 public final class GuideStreamCodecs {
-    private GuideStreamCodecs() {
-    }
+    private GuideStreamCodecs() {}
 
     public static void write(RegistryFriendlyByteBuf buffer, GuideSnapshot snapshot) {
         if (snapshot.formatVersion() != GuideSnapshot.CURRENT_FORMAT_VERSION) {
@@ -99,25 +98,30 @@ public final class GuideStreamCodecs {
             writeString(buffer, output.sourceId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
             writeString(buffer, output.iconBlockId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
-        writeCount(buffer, ore.applicability().terrains().size(), GuideLimits.MAX_APPLICABLE_TERRAINS,
-                "guide terrains");
+        writeCount(
+                buffer, ore.applicability().terrains().size(), GuideLimits.MAX_APPLICABLE_TERRAINS, "guide terrains");
         for (String terrain : ore.applicability().terrains()) {
             writeString(buffer, terrain, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
         buffer.writeBoolean(ore.applicability().appliesToActiveTerrain());
         buffer.writeBoolean(ore.applicability().biomeFiltered());
-        writeCount(buffer, ore.applicability().biomeIncludes().size(),
-                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST, "guide biome includes");
+        writeCount(
+                buffer,
+                ore.applicability().biomeIncludes().size(),
+                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                "guide biome includes");
         for (String selector : ore.applicability().biomeIncludes()) {
             writeString(buffer, selector, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
-        writeCount(buffer, ore.applicability().biomeExcludes().size(),
-                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST, "guide biome excludes");
+        writeCount(
+                buffer,
+                ore.applicability().biomeExcludes().size(),
+                GuideLimits.MAX_BIOME_SELECTORS_PER_LIST,
+                "guide biome excludes");
         for (String selector : ore.applicability().biomeExcludes()) {
             writeString(buffer, selector, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         }
-        writeCount(buffer, ore.heightBands().size(), GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY,
-                "guide height bands");
+        writeCount(buffer, ore.heightBands().size(), GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY, "guide height bands");
         for (HeightBand band : ore.heightBands()) {
             writeString(buffer, band.bandId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
             writeString(buffer, band.distribution(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
@@ -166,8 +170,8 @@ public final class GuideStreamCodecs {
             biomeExcludes.add(readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS));
             ensureDecodeBudget(buffer, startIndex);
         }
-        Applicability applicability = new Applicability(
-                terrains, activeTerrain, biomeFiltered, biomeIncludes, biomeExcludes);
+        Applicability applicability =
+                new Applicability(terrains, activeTerrain, biomeFiltered, biomeIncludes, biomeExcludes);
         int bandCount = readCount(buffer, GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY, "guide height bands");
         ensureDecodeBudget(buffer, startIndex);
         List<HeightBand> bands = new ArrayList<>(bandCount);
@@ -175,7 +179,11 @@ public final class GuideStreamCodecs {
             bands.add(new HeightBand(
                     readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS),
                     readString(buffer, GuideLimits.MAX_IDENTIFIER_CHARACTERS),
-                    buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readInt(), buffer.readVarInt()));
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readVarInt()));
             ensureDecodeBudget(buffer, startIndex);
         }
         RelativeFrequency frequency = readEnum(buffer, RelativeFrequency.class);
@@ -227,8 +235,8 @@ public final class GuideStreamCodecs {
     private static void ensureDecodeBudget(RegistryFriendlyByteBuf buffer, int startIndex) {
         int consumed = buffer.readerIndex() - startIndex;
         if (consumed < 0 || consumed > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
-            throw new IllegalArgumentException("Guide payload exceeds its "
-                    + GuideLimits.MAX_ESTIMATED_NETWORK_BYTES + " byte decode budget");
+            throw new IllegalArgumentException(
+                    "Guide payload exceeds its " + GuideLimits.MAX_ESTIMATED_NETWORK_BYTES + " byte decode budget");
         }
     }
 }

@@ -15,18 +15,12 @@ import java.util.stream.Stream;
 final class RestoreConfigSnapshot {
     static final String COMPLETE_MARKER = ".config-complete";
     private static final String STAGING_DIRECTORY = ".config-staging";
-    private static final Set<String> TRANSIENT_CONFIG_FILES = Set.of(
-            "pending_restore.json",
-            "pending_world_operation.json",
-            "config_transaction.json");
-    private static final Set<String> OPERATIONAL_CONFIG_DIRECTORIES = Set.of(
-            "audit",
-            "exports",
-            "imports",
-            "world_operations");
+    private static final Set<String> TRANSIENT_CONFIG_FILES =
+            Set.of("pending_restore.json", "pending_world_operation.json", "config_transaction.json");
+    private static final Set<String> OPERATIONAL_CONFIG_DIRECTORIES =
+            Set.of("audit", "exports", "imports", "world_operations");
 
-    private RestoreConfigSnapshot() {
-    }
+    private RestoreConfigSnapshot() {}
 
     static void capture(Path sourceDirectory, Path preRestoreRoot) throws IOException {
         Path source = checkedDirectory(sourceDirectory, "configuration source");
@@ -35,8 +29,10 @@ final class RestoreConfigSnapshot {
         Path destination = root.resolve("config/serverconfig/delvefold");
         ensureSafeAncestors(root, destination.getParent());
         if (Files.exists(marker) || Files.isSymbolicLink(marker)) {
-            if (Files.isSymbolicLink(marker) || !Files.isRegularFile(marker)
-                    || Files.isSymbolicLink(destination) || !Files.isDirectory(destination)) {
+            if (Files.isSymbolicLink(marker)
+                    || !Files.isRegularFile(marker)
+                    || Files.isSymbolicLink(destination)
+                    || !Files.isDirectory(destination)) {
                 throw new IOException("Pre-restore configuration completion marker is inconsistent");
             }
             return;
@@ -48,8 +44,8 @@ final class RestoreConfigSnapshot {
         copyTree(source, staging);
         Files.createDirectories(destination.getParent());
         move(staging, destination);
-        Files.writeString(marker, "complete\n", StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        Files.writeString(
+                marker, "complete\n", StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
     }
 
     /** Installs only restorable configuration while preserving live operational history. */
@@ -102,7 +98,10 @@ final class RestoreConfigSnapshot {
                         throw new IOException("Configuration snapshot destination contains a non-regular file");
                     }
                     Files.createDirectories(destination.getParent());
-                    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING,
+                    Files.copy(
+                            source,
+                            destination,
+                            StandardCopyOption.REPLACE_EXISTING,
                             StandardCopyOption.COPY_ATTRIBUTES);
                 } else {
                     throw new IOException("Configuration snapshot source contains a non-regular file");
@@ -147,8 +146,7 @@ final class RestoreConfigSnapshot {
         Path current = root;
         for (Path part : root.relativize(target)) {
             current = current.resolve(part);
-            if (Files.isSymbolicLink(current)
-                    || (Files.exists(current) && !Files.isDirectory(current))) {
+            if (Files.isSymbolicLink(current) || (Files.exists(current) && !Files.isDirectory(current))) {
                 throw new IOException("Pre-restore configuration path contains an unsafe ancestor");
             }
         }

@@ -19,9 +19,8 @@ import java.util.UUID;
 /**
  * Owns the short-lived, server-authoritative state for the guided ore importer.
  *
- * <p>Only opaque random tokens leave this service. Discovery results and plans
- * stay server-side and are bound to their owner and the exact configuration and
- * registry state from which they were produced.</p>
+ * <p>Only opaque random tokens leave this service. Discovery results and plans stay server-side and are bound to their
+ * owner and the exact configuration and registry state from which they were produced.
  */
 public final class OreImportSessionService {
     public static final Duration SESSION_TTL = Duration.ofMinutes(5);
@@ -55,9 +54,9 @@ public final class OreImportSessionService {
     }
 
     /**
-     * Atomically rate-limits and reserves one registry scan for a player.
-     * Callers must receive an accepted result before doing discovery and then
-     * complete the reservation through {@link #issueScan(UUID, SnapshotBinding, OreImportModels.DiscoveryResult)}.
+     * Atomically rate-limits and reserves one registry scan for a player. Callers must receive an accepted result
+     * before doing discovery and then complete the reservation through {@link #issueScan(UUID, SnapshotBinding,
+     * OreImportModels.DiscoveryResult)}.
      */
     public ScanAdmission mayIssueScan(UUID owner) {
         Objects.requireNonNull(owner, "owner");
@@ -75,19 +74,14 @@ public final class OreImportSessionService {
     }
 
     /** Starts a fresh scan and invalidates every older import token owned by the player. */
-    public IssuedScan issueScan(
-            UUID owner,
-            SnapshotBinding binding,
-            OreImportModels.DiscoveryResult discovery
-    ) {
+    public IssuedScan issueScan(UUID owner, SnapshotBinding binding, OreImportModels.DiscoveryResult discovery) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(binding, "binding");
         Objects.requireNonNull(discovery, "discovery");
         synchronized (lock) {
             long now = clock.millis();
             Long admittedAt = scanAdmissions.remove(owner);
-            if (admittedAt == null || now < admittedAt
-                    || expired(expiresAt(admittedAt, SESSION_TTL), now)) {
+            if (admittedAt == null || now < admittedAt || expired(expiresAt(admittedAt, SESSION_TTL), now)) {
                 throw new IllegalStateException("Ore-import discovery was not admitted or its admission expired");
             }
             long expiresAt = expiresAt(now, SESSION_TTL);
@@ -121,22 +115,16 @@ public final class OreImportSessionService {
                 previews.remove(owner);
                 return ScanAccess.rejected(state);
             }
-            return ScanAccess.accepted(new IssuedScan(
-                    scanToken, scan.expiresAtEpochMillis(), scan.discovery()));
+            return ScanAccess.accepted(new IssuedScan(scanToken, scan.expiresAtEpochMillis(), scan.discovery()));
         }
     }
 
     /**
-     * Creates or replaces a preview after verifying its scan token and current server state.
-     * Invalid previews may still be viewed, but their commit token is rejected as {@link Status#PLAN_INVALID}.
+     * Creates or replaces a preview after verifying its scan token and current server state. Invalid previews may still
+     * be viewed, but their commit token is rejected as {@link Status#PLAN_INVALID}.
      */
     public PreviewIssue issuePreview(
-            UUID owner,
-            String scanToken,
-            SnapshotBinding current,
-            PreviewRequest request,
-            OreImportModels.Plan plan
-    ) {
+            UUID owner, String scanToken, SnapshotBinding current, PreviewRequest request, OreImportModels.Plan plan) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(current, "current");
         Objects.requireNonNull(request, "request");
@@ -166,24 +154,18 @@ public final class OreImportSessionService {
 
             Token commitToken = issueUniqueToken();
             long expiresAt = expiresAt(now, SESSION_TTL);
-            PreviewSession preview = new PreviewSession(
-                    commitToken.digest(), expiresAt, scan.binding(), request, plan);
+            PreviewSession preview = new PreviewSession(commitToken.digest(), expiresAt, scan.binding(), request, plan);
             previews.put(owner, preview);
-            return PreviewIssue.accepted(new IssuedPreview(
-                    commitToken.value(), expiresAt, request, plan));
+            return PreviewIssue.accepted(new IssuedPreview(commitToken.value(), expiresAt, request, plan));
         }
     }
 
     /**
-     * Consumes a matching commit token before checking mutable server state.
-     * Consequently stale, invalid, and failed commit attempts cannot replay the token.
+     * Consumes a matching commit token before checking mutable server state. Consequently stale, invalid, and failed
+     * commit attempts cannot replay the token.
      */
     public CommitAttempt consumeCommit(
-            UUID owner,
-            String commitToken,
-            SnapshotBinding current,
-            String targetProfileId
-    ) {
+            UUID owner, String commitToken, SnapshotBinding current, String targetProfileId) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(current, "current");
         synchronized (lock) {
@@ -244,8 +226,8 @@ public final class OreImportSessionService {
                 scans.remove(owner);
                 return PreviewAccess.rejected(state);
             }
-            return PreviewAccess.accepted(new IssuedPreview(
-                    commitToken, preview.expiresAtEpochMillis(), preview.request(), preview.plan()));
+            return PreviewAccess.accepted(
+                    new IssuedPreview(commitToken, preview.expiresAtEpochMillis(), preview.request(), preview.plan()));
         }
     }
 
@@ -296,10 +278,7 @@ public final class OreImportSessionService {
     }
 
     private static boolean validRequest(
-            OreImportModels.DiscoveryResult discovery,
-            PreviewRequest request,
-            OreImportModels.Plan plan
-    ) {
+            OreImportModels.DiscoveryResult discovery, PreviewRequest request, OreImportModels.Plan plan) {
         if (!request.baseProfileId().equals(plan.baseProfileId())) {
             return false;
         }
@@ -346,7 +325,8 @@ public final class OreImportSessionService {
             if (!(character >= 'a' && character <= 'z')
                     && !(character >= 'A' && character <= 'Z')
                     && !(character >= '0' && character <= '9')
-                    && character != '-' && character != '_') {
+                    && character != '-'
+                    && character != '_') {
                 return false;
             }
         }
@@ -405,11 +385,7 @@ public final class OreImportSessionService {
         String nextToken();
     }
 
-    public record SnapshotBinding(
-            long expectedOreRevision,
-            String registryFingerprint,
-            String baseContentHash
-    ) {
+    public record SnapshotBinding(long expectedOreRevision, String registryFingerprint, String baseContentHash) {
         public SnapshotBinding {
             if (expectedOreRevision < 0L) {
                 throw new IllegalArgumentException("Expected ore revision cannot be negative");
@@ -423,15 +399,14 @@ public final class OreImportSessionService {
         public PreviewRequest {
             String normalizedProfile = normalizedProfileId(baseProfileId);
             if (normalizedProfile == null) {
-                throw new IllegalArgumentException("Base profile ID must contain 1-" + MAX_PROFILE_ID_LENGTH
-                        + " characters");
+                throw new IllegalArgumentException(
+                        "Base profile ID must contain 1-" + MAX_PROFILE_ID_LENGTH + " characters");
             }
             baseProfileId = normalizedProfile;
             Objects.requireNonNull(selectedGroupIds, "selectedGroupIds");
-            if (selectedGroupIds.isEmpty()
-                    || selectedGroupIds.size() > OreImportModels.MAX_SELECTED_GROUPS) {
-                throw new IllegalArgumentException("A preview must select 1-"
-                        + OreImportModels.MAX_SELECTED_GROUPS + " groups");
+            if (selectedGroupIds.isEmpty() || selectedGroupIds.size() > OreImportModels.MAX_SELECTED_GROUPS) {
+                throw new IllegalArgumentException(
+                        "A preview must select 1-" + OreImportModels.MAX_SELECTED_GROUPS + " groups");
             }
             List<String> normalizedGroups = new ArrayList<>(selectedGroupIds.size());
             Set<String> unique = new HashSet<>();
@@ -446,20 +421,10 @@ public final class OreImportSessionService {
         }
     }
 
-    public record IssuedScan(
-            String scanToken,
-            long expiresAtEpochMillis,
-            OreImportModels.DiscoveryResult discovery
-    ) {
-    }
+    public record IssuedScan(String scanToken, long expiresAtEpochMillis, OreImportModels.DiscoveryResult discovery) {}
 
     public record IssuedPreview(
-            String commitToken,
-            long expiresAtEpochMillis,
-            PreviewRequest request,
-            OreImportModels.Plan plan
-    ) {
-    }
+            String commitToken, long expiresAtEpochMillis, PreviewRequest request, OreImportModels.Plan plan) {}
 
     public record ScanAdmission(Status status, long admittedAtEpochMillis, long retryAtEpochMillis) {
         public ScanAdmission {
@@ -534,7 +499,8 @@ public final class OreImportSessionService {
         public PreviewIssue {
             Objects.requireNonNull(status, "status");
             if ((status == Status.ACCEPTED) != (preview != null)) {
-                throw new IllegalArgumentException("Accepted preview issues require a preview and rejections cannot include one");
+                throw new IllegalArgumentException(
+                        "Accepted preview issues require a preview and rejections cannot include one");
             }
         }
 
@@ -555,11 +521,7 @@ public final class OreImportSessionService {
     }
 
     public record CommitAttempt(
-            Status status,
-            PreviewRequest request,
-            OreImportModels.Plan plan,
-            String targetProfileId
-    ) {
+            Status status, PreviewRequest request, OreImportModels.Plan plan, String targetProfileId) {
         public CommitAttempt {
             Objects.requireNonNull(status, "status");
             boolean hasCommit = request != null || plan != null || targetProfileId != null;
@@ -571,8 +533,11 @@ public final class OreImportSessionService {
 
         public static CommitAttempt accepted(
                 PreviewRequest request, OreImportModels.Plan plan, String targetProfileId) {
-            return new CommitAttempt(Status.ACCEPTED, Objects.requireNonNull(request, "request"),
-                    Objects.requireNonNull(plan, "plan"), Objects.requireNonNull(targetProfileId, "targetProfileId"));
+            return new CommitAttempt(
+                    Status.ACCEPTED,
+                    Objects.requireNonNull(request, "request"),
+                    Objects.requireNonNull(plan, "plan"),
+                    Objects.requireNonNull(targetProfileId, "targetProfileId"));
         }
 
         public static CommitAttempt rejected(Status status) {
@@ -601,23 +566,18 @@ public final class OreImportSessionService {
         RATE_LIMITED
     }
 
-    private record Token(String value, byte[] digest) {
-    }
+    private record Token(String value, byte[] digest) {}
 
     private record ScanSession(
             byte[] tokenDigest,
             long expiresAtEpochMillis,
             SnapshotBinding binding,
-            OreImportModels.DiscoveryResult discovery
-    ) {
-    }
+            OreImportModels.DiscoveryResult discovery) {}
 
     private record PreviewSession(
             byte[] tokenDigest,
             long expiresAtEpochMillis,
             SnapshotBinding binding,
             PreviewRequest request,
-            OreImportModels.Plan plan
-    ) {
-    }
+            OreImportModels.Plan plan) {}
 }

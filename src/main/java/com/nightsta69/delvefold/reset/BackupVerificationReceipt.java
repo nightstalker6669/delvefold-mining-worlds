@@ -9,8 +9,7 @@ public record BackupVerificationReceipt(
         long manifestLastModifiedEpochMillis,
         long verifiedAtEpochMillis,
         int fileCount,
-        long totalBytes
-) {
+        long totalBytes) {
     public static final int CURRENT_SCHEMA_VERSION = 1;
     public static final String FILE_NAME = ".verification.json";
 
@@ -27,7 +26,6 @@ public record BackupVerificationReceipt(
             long verifiedAtEpochMillis,
             int fileCount,
             long totalBytes) {
-        this(schemaVersion, backupId, manifestSha256, -1L, -1L,
-                verifiedAtEpochMillis, fileCount, totalBytes);
+        this(schemaVersion, backupId, manifestSha256, -1L, -1L, verifiedAtEpochMillis, fileCount, totalBytes);
     }
 }

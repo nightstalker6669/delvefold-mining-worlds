@@ -17,8 +17,7 @@ public final class DelvefoldGuideService {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final GuideOpenAuthorizations OPEN_AUTHORIZATIONS = new GuideOpenAuthorizations();
 
-    private DelvefoldGuideService() {
-    }
+    private DelvefoldGuideService() {}
 
     public static OpenResult openFor(ServerPlayer player) {
         ConfigSnapshot config;
@@ -31,7 +30,7 @@ public final class DelvefoldGuideService {
         boolean operator = AdminAccess.canConfigure(player);
         if (!GuideAccessPolicy.allows(config.settings().guideVisibility(), operator)) {
             String key = config.settings().guideVisibility()
-                    == com.nightsta69.delvefold.config.model.GuideVisibility.DISABLED
+                            == com.nightsta69.delvefold.config.model.GuideVisibility.DISABLED
                     ? "message.delvefold.guide.disabled"
                     : "message.delvefold.guide.operators_only";
             return OpenResult.denied(Component.translatable(key));
@@ -39,7 +38,9 @@ public final class DelvefoldGuideService {
 
         try {
             GuideSnapshot snapshot = GuideSnapshotBuilder.build(
-                    config, System.currentTimeMillis(), WorldOperationService.get().isEntryBlocked());
+                    config,
+                    System.currentTimeMillis(),
+                    WorldOperationService.get().isEntryBlocked());
             long authorizationId = OPEN_AUTHORIZATIONS.issue(
                     player.getUUID(), player.getServer().getTickCount());
             try {
@@ -50,7 +51,10 @@ public final class DelvefoldGuideService {
             }
             return OpenResult.success();
         } catch (RuntimeException exception) {
-            LOGGER.error("Could not open the Delvefold guide for {}", player.getGameProfile().getName(), exception);
+            LOGGER.error(
+                    "Could not open the Delvefold guide for {}",
+                    player.getGameProfile().getName(),
+                    exception);
             return OpenResult.denied(Component.translatable("message.delvefold.guide.unavailable"));
         }
     }

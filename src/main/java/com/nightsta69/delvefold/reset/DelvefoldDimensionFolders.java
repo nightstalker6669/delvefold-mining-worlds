@@ -14,6 +14,5 @@ public final class DelvefoldDimensionFolders {
             "delve_wild_expansive");
     public static final Set<String> ALL_SET = Set.copyOf(ALL);
 
-    private DelvefoldDimensionFolders() {
-    }
+    private DelvefoldDimensionFolders() {}
 }

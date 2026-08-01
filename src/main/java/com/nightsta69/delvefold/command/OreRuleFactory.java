@@ -14,8 +14,7 @@ public final class OreRuleFactory {
     private static final String STONE_HOST = "minecraft:stone_ore_replaceables";
     private static final String DEEPSLATE_HOST = "minecraft:deepslate_ore_replaceables";
 
-    private OreRuleFactory() {
-    }
+    private OreRuleFactory() {}
 
     public static OreRule create(ResourceLocation selected, boolean detectVariants, Rarity rarity) {
         if (!BuiltInRegistries.BLOCK.containsKey(selected)) {
@@ -23,12 +22,13 @@ public final class OreRuleFactory {
         }
         List<OreTarget> targets = detectVariants ? detectTargets(selected) : List.of(exactTarget(selected));
         String id = uniqueSafeId(selected);
-        SpawnBand band = switch (rarity) {
-            case COMMON -> OreRuleTemplates.commonBand();
-            case UNCOMMON -> OreRuleTemplates.uncommonBand();
-            case RARE -> OreRuleTemplates.rareBand();
-            case VERY_RARE -> OreRuleTemplates.veryRareBand();
-        };
+        SpawnBand band =
+                switch (rarity) {
+                    case COMMON -> OreRuleTemplates.commonBand();
+                    case UNCOMMON -> OreRuleTemplates.uncommonBand();
+                    case RARE -> OreRuleTemplates.rareBand();
+                    case VERY_RARE -> OreRuleTemplates.veryRareBand();
+                };
         return OreRuleTemplates.optionalAllTerrain(id, targets, band);
     }
 

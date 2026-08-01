@@ -1,9 +1,9 @@
 package com.nightsta69.delvefold.reset;
 
 import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.audit.AuditMutation;
 import com.nightsta69.delvefold.audit.DelvefoldAuditService;
-import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.ConfigJson;
 import com.nightsta69.delvefold.config.ConfigPaths;
 import java.io.IOException;
@@ -36,106 +36,138 @@ public final class WorldRestoreService {
     private static final WorldRestoreService INSTANCE = new WorldRestoreService();
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long CONFIRMATION_WINDOW_MILLIS = 5L * 60L * 1000L;
-    private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss", Locale.ROOT)
-            .withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter TIMESTAMP =
+            DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss", Locale.ROOT).withZone(ZoneOffset.UTC);
     private static final List<String> DIMENSIONS = DelvefoldDimensionFolders.ALL;
     private final Object lock = new Object();
     private final AtomicBoolean entryBlocked = new AtomicBoolean(false);
     private Draft draft;
 
-    private WorldRestoreService() {
-    }
+    private WorldRestoreService() {}
 
     public static WorldRestoreService get() {
         return INSTANCE;
     }
 
     public WorldOperationPreview request(MinecraftServer server, String backupId, String requestedBy) {
-        return BackupDeletionGuard.get().coordinateRestoreRequest(server, backupId,
-                () -> LifecycleOperationCoordinator.coordinate(
-                        () -> requestUncoordinated(server, backupId, requestedBy)),
-                () -> WorldOperationPreview.rejected(localized(
-                        "message.delvefold.backup_delete.in_progress", backupId)));
+        return BackupDeletionGuard.get()
+                .coordinateRestoreRequest(
+                        server,
+                        backupId,
+                        () -> LifecycleOperationCoordinator.coordinate(
+                                () -> requestUncoordinated(server, backupId, requestedBy)),
+                        () -> WorldOperationPreview.rejected(
+                                localized("message.delvefold.backup_delete.in_progress", backupId)));
     }
 
-    private WorldOperationPreview requestUncoordinated(
-            MinecraftServer server, String backupId, String requestedBy) {
+    private WorldOperationPreview requestUncoordinated(MinecraftServer server, String backupId, String requestedBy) {
         synchronized (lock) {
             if (LifecycleOperationCoordinator.conflictingOperationExists(
-                    server, LifecycleOperationCoordinator.Kind.RESTORE)
+                            server, LifecycleOperationCoordinator.Kind.RESTORE)
                     || Files.exists(pendingPath(server))) {
-                return WorldOperationPreview.rejected(localized(
-                        "message.delvefold.restore.already_pending"));
+                return WorldOperationPreview.rejected(localized("message.delvefold.restore.already_pending"));
             }
             try {
                 WorldBackupCatalog catalog = new WorldBackupCatalog(saveRoot(server));
                 WorldBackupCatalog.BackupSummary summary = catalog.list().stream()
-                        .filter(candidate -> candidate.id().equals(backupId)).findFirst()
+                        .filter(candidate -> candidate.id().equals(backupId))
+                        .findFirst()
                         .orElse(null);
                 if (summary == null) {
-                    return WorldOperationPreview.rejected(localized(
-                            "message.delvefold.restore.unknown_backup", backupId));
+                    return WorldOperationPreview.rejected(
+                            localized("message.delvefold.restore.unknown_backup", backupId));
                 }
                 if (!summary.valid() || !summary.restorable()) {
-                    return WorldOperationPreview.rejected(summary.legacy()
-                            ? localized("message.delvefold.restore.legacy_requires_validation")
-                            : localized("message.delvefold.restore.manifest_required"));
+                    return WorldOperationPreview.rejected(
+                            summary.legacy()
+                                    ? localized("message.delvefold.restore.legacy_requires_validation")
+                                    : localized("message.delvefold.restore.manifest_required"));
                 }
                 String token = randomToken();
                 long expires = System.currentTimeMillis() + CONFIRMATION_WINDOW_MILLIS;
                 PendingWorldRestore operation = new PendingWorldRestore(
-                        PendingWorldRestore.CURRENT_SCHEMA_VERSION, UUID.randomUUID().toString(), backupId,
-                        PendingWorldRestore.Phase.REQUESTED, System.currentTimeMillis(), requestedBy);
-                draft = new Draft(saveRoot(server), token, expires, operation, summary.sizeBytes(),
+                        PendingWorldRestore.CURRENT_SCHEMA_VERSION,
+                        UUID.randomUUID().toString(),
+                        backupId,
+                        PendingWorldRestore.Phase.REQUESTED,
+                        System.currentTimeMillis(),
+                        requestedBy);
+                draft = new Draft(
+                        saveRoot(server),
+                        token,
+                        expires,
+                        operation,
+                        summary.sizeBytes(),
                         WorldOperationService.countMiningPlayersForOperation(server));
-                return new WorldOperationPreview(true,
+                return new WorldOperationPreview(
+                        true,
                         localized("message.delvefold.restore.preview"),
-                        token, expires, summary.sizeBytes(), draft.players(), BackupMode.KEEP_BACKUP);
+                        token,
+                        expires,
+                        summary.sizeBytes(),
+                        draft.players(),
+                        BackupMode.KEEP_BACKUP);
             } catch (IOException exception) {
-                return WorldOperationPreview.rejected(localized(
-                        "message.delvefold.restore.inspect_failed", exception.getMessage()));
+                return WorldOperationPreview.rejected(
+                        localized("message.delvefold.restore.inspect_failed", exception.getMessage()));
             }
         }
     }
 
     /** GUI path using an already cached summary, avoiding catalog parsing on the server thread. */
-    public WorldOperationPreview requestCached(MinecraftServer server, String backupId, String requestedBy,
-            WorldBackupCatalog.BackupSummary summary) {
-        return BackupDeletionGuard.get().coordinateRestoreRequest(server, backupId,
-                () -> LifecycleOperationCoordinator.coordinate(
-                        () -> requestCachedUncoordinated(server, backupId, requestedBy, summary)),
-                () -> WorldOperationPreview.rejected(localized(
-                        "message.delvefold.backup_delete.in_progress", backupId)));
+    public WorldOperationPreview requestCached(
+            MinecraftServer server, String backupId, String requestedBy, WorldBackupCatalog.BackupSummary summary) {
+        return BackupDeletionGuard.get()
+                .coordinateRestoreRequest(
+                        server,
+                        backupId,
+                        () -> LifecycleOperationCoordinator.coordinate(
+                                () -> requestCachedUncoordinated(server, backupId, requestedBy, summary)),
+                        () -> WorldOperationPreview.rejected(
+                                localized("message.delvefold.backup_delete.in_progress", backupId)));
     }
 
-    private WorldOperationPreview requestCachedUncoordinated(MinecraftServer server, String backupId,
-            String requestedBy, WorldBackupCatalog.BackupSummary summary) {
+    private WorldOperationPreview requestCachedUncoordinated(
+            MinecraftServer server, String backupId, String requestedBy, WorldBackupCatalog.BackupSummary summary) {
         synchronized (lock) {
             if (LifecycleOperationCoordinator.conflictingOperationExists(
-                    server, LifecycleOperationCoordinator.Kind.RESTORE)
+                            server, LifecycleOperationCoordinator.Kind.RESTORE)
                     || Files.exists(pendingPath(server))) {
-                return WorldOperationPreview.rejected(localized(
-                        "message.delvefold.restore.already_pending"));
+                return WorldOperationPreview.rejected(localized("message.delvefold.restore.already_pending"));
             }
             if (summary == null || !summary.id().equals(backupId)) {
-                return WorldOperationPreview.rejected(localized(
-                        "message.delvefold.restore.unknown_backup", backupId));
+                return WorldOperationPreview.rejected(localized("message.delvefold.restore.unknown_backup", backupId));
             }
             if (!summary.valid() || !summary.restorable()) {
-                return WorldOperationPreview.rejected(summary.legacy()
-                        ? localized("message.delvefold.restore.legacy_requires_validation")
-                        : localized("message.delvefold.restore.manifest_required"));
+                return WorldOperationPreview.rejected(
+                        summary.legacy()
+                                ? localized("message.delvefold.restore.legacy_requires_validation")
+                                : localized("message.delvefold.restore.manifest_required"));
             }
             String token = randomToken();
             long expires = System.currentTimeMillis() + CONFIRMATION_WINDOW_MILLIS;
             PendingWorldRestore operation = new PendingWorldRestore(
-                    PendingWorldRestore.CURRENT_SCHEMA_VERSION, UUID.randomUUID().toString(), backupId,
-                    PendingWorldRestore.Phase.REQUESTED, System.currentTimeMillis(), requestedBy);
-            draft = new Draft(saveRoot(server), token, expires, operation, summary.sizeBytes(),
+                    PendingWorldRestore.CURRENT_SCHEMA_VERSION,
+                    UUID.randomUUID().toString(),
+                    backupId,
+                    PendingWorldRestore.Phase.REQUESTED,
+                    System.currentTimeMillis(),
+                    requestedBy);
+            draft = new Draft(
+                    saveRoot(server),
+                    token,
+                    expires,
+                    operation,
+                    summary.sizeBytes(),
                     WorldOperationService.countMiningPlayersForOperation(server));
-            return new WorldOperationPreview(true,
+            return new WorldOperationPreview(
+                    true,
                     localized("message.delvefold.restore.preview"),
-                    token, expires, summary.sizeBytes(), draft.players(), BackupMode.KEEP_BACKUP);
+                    token,
+                    expires,
+                    summary.sizeBytes(),
+                    draft.players(),
+                    BackupMode.KEEP_BACKUP);
         }
     }
 
@@ -146,34 +178,31 @@ public final class WorldRestoreService {
     private WorldOperationResult confirmCoordinated(MinecraftServer server, String token) {
         synchronized (lock) {
             if (draft == null) {
-                return WorldOperationResult.failure(localized(
-                        "message.delvefold.restore.confirm.none"));
+                return WorldOperationResult.failure(localized("message.delvefold.restore.confirm.none"));
             }
             if (!draft.saveRoot().equals(saveRoot(server)) || System.currentTimeMillis() > draft.expiresAt()) {
                 draft = null;
-                return WorldOperationResult.failure(localized(
-                        "message.delvefold.restore.confirm.expired_or_mismatch"));
+                return WorldOperationResult.failure(localized("message.delvefold.restore.confirm.expired_or_mismatch"));
             }
             if (!constantTimeEquals(draft.token(), token)) {
-                return WorldOperationResult.failure(localized(
-                        "message.delvefold.restore.confirm.invalid"));
+                return WorldOperationResult.failure(localized("message.delvefold.restore.confirm.invalid"));
             }
             if (LifecycleOperationCoordinator.conflictingOperationExists(
                     server, LifecycleOperationCoordinator.Kind.RESTORE)) {
-                return WorldOperationResult.failure(localized(
-                        "message.delvefold.restore.already_pending"));
+                return WorldOperationResult.failure(localized("message.delvefold.restore.already_pending"));
             }
             try {
                 writePending(pendingPath(server), draft.operation());
                 entryBlocked.set(true);
                 WorldOperationService.evacuateMiningPlayersForOperation(server);
                 draft = null;
-                return WorldOperationResult.success(server.isDedicatedServer()
-                        ? localized("message.delvefold.restore.scheduled.dedicated")
-                        : localized("message.delvefold.restore.scheduled.integrated"));
+                return WorldOperationResult.success(
+                        server.isDedicatedServer()
+                                ? localized("message.delvefold.restore.scheduled.dedicated")
+                                : localized("message.delvefold.restore.scheduled.integrated"));
             } catch (IOException exception) {
-                return WorldOperationResult.failure(localized(
-                        "message.delvefold.restore.schedule_failed", exception.getMessage()));
+                return WorldOperationResult.failure(
+                        localized("message.delvefold.restore.schedule_failed", exception.getMessage()));
             }
         }
     }
@@ -188,19 +217,17 @@ public final class WorldRestoreService {
                 if (Files.exists(pendingPath(server))) {
                     Files.delete(pendingPath(server));
                     entryBlocked.set(false);
-                    return WorldOperationResult.success(localized(
-                            "message.delvefold.restore.cancel.pending_success"));
+                    return WorldOperationResult.success(localized("message.delvefold.restore.cancel.pending_success"));
                 }
                 if (draft != null) {
                     draft = null;
-                    return WorldOperationResult.success(localized(
-                            "message.delvefold.restore.cancel.unconfirmed_success"));
+                    return WorldOperationResult.success(
+                            localized("message.delvefold.restore.cancel.unconfirmed_success"));
                 }
-                return WorldOperationResult.failure(localized(
-                        "message.delvefold.restore.cancel.none"));
+                return WorldOperationResult.failure(localized("message.delvefold.restore.cancel.none"));
             } catch (IOException exception) {
-                return WorldOperationResult.failure(localized(
-                        "message.delvefold.restore.cancel.failed", exception.getMessage()));
+                return WorldOperationResult.failure(
+                        localized("message.delvefold.restore.cancel.failed", exception.getMessage()));
             }
         }
     }
@@ -222,8 +249,7 @@ public final class WorldRestoreService {
             if (draft == null) {
                 return false;
             }
-            if (!draft.saveRoot().equals(saveRoot(server))
-                    || System.currentTimeMillis() > draft.expiresAt()) {
+            if (!draft.saveRoot().equals(saveRoot(server)) || System.currentTimeMillis() > draft.expiresAt()) {
                 draft = null;
                 return false;
             }
@@ -304,7 +330,8 @@ public final class WorldRestoreService {
                     }
                     if (pending.phase() == PendingWorldRestore.Phase.STAGED) {
                         backupCurrent(server, preRestore, pending);
-                        auditBackupManifest(pending.requestedBy(), preRestore.getFileName().toString());
+                        auditBackupManifest(
+                                pending.requestedBy(), preRestore.getFileName().toString());
                         pending = advance(pendingPath, pending, PendingWorldRestore.Phase.CURRENT_BACKED_UP);
                     }
                     if (pending.phase() == PendingWorldRestore.Phase.CURRENT_BACKED_UP) {
@@ -318,8 +345,10 @@ public final class WorldRestoreService {
                         deleteTree(staging);
                         archivePending(server, pendingPath, pending);
                     } catch (IOException cleanupFailure) {
-                        LOGGER.warn("Delvefold restored the selected backup but could not finish cleanup; "
-                                + "cleanup will retry at the next startup", cleanupFailure);
+                        LOGGER.warn(
+                                "Delvefold restored the selected backup but could not finish cleanup; "
+                                        + "cleanup will retry at the next startup",
+                                cleanupFailure);
                     }
                 }
             } catch (Exception exception) {
@@ -333,21 +362,23 @@ public final class WorldRestoreService {
     private static void auditBackupManifest(String requestedBy, String backupId) {
         String actor = requestedBy == null || requestedBy.isBlank() ? "server" : requestedBy;
         try {
-            DelvefoldAuditService.get().record(new AuditMutation(
-                    actor,
-                    AuditMutation.Operation.BACKUP_MANIFEST_CREATED,
-                    AuditMutation.ObjectType.BACKUP,
-                    backupId,
-                    -1L,
-                    -1L));
+            DelvefoldAuditService.get()
+                    .record(new AuditMutation(
+                            actor,
+                            AuditMutation.Operation.BACKUP_MANIFEST_CREATED,
+                            AuditMutation.ObjectType.BACKUP,
+                            backupId,
+                            -1L,
+                            -1L));
         } catch (IllegalArgumentException exception) {
-            DelvefoldAuditService.get().record(new AuditMutation(
-                    "server",
-                    AuditMutation.Operation.BACKUP_MANIFEST_CREATED,
-                    AuditMutation.ObjectType.BACKUP,
-                    backupId,
-                    -1L,
-                    -1L));
+            DelvefoldAuditService.get()
+                    .record(new AuditMutation(
+                            "server",
+                            AuditMutation.Operation.BACKUP_MANIFEST_CREATED,
+                            AuditMutation.ObjectType.BACKUP,
+                            backupId,
+                            -1L,
+                            -1L));
         }
     }
 
@@ -367,10 +398,14 @@ public final class WorldRestoreService {
         }
         Files.createDirectories(staging);
         copyTree(selected.resolve("dimensions/delvefold"), staging.resolve("dimensions/delvefold"));
-        RestoreConfigSnapshot.install(selected.resolve("config/serverconfig/delvefold"),
-                staging.resolve("config/serverconfig/delvefold"));
-        Files.writeString(staging.resolve(".complete"), "complete\n", StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        RestoreConfigSnapshot.install(
+                selected.resolve("config/serverconfig/delvefold"), staging.resolve("config/serverconfig/delvefold"));
+        Files.writeString(
+                staging.resolve(".complete"),
+                "complete\n",
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE);
     }
 
     private static void backupCurrent(MinecraftServer server, Path preRestore, PendingWorldRestore pending)
@@ -379,8 +414,8 @@ public final class WorldRestoreService {
     }
 
     /** Path-based transactional seam used by startup recovery tests. */
-    static void backupCurrent(Path configDirectory, Path activeRoot, Path preRestore,
-            PendingWorldRestore pending) throws IOException {
+    static void backupCurrent(Path configDirectory, Path activeRoot, Path preRestore, PendingWorldRestore pending)
+            throws IOException {
         RestoreCurrentBackupTransaction.backup(configDirectory, activeRoot, preRestore, pending);
     }
 
@@ -398,7 +433,8 @@ public final class WorldRestoreService {
                 move(staged, active);
             }
         }
-        RestoreConfigSnapshot.install(staging.resolve("config/serverconfig/delvefold"),
+        RestoreConfigSnapshot.install(
+                staging.resolve("config/serverconfig/delvefold"),
                 ConfigPaths.forServer(server).directory());
     }
 
@@ -420,7 +456,10 @@ public final class WorldRestoreService {
                     Files.createDirectories(destination);
                 } else if (Files.isRegularFile(source)) {
                     Files.createDirectories(destination.getParent());
-                    Files.copy(source, destination, StandardCopyOption.REPLACE_EXISTING,
+                    Files.copy(
+                            source,
+                            destination,
+                            StandardCopyOption.REPLACE_EXISTING,
                             StandardCopyOption.COPY_ATTRIBUTES);
                 } else {
                     throw new IOException("Restore source contains a non-regular file");
@@ -455,11 +494,12 @@ public final class WorldRestoreService {
     private static void writeJson(Path target, Object value) throws IOException {
         byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
         Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
+        Path temporary =
+                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
         boolean moved = false;
         try {
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (FileChannel channel =
+                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 ByteBuffer buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
@@ -483,7 +523,9 @@ public final class WorldRestoreService {
             throws IOException {
         Path history = ConfigPaths.forServer(server).directory().resolve("world_operations");
         Files.createDirectories(history);
-        move(pendingPath, history.resolve(pending.createdAtEpochMillis() + "-restore-" + pending.operationId() + ".json"));
+        move(
+                pendingPath,
+                history.resolve(pending.createdAtEpochMillis() + "-restore-" + pending.operationId() + ".json"));
     }
 
     private static void move(Path source, Path destination) throws IOException {
@@ -526,13 +568,18 @@ public final class WorldRestoreService {
     }
 
     private static Path stagingRoot(MinecraftServer server, PendingWorldRestore pending) {
-        return saveRoot(server).resolve(".delvefold_restore_staging").resolve(pending.operationId()).normalize();
+        return saveRoot(server)
+                .resolve(".delvefold_restore_staging")
+                .resolve(pending.operationId())
+                .normalize();
     }
 
     private static Path preRestoreRoot(MinecraftServer server, PendingWorldRestore pending) {
-        return saveRoot(server).resolve("delvefold_backups").resolve(
-                TIMESTAMP.format(Instant.ofEpochMilli(pending.createdAtEpochMillis()))
-                        + "-pre-restore-" + pending.operationId()).normalize();
+        return saveRoot(server)
+                .resolve("delvefold_backups")
+                .resolve(TIMESTAMP.format(Instant.ofEpochMilli(pending.createdAtEpochMillis())) + "-pre-restore-"
+                        + pending.operationId())
+                .normalize();
     }
 
     /** Exposed for diagnostics and contract tests; this list controls both backup and restore. */
@@ -552,8 +599,11 @@ public final class WorldRestoreService {
         return java.security.MessageDigest.isEqual(left, right);
     }
 
-    private record Draft(Path saveRoot, String token, long expiresAt, PendingWorldRestore operation,
-                         long estimatedBytes, int players) {
-    }
-
+    private record Draft(
+            Path saveRoot,
+            String token,
+            long expiresAt,
+            PendingWorldRestore operation,
+            long estimatedBytes,
+            int players) {}
 }

@@ -18,13 +18,11 @@ final class GenerationSeedMixer {
     private static final long GEOLOGY_STRATA_DOMAIN = 0x629A292A367CD507L;
     private static final long GEOLOGY_DECORATION_DOMAIN = 0x9159015A3070DD17L;
 
-    private GenerationSeedMixer() {
-    }
+    private GenerationSeedMixer() {}
 
     static long oreSeed(long worldSeed, long chunkPosition, String id, long generationSalt) {
-        long effectiveWorldSeed = generationSalt == 0L
-                ? worldSeed
-                : worldSeed ^ mix64(generationSalt ^ ORE_GENERATION_DOMAIN);
+        long effectiveWorldSeed =
+                generationSalt == 0L ? worldSeed : worldSeed ^ mix64(generationSalt ^ ORE_GENERATION_DOMAIN);
         long seed = effectiveWorldSeed ^ chunkPosition * CHUNK_SALT;
         seed ^= stableHash64(id) * ORE_ID_SALT;
         return mix64(seed);
@@ -42,40 +40,26 @@ final class GenerationSeedMixer {
         return mix64(seed ^ LANDMARK_CONTENT_DOMAIN);
     }
 
-    static long oreProvinceCenterSeed(
-            long worldSeed, long regionX, long regionZ, String bandId, long generationSalt) {
+    static long oreProvinceCenterSeed(long worldSeed, long regionX, long regionZ, String bandId, long generationSalt) {
         return provinceSeed(worldSeed, regionX, regionZ, bandId, generationSalt, PROVINCE_CENTER_DOMAIN);
     }
 
-    static long oreProvinceOutputSeed(
-            long worldSeed, long regionX, long regionZ, String bandId, long generationSalt) {
+    static long oreProvinceOutputSeed(long worldSeed, long regionX, long regionZ, String bandId, long generationSalt) {
         return provinceSeed(worldSeed, regionX, regionZ, bandId, generationSalt, PROVINCE_OUTPUT_DOMAIN);
     }
 
     static long oreProvinceChunkSeed(
-            long worldSeed,
-            long regionX,
-            long regionZ,
-            long chunkPosition,
-            String bandId,
-            long generationSalt) {
-        long seed = provinceSeed(
-                worldSeed, regionX, regionZ, bandId, generationSalt, PROVINCE_CHUNK_DOMAIN);
+            long worldSeed, long regionX, long regionZ, long chunkPosition, String bandId, long generationSalt) {
+        long seed = provinceSeed(worldSeed, regionX, regionZ, bandId, generationSalt, PROVINCE_CHUNK_DOMAIN);
         return mix64(seed ^ mix64(chunkPosition * CHUNK_SALT));
     }
 
     static long oreProvincePositionSeed(long chunkSeed, int linearIndex) {
-        return mix64(chunkSeed ^ PROVINCE_POSITION_DOMAIN
-                ^ (linearIndex + 1L) * ORE_ID_SALT);
+        return mix64(chunkSeed ^ PROVINCE_POSITION_DOMAIN ^ (linearIndex + 1L) * ORE_ID_SALT);
     }
 
     private static long provinceSeed(
-            long worldSeed,
-            long regionX,
-            long regionZ,
-            String bandId,
-            long generationSalt,
-            long domain) {
+            long worldSeed, long regionX, long regionZ, String bandId, long generationSalt, long domain) {
         long seed = worldSeed ^ domain;
         seed ^= mix64(regionX * REGION_X_SALT);
         seed ^= mix64(regionZ * REGION_Z_SALT);
@@ -86,8 +70,7 @@ final class GenerationSeedMixer {
         return mix64(seed);
     }
 
-    static long geologySeed(
-            long worldSeed, long chunkPosition, long generationSalt, String themeId, boolean strata) {
+    static long geologySeed(long worldSeed, long chunkPosition, long generationSalt, String themeId, boolean strata) {
         long seed = worldSeed ^ chunkPosition * CHUNK_SALT;
         seed ^= mix64(generationSalt ^ GEOLOGY_GENERATION_DOMAIN);
         seed ^= mix64(stableHash64(themeId) * ORE_ID_SALT);

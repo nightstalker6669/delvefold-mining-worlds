@@ -27,8 +27,7 @@ public final class OreImportModels {
     private static final Pattern MATERIAL = Pattern.compile("[a-z0-9_./-]+");
     private static final Pattern PROFILE_ID = Pattern.compile("(?:[a-z0-9_.-]+:)?[a-z0-9_./-]+");
 
-    private OreImportModels() {
-    }
+    private OreImportModels() {}
 
     public record DiscoveryOptions(boolean includeVanilla) {
         public static final DiscoveryOptions MODDED_ONLY = new DiscoveryOptions(false);
@@ -64,17 +63,13 @@ public final class OreImportModels {
             if (candidates.isEmpty()) {
                 throw new IllegalArgumentException("An ore import group needs at least one candidate");
             }
-            reviewRequired = reviewRequired || candidates.stream()
-                    .anyMatch(candidate -> candidate.hostKind() == HostKind.REVIEW_REQUIRED);
+            reviewRequired = reviewRequired
+                    || candidates.stream().anyMatch(candidate -> candidate.hostKind() == HostKind.REVIEW_REQUIRED);
         }
     }
 
     public record Candidate(
-            String blockId,
-            String replaceTag,
-            HostKind hostKind,
-            Evidence evidence,
-            List<String> sourceTags) {
+            String blockId, String replaceTag, HostKind hostKind, Evidence evidence, List<String> sourceTags) {
         public Candidate {
             blockId = resourceId(blockId, "candidate block id");
             hostKind = Objects.requireNonNull(hostKind, "hostKind");
@@ -177,8 +172,10 @@ public final class OreImportModels {
         public static final TerrainWorkload ZERO = new TerrainWorkload(0.0D, 0.0D);
 
         public TerrainWorkload {
-            if (!Double.isFinite(attemptsPerChunk) || attemptsPerChunk < 0.0D
-                    || !Double.isFinite(workUnits) || workUnits < 0.0D) {
+            if (!Double.isFinite(attemptsPerChunk)
+                    || attemptsPerChunk < 0.0D
+                    || !Double.isFinite(workUnits)
+                    || workUnits < 0.0D) {
                 throw new IllegalArgumentException("Ore workload values must be finite and non-negative");
             }
         }
@@ -188,9 +185,11 @@ public final class OreImportModels {
         public Workload {
             EnumMap<TerrainMode, TerrainWorkload> normalized = new EnumMap<>(TerrainMode.class);
             for (TerrainMode terrain : TerrainMode.values()) {
-                normalized.put(terrain, byTerrain == null
-                        ? TerrainWorkload.ZERO
-                        : Objects.requireNonNullElse(byTerrain.get(terrain), TerrainWorkload.ZERO));
+                normalized.put(
+                        terrain,
+                        byTerrain == null
+                                ? TerrainWorkload.ZERO
+                                : Objects.requireNonNullElse(byTerrain.get(terrain), TerrainWorkload.ZERO));
             }
             byTerrain = Collections.unmodifiableMap(normalized);
         }
@@ -221,8 +220,9 @@ public final class OreImportModels {
         }
 
         public long addedRuleCount() {
-            return diff.stream().filter(entry -> entry.status() == DiffStatus.ADDED
-                    || entry.status() == DiffStatus.PARTIALLY_ADDED).count();
+            return diff.stream()
+                    .filter(entry -> entry.status() == DiffStatus.ADDED || entry.status() == DiffStatus.PARTIALLY_ADDED)
+                    .count();
         }
     }
 
@@ -232,7 +232,9 @@ public final class OreImportModels {
 
     private static String matching(String value, Pattern pattern, String label) {
         String normalized = value == null ? "" : value.trim();
-        if (normalized.isEmpty() || normalized.length() > MAX_ID_LENGTH || !pattern.matcher(normalized).matches()) {
+        if (normalized.isEmpty()
+                || normalized.length() > MAX_ID_LENGTH
+                || !pattern.matcher(normalized).matches()) {
             throw new IllegalArgumentException("Invalid " + label + ": " + normalized);
         }
         return normalized;
@@ -243,7 +245,8 @@ public final class OreImportModels {
         if (normalized.isEmpty()) {
             return "";
         }
-        if (normalized.length() > MAX_ID_LENGTH || !NAMESPACE.matcher(normalized).matches()) {
+        if (normalized.length() > MAX_ID_LENGTH
+                || !NAMESPACE.matcher(normalized).matches()) {
             throw new IllegalArgumentException("Invalid " + label + ": " + normalized);
         }
         return normalized;

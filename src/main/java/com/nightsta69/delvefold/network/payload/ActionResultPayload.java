@@ -9,10 +9,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-public record ActionResultPayload(ActionStatus status, long revision, String message)
-        implements CustomPacketPayload {
-    public static final Type<ActionResultPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "action_result"));
+public record ActionResultPayload(ActionStatus status, long revision, String message) implements CustomPacketPayload {
+    public static final Type<ActionResultPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "action_result"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ActionResultPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 DelvefoldStreamCodecs.writeEnum(buffer, payload.status());

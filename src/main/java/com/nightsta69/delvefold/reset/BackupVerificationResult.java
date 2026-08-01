@@ -9,8 +9,7 @@ public record BackupVerificationResult(
         long totalBytes,
         long startedAtEpochMillis,
         long completedAtEpochMillis,
-        String workerThread
-) {
+        String workerThread) {
     public BackupVerificationResult {
         backupId = backupId == null ? "" : backupId;
         message = message == null ? "" : message;

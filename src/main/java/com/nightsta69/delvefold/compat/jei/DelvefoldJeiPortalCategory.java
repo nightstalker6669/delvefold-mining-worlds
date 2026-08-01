@@ -70,10 +70,7 @@ public final class DelvefoldJeiPortalCategory implements IRecipeCategory<PortalC
     }
 
     @Override
-    public void setRecipe(
-            IRecipeLayoutBuilder builder,
-            PortalConstructionGuide guide,
-            IFocusGroup focuses) {
+    public void setRecipe(IRecipeLayoutBuilder builder, PortalConstructionGuide guide, IFocusGroup focuses) {
         ItemStack frame = new ItemStack(PortalRegistries.PORTAL_FRAME_ITEM.get());
         for (PortalConstructionGuide.FrameCell cell : guide.minimumFrameCells()) {
             builder.addSlot(
@@ -97,24 +94,27 @@ public final class DelvefoldJeiPortalCategory implements IRecipeCategory<PortalC
             double mouseY) {
         Font font = Minecraft.getInstance().font;
         int y = 4;
-        y = drawWrapped(graphics, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.dimensions",
-                        guide.minimumInteriorWidth(), guide.minimumInteriorHeight(),
-                        guide.maximumInteriorWidth(), guide.maximumInteriorHeight()), y);
-        y = drawWrapped(graphics, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.frames",
-                        guide.minimumFrameCount()), y + 2);
-        y = drawWrapped(graphics, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.initialize"), y + 2);
-        drawWrapped(graphics, font,
-                Component.translatable("compat.delvefold.recipe_viewer.portal.ignite"), y + 2);
+        y = drawWrapped(
+                graphics,
+                font,
+                Component.translatable(
+                        "compat.delvefold.recipe_viewer.portal.dimensions",
+                        guide.minimumInteriorWidth(),
+                        guide.minimumInteriorHeight(),
+                        guide.maximumInteriorWidth(),
+                        guide.maximumInteriorHeight()),
+                y);
+        y = drawWrapped(
+                graphics,
+                font,
+                Component.translatable("compat.delvefold.recipe_viewer.portal.frames", guide.minimumFrameCount()),
+                y + 2);
+        y = drawWrapped(
+                graphics, font, Component.translatable("compat.delvefold.recipe_viewer.portal.initialize"), y + 2);
+        drawWrapped(graphics, font, Component.translatable("compat.delvefold.recipe_viewer.portal.ignite"), y + 2);
     }
 
-    private static int drawWrapped(
-            GuiGraphics graphics,
-            Font font,
-            Component text,
-            int y) {
+    private static int drawWrapped(GuiGraphics graphics, Font font, Component text, int y) {
         List<FormattedCharSequence> lines = font.split(text, TEXT_WIDTH);
         for (FormattedCharSequence line : lines) {
             graphics.drawString(font, line, TEXT_X, y, 0xFF404040, false);

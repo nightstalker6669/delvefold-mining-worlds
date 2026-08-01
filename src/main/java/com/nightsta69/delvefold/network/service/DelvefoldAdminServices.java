@@ -1,10 +1,10 @@
 package com.nightsta69.delvefold.network.service;
 
+import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
-import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.model.BackupOperation;
@@ -17,8 +17,7 @@ public final class DelvefoldAdminServices {
     private static final DelvefoldAdminService UNAVAILABLE = new UnavailableService();
     private static volatile DelvefoldAdminService service = UNAVAILABLE;
 
-    private DelvefoldAdminServices() {
-    }
+    private DelvefoldAdminServices() {}
 
     public static DelvefoldAdminService get() {
         return service;
@@ -44,18 +43,20 @@ public final class DelvefoldAdminServices {
         }
 
         @Override
-        public ServiceResult initialize(ServerPlayer player, long expectedOreRevision, long expectedSettingsRevision, TerrainMode terrainMode,
-                OrePreset orePreset, GameplaySettings gameplay,
+        public ServiceResult initialize(
+                ServerPlayer player,
+                long expectedOreRevision,
+                long expectedSettingsRevision,
+                TerrainMode terrainMode,
+                OrePreset orePreset,
+                GameplaySettings gameplay,
                 com.nightsta69.delvefold.config.model.WorldIdentitySettings identity) {
             return ServiceResult.unavailable(Math.max(expectedOreRevision, expectedSettingsRevision));
         }
 
         @Override
         public ServiceResult saveOreRule(
-                ServerPlayer player,
-                long expectedRevision,
-                AdminSnapshot.OreRuleDraft rule,
-                boolean createOnly) {
+                ServerPlayer player, long expectedRevision, AdminSnapshot.OreRuleDraft rule, boolean createOnly) {
             return ServiceResult.unavailable(expectedRevision);
         }
 
@@ -75,26 +76,34 @@ public final class DelvefoldAdminServices {
         }
 
         @Override
-        public ServiceResult updateIdentity(ServerPlayer player, long expectedRevision,
+        public ServiceResult updateIdentity(
+                ServerPlayer player,
+                long expectedRevision,
                 com.nightsta69.delvefold.config.model.WorldIdentitySettings identity) {
             return ServiceResult.unavailable(expectedRevision);
         }
 
         @Override
-        public ServiceResult performProfile(ServerPlayer player, long expectedOreRevision, ProfileOperation operation,
-                String sourceId, String targetId, String json, boolean overwrite) {
+        public ServiceResult performProfile(
+                ServerPlayer player,
+                long expectedOreRevision,
+                ProfileOperation operation,
+                String sourceId,
+                String targetId,
+                String json,
+                boolean overwrite) {
             return ServiceResult.unavailable(expectedOreRevision);
         }
 
         @Override
-        public ServiceResult performBackup(ServerPlayer player, long expectedSettingsRevision,
-                BackupOperation operation, String backupId) {
+        public ServiceResult performBackup(
+                ServerPlayer player, long expectedSettingsRevision, BackupOperation operation, String backupId) {
             return ServiceResult.unavailable(expectedSettingsRevision);
         }
 
         @Override
-        public ServiceResult perform(ServerPlayer player, long expectedRevision, AdminOperation operation,
-                String confirmation) {
+        public ServiceResult perform(
+                ServerPlayer player, long expectedRevision, AdminOperation operation, String confirmation) {
             return ServiceResult.unavailable(expectedRevision);
         }
     }

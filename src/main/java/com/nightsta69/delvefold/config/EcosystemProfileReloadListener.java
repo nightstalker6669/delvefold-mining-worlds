@@ -22,7 +22,8 @@ import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import org.slf4j.Logger;
 
 /** Minecraft-facing adapter kept separate from the scripting-safe profile registry. */
-public final class EcosystemProfileReloadListener extends SimplePreparableReloadListener<EcosystemProfileReloadListener.LoadResult> {
+public final class EcosystemProfileReloadListener
+        extends SimplePreparableReloadListener<EcosystemProfileReloadListener.LoadResult> {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DIRECTORY = "delvefold/ore_profiles";
 
@@ -40,8 +41,11 @@ public final class EcosystemProfileReloadListener extends SimplePreparableReload
         return new LoadResult(Map.copyOf(loaded), List.copyOf(errors));
     }
 
-    private static void load(ResourceLocation resourceId, Resource resource,
-            Map<String, EcosystemProfileRegistry.RegisteredProfile> loaded, List<String> errors) {
+    private static void load(
+            ResourceLocation resourceId,
+            Resource resource,
+            Map<String, EcosystemProfileRegistry.RegisteredProfile> loaded,
+            List<String> errors) {
         String path = resourceId.getPath().substring((DIRECTORY + '/').length());
         path = path.substring(0, path.length() - ".json".length());
         String profileId = resourceId.getNamespace() + ':' + path;
@@ -50,10 +54,11 @@ public final class EcosystemProfileReloadListener extends SimplePreparableReload
             if (bytes.length > EcosystemProfileRegistry.MAX_PROFILE_BYTES) {
                 throw new IOException("exceeds " + EcosystemProfileRegistry.MAX_PROFILE_BYTES + " bytes");
             }
-            OreProfileDocument document = EcosystemProfileRegistry.parseDatapackProfile(profileId,
-                    new String(bytes, StandardCharsets.UTF_8));
-            loaded.put(profileId, new EcosystemProfileRegistry.RegisteredProfile(
-                    document, "datapack:" + resource.sourcePackId()));
+            OreProfileDocument document =
+                    EcosystemProfileRegistry.parseDatapackProfile(profileId, new String(bytes, StandardCharsets.UTF_8));
+            loaded.put(
+                    profileId,
+                    new EcosystemProfileRegistry.RegisteredProfile(document, "datapack:" + resource.sourcePackId()));
         } catch (IOException | RuntimeException exception) {
             errors.add(resourceId + ": " + exception.getMessage());
         }
@@ -65,10 +70,10 @@ public final class EcosystemProfileReloadListener extends SimplePreparableReload
         DelvefoldWorldgen.MINING_ORE_FEATURE.get().invalidateRuntimeProfile();
         MinecraftOreImportRegistry.invalidateCache();
         OreImportSessionService.get().invalidateAll();
-        LOGGER.info("Loaded {} Delvefold datapack ore profile(s)", result.profiles().size());
+        LOGGER.info(
+                "Loaded {} Delvefold datapack ore profile(s)", result.profiles().size());
         result.errors().forEach(error -> LOGGER.error("Rejected Delvefold datapack profile {}", error));
     }
 
-    record LoadResult(Map<String, EcosystemProfileRegistry.RegisteredProfile> profiles, List<String> errors) {
-    }
+    record LoadResult(Map<String, EcosystemProfileRegistry.RegisteredProfile> profiles, List<String> errors) {}
 }

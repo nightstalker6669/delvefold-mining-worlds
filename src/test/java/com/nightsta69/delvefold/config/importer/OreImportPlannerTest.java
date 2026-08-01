@@ -34,11 +34,13 @@ class OreImportPlannerTest {
     @Test
     void createsExactOptionalTargetsWithTheEstablishedUncommonPreset() {
         OreProfileDocument base = OrePresets.empty();
-        Group tin = group("example", "tin",
+        Group tin = group(
+                "example",
+                "tin",
                 candidate("example:tin_ore", HostKind.STONE),
                 candidate("example:deepslate_tin_ore", HostKind.DEEPSLATE));
-        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
-                block("example:tin_ore"), block("example:deepslate_tin_ore"));
+        FakeOreImportRegistry registry =
+                FakeOreImportRegistry.of(block("example:tin_ore"), block("example:deepslate_tin_ore"));
 
         var plan = OreImportPlanner.plan(base, List.of(tin), registry, RegistryLookup.SKIP);
 
@@ -53,11 +55,11 @@ class OreImportPlannerTest {
         assertEquals(EnumSet.allOf(TerrainMode.class), imported.terrainModes());
         assertEquals(BiomeFilter.ALL_MINING_BIOMES, imported.biomes());
         assertEquals(List.of(OreRuleTemplates.uncommonBand()), imported.bands());
-        assertEquals(List.of("example:deepslate_tin_ore", "example:tin_ore"),
+        assertEquals(
+                List.of("example:deepslate_tin_ore", "example:tin_ore"),
                 imported.targets().stream().map(OreTarget::block).toList());
-        assertEquals(List.of(
-                        "minecraft:deepslate_ore_replaceables",
-                        "minecraft:stone_ore_replaceables"),
+        assertEquals(
+                List.of("minecraft:deepslate_ore_replaceables", "minecraft:stone_ore_replaceables"),
                 imported.targets().stream().map(OreTarget::replaceTag).toList());
         assertTrue(imported.targets().stream().allMatch(target -> target.weight() == OreTarget.DEFAULT_WEIGHT));
         for (TerrainMode terrain : TerrainMode.values()) {
@@ -74,35 +76,43 @@ class OreImportPlannerTest {
                 block("example:deepslate_tin_ore"),
                 block("example:copper_ore", "c:ores/copper"),
                 block("example:deepslate_copper_ore", "c:ores/copper"));
-        OreRule exact = rule("existing_tin", List.of(
-                OreTarget.of("example:tin_ore", HostKind.STONE.replaceTag())));
-        OreRule tagged = rule("existing_copper", List.of(
-                OreTarget.ofTag("c:ores/copper", HostKind.STONE.replaceTag())));
+        OreRule exact = rule("existing_tin", List.of(OreTarget.of("example:tin_ore", HostKind.STONE.replaceTag())));
+        OreRule tagged =
+                rule("existing_copper", List.of(OreTarget.ofTag("c:ores/copper", HostKind.STONE.replaceTag())));
         OreProfileDocument base = new OreProfileDocument(2, 4L, "base", List.of(exact, tagged));
-        Group tin = group("example", "tin",
+        Group tin = group(
+                "example",
+                "tin",
                 candidate("example:tin_ore", HostKind.STONE),
                 candidate("example:deepslate_tin_ore", HostKind.DEEPSLATE));
-        Group copper = group("example", "copper",
+        Group copper = group(
+                "example",
+                "copper",
                 candidate("example:copper_ore", HostKind.STONE),
                 candidate("example:deepslate_copper_ore", HostKind.DEEPSLATE));
 
         var plan = OreImportPlanner.plan(base, List.of(tin, copper), registry, RegistryLookup.SKIP);
-        Map<String, DiffEntry> diff = plan.diff().stream()
-                .collect(Collectors.toMap(DiffEntry::groupId, Function.identity()));
+        Map<String, DiffEntry> diff =
+                plan.diff().stream().collect(Collectors.toMap(DiffEntry::groupId, Function.identity()));
 
         assertEquals(3, plan.proposedProfile().rules().size());
         assertEquals(DiffStatus.SKIPPED_COVERED, diff.get("example:copper").status());
-        assertEquals("message.delvefold.import.diff_message.covered",
+        assertEquals(
+                "message.delvefold.import.diff_message.covered",
                 translationKey(diff.get("example:copper").message()));
-        assertEquals(List.of("example:copper_ore", "example:deepslate_copper_ore"),
+        assertEquals(
+                List.of("example:copper_ore", "example:deepslate_copper_ore"),
                 diff.get("example:copper").skippedBlocks());
         assertEquals(DiffStatus.PARTIALLY_ADDED, diff.get("example:tin").status());
-        assertEquals("message.delvefold.import.diff_message.partially_added",
+        assertEquals(
+                "message.delvefold.import.diff_message.partially_added",
                 translationKey(diff.get("example:tin").message()));
-        assertEquals(List.of("example:deepslate_tin_ore"), diff.get("example:tin").addedBlocks());
+        assertEquals(
+                List.of("example:deepslate_tin_ore"), diff.get("example:tin").addedBlocks());
         assertEquals(List.of("example:tin_ore"), diff.get("example:tin").skippedBlocks());
         OreRule imported = plan.proposedProfile().rules().getLast();
-        assertEquals(List.of("example:deepslate_tin_ore"),
+        assertEquals(
+                List.of("example:deepslate_tin_ore"),
                 imported.targets().stream().map(OreTarget::block).toList());
     }
 
@@ -110,20 +120,22 @@ class OreImportPlannerTest {
     void reviewRequiredCandidatesNeverReceiveAGuessedHost() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
                 block("example:tin_ore"), block("example:nether_tin_ore"), block("example:lead_cluster"));
-        Group mixed = group("example", "tin",
+        Group mixed = group(
+                "example",
+                "tin",
                 candidate("example:tin_ore", HostKind.STONE),
                 candidate("example:nether_tin_ore", HostKind.REVIEW_REQUIRED));
-        Group reviewOnly = group("example", "lead",
-                candidate("example:lead_cluster", HostKind.REVIEW_REQUIRED));
+        Group reviewOnly = group("example", "lead", candidate("example:lead_cluster", HostKind.REVIEW_REQUIRED));
 
-        var plan = OreImportPlanner.plan(
-                OrePresets.empty(), List.of(reviewOnly, mixed), registry, RegistryLookup.SKIP);
-        Map<String, DiffEntry> diff = plan.diff().stream()
-                .collect(Collectors.toMap(DiffEntry::groupId, Function.identity()));
+        var plan = OreImportPlanner.plan(OrePresets.empty(), List.of(reviewOnly, mixed), registry, RegistryLookup.SKIP);
+        Map<String, DiffEntry> diff =
+                plan.diff().stream().collect(Collectors.toMap(DiffEntry::groupId, Function.identity()));
 
         assertEquals(1, plan.proposedProfile().rules().size());
-        assertEquals(DiffStatus.SKIPPED_REVIEW_REQUIRED, diff.get("example:lead").status());
-        assertEquals("message.delvefold.import.diff_message.review_required",
+        assertEquals(
+                DiffStatus.SKIPPED_REVIEW_REQUIRED, diff.get("example:lead").status());
+        assertEquals(
+                "message.delvefold.import.diff_message.review_required",
                 translationKey(diff.get("example:lead").message()));
         assertEquals(DiffStatus.PARTIALLY_ADDED, diff.get("example:tin").status());
         assertEquals(List.of("example:tin_ore"), diff.get("example:tin").addedBlocks());
@@ -136,27 +148,32 @@ class OreImportPlannerTest {
 
     @Test
     void ruleIdsAndOutputOrderAreDeterministicWithoutOverwritingCollisions() {
-        OreRule collision = rule("example_tin", List.of(
-                OreTarget.of("minecraft:coal_ore", HostKind.STONE.replaceTag())));
+        OreRule collision =
+                rule("example_tin", List.of(OreTarget.of("minecraft:coal_ore", HostKind.STONE.replaceTag())));
         OreProfileDocument base = new OreProfileDocument(2, 0L, "base", List.of(collision));
         Group tin = group("example", "tin", candidate("example:tin_ore", HostKind.STONE));
         Group copper = group("alpha", "copper", candidate("alpha:copper_ore", HostKind.STONE));
-        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
-                block("example:tin_ore"), block("alpha:copper_ore"));
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(block("example:tin_ore"), block("alpha:copper_ore"));
 
         var forward = OreImportPlanner.plan(base, List.of(tin, copper), registry, RegistryLookup.SKIP);
         var reverse = OreImportPlanner.plan(base, List.of(copper, tin), registry, RegistryLookup.SKIP);
 
         assertEquals(forward, reverse);
-        assertEquals(List.of("example_tin", "alpha_copper", "example_tin_2"),
+        assertEquals(
+                List.of("example_tin", "alpha_copper", "example_tin_2"),
                 forward.proposedProfile().rules().stream().map(OreRule::id).toList());
-        assertEquals(2, OreImportPlanner.plan(
-                base, List.of(tin, tin), registry, RegistryLookup.SKIP).proposedProfile().rules().size());
+        assertEquals(
+                2,
+                OreImportPlanner.plan(base, List.of(tin, tin), registry, RegistryLookup.SKIP)
+                        .proposedProfile()
+                        .rules()
+                        .size());
 
-        Group conflicting = groupWithId(
-                "example:tin", "example", "different", candidate("example:tin_ore", HostKind.STONE));
-        assertThrows(IllegalArgumentException.class, () -> OreImportPlanner.plan(
-                base, List.of(tin, conflicting), registry, RegistryLookup.SKIP));
+        Group conflicting =
+                groupWithId("example:tin", "example", "different", candidate("example:tin_ore", HostKind.STONE));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OreImportPlanner.plan(base, List.of(tin, conflicting), registry, RegistryLookup.SKIP));
     }
 
     @Test
@@ -179,8 +196,8 @@ class OreImportPlannerTest {
                 base, List.of(tin), FakeOreImportRegistry.of(block("example:tin_ore")), RegistryLookup.SKIP);
 
         assertFalse(plan.valid());
-        assertTrue(plan.validation().issues().stream()
-                .anyMatch(issue -> "budget.too_many_attempts".equals(issue.code())));
+        assertTrue(
+                plan.validation().issues().stream().anyMatch(issue -> "budget.too_many_attempts".equals(issue.code())));
         for (TerrainMode terrain : TerrainMode.values()) {
             assertEquals(4096.0D, plan.beforeWorkload().forTerrain(terrain).attemptsPerChunk());
             assertEquals(4104.0D, plan.afterWorkload().forTerrain(terrain).attemptsPerChunk());
@@ -191,11 +208,13 @@ class OreImportPlannerTest {
     @Test
     void selectionCountIsBoundedBeforePlanning() {
         Group tin = group("example", "tin", candidate("example:tin_ore", HostKind.STONE));
-        assertThrows(IllegalArgumentException.class, () -> OreImportPlanner.plan(
-                OrePresets.empty(),
-                java.util.Collections.nCopies(OreImportModels.MAX_SELECTED_GROUPS + 1, tin),
-                FakeOreImportRegistry.of(block("example:tin_ore")),
-                RegistryLookup.SKIP));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> OreImportPlanner.plan(
+                        OrePresets.empty(),
+                        java.util.Collections.nCopies(OreImportModels.MAX_SELECTED_GROUPS + 1, tin),
+                        FakeOreImportRegistry.of(block("example:tin_ore")),
+                        RegistryLookup.SKIP));
     }
 
     private static Candidate candidate(String blockId, HostKind host) {
@@ -206,15 +225,18 @@ class OreImportPlannerTest {
         return groupWithId(namespace + ':' + material, namespace, material, candidates);
     }
 
-    private static Group groupWithId(
-            String id, String namespace, String material, Candidate... candidates) {
-        return new Group(id, namespace, material, Evidence.CONVENTIONAL_TAG,
-                List.of(candidates), false);
+    private static Group groupWithId(String id, String namespace, String material, Candidate... candidates) {
+        return new Group(id, namespace, material, Evidence.CONVENTIONAL_TAG, List.of(candidates), false);
     }
 
     private static OreRule rule(String id, List<OreTarget> targets) {
         return new OreRule(
-                id, true, false, EnumSet.allOf(TerrainMode.class), targets,
-                BiomeFilter.ALL_MINING_BIOMES, List.of(OreRuleTemplates.uncommonBand()));
+                id,
+                true,
+                false,
+                EnumSet.allOf(TerrainMode.class),
+                targets,
+                BiomeFilter.ALL_MINING_BIOMES,
+                List.of(OreRuleTemplates.uncommonBand()));
     }
 }

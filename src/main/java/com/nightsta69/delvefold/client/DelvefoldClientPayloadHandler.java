@@ -1,19 +1,19 @@
 package com.nightsta69.delvefold.client;
 
-import com.nightsta69.delvefold.client.gui.DelvefoldDashboardScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldBackupScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldDashboardScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldGuideScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldOreForecastScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldOreImportScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreRuleWizardScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldSetupScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldText;
-import com.nightsta69.delvefold.client.gui.DelvefoldGuideScreen;
-import com.nightsta69.delvefold.client.gui.DelvefoldOreForecastScreen;
-import com.nightsta69.delvefold.client.gui.DelvefoldOreImportScreen;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
+import com.nightsta69.delvefold.network.payload.OpenForecastPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuidePayload;
-import com.nightsta69.delvefold.network.payload.OpenForecastPayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportPreviewPayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportScanPayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
@@ -21,21 +21,20 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
 public final class DelvefoldClientPayloadHandler {
-    private DelvefoldClientPayloadHandler() {
-    }
+    private DelvefoldClientPayloadHandler() {}
 
     public static void open(OpenGuiPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (payload.snapshot().initialized()) {
-            if (minecraft.screen instanceof DelvefoldOreRuleWizardScreen wizard
-                    && !wizard.closeOnNextSnapshot()) {
+            if (minecraft.screen instanceof DelvefoldOreRuleWizardScreen wizard && !wizard.closeOnNextSnapshot()) {
                 minecraft.setScreen(wizard.refreshed(payload.snapshot()));
             } else if (minecraft.screen instanceof DelvefoldBackupScreen backups) {
                 minecraft.setScreen(backups.refreshed(payload.snapshot()));
             } else {
-                minecraft.setScreen(minecraft.screen instanceof DelvefoldDashboardScreen dashboard
-                        ? dashboard.refreshed(payload.snapshot())
-                        : new DelvefoldDashboardScreen(payload.snapshot()));
+                minecraft.setScreen(
+                        minecraft.screen instanceof DelvefoldDashboardScreen dashboard
+                                ? dashboard.refreshed(payload.snapshot())
+                                : new DelvefoldDashboardScreen(payload.snapshot()));
             }
         } else {
             minecraft.setScreen(new DelvefoldSetupScreen(payload.snapshot()));
@@ -83,7 +82,8 @@ public final class DelvefoldClientPayloadHandler {
             return;
         }
         minecraft.setScreen(new DelvefoldOreForecastScreen(
-                minecraft.screen, com.nightsta69.delvefold.network.model.AdminSnapshot.unavailable(),
+                minecraft.screen,
+                com.nightsta69.delvefold.network.model.AdminSnapshot.unavailable(),
                 payload.forecast()));
     }
 
@@ -94,8 +94,8 @@ public final class DelvefoldClientPayloadHandler {
             return;
         }
         if (minecraft.screen instanceof DelvefoldScreen delvefoldScreen) {
-            DelvefoldOreImportScreen importer = new DelvefoldOreImportScreen(
-                    minecraft.screen, delvefoldScreen.adminSnapshot());
+            DelvefoldOreImportScreen importer =
+                    new DelvefoldOreImportScreen(minecraft.screen, delvefoldScreen.adminSnapshot());
             importer.acceptScan(payload.view());
             minecraft.setScreen(importer);
         }

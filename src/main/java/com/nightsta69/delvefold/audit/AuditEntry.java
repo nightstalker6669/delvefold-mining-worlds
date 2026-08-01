@@ -8,13 +8,15 @@ public record AuditEntry(
         String operation,
         String affectedObject,
         long oldRevision,
-        long newRevision
-) {
+        long newRevision) {
     public static final int CURRENT_FORMAT_VERSION = 1;
 
     public AuditEntry {
-        if (formatVersion != CURRENT_FORMAT_VERSION || timestamp == null || actor == null
-                || operation == null || affectedObject == null) {
+        if (formatVersion != CURRENT_FORMAT_VERSION
+                || timestamp == null
+                || actor == null
+                || operation == null
+                || affectedObject == null) {
             throw new IllegalArgumentException("Audit entry is incomplete or uses an unsupported format");
         }
     }

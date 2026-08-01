@@ -3,7 +3,6 @@ package com.nightsta69.delvefold.guide;
 import java.security.SecureRandom;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.UUID;
 
 /** Short-lived, single-use acknowledgements for successful client guide openings. */
@@ -59,10 +58,10 @@ final class GuideOpenAuthorizations {
     }
 
     private void cleanup(long currentTick) {
-        pending.entrySet().removeIf(entry -> currentTick > entry.getValue().expiresAtTick
-                || currentTick < entry.getValue().issuedAtTick);
+        pending.entrySet()
+                .removeIf(entry ->
+                        currentTick > entry.getValue().expiresAtTick || currentTick < entry.getValue().issuedAtTick);
     }
 
-    private record Pending(long authorizationId, long issuedAtTick, long expiresAtTick) {
-    }
+    private record Pending(long authorizationId, long issuedAtTick, long expiresAtTick) {}
 }

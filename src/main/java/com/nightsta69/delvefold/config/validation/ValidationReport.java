@@ -12,10 +12,14 @@ public record ValidationReport(List<ConfigIssue> issues) {
     }
 
     public long errorCount() {
-        return issues.stream().filter(issue -> issue.severity() == IssueSeverity.ERROR).count();
+        return issues.stream()
+                .filter(issue -> issue.severity() == IssueSeverity.ERROR)
+                .count();
     }
 
     public long warningCount() {
-        return issues.stream().filter(issue -> issue.severity() == IssueSeverity.WARNING).count();
+        return issues.stream()
+                .filter(issue -> issue.severity() == IssueSeverity.WARNING)
+                .count();
     }
 }

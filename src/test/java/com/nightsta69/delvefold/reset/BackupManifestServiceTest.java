@@ -51,7 +51,9 @@ class BackupManifestServiceTest {
 
         BackupManifestService.Verification verification = service.createVerifiedManifest(backup);
 
-        List<String> paths = verification.manifest().files().stream().map(BackupManifest.FileEntry::path).toList();
+        List<String> paths = verification.manifest().files().stream()
+                .map(BackupManifest.FileEntry::path)
+                .toList();
         assertEquals(paths.stream().sorted().toList(), paths);
         assertTrue(paths.stream().allMatch(path -> !path.startsWith("/") && !path.contains("\\")));
         assertFalse(paths.contains(BackupManifest.FILE_NAME));
@@ -61,11 +63,15 @@ class BackupManifestServiceTest {
         assertEquals(BACKUP_ID, verification.manifest().metadata().backupId());
         assertEquals("recreate", verification.manifest().metadata().operation());
         assertEquals("flat", verification.manifest().metadata().terrain());
-        assertEquals("6e5d1d2cb69b90129e3eb425a414e7880846e098dc7bb605eb85485aff47f40c",
+        assertEquals(
+                "6e5d1d2cb69b90129e3eb425a414e7880846e098dc7bb605eb85485aff47f40c",
                 verification.manifest().files().stream()
                         .filter(entry -> entry.path().endsWith("r.0.0.mca"))
-                        .findFirst().orElseThrow().sha256());
-        assertEquals(verification.manifest().totalBytes(), verification.receipt().totalBytes());
+                        .findFirst()
+                        .orElseThrow()
+                        .sha256());
+        assertEquals(
+                verification.manifest().totalBytes(), verification.receipt().totalBytes());
         assertTrue(service.hasCurrentVerification(backup));
 
         Files.writeString(backup.resolve("dimensions/delvefold/delve_flat/region/r.0.0.mca"), "corrupt");
@@ -101,9 +107,12 @@ class BackupManifestServiceTest {
         BackupManifestService service = new BackupManifestService(CLOCK);
         BackupManifest original = service.createVerifiedManifest(backup).manifest();
         BackupManifest.FileEntry first = original.files().getFirst();
-        BackupManifest unsafe = new BackupManifest(original.schemaVersion(), original.hashAlgorithm(),
-                original.metadata(), original.totalBytes(), List.of(
-                new BackupManifest.FileEntry("../outside", first.sizeBytes(), first.sha256())));
+        BackupManifest unsafe = new BackupManifest(
+                original.schemaVersion(),
+                original.hashAlgorithm(),
+                original.metadata(),
+                original.totalBytes(),
+                List.of(new BackupManifest.FileEntry("../outside", first.sizeBytes(), first.sha256())));
         Files.writeString(backup.resolve(BackupManifest.FILE_NAME), ConfigJson.GSON.toJson(unsafe));
 
         assertThrows(IOException.class, () -> service.verify(backup));
@@ -125,15 +134,15 @@ class BackupManifestServiceTest {
 
             BackupVerificationResult legacy = service.verifyAsync(BACKUP_ID).get(10, TimeUnit.SECONDS);
             assertEquals(BackupVerificationResult.Status.LEGACY_REQUIRES_VALIDATION, legacy.status());
-            assertEquals("message.delvefold.backup_verification.legacy_requires_validation",
+            assertEquals(
+                    "message.delvefold.backup_verification.legacy_requires_validation",
                     translationKey(legacy.message()));
             assertFalse(Files.exists(backup.resolve(BackupManifest.FILE_NAME)));
 
-            BackupVerificationResult upgraded = service.validateLegacyAndCreateManifestAsync(BACKUP_ID)
-                    .get(10, TimeUnit.SECONDS);
+            BackupVerificationResult upgraded =
+                    service.validateLegacyAndCreateManifestAsync(BACKUP_ID).get(10, TimeUnit.SECONDS);
             assertEquals(BackupVerificationResult.Status.LEGACY_UPGRADED, upgraded.status());
-            assertEquals("message.delvefold.backup_verification.legacy_upgraded",
-                    translationKey(upgraded.message()));
+            assertEquals("message.delvefold.backup_verification.legacy_upgraded", translationKey(upgraded.message()));
             assertTrue(upgraded.successful());
             assertEquals("manifest-test-worker", upgraded.workerThread());
             assertNotEquals(Thread.currentThread().getName(), upgraded.workerThread());
@@ -151,11 +160,10 @@ class BackupManifestServiceTest {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
             BackupVerificationService service = new BackupVerificationService(saveRoot, executor, CLOCK);
-            BackupVerificationResult result = service.validateLegacyAndCreateManifestAsync(BACKUP_ID)
-                    .get(10, TimeUnit.SECONDS);
+            BackupVerificationResult result =
+                    service.validateLegacyAndCreateManifestAsync(BACKUP_ID).get(10, TimeUnit.SECONDS);
             assertEquals(BackupVerificationResult.Status.FAILED, result.status());
-            assertEquals("message.delvefold.backup_verification.failed",
-                    translationKey(result.message()));
+            assertEquals("message.delvefold.backup_verification.failed", translationKey(result.message()));
             assertFalse(Files.exists(backup.resolve(BackupManifest.FILE_NAME)));
             assertFalse(Files.exists(backup.resolve(BackupVerificationReceipt.FILE_NAME)));
         } finally {
@@ -182,25 +190,24 @@ class BackupManifestServiceTest {
         assertFalse(Files.exists(unknown.resolve(BackupManifest.FILE_NAME)));
 
         Path missingActive = createLegacyBackup(BACKUP_ID + "-missing-active");
-        WorldSettingsDocument expansiveWild = WorldSettingsDocument.uninitialized().initialize(
-                TerrainMode.WILD,
-                OrePreset.VANILLA_BALANCED,
-                GameplayPreset.SAFE,
-                WorldIdentitySettings.defaults().withTerrainVariant(TerrainVariant.EXPANSIVE));
-        Files.writeString(missingActive.resolve("config/serverconfig/delvefold/settings.json"),
+        WorldSettingsDocument expansiveWild = WorldSettingsDocument.uninitialized()
+                .initialize(
+                        TerrainMode.WILD,
+                        OrePreset.VANILLA_BALANCED,
+                        GameplayPreset.SAFE,
+                        WorldIdentitySettings.defaults().withTerrainVariant(TerrainVariant.EXPANSIVE));
+        Files.writeString(
+                missingActive.resolve("config/serverconfig/delvefold/settings.json"),
                 ConfigJson.GSON.toJson(expansiveWild));
-        IOException activeFailure = assertThrows(
-                IOException.class, () -> service.validateLegacyLayout(missingActive));
+        IOException activeFailure = assertThrows(IOException.class, () -> service.validateLegacyLayout(missingActive));
         assertTrue(activeFailure.getMessage().contains("delve_wild_expansive"));
 
-        Path activeRegion = missingActive.resolve(
-                "dimensions/delvefold/delve_wild_expansive/region/r.0.0.mca");
+        Path activeRegion = missingActive.resolve("dimensions/delvefold/delve_wild_expansive/region/r.0.0.mca");
         Files.createDirectories(activeRegion.getParent());
         Files.writeString(activeRegion, "active-region-data");
         service.validateLegacyLayout(missingActive);
         assertTrue(service.createVerifiedManifest(missingActive).manifest().files().stream()
-                .anyMatch(entry -> entry.path().equals(
-                        "dimensions/delvefold/delve_wild_expansive/region/r.0.0.mca")));
+                .anyMatch(entry -> entry.path().equals("dimensions/delvefold/delve_wild_expansive/region/r.0.0.mca")));
 
         Path legacyExpansive = createLegacyBackup(BACKUP_ID + "-legacy-expansive");
         Files.move(
@@ -208,8 +215,7 @@ class BackupManifestServiceTest {
                 legacyExpansive.resolve("dimensions/delvefold/delve_flat_expansive"));
         service.validateLegacyLayout(legacyExpansive);
         assertTrue(service.createVerifiedManifest(legacyExpansive).manifest().files().stream()
-                .anyMatch(entry -> entry.path().startsWith(
-                        "dimensions/delvefold/delve_flat_expansive/")));
+                .anyMatch(entry -> entry.path().startsWith("dimensions/delvefold/delve_flat_expansive/")));
     }
 
     @Test
@@ -230,8 +236,7 @@ class BackupManifestServiceTest {
         worker.join(10_000L);
         BackupVerificationResult result = first.get(1, TimeUnit.SECONDS);
         assertEquals(BackupVerificationResult.Status.VERIFIED, result.status());
-        assertEquals("message.delvefold.backup_verification.verified",
-                translationKey(result.message()));
+        assertEquals("message.delvefold.backup_verification.verified", translationKey(result.message()));
         assertEquals("controlled-backup-worker", result.workerThread());
     }
 
@@ -242,25 +247,27 @@ class BackupManifestServiceTest {
         BackupVerificationService service = new BackupVerificationService(saveRoot, queued::add, CLOCK);
 
         CompletableFuture<BackupVerificationResult> verify = service.verifyAsync(BACKUP_ID);
-        CompletableFuture<BackupVerificationResult> upgrade =
-                service.validateLegacyAndCreateManifestAsync(BACKUP_ID);
+        CompletableFuture<BackupVerificationResult> upgrade = service.validateLegacyAndCreateManifestAsync(BACKUP_ID);
 
         assertEquals(1, queued.size(), "only the first action may reach the executor");
         assertTrue(service.isInFlight(BACKUP_ID));
         queued.remove().run();
-        assertEquals(BackupVerificationResult.Status.LEGACY_REQUIRES_VALIDATION, verify.join().status());
+        assertEquals(
+                BackupVerificationResult.Status.LEGACY_REQUIRES_VALIDATION,
+                verify.join().status());
         assertFalse(upgrade.isDone());
         assertEquals(1, queued.size(), "the second action is scheduled only after the first completes");
 
         queued.remove().run();
-        assertEquals(BackupVerificationResult.Status.LEGACY_UPGRADED, upgrade.join().status());
+        assertEquals(
+                BackupVerificationResult.Status.LEGACY_UPGRADED, upgrade.join().status());
         assertFalse(service.isInFlight(BACKUP_ID));
     }
 
     @Test
     void sharedFactoryNormalizesSaveRoots() {
-        assertSame(BackupVerificationService.forSave(saveRoot),
-                BackupVerificationService.forSave(saveRoot.resolve(".")));
+        assertSame(
+                BackupVerificationService.forSave(saveRoot), BackupVerificationService.forSave(saveRoot.resolve(".")));
     }
 
     private static String translationKey(String message) {
@@ -272,9 +279,11 @@ class BackupManifestServiceTest {
         Files.createDirectories(backup.resolve("dimensions/delvefold/delve_flat/region"));
         Files.writeString(backup.resolve("dimensions/delvefold/delve_flat/region/r.0.0.mca"), "region-data");
         Files.createDirectories(backup.resolve("config/serverconfig/delvefold"));
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/settings.json"),
+        Files.writeString(
+                backup.resolve("config/serverconfig/delvefold/settings.json"),
                 ConfigJson.GSON.toJson(WorldSettingsDocument.uninitialized()));
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/ores.json"),
+        Files.writeString(
+                backup.resolve("config/serverconfig/delvefold/ores.json"),
                 ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
         PendingWorldOperation operation = new PendingWorldOperation(
                 PendingWorldOperation.CURRENT_SCHEMA_VERSION,

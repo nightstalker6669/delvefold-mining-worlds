@@ -13,8 +13,7 @@ import net.minecraft.world.level.block.Block;
 final class MinecraftGuideIconResolver implements GuideIconResolver {
     static final MinecraftGuideIconResolver INSTANCE = new MinecraftGuideIconResolver();
 
-    private MinecraftGuideIconResolver() {
-    }
+    private MinecraftGuideIconResolver() {}
 
     @Override
     public Optional<String> representativeBlock(GuideSnapshot.OutputKind kind, String sourceId) {
@@ -23,7 +22,8 @@ final class MinecraftGuideIconResolver implements GuideIconResolver {
             return Optional.empty();
         }
         if (kind == GuideSnapshot.OutputKind.BLOCK) {
-            return BuiltInRegistries.BLOCK.getOptional(id)
+            return BuiltInRegistries.BLOCK
+                    .getOptional(id)
                     .filter(block -> block.asItem() != Items.AIR)
                     .map(block -> BuiltInRegistries.BLOCK.getKey(block).toString());
         }

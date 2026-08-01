@@ -90,29 +90,56 @@ public final class DelvefoldGuideScreen extends Screen {
     }
 
     private void drawPanel(GuiGraphics graphics) {
-        graphics.fill(this.panelLeft + 5, this.panelTop + 6,
-                this.panelLeft + this.panelWidth + 5, this.panelTop + this.panelHeight + 6, 0x88000000);
-        graphics.fill(this.panelLeft, this.panelTop,
-                this.panelLeft + this.panelWidth, this.panelTop + this.panelHeight, BACKGROUND);
-        graphics.fillGradient(this.panelLeft + 1, this.panelTop + 1,
-                this.panelLeft + this.panelWidth - 1, this.panelTop + 43, 0xFF1E3035, 0xFF142128);
-        graphics.fill(this.panelLeft + 1, this.panelTop + this.panelHeight - 38,
-                this.panelLeft + this.panelWidth - 1, this.panelTop + this.panelHeight - 1, 0xFF10191F);
-        graphics.fill(this.panelLeft + 1, this.panelTop + 1,
-                this.panelLeft + this.panelWidth - 1, this.panelTop + 4, ACCENT);
+        graphics.fill(
+                this.panelLeft + 5,
+                this.panelTop + 6,
+                this.panelLeft + this.panelWidth + 5,
+                this.panelTop + this.panelHeight + 6,
+                0x88000000);
+        graphics.fill(
+                this.panelLeft,
+                this.panelTop,
+                this.panelLeft + this.panelWidth,
+                this.panelTop + this.panelHeight,
+                BACKGROUND);
+        graphics.fillGradient(
+                this.panelLeft + 1,
+                this.panelTop + 1,
+                this.panelLeft + this.panelWidth - 1,
+                this.panelTop + 43,
+                0xFF1E3035,
+                0xFF142128);
+        graphics.fill(
+                this.panelLeft + 1,
+                this.panelTop + this.panelHeight - 38,
+                this.panelLeft + this.panelWidth - 1,
+                this.panelTop + this.panelHeight - 1,
+                0xFF10191F);
+        graphics.fill(
+                this.panelLeft + 1, this.panelTop + 1, this.panelLeft + this.panelWidth - 1, this.panelTop + 4, ACCENT);
         graphics.renderOutline(this.panelLeft, this.panelTop, this.panelWidth, this.panelHeight, BORDER);
         graphics.drawString(this.font, this.title, this.panelLeft + 14, this.panelTop + 16, TEXT, false);
         if (this.panelWidth >= 430) {
-            Component count = Component.translatable("screen.delvefold.guide.ore_count", this.snapshot.ores().size());
-            graphics.drawString(this.font, count,
-                    this.panelLeft + this.panelWidth - 14 - this.font.width(count), this.panelTop + 16, MUTED, false);
+            Component count = Component.translatable(
+                    "screen.delvefold.guide.ore_count", this.snapshot.ores().size());
+            graphics.drawString(
+                    this.font,
+                    count,
+                    this.panelLeft + this.panelWidth - 14 - this.font.width(count),
+                    this.panelTop + 16,
+                    MUTED,
+                    false);
         }
 
         Component footer = this.snapshot.truncated()
                 ? Component.translatable("screen.delvefold.guide.truncated")
                 : Component.translatable("screen.delvefold.guide.server_authoritative");
-        drawFitted(graphics, footer, this.panelLeft + 14,
-                this.panelTop + this.panelHeight - 25, this.footerTextWidth,
+        drawFitted(
+                graphics,
+                footer,
+                this.panelLeft + 14,
+                this.panelTop + this.panelHeight - 25,
+                this.footerTextWidth,
                 this.snapshot.truncated() ? WARNING : DIM);
     }
 
@@ -125,15 +152,24 @@ public final class DelvefoldGuideScreen extends Screen {
         graphics.fill(x + 8, y + 8, x + 11, y + 46, ACCENT);
 
         drawFitted(graphics, Component.literal(this.snapshot.worldName()), x + 18, y + 8, width - 28, TEXT);
-        Component terrain = Component.translatable("screen.delvefold.guide.terrain_profile_geology",
-                terrainName(this.snapshot.terrain()), terrainVariantName(this.snapshot.terrainVariant()),
-                geologyThemeName(this.snapshot.geologyTheme()), this.snapshot.activeProfile());
+        Component terrain = Component.translatable(
+                "screen.delvefold.guide.terrain_profile_geology",
+                terrainName(this.snapshot.terrain()),
+                terrainVariantName(this.snapshot.terrainVariant()),
+                geologyThemeName(this.snapshot.geologyTheme()),
+                this.snapshot.activeProfile());
         drawFitted(graphics, terrain, x + 18, y + 23, width - 28, MUTED);
-        Component status = Component.translatable("screen.delvefold.guide.status_line",
+        Component status = Component.translatable(
+                "screen.delvefold.guide.status_line",
                 Component.translatable("screen.delvefold.guide.portal."
                         + this.snapshot.portalStatus().name().toLowerCase(Locale.ROOT)),
                 renewalText(this.snapshot.renewal()));
-        drawFitted(graphics, status, x + 18, y + 38, width - 28,
+        drawFitted(
+                graphics,
+                status,
+                x + 18,
+                y + 38,
+                width - 28,
                 this.snapshot.portalStatus() == GuideSnapshot.PortalStatus.AVAILABLE ? SUCCESS : WARNING);
     }
 
@@ -145,8 +181,12 @@ public final class DelvefoldGuideScreen extends Screen {
         }
         if (this.snapshot.ores().isEmpty()) {
             Component empty = Component.translatable("screen.delvefold.guide.empty");
-            graphics.drawCenteredString(this.font, empty, x + width / 2,
-                    this.listTop + Math.max(4, (this.listBottom - this.listTop - this.font.lineHeight) / 2), MUTED);
+            graphics.drawCenteredString(
+                    this.font,
+                    empty,
+                    x + width / 2,
+                    this.listTop + Math.max(4, (this.listBottom - this.listTop - this.font.lineHeight) / 2),
+                    MUTED);
             return;
         }
         graphics.enableScissor(x, this.listTop, x + width, this.listBottom);
@@ -155,10 +195,18 @@ public final class DelvefoldGuideScreen extends Screen {
             if (y + ROW_HEIGHT <= this.listTop || y >= this.listBottom) {
                 continue;
             }
-            drawOreRow(graphics, this.snapshot.ores().get(index), x, y, width,
-                    mouseX >= x && mouseX < x + width
-                            && mouseY >= this.listTop && mouseY < this.listBottom
-                            && mouseY >= y && mouseY < y + ROW_HEIGHT - 4);
+            drawOreRow(
+                    graphics,
+                    this.snapshot.ores().get(index),
+                    x,
+                    y,
+                    width,
+                    mouseX >= x
+                            && mouseX < x + width
+                            && mouseY >= this.listTop
+                            && mouseY < this.listBottom
+                            && mouseY >= y
+                            && mouseY < y + ROW_HEIGHT - 4);
         }
         graphics.disableScissor();
         drawScrollbar(graphics, x + width - 4);
@@ -170,8 +218,8 @@ public final class DelvefoldGuideScreen extends Screen {
             this.hoveredOre = ore;
         }
         graphics.fill(x, y, x + width, bottom, hovered ? 0xF024343C : SURFACE_ALT);
-        graphics.renderOutline(x, y, width, ROW_HEIGHT - 4,
-                ore.applicability().appliesToActiveTerrain() ? CARD_BORDER : 0xFF4B4040);
+        graphics.renderOutline(
+                x, y, width, ROW_HEIGHT - 4, ore.applicability().appliesToActiveTerrain() ? CARD_BORDER : 0xFF4B4040);
 
         int textX = x + 9;
         ItemStack icon = iconFor(ore);
@@ -183,37 +231,64 @@ public final class DelvefoldGuideScreen extends Screen {
                 ? Component.translatable("screen.delvefold.guide.frequency_limited", frequency(ore))
                 : frequency(ore);
         int frequencyWidth = Math.min(128, Math.max(60, this.font.width(frequency) + 6));
-        drawFitted(graphics, Component.literal(ore.ruleId()), textX, y + 7,
+        drawFitted(
+                graphics,
+                Component.literal(ore.ruleId()),
+                textX,
+                y + 7,
                 width - (textX - x) - frequencyWidth - 12,
                 ore.applicability().appliesToActiveTerrain() ? TEXT : DIM);
-        drawFitted(graphics, frequency, x + width - frequencyWidth - 7, y + 7,
-                frequencyWidth, ore.applicability().appliesToActiveTerrain() ? ACCENT : DIM);
+        drawFitted(
+                graphics,
+                frequency,
+                x + width - frequencyWidth - 7,
+                y + 7,
+                frequencyWidth,
+                ore.applicability().appliesToActiveTerrain() ? ACCENT : DIM);
 
         String outputs = ore.outputs().stream()
                 .map(output -> output.kind() == OutputKind.BLOCK_TAG ? "#" + output.sourceId() : output.sourceId())
                 .collect(Collectors.joining(", "));
-        drawFitted(graphics, Component.translatable("screen.delvefold.guide.outputs", outputs),
-                textX, y + 21, width - (textX - x) - 10, MUTED);
+        drawFitted(
+                graphics,
+                Component.translatable("screen.delvefold.guide.outputs", outputs),
+                textX,
+                y + 21,
+                width - (textX - x) - 10,
+                MUTED);
 
-        String heights = ore.heightBands().stream().limit(3)
-                .map(this::heightSummary)
-                .collect(Collectors.joining("  •  "));
+        String heights =
+                ore.heightBands().stream().limit(3).map(this::heightSummary).collect(Collectors.joining("  •  "));
         if (ore.heightBands().size() > 3) {
-            heights += "  " + Component.translatable("screen.delvefold.guide.additional_bands",
-                    ore.heightBands().size() - 3).getString();
+            heights += "  "
+                    + Component.translatable(
+                                    "screen.delvefold.guide.additional_bands",
+                                    ore.heightBands().size() - 3)
+                            .getString();
         }
-        drawFitted(graphics, Component.translatable("screen.delvefold.guide.heights",
-                heights.isBlank() ? Component.translatable("screen.delvefold.guide.none") : heights),
-                textX, y + 34, width - (textX - x) - 10, MUTED);
+        drawFitted(
+                graphics,
+                Component.translatable(
+                        "screen.delvefold.guide.heights",
+                        heights.isBlank() ? Component.translatable("screen.delvefold.guide.none") : heights),
+                textX,
+                y + 34,
+                width - (textX - x) - 10,
+                MUTED);
 
-        String terrains = ore.applicability().terrains().stream().map(DelvefoldGuideScreen::terrainName)
+        String terrains = ore.applicability().terrains().stream()
+                .map(DelvefoldGuideScreen::terrainName)
                 .map(Component::getString)
                 .collect(Collectors.joining(", "));
         String biomes = biomeSummary(ore);
-        Component applicability = Component.translatable("screen.delvefold.guide.applicability",
-                terrains, biomes);
-        drawFitted(graphics, applicability, textX, y + 47,
-                width - (textX - x) - 10, ore.applicability().appliesToActiveTerrain() ? DIM : WARNING);
+        Component applicability = Component.translatable("screen.delvefold.guide.applicability", terrains, biomes);
+        drawFitted(
+                graphics,
+                applicability,
+                textX,
+                y + 47,
+                width - (textX - x) - 10,
+                ore.applicability().appliesToActiveTerrain() ? DIM : WARNING);
     }
 
     private void drawScrollbar(GuiGraphics graphics, int x) {
@@ -232,10 +307,12 @@ public final class DelvefoldGuideScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (mouseX >= this.panelLeft && mouseX < this.panelLeft + this.panelWidth
-                && mouseY >= this.listTop && mouseY < this.listBottom) {
-            this.scrollOffset = Math.clamp(this.scrollOffset - (int) Math.signum(scrollY) * ROW_HEIGHT,
-                    0, maximumScroll());
+        if (mouseX >= this.panelLeft
+                && mouseX < this.panelLeft + this.panelWidth
+                && mouseY >= this.listTop
+                && mouseY < this.listBottom) {
+            this.scrollOffset =
+                    Math.clamp(this.scrollOffset - (int) Math.signum(scrollY) * ROW_HEIGHT, 0, maximumScroll());
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -294,11 +371,18 @@ public final class DelvefoldGuideScreen extends Screen {
                 ? Integer.toString(band.bestMinY())
                 : band.bestMinY() + ".." + band.bestMaxY();
         if (provinceBand(band)) {
-            return Component.translatable("screen.delvefold.guide.height_summary.province",
-                    best, distributionName(band.distribution())).getString();
+            return Component.translatable(
+                            "screen.delvefold.guide.height_summary.province",
+                            best,
+                            distributionName(band.distribution()))
+                    .getString();
         }
-        return Component.translatable("screen.delvefold.guide.height_summary.vein",
-                best, distributionName(band.distribution()), band.veinSize()).getString();
+        return Component.translatable(
+                        "screen.delvefold.guide.height_summary.vein",
+                        best,
+                        distributionName(band.distribution()),
+                        band.veinSize())
+                .getString();
     }
 
     private Component fullHeightSummary(HeightBand band) {
@@ -306,24 +390,37 @@ public final class DelvefoldGuideScreen extends Screen {
                 ? Integer.toString(band.bestMinY())
                 : band.bestMinY() + ".." + band.bestMaxY();
         if (provinceBand(band)) {
-            return Component.translatable("screen.delvefold.guide.tooltip.province_band_detail",
-                    band.bandId(), band.minY(), band.maxY(), best,
+            return Component.translatable(
+                    "screen.delvefold.guide.tooltip.province_band_detail",
+                    band.bandId(),
+                    band.minY(),
+                    band.maxY(),
+                    best,
                     distributionName(band.distribution()));
         }
-        return Component.translatable("screen.delvefold.guide.tooltip.band_detail",
-                band.bandId(), band.minY(), band.maxY(), best,
-                distributionName(band.distribution()), band.veinSize());
+        return Component.translatable(
+                "screen.delvefold.guide.tooltip.band_detail",
+                band.bandId(),
+                band.minY(),
+                band.maxY(),
+                best,
+                distributionName(band.distribution()),
+                band.veinSize());
     }
 
     private String biomeSummary(OreEntry ore) {
         String includes = ore.applicability().biomeIncludes().isEmpty()
-                ? Component.translatable("screen.delvefold.guide.all_mining_biomes").getString()
+                ? Component.translatable("screen.delvefold.guide.all_mining_biomes")
+                        .getString()
                 : String.join(", ", ore.applicability().biomeIncludes());
         if (ore.applicability().biomeExcludes().isEmpty()) {
             return includes;
         }
-        return Component.translatable("screen.delvefold.guide.biomes_excluding",
-                includes, String.join(", ", ore.applicability().biomeExcludes())).getString();
+        return Component.translatable(
+                        "screen.delvefold.guide.biomes_excluding",
+                        includes,
+                        String.join(", ", ore.applicability().biomeExcludes()))
+                .getString();
     }
 
     private List<Component> tooltip(OreEntry ore) {
@@ -338,9 +435,12 @@ public final class DelvefoldGuideScreen extends Screen {
         for (HeightBand band : ore.heightBands()) {
             lines.add(Component.translatable("screen.delvefold.guide.tooltip.band", fullHeightSummary(band)));
         }
-        lines.add(Component.translatable("screen.delvefold.guide.tooltip.terrains",
-                ore.applicability().terrains().stream().map(DelvefoldGuideScreen::terrainName)
-                        .map(Component::getString).collect(Collectors.joining(", "))));
+        lines.add(Component.translatable(
+                "screen.delvefold.guide.tooltip.terrains",
+                ore.applicability().terrains().stream()
+                        .map(DelvefoldGuideScreen::terrainName)
+                        .map(Component::getString)
+                        .collect(Collectors.joining(", "))));
         lines.add(Component.translatable("screen.delvefold.guide.tooltip.biomes", biomeSummary(ore)));
         if (ore.truncated()) {
             lines.add(Component.translatable("screen.delvefold.guide.entry_truncated"));
@@ -415,8 +515,8 @@ public final class DelvefoldGuideScreen extends Screen {
     }
 
     private static Component distributionName(String value) {
-        return Component.translatable("screen.delvefold.guide.distribution."
-                + (value == null ? "uniform" : value.toLowerCase(Locale.ROOT)));
+        return Component.translatable(
+                "screen.delvefold.guide.distribution." + (value == null ? "uniform" : value.toLowerCase(Locale.ROOT)));
     }
 
     private static boolean provinceBand(HeightBand band) {
@@ -425,10 +525,13 @@ public final class DelvefoldGuideScreen extends Screen {
 
     @Override
     public Component getNarrationMessage() {
-        return Component.translatable("screen.delvefold.guide.narration",
-                this.snapshot.worldName(), terrainName(this.snapshot.terrain()),
+        return Component.translatable(
+                "screen.delvefold.guide.narration",
+                this.snapshot.worldName(),
+                terrainName(this.snapshot.terrain()),
                 terrainVariantName(this.snapshot.terrainVariant()),
-                geologyThemeName(this.snapshot.geologyTheme()), this.snapshot.activeProfile(),
+                geologyThemeName(this.snapshot.geologyTheme()),
+                this.snapshot.activeProfile(),
                 Component.translatable("screen.delvefold.guide.portal."
                         + this.snapshot.portalStatus().name().toLowerCase(Locale.ROOT)),
                 this.snapshot.ores().size());

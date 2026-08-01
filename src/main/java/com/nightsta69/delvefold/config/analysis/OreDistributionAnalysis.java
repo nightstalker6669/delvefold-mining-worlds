@@ -7,8 +7,7 @@ import java.util.List;
 
 /** Pure distribution math shared by validation, diagnostics, and the client preview. */
 public final class OreDistributionAnalysis {
-    private OreDistributionAnalysis() {
-    }
+    private OreDistributionAnalysis() {}
 
     public static Summary analyze(SpawnBand band) {
         int minY = band.minY();
@@ -25,15 +24,17 @@ public final class OreDistributionAnalysis {
             totalWeight += weight;
         }
         if (!(totalWeight > 0.0D)) {
-            return new Summary(List.of(), band.attemptsPerChunk(),
-                    band.attemptsPerChunk() * Math.max(0, band.veinSize()), Density.INVALID);
+            return new Summary(
+                    List.of(),
+                    band.attemptsPerChunk(),
+                    band.attemptsPerChunk() * Math.max(0, band.veinSize()),
+                    Density.INVALID);
         }
 
         List<Sample> samples = new ArrayList<>(weights.size());
         for (int index = 0; index < weights.size(); index++) {
             double probability = weights.get(index) / totalWeight;
-            samples.add(new Sample(minY + index, probability,
-                    probability * band.attemptsPerChunk()));
+            samples.add(new Sample(minY + index, probability, probability * band.attemptsPerChunk()));
         }
         double workUnits = band.attemptsPerChunk() * Math.max(0, band.veinSize());
         return new Summary(samples, band.attemptsPerChunk(), workUnits, density(workUnits));
@@ -80,8 +81,7 @@ public final class OreDistributionAnalysis {
         return Density.EXTREME;
     }
 
-    public record Sample(int y, double probability, double expectedAttempts) {
-    }
+    public record Sample(int y, double probability, double expectedAttempts) {}
 
     public record Summary(List<Sample> samples, double attemptsPerChunk, double workUnits, Density density) {
         public Summary {

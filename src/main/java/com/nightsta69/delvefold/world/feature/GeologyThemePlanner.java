@@ -14,8 +14,7 @@ public final class GeologyThemePlanner {
 
     private static final int STRATA_NODES = 8;
 
-    private GeologyThemePlanner() {
-    }
+    private GeologyThemePlanner() {}
 
     public static Plan plan(
             GeologyTheme theme,
@@ -25,25 +24,24 @@ public final class GeologyThemePlanner {
             int chunkZ,
             long generationSalt,
             int minimumY,
-            int maximumY
-    ) {
+            int maximumY) {
         if (theme == null || theme == GeologyTheme.CLASSIC || maximumY < minimumY) {
             return Plan.EMPTY;
         }
-        GeologyThemeConfiguration.Phase selectedPhase = phase == null
-                ? GeologyThemeConfiguration.Phase.STRATA
-                : phase;
+        GeologyThemeConfiguration.Phase selectedPhase = phase == null ? GeologyThemeConfiguration.Phase.STRATA : phase;
         long chunkPosition = ((long) chunkZ << 32) ^ (chunkX & 0xFFFFFFFFL);
         Random random = new Random(GenerationSeedMixer.geologySeed(
-                worldSeed, chunkPosition, generationSalt, theme.serializedName(),
+                worldSeed,
+                chunkPosition,
+                generationSalt,
+                theme.serializedName(),
                 selectedPhase == GeologyThemeConfiguration.Phase.STRATA));
         return selectedPhase == GeologyThemeConfiguration.Phase.STRATA
                 ? strata(theme, random, chunkX, chunkZ, minimumY, maximumY)
                 : decorations(theme, random, chunkX, chunkZ, minimumY, maximumY);
     }
 
-    private static Plan strata(
-            GeologyTheme theme, Random random, int chunkX, int chunkZ, int minimumY, int maximumY) {
+    private static Plan strata(GeologyTheme theme, Random random, int chunkX, int chunkZ, int minimumY, int maximumY) {
         List<Placement> placements = new ArrayList<>(MAX_STRATA_PLACEMENTS);
         Set<Position> occupied = new HashSet<>();
         int originX = chunkX * 16;
@@ -63,8 +61,7 @@ public final class GeologyThemePlanner {
                         int localX = centerX + dx;
                         int localZ = centerZ + dz;
                         int y = centerY + dy;
-                        if (localX < 0 || localX > 15 || localZ < 0 || localZ > 15
-                                || y < minimumY || y > maximumY) {
+                        if (localX < 0 || localX > 15 || localZ < 0 || localZ > 15 || y < minimumY || y > maximumY) {
                             continue;
                         }
                         double distance = square(dx / (double) radiusX)
@@ -92,11 +89,12 @@ public final class GeologyThemePlanner {
         for (int candidate = 0; candidate < MAX_DECORATION_PLACEMENTS; candidate++) {
             Position position;
             do {
-                position = new Position(originX + random.nextInt(16), minimumY + random.nextInt(height),
-                        originZ + random.nextInt(16));
+                position = new Position(
+                        originX + random.nextInt(16), minimumY + random.nextInt(height), originZ + random.nextInt(16));
             } while (!occupied.add(position));
             boolean fluid = candidate % 4 == 3 && fluids < MAX_FLUID_PLACEMENTS;
-            placements.add(new Placement(position,
+            placements.add(new Placement(
+                    position,
                     fluid ? fluidMaterial(theme) : decorationMaterial(theme),
                     fluid ? Role.FLUID : Role.DECORATION));
             if (fluid) fluids++;
@@ -109,10 +107,12 @@ public final class GeologyThemePlanner {
         return switch (theme) {
             case VOLCANIC -> choice < 4 ? Material.TUFF : choice < 7 ? Material.BASALT : Material.BLACKSTONE;
             case DRIPSTONE -> choice < 4 ? Material.DRIPSTONE_BLOCK : choice < 7 ? Material.CALCITE : Material.TUFF;
-            case LUSH -> choice < 3 ? Material.CLAY : choice < 5 ? Material.MUD
-                    : choice < 7 ? Material.ROOTED_DIRT : Material.MOSS_BLOCK;
-            case CRYSTAL -> choice < 4 ? Material.CALCITE
-                    : choice < 7 ? Material.SMOOTH_BASALT : Material.AMETHYST_BLOCK;
+            case LUSH ->
+                choice < 3
+                        ? Material.CLAY
+                        : choice < 5 ? Material.MUD : choice < 7 ? Material.ROOTED_DIRT : Material.MOSS_BLOCK;
+            case CRYSTAL ->
+                choice < 4 ? Material.CALCITE : choice < 7 ? Material.SMOOTH_BASALT : Material.AMETHYST_BLOCK;
             case CLASSIC -> throw new IllegalStateException("Classic geology must not produce placements");
         };
     }
@@ -140,9 +140,15 @@ public final class GeologyThemePlanner {
 
         public Plan {
             placements = placements == null ? List.of() : List.copyOf(placements);
-            long strata = placements.stream().filter(value -> value.role() == Role.STRATA).count();
-            long decorations = placements.stream().filter(value -> value.role() == Role.DECORATION).count();
-            long fluids = placements.stream().filter(value -> value.role() == Role.FLUID).count();
+            long strata = placements.stream()
+                    .filter(value -> value.role() == Role.STRATA)
+                    .count();
+            long decorations = placements.stream()
+                    .filter(value -> value.role() == Role.DECORATION)
+                    .count();
+            long fluids = placements.stream()
+                    .filter(value -> value.role() == Role.FLUID)
+                    .count();
             if (strata > MAX_STRATA_PLACEMENTS
                     || decorations + fluids > MAX_DECORATION_PLACEMENTS
                     || fluids > MAX_FLUID_PLACEMENTS) {
@@ -159,8 +165,7 @@ public final class GeologyThemePlanner {
         }
     }
 
-    public record Position(int x, int y, int z) {
-    }
+    public record Position(int x, int y, int z) {}
 
     public enum Role {
         STRATA,

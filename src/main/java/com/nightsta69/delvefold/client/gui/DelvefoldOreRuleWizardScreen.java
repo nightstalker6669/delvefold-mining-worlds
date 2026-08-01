@@ -98,10 +98,21 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private String rawBiomeExcludes;
 
     public DelvefoldOreRuleWizardScreen(Screen parent, AdminSnapshot snapshot, AdminSnapshot.OreRuleDraft draft) {
-        this(parent, snapshot, draft, Page.TARGETS, 0,
+        this(
+                parent,
+                snapshot,
+                draft,
+                Page.TARGETS,
+                0,
                 snapshot.oreRules().stream().anyMatch(rule -> rule.id().equals(draft.id())),
-                draft.id(), draft.variants().isEmpty() ? draft.primaryBlockId() : draft.variants().get(0).sourceId(),
-                null, 0, 0, hasDuplicateSources(draft));
+                draft.id(),
+                draft.variants().isEmpty()
+                        ? draft.primaryBlockId()
+                        : draft.variants().get(0).sourceId(),
+                null,
+                0,
+                0,
+                hasDuplicateSources(draft));
     }
 
     private DelvefoldOreRuleWizardScreen(
@@ -120,7 +131,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         super(Component.translatable("screen.delvefold.ore_wizard.title"), snapshot);
         this.parent = parent;
         this.page = page;
-        this.bandIndex = Math.max(0, Math.min(bandIndex, Math.max(0, draft.bands().size() - 1)));
+        this.bandIndex =
+                Math.max(0, Math.min(bandIndex, Math.max(0, draft.bands().size() - 1)));
         this.variantPage = Math.max(0, variantPage);
         this.bodyScrollOffset = Math.max(0, bodyScrollOffset);
         this.existingRule = existingRule;
@@ -164,8 +176,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 ? detectVariants(this.primaryBlockId, this.selectedVariants.keySet())
                 : new ArrayList<>(inheritedCandidates);
         this.rawStateProperties = formatState(this.variantStates.getOrDefault(this.focusedVariant, Map.of()));
-        this.rawWeight = Integer.toString(this.variantWeights.getOrDefault(
-                this.focusedVariant, AdminSnapshot.OreVariantDraft.MIN_WEIGHT));
+        this.rawWeight = Integer.toString(
+                this.variantWeights.getOrDefault(this.focusedVariant, AdminSnapshot.OreVariantDraft.MIN_WEIGHT));
         this.rawBiomeIncludes = String.join(", ", this.biomeIncludes);
         this.rawBiomeExcludes = String.join(", ", this.biomeExcludes);
         resetValidationMessage();
@@ -178,7 +190,11 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         this.bodyVirtualBottom = bodyTop();
         int tabY = this.contentTop();
         int tabWidth = (this.contentWidth() - 12) / 3;
-        this.addButton(this.contentLeft(), tabY, tabWidth, 24,
+        this.addButton(
+                this.contentLeft(),
+                tabY,
+                tabWidth,
+                24,
                 Component.translatable("screen.delvefold.ore_wizard.tab.blocks"),
                 this.page == Page.TARGETS ? Style.TAB_SELECTED : Style.GHOST,
                 button -> {
@@ -186,7 +202,11 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                         openPage(Page.TARGETS, this.bandIndex);
                     }
                 });
-        this.addButton(this.contentLeft() + tabWidth + 6, tabY, tabWidth, 24,
+        this.addButton(
+                this.contentLeft() + tabWidth + 6,
+                tabY,
+                tabWidth,
+                24,
                 Component.translatable("screen.delvefold.ore_wizard.tab.filters"),
                 this.page == Page.FILTERS ? Style.TAB_SELECTED : Style.GHOST,
                 button -> {
@@ -194,7 +214,11 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                         openPage(Page.FILTERS, this.bandIndex);
                     }
                 });
-        this.addButton(this.contentLeft() + (tabWidth + 6) * 2, tabY, tabWidth, 24,
+        this.addButton(
+                this.contentLeft() + (tabWidth + 6) * 2,
+                tabY,
+                tabWidth,
+                24,
                 Component.translatable("screen.delvefold.ore_wizard.tab.bands"),
                 this.page == Page.BANDS ? Style.TAB_SELECTED : Style.GHOST,
                 button -> {
@@ -213,10 +237,22 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         applyBodyScroll();
 
         int footerY = this.panelTop + this.panelHeight - 29;
-        this.addButton(this.contentLeft(), footerY, 76, 22,
-                Component.translatable("gui.back"), Style.GHOST, button -> this.minecraft.setScreen(this.parent));
-        this.saveButton = this.addButton(this.contentRight() - 106, footerY, 106, 22,
-                Component.translatable("screen.delvefold.ore_wizard.save"), Style.PRIMARY, button -> save());
+        this.addButton(
+                this.contentLeft(),
+                footerY,
+                76,
+                22,
+                Component.translatable("gui.back"),
+                Style.GHOST,
+                button -> this.minecraft.setScreen(this.parent));
+        this.saveButton = this.addButton(
+                this.contentRight() - 106,
+                footerY,
+                106,
+                22,
+                Component.translatable("screen.delvefold.ore_wizard.save"),
+                Style.PRIMARY,
+                button -> save());
         this.saveButton.active = this.snapshot.backendReady() && !this.unsupportedDuplicateSources;
         focusFirstBodyWidget();
     }
@@ -226,20 +262,30 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int y = bodyTop() + 39;
         int width = this.contentWidth() - 24;
         this.statePropertiesBox = registerBodyWidget(addWideEditBox(
-                x, y, width, this.rawStateProperties,
+                x,
+                y,
+                width,
+                this.rawStateProperties,
                 Component.translatable("screen.delvefold.ore_wizard.hint.state")));
         this.statePropertiesBox.setResponder(value -> this.rawStateProperties = value);
         this.biomeIncludesBox = registerBodyWidget(addWideEditBox(
-                x, y + 48, width, this.rawBiomeIncludes,
+                x,
+                y + 48,
+                width,
+                this.rawBiomeIncludes,
                 Component.translatable("screen.delvefold.ore_wizard.hint.biomes.include")));
         this.biomeIncludesBox.setResponder(value -> this.rawBiomeIncludes = value);
         this.biomeExcludesBox = registerBodyWidget(addWideEditBox(
-                x, y + 96, width, this.rawBiomeExcludes,
+                x,
+                y + 96,
+                width,
+                this.rawBiomeExcludes,
                 Component.translatable("screen.delvefold.ore_wizard.hint.biomes.exclude")));
         this.biomeExcludesBox.setResponder(value -> this.rawBiomeExcludes = value);
         int helpY = y + 121;
-        this.bodyVirtualBottom = helpY + wrappedTextHeight(
-                Component.translatable("screen.delvefold.ore_wizard.filters.help"), width) + 8;
+        this.bodyVirtualBottom = helpY
+                + wrappedTextHeight(Component.translatable("screen.delvefold.ore_wizard.filters.help"), width)
+                + 8;
     }
 
     private void initTargets() {
@@ -249,24 +295,36 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int innerWidth = this.contentWidth() - 24;
         int toggleWidth = Math.min(102, Math.max(64, innerWidth / 5));
         int ruleWidth = innerWidth - toggleWidth * 2 - 12;
-        this.ruleIdBox = registerBodyWidget(addEditBox(x, y, ruleWidth, this.ruleId,
-                Component.translatable("screen.delvefold.ore_wizard.hint.rule_id")));
+        this.ruleIdBox = registerBodyWidget(addEditBox(
+                x, y, ruleWidth, this.ruleId, Component.translatable("screen.delvefold.ore_wizard.hint.rule_id")));
         this.ruleIdBox.setResponder(value -> this.ruleId = value);
         this.ruleIdBox.active = !this.existingRule;
-        this.addBodyButton(x + ruleWidth + 6, y, toggleWidth, 20,
+        this.addBodyButton(
+                x + ruleWidth + 6,
+                y,
+                toggleWidth,
+                20,
                 toggleLabel(Component.translatable("screen.delvefold.ore_wizard.enabled"), this.enabled),
-                this.enabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
-            this.enabled = !this.enabled;
-            button.setMessage(toggleLabel(Component.translatable("screen.delvefold.ore_wizard.enabled"), this.enabled));
-            setButtonStyle(button, this.enabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
-        });
-        this.addBodyButton(x + ruleWidth + toggleWidth + 12, y, toggleWidth, 20,
+                this.enabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
+                    this.enabled = !this.enabled;
+                    button.setMessage(
+                            toggleLabel(Component.translatable("screen.delvefold.ore_wizard.enabled"), this.enabled));
+                    setButtonStyle(button, this.enabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+                });
+        this.addBodyButton(
+                x + ruleWidth + toggleWidth + 12,
+                y,
+                toggleWidth,
+                20,
                 toggleLabel(Component.translatable("screen.delvefold.ore_wizard.required"), this.required),
-                this.required ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
-            this.required = !this.required;
-            button.setMessage(toggleLabel(Component.translatable("screen.delvefold.ore_wizard.required"), this.required));
-            setButtonStyle(button, this.required ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
-        });
+                this.required ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
+                    this.required = !this.required;
+                    button.setMessage(
+                            toggleLabel(Component.translatable("screen.delvefold.ore_wizard.required"), this.required));
+                    setButtonStyle(button, this.required ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+                });
 
         int variantY = y + (compact ? 34 : 40);
         int variantColumns = variantColumns();
@@ -288,29 +346,50 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             boolean outputTag = blockId.startsWith("#");
             ResourceLocation tagId = ResourceLocation.tryParse(outputTag ? blockId.substring(1) : blockId);
             boolean missing = outputTag
-                    ? tagId == null || BuiltInRegistries.BLOCK.getTag(
-                            net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.BLOCK, tagId)).isEmpty()
-                    : registryId == null || BuiltInRegistries.BLOCK.getOptional(registryId).isEmpty();
-            Component status = Component.translatable(missing
-                    ? "screen.delvefold.status.missing"
-                    : selected ? "screen.delvefold.status.on" : "screen.delvefold.status.off");
-            Component label = Component.translatable(blockId.equals(this.focusedVariant)
+                    ? tagId == null
+                            || BuiltInRegistries.BLOCK
+                                    .getTag(net.minecraft.tags.TagKey.create(
+                                            net.minecraft.core.registries.Registries.BLOCK, tagId))
+                                    .isEmpty()
+                    : registryId == null
+                            || BuiltInRegistries.BLOCK.getOptional(registryId).isEmpty();
+            Component status = Component.translatable(
+                    missing
+                            ? "screen.delvefold.status.missing"
+                            : selected ? "screen.delvefold.status.on" : "screen.delvefold.status.off");
+            Component label = Component.translatable(
+                    blockId.equals(this.focusedVariant)
                             ? "screen.delvefold.ore_wizard.variant.focused"
                             : "screen.delvefold.ore_wizard.variant.label",
-                    status, blockId);
-            this.addBodyButton(x + column * (variantWidth + variantGap), variantY + row * 22,
-                    variantWidth, 20, label,
+                    status,
+                    blockId);
+            this.addBodyButton(
+                    x + column * (variantWidth + variantGap),
+                    variantY + row * 22,
+                    variantWidth,
+                    20,
+                    label,
                     missing ? Style.DANGER : selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                     ignored -> toggleVariant(blockId));
         }
         if (pageCount > 1) {
             int pagerY = variantY - 16;
-            Button previous = this.addBodyButton(x + innerWidth - 68, pagerY, 30, 14,
-                    Component.translatable("screen.delvefold.previous"), Style.GHOST,
+            Button previous = this.addBodyButton(
+                    x + innerWidth - 68,
+                    pagerY,
+                    30,
+                    14,
+                    Component.translatable("screen.delvefold.previous"),
+                    Style.GHOST,
                     button -> changeVariantPage(-1));
             previous.active = this.variantPage > 0;
-            Button next = this.addBodyButton(x + innerWidth - 32, pagerY, 30, 14,
-                    Component.translatable("screen.delvefold.next"), Style.GHOST,
+            Button next = this.addBodyButton(
+                    x + innerWidth - 32,
+                    pagerY,
+                    30,
+                    14,
+                    Component.translatable("screen.delvefold.next"),
+                    Style.GHOST,
                     button -> changeVariantPage(1));
             next.active = this.variantPage + 1 < pageCount;
         }
@@ -319,7 +398,10 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int weightGap = 6;
         int weightWidth = Math.min(92, Math.max(62, innerWidth / 5));
         int hostWidth = innerWidth - weightWidth - weightGap;
-        this.hostTagBox = registerBodyWidget(addEditBox(x, hostY, hostWidth,
+        this.hostTagBox = registerBodyWidget(addEditBox(
+                x,
+                hostY,
+                hostWidth,
                 this.selectedVariants.getOrDefault(this.focusedVariant, inferredHost(this.focusedVariant)),
                 Component.translatable("screen.delvefold.ore_wizard.hint.replacement_tag")));
         this.hostTagBox.setResponder(value -> {
@@ -327,8 +409,12 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 this.selectedVariants.put(this.focusedVariant, value);
             }
         });
-        this.weightBox = registerBodyWidget(addEditBox(x + hostWidth + weightGap, hostY, weightWidth,
-                this.rawWeight, Component.translatable("screen.delvefold.ore_wizard.weight.hint")));
+        this.weightBox = registerBodyWidget(addEditBox(
+                x + hostWidth + weightGap,
+                hostY,
+                weightWidth,
+                this.rawWeight,
+                Component.translatable("screen.delvefold.ore_wizard.weight.hint")));
         this.weightBox.setMaxLength(4);
         this.weightBox.setResponder(value -> this.rawWeight = value);
 
@@ -342,9 +428,13 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         for (TerrainMode mode : TerrainMode.values()) {
             int modeX = x + mode.ordinal() * (terrainWidth + terrainGap);
             boolean selected = this.terrainModes.contains(mode);
-            this.addBodyButton(modeX, terrainY, terrainWidth, 20,
-                    toggleLabel(DelvefoldText.option("terrain", mode.serializedName()),
-                            this.terrainModes.contains(mode)),
+            this.addBodyButton(
+                    modeX,
+                    terrainY,
+                    terrainWidth,
+                    20,
+                    toggleLabel(
+                            DelvefoldText.option("terrain", mode.serializedName()), this.terrainModes.contains(mode)),
                     selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                     button -> toggleTerrain(mode));
         }
@@ -355,9 +445,13 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             int deleteX = this.contentLeft() + 84;
             int maximumDeleteRight = this.contentRight() - 112;
             int deleteWidth = Math.min(122, Math.max(52, maximumDeleteRight - deleteX));
-            this.deleteButton = this.addButton(deleteX,
-                    this.panelTop + this.panelHeight - 29, deleteWidth, 22,
-                    Component.translatable("screen.delvefold.ore_wizard.delete"), Style.DANGER,
+            this.deleteButton = this.addButton(
+                    deleteX,
+                    this.panelTop + this.panelHeight - 29,
+                    deleteWidth,
+                    22,
+                    Component.translatable("screen.delvefold.ore_wizard.delete"),
+                    Style.DANGER,
                     button -> delete());
         }
     }
@@ -372,18 +466,28 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int selectorGap = 6;
         int selectorWidth = Math.min(132, Math.max(64, innerWidth / 4));
         int bandIdWidth = Math.max(72, innerWidth - selectorWidth * 2 - selectorGap * 2);
-        this.bandIdBox = registerBodyWidget(addEditBox(x, y, bandIdWidth, this.rawBandId,
-                Component.translatable("screen.delvefold.ore_wizard.hint.band_id")));
+        this.bandIdBox = registerBodyWidget(addEditBox(
+                x, y, bandIdWidth, this.rawBandId, Component.translatable("screen.delvefold.ore_wizard.hint.band_id")));
         this.bandIdBox.setResponder(value -> this.rawBandId = value);
-        this.addBodyButton(x + bandIdWidth + selectorGap, y, selectorWidth, 20,
-                Component.translatable("screen.delvefold.ore_wizard.selector",
+        this.addBodyButton(
+                x + bandIdWidth + selectorGap,
+                y,
+                selectorWidth,
+                20,
+                Component.translatable(
+                        "screen.delvefold.ore_wizard.selector",
                         Component.translatable("option.delvefold.ore_band_placement."
                                 + band.placement().name().toLowerCase(Locale.ROOT))),
                 Style.SECONDARY,
                 button -> cyclePlacement());
         int distributionX = x + bandIdWidth + selectorGap + selectorWidth + selectorGap;
-        this.addBodyButton(distributionX, y, innerWidth - (distributionX - x), 20,
-                Component.translatable("screen.delvefold.ore_wizard.selector",
+        this.addBodyButton(
+                distributionX,
+                y,
+                innerWidth - (distributionX - x),
+                20,
+                Component.translatable(
+                        "screen.delvefold.ore_wizard.selector",
                         Component.translatable("option.delvefold.height_distribution."
                                 + band.distribution().name().toLowerCase(Locale.ROOT))),
                 Style.SECONDARY,
@@ -395,50 +499,81 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int finalThirdWidth = innerWidth - thirdWidth * 2 - rowTwoGap * 2;
         if (band.placement() == OreBandPlacement.PROVINCE) {
             ProvinceSettings province = band.province() == null ? ProvinceSettings.defaults() : band.province();
-            this.addBodyButton(x, rowTwoY, thirdWidth * 2 + rowTwoGap, 20,
-                    Component.translatable("screen.delvefold.ore_wizard.province.edit",
-                            province.regionSize(), province.radius(), province.verticalThickness(),
-                            (int) Math.round(province.density() * 100.0D), province.perChunkWorkCap()),
-                    Style.SECONDARY, button -> openProvinceSettings());
+            this.addBodyButton(
+                    x,
+                    rowTwoY,
+                    thirdWidth * 2 + rowTwoGap,
+                    20,
+                    Component.translatable(
+                            "screen.delvefold.ore_wizard.province.edit",
+                            province.regionSize(),
+                            province.radius(),
+                            province.verticalThickness(),
+                            (int) Math.round(province.density() * 100.0D),
+                            province.perChunkWorkCap()),
+                    Style.SECONDARY,
+                    button -> openProvinceSettings());
             this.airDiscardBox = registerBodyWidget(addEditBox(
-                    x + thirdWidth * 2 + rowTwoGap * 2, rowTwoY,
-                    finalThirdWidth, this.rawAirDiscard,
+                    x + thirdWidth * 2 + rowTwoGap * 2,
+                    rowTwoY,
+                    finalThirdWidth,
+                    this.rawAirDiscard,
                     Component.translatable("screen.delvefold.ore_wizard.hint.air_discard")));
             this.veinSizeBox = null;
             this.attemptsBox = null;
         } else {
             this.veinSizeBox = registerBodyWidget(addEditBox(
-                    x, rowTwoY, thirdWidth, this.rawVeinSize,
+                    x,
+                    rowTwoY,
+                    thirdWidth,
+                    this.rawVeinSize,
                     Component.translatable("screen.delvefold.ore_wizard.hint.vein_size")));
             this.attemptsBox = registerBodyWidget(addEditBox(
-                    x + thirdWidth + rowTwoGap, rowTwoY, thirdWidth,
+                    x + thirdWidth + rowTwoGap,
+                    rowTwoY,
+                    thirdWidth,
                     this.rawAttempts,
                     Component.translatable("screen.delvefold.ore_wizard.hint.attempts")));
             this.airDiscardBox = registerBodyWidget(addEditBox(
-                    x + thirdWidth * 2 + rowTwoGap * 2, rowTwoY,
-                    finalThirdWidth, this.rawAirDiscard,
+                    x + thirdWidth * 2 + rowTwoGap * 2,
+                    rowTwoY,
+                    finalThirdWidth,
+                    this.rawAirDiscard,
                     Component.translatable("screen.delvefold.ore_wizard.hint.air_discard")));
         }
 
         int rowThreeY = y + (compact ? 62 : 84);
         int heightGap = 6;
         int heightWidth = (innerWidth - heightGap * 4) / 5;
-        this.minYBox = registerBodyWidget(addEditBox(x, rowThreeY, heightWidth, this.rawMinY,
+        this.minYBox = registerBodyWidget(addEditBox(
+                x,
+                rowThreeY,
+                heightWidth,
+                this.rawMinY,
                 Component.translatable("screen.delvefold.ore_wizard.hint.min_y")));
         this.maxYBox = registerBodyWidget(addEditBox(
-                x + (heightWidth + heightGap), rowThreeY, heightWidth, this.rawMaxY,
+                x + (heightWidth + heightGap),
+                rowThreeY,
+                heightWidth,
+                this.rawMaxY,
                 Component.translatable("screen.delvefold.ore_wizard.hint.max_y")));
         this.peakYBox = registerBodyWidget(addEditBox(
-                x + (heightWidth + heightGap) * 2, rowThreeY,
-                heightWidth, this.rawPeakY,
+                x + (heightWidth + heightGap) * 2,
+                rowThreeY,
+                heightWidth,
+                this.rawPeakY,
                 Component.translatable("screen.delvefold.ore_wizard.hint.peak_y")));
         this.plateauMinBox = registerBodyWidget(addEditBox(
-                x + (heightWidth + heightGap) * 3, rowThreeY,
-                heightWidth, this.rawPlateauMin,
+                x + (heightWidth + heightGap) * 3,
+                rowThreeY,
+                heightWidth,
+                this.rawPlateauMin,
                 Component.translatable("screen.delvefold.ore_wizard.hint.plateau_min")));
         this.plateauMaxBox = registerBodyWidget(addEditBox(
-                x + (heightWidth + heightGap) * 4, rowThreeY,
-                innerWidth - (heightWidth + heightGap) * 4, this.rawPlateauMax,
+                x + (heightWidth + heightGap) * 4,
+                rowThreeY,
+                innerWidth - (heightWidth + heightGap) * 4,
+                this.rawPlateauMax,
                 Component.translatable("screen.delvefold.ore_wizard.hint.plateau_max")));
         bindRawBandResponders();
         this.peakYBox.active = band.distribution() == HeightDistribution.TRIANGLE;
@@ -448,20 +583,40 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int controlsY = y + (compact ? 95 : 156);
         int controlGap = 6;
         int controlWidth = (innerWidth - controlGap * 3) / 4;
-        Button previous = this.addBodyButton(x, controlsY, controlWidth, 20,
-                Component.translatable("screen.delvefold.ore_wizard.previous_band"), Style.GHOST,
+        Button previous = this.addBodyButton(
+                x,
+                controlsY,
+                controlWidth,
+                20,
+                Component.translatable("screen.delvefold.ore_wizard.previous_band"),
+                Style.GHOST,
                 button -> changeBand(-1));
         previous.active = this.bandIndex > 0;
-        Button next = this.addBodyButton(x + controlWidth + controlGap, controlsY, controlWidth, 20,
-                Component.translatable("screen.delvefold.ore_wizard.next_band"), Style.GHOST,
+        Button next = this.addBodyButton(
+                x + controlWidth + controlGap,
+                controlsY,
+                controlWidth,
+                20,
+                Component.translatable("screen.delvefold.ore_wizard.next_band"),
+                Style.GHOST,
                 button -> changeBand(1));
         next.active = this.bandIndex + 1 < this.bands.size();
-        Button add = this.addBodyButton(x + (controlWidth + controlGap) * 2, controlsY, controlWidth, 20,
-                Component.translatable("screen.delvefold.ore_wizard.add_band"), Style.PRIMARY,
+        Button add = this.addBodyButton(
+                x + (controlWidth + controlGap) * 2,
+                controlsY,
+                controlWidth,
+                20,
+                Component.translatable("screen.delvefold.ore_wizard.add_band"),
+                Style.PRIMARY,
                 button -> addBand());
         add.active = this.bands.size() < ProtocolLimits.MAX_BANDS;
-        Button remove = this.addBodyButton(x + (controlWidth + controlGap) * 3, controlsY, controlWidth, 20,
-                Component.translatable("screen.delvefold.ore_wizard.remove_band"), Style.DANGER,
+        Button remove = this.addBodyButton(
+                x + (controlWidth + controlGap) * 3,
+                controlsY,
+                controlWidth,
+                20,
+                Component.translatable("screen.delvefold.ore_wizard.remove_band"),
+                Style.DANGER,
                 button -> removeBand());
         remove.active = this.bands.size() > 1;
 
@@ -491,7 +646,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     private int wrappedTextHeight(Component text, int width) {
-        return Math.max(this.font.lineHeight, this.font.split(text, Math.max(1, width)).size() * this.font.lineHeight);
+        return Math.max(
+                this.font.lineHeight, this.font.split(text, Math.max(1, width)).size() * this.font.lineHeight);
     }
 
     private EditBox addWideEditBox(int x, int y, int width, String value, Component hint) {
@@ -591,11 +747,21 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         AdminSnapshot.OreBandDraft current = this.bands.get(this.bandIndex);
         HeightDistribution[] values = HeightDistribution.values();
         HeightDistribution next = values[(current.distribution().ordinal() + 1) % values.length];
-        this.bands.set(this.bandIndex, new AdminSnapshot.OreBandDraft(
-                current.id(), current.veinSize(), current.attemptsPerChunk(), next,
-                current.minY(), current.maxY(), current.peakY(), current.plateauMinY(),
-                current.plateauMaxY(), current.discardOnAirExposure(),
-                current.placement(), current.province()));
+        this.bands.set(
+                this.bandIndex,
+                new AdminSnapshot.OreBandDraft(
+                        current.id(),
+                        current.veinSize(),
+                        current.attemptsPerChunk(),
+                        next,
+                        current.minY(),
+                        current.maxY(),
+                        current.peakY(),
+                        current.plateauMinY(),
+                        current.plateauMaxY(),
+                        current.discardOnAirExposure(),
+                        current.placement(),
+                        current.province()));
         reopen(Page.BANDS, this.bandIndex);
     }
 
@@ -605,12 +771,21 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         }
         AdminSnapshot.OreBandDraft current = this.bands.get(this.bandIndex);
         boolean province = current.placement() != OreBandPlacement.PROVINCE;
-        this.bands.set(this.bandIndex, new AdminSnapshot.OreBandDraft(
-                current.id(), province ? 1 : 8, province ? 0.0D : 8.0D,
-                current.distribution(), current.minY(), current.maxY(), current.peakY(),
-                current.plateauMinY(), current.plateauMaxY(), current.discardOnAirExposure(),
-                province ? OreBandPlacement.PROVINCE : OreBandPlacement.VEIN,
-                province ? ProvinceSettings.defaults() : null));
+        this.bands.set(
+                this.bandIndex,
+                new AdminSnapshot.OreBandDraft(
+                        current.id(),
+                        province ? 1 : 8,
+                        province ? 0.0D : 8.0D,
+                        current.distribution(),
+                        current.minY(),
+                        current.maxY(),
+                        current.peakY(),
+                        current.plateauMinY(),
+                        current.plateauMaxY(),
+                        current.discardOnAirExposure(),
+                        province ? OreBandPlacement.PROVINCE : OreBandPlacement.VEIN,
+                        province ? ProvinceSettings.defaults() : null));
         this.rawBandIndex = -1;
         reopen(Page.BANDS, this.bandIndex);
     }
@@ -621,16 +796,27 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         }
         AdminSnapshot.OreBandDraft current = this.bands.get(this.bandIndex);
         ProvinceSettings province = current.province() == null ? ProvinceSettings.defaults() : current.province();
-        this.minecraft.setScreen(new DelvefoldProvinceSettingsScreen(
-                this, this.snapshot, province, this::applyProvinceSettings));
+        this.minecraft.setScreen(
+                new DelvefoldProvinceSettingsScreen(this, this.snapshot, province, this::applyProvinceSettings));
     }
 
     private void applyProvinceSettings(ProvinceSettings province) {
         AdminSnapshot.OreBandDraft current = this.bands.get(this.bandIndex);
-        this.bands.set(this.bandIndex, new AdminSnapshot.OreBandDraft(
-                current.id(), 1, 0.0D, current.distribution(), current.minY(), current.maxY(),
-                current.peakY(), current.plateauMinY(), current.plateauMaxY(),
-                current.discardOnAirExposure(), OreBandPlacement.PROVINCE, province));
+        this.bands.set(
+                this.bandIndex,
+                new AdminSnapshot.OreBandDraft(
+                        current.id(),
+                        1,
+                        0.0D,
+                        current.distribution(),
+                        current.minY(),
+                        current.maxY(),
+                        current.peakY(),
+                        current.plateauMinY(),
+                        current.plateauMaxY(),
+                        current.discardOnAirExposure(),
+                        OreBandPlacement.PROVINCE,
+                        province));
         this.rawBandIndex = -1;
         reopen(Page.BANDS, this.bandIndex);
     }
@@ -648,10 +834,18 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int nextIndex = this.bands.size();
         AdminSnapshot.OreBandDraft defaults = AdminSnapshot.OreBandDraft.defaultBand();
         this.bands.add(new AdminSnapshot.OreBandDraft(
-                "band_" + (nextIndex + 1), defaults.veinSize(), defaults.attemptsPerChunk(),
-                defaults.distribution(), defaults.minY(), defaults.maxY(), defaults.peakY(),
-                defaults.plateauMinY(), defaults.plateauMaxY(), defaults.discardOnAirExposure(),
-                defaults.placement(), defaults.province()));
+                "band_" + (nextIndex + 1),
+                defaults.veinSize(),
+                defaults.attemptsPerChunk(),
+                defaults.distribution(),
+                defaults.minY(),
+                defaults.maxY(),
+                defaults.peakY(),
+                defaults.plateauMinY(),
+                defaults.plateauMaxY(),
+                defaults.discardOnAirExposure(),
+                defaults.placement(),
+                defaults.province()));
         reopen(Page.BANDS, nextIndex);
     }
 
@@ -680,38 +874,54 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             AdminSnapshot.OreBandDraft current = this.bands.get(this.bandIndex);
             HeightDistribution distribution = current.distribution();
             OreBandPlacement placement = current.placement();
-            boolean shapeValuesValid = switch (distribution) {
-                case UNIFORM -> true;
-                case TRIANGLE -> peakY >= minY && peakY <= maxY;
-                case TRAPEZOID -> plateauMin >= minY && plateauMax <= maxY && plateauMin <= plateauMax;
-            };
+            boolean shapeValuesValid =
+                    switch (distribution) {
+                        case UNIFORM -> true;
+                        case TRIANGLE -> peakY >= minY && peakY <= maxY;
+                        case TRAPEZOID -> plateauMin >= minY && plateauMax <= maxY && plateauMin <= plateauMax;
+                    };
 
             boolean veinValuesValid = placement == OreBandPlacement.PROVINCE
-                    || veinSize >= 1 && veinSize <= 64 && Double.isFinite(attempts)
-                    && attempts >= 0.0D && attempts <= 256.0D;
-            if (!id.matches("[a-z0-9_.-]{1,128}") || !veinValuesValid
-                    || minY < -64 || maxY > 320 || minY > maxY
-                    || !shapeValuesValid || !Double.isFinite(airDiscard)
-                    || airDiscard < 0.0D || airDiscard > 1.0D) {
-                this.validationMessage = Component.translatable(
-                        "screen.delvefold.ore_wizard.validation.band_values");
+                    || veinSize >= 1
+                            && veinSize <= 64
+                            && Double.isFinite(attempts)
+                            && attempts >= 0.0D
+                            && attempts <= 256.0D;
+            if (!id.matches("[a-z0-9_.-]{1,128}")
+                    || !veinValuesValid
+                    || minY < -64
+                    || maxY > 320
+                    || minY > maxY
+                    || !shapeValuesValid
+                    || !Double.isFinite(airDiscard)
+                    || airDiscard < 0.0D
+                    || airDiscard > 1.0D) {
+                this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.band_values");
                 this.validationColor = DANGER;
                 return false;
             }
 
-            this.bands.set(this.bandIndex, new AdminSnapshot.OreBandDraft(
-                    id,
-                    placement == OreBandPlacement.PROVINCE ? 1 : veinSize,
-                    placement == OreBandPlacement.PROVINCE ? 0.0D : attempts,
-                    distribution, minY, maxY, peakY, plateauMin, plateauMax, airDiscard,
-                    placement, placement == OreBandPlacement.PROVINCE
-                            ? (current.province() == null ? ProvinceSettings.defaults() : current.province())
-                            : null));
+            this.bands.set(
+                    this.bandIndex,
+                    new AdminSnapshot.OreBandDraft(
+                            id,
+                            placement == OreBandPlacement.PROVINCE ? 1 : veinSize,
+                            placement == OreBandPlacement.PROVINCE ? 0.0D : attempts,
+                            distribution,
+                            minY,
+                            maxY,
+                            peakY,
+                            plateauMin,
+                            plateauMax,
+                            airDiscard,
+                            placement,
+                            placement == OreBandPlacement.PROVINCE
+                                    ? (current.province() == null ? ProvinceSettings.defaults() : current.province())
+                                    : null));
             resetValidationMessage();
             return true;
         } catch (NumberFormatException exception) {
-            this.validationMessage = Component.translatable(
-                    "screen.delvefold.ore_wizard.validation.number");
+            this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.number");
             this.validationColor = DANGER;
             return false;
         }
@@ -753,9 +963,9 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 .map(entry -> new AdminSnapshot.OreVariantDraft(
                         entry.getKey().startsWith("#") ? "" : entry.getKey(),
                         entry.getKey().startsWith("#") ? entry.getKey().substring(1) : "",
-                        entry.getValue(), this.variantStates.getOrDefault(entry.getKey(), Map.of()),
-                        this.variantWeights.getOrDefault(
-                                entry.getKey(), AdminSnapshot.OreVariantDraft.MIN_WEIGHT)))
+                        entry.getValue(),
+                        this.variantStates.getOrDefault(entry.getKey(), Map.of()),
+                        this.variantWeights.getOrDefault(entry.getKey(), AdminSnapshot.OreVariantDraft.MIN_WEIGHT)))
                 .toList();
         return new AdminSnapshot.OreRuleDraft(
                 this.ruleId,
@@ -780,8 +990,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         this.saveButton.active = false;
         this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.saving");
         this.validationColor = ACCENT;
-        DelvefoldClientRequests.send(new SaveOreRulePayload(
-                this.snapshot.oreRevision(), currentDraft(), !this.existingRule));
+        DelvefoldClientRequests.send(
+                new SaveOreRulePayload(this.snapshot.oreRevision(), currentDraft(), !this.existingRule));
     }
 
     private boolean validateRule() {
@@ -791,14 +1001,12 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         }
         this.ruleId = this.ruleId.trim();
         if (!this.ruleId.matches("[a-z0-9_.-]{1,128}")) {
-            this.validationMessage = Component.translatable(
-                    "screen.delvefold.ore_wizard.validation.rule_id");
+            this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.rule_id");
             this.validationColor = DANGER;
             return false;
         }
         if (this.selectedVariants.isEmpty() || this.terrainModes.isEmpty() || this.bands.isEmpty()) {
-            this.validationMessage = Component.translatable(
-                    "screen.delvefold.ore_wizard.validation.selection");
+            this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.selection");
             this.validationColor = DANGER;
             return false;
         }
@@ -809,18 +1017,15 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             }
             String outputId = entry.getKey().startsWith("#") ? entry.getKey().substring(1) : entry.getKey();
             if (ResourceLocation.tryParse(outputId) == null || ResourceLocation.tryParse(replacementTag) == null) {
-                this.validationMessage = Component.translatable(
-                        "screen.delvefold.ore_wizard.validation.registry_ids");
+                this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.registry_ids");
                 this.validationColor = DANGER;
                 return false;
             }
             entry.setValue(replacementTag);
-            int weight = this.variantWeights.getOrDefault(
-                    entry.getKey(), AdminSnapshot.OreVariantDraft.MIN_WEIGHT);
+            int weight = this.variantWeights.getOrDefault(entry.getKey(), AdminSnapshot.OreVariantDraft.MIN_WEIGHT);
             if (weight < AdminSnapshot.OreVariantDraft.MIN_WEIGHT
                     || weight > AdminSnapshot.OreVariantDraft.MAX_WEIGHT) {
-                this.validationMessage = Component.translatable(
-                        "screen.delvefold.ore_wizard.validation.weight_all");
+                this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.weight_all");
                 this.validationColor = DANGER;
                 return false;
             }
@@ -828,14 +1033,13 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         List<String> bandIds = new ArrayList<>();
         for (AdminSnapshot.OreBandDraft band : this.bands) {
             if (!band.id().matches("[a-z0-9_.-]{1,128}")) {
-                this.validationMessage = Component.translatable(
-                        "screen.delvefold.ore_wizard.validation.band_id");
+                this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.band_id");
                 this.validationColor = DANGER;
                 return false;
             }
             if (bandIds.contains(band.id())) {
-                this.validationMessage = Component.translatable(
-                        "screen.delvefold.ore_wizard.validation.unique_band_id");
+                this.validationMessage =
+                        Component.translatable("screen.delvefold.ore_wizard.validation.unique_band_id");
                 this.validationColor = DANGER;
                 return false;
             }
@@ -861,8 +1065,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             resetValidationMessage();
             return true;
         } catch (NumberFormatException exception) {
-            this.validationMessage = Component.translatable(
-                    "screen.delvefold.ore_wizard.validation.weight");
+            this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.weight");
             this.validationColor = DANGER;
             focusWeightField();
             return false;
@@ -903,7 +1106,9 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         }
         for (String pair : text.split(",")) {
             String[] parts = pair.trim().split("=", 2);
-            if (parts.length != 2 || !parts[0].matches("[a-z0-9_]+") || parts[1].isBlank()
+            if (parts.length != 2
+                    || !parts[0].matches("[a-z0-9_]+")
+                    || parts[1].isBlank()
                     || parts[1].length() > ProtocolLimits.ID_LENGTH) {
                 throw validation("screen.delvefold.ore_wizard.validation.state_format");
             }
@@ -951,7 +1156,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     private static String formatState(Map<String, String> state) {
-        return state.entrySet().stream().map(entry -> entry.getKey() + "=" + entry.getValue())
+        return state.entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
                 .collect(java.util.stream.Collectors.joining(", "));
     }
 
@@ -974,8 +1180,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             }
         }
         VerticalScrollLayout layout = bodyScrollLayout();
-        graphics.enableScissor(this.contentLeft() + 1, layout.viewportTop(),
-                this.contentRight() - 1, layout.viewportBottom());
+        graphics.enableScissor(
+                this.contentLeft() + 1, layout.viewportTop(), this.contentRight() - 1, layout.viewportBottom());
         for (AbstractWidget widget : this.bodyWidgets) {
             widget.render(graphics, mouseX, mouseY, partialTick);
         }
@@ -985,11 +1191,12 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         VerticalScrollLayout layout = bodyScrollLayout();
-        if (mouseX >= this.contentLeft() && mouseX < this.contentRight()
-                && mouseY >= layout.viewportTop() && mouseY < layout.viewportBottom()
+        if (mouseX >= this.contentLeft()
+                && mouseX < this.contentRight()
+                && mouseY >= layout.viewportTop()
+                && mouseY < layout.viewportBottom()
                 && layout.maximumScroll() > 0) {
-            setBodyScrollOffset(this.bodyScrollOffset
-                    - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
+            setBodyScrollOffset(this.bodyScrollOffset - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -1007,31 +1214,36 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         graphics.enableScissor(x + 1, layout.viewportTop(), x + width - 1, layout.viewportBottom());
         int scrolledY = y - this.bodyScrollOffset;
         if (this.page == Page.TARGETS) {
-            this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.ore_wizard.targets.title"),
-                    x + 10, scrolledY + 7);
+            this.drawSectionTitle(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.targets.title"),
+                    x + 10,
+                    scrolledY + 7);
             int fieldY = scrolledY + (compact ? 31 : 39);
             int variantY = fieldY + (compact ? 34 : 40);
             int variantRows = compact ? 2 : 4;
             int hostY = variantY + variantRows * 22 + 10;
             int terrainY = hostY + (compact ? 34 : 40);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.rule_id"), x + 12, fieldY - 12);
-            Component variantLabel = Component.translatable(width >= 500
-                    ? "screen.delvefold.ore_wizard.variants.help"
-                    : "screen.delvefold.ore_wizard.variants");
+            this.drawFieldLabel(
+                    graphics, Component.translatable("screen.delvefold.ore_wizard.rule_id"), x + 12, fieldY - 12);
+            Component variantLabel = Component.translatable(
+                    width >= 500
+                            ? "screen.delvefold.ore_wizard.variants.help"
+                            : "screen.delvefold.ore_wizard.variants");
             this.drawFieldLabel(graphics, variantLabel, x + 12, variantY - 12);
             int pageSize = variantColumns() * variantRows;
             int pageCount = Math.max(1, (this.candidateVariants.size() + pageSize - 1) / pageSize);
             int start = this.candidateVariants.isEmpty() ? 0 : this.variantPage * pageSize + 1;
             int end = Math.min((this.variantPage + 1) * pageSize, this.candidateVariants.size());
-            Component range = Component.translatable("screen.delvefold.ore_wizard.variant.range",
-                    start, end, this.candidateVariants.size());
+            Component range = Component.translatable(
+                    "screen.delvefold.ore_wizard.variant.range", start, end, this.candidateVariants.size());
             int rangeRight = x + width - (pageCount > 1 ? 88 : 12);
-            graphics.drawString(this.font, range, rangeRight - this.font.width(range),
-                    variantY - 12, DIM_TEXT, false);
+            graphics.drawString(this.font, range, rangeRight - this.font.width(range), variantY - 12, DIM_TEXT, false);
             boolean focusedVariantVisible = isFocusedVariantVisible(
                     this.variantPage * pageSize,
                     Math.min((this.variantPage + 1) * pageSize, this.candidateVariants.size()));
-            Component focusLabel = Component.translatable(focusedVariantVisible
+            Component focusLabel = Component.translatable(
+                    focusedVariantVisible
                             ? "screen.delvefold.ore_wizard.replacement_tag"
                             : "screen.delvefold.ore_wizard.replacement_tag.off_page",
                     this.focusedVariant);
@@ -1039,61 +1251,103 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             int weightGap = 6;
             int weightWidth = Math.min(92, Math.max(62, innerWidth / 5));
             int hostWidth = innerWidth - weightWidth - weightGap;
-            graphics.drawString(this.font, clipped(focusLabel, hostWidth),
-                    x + 12, hostY - 12, MUTED_TEXT, false);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.weight"),
-                    x + 12 + hostWidth + weightGap, hostY - 12);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.terrain"), x + 12, terrainY - 12);
+            graphics.drawString(this.font, clipped(focusLabel, hostWidth), x + 12, hostY - 12, MUTED_TEXT, false);
+            this.drawFieldLabel(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.weight"),
+                    x + 12 + hostWidth + weightGap,
+                    hostY - 12);
+            this.drawFieldLabel(
+                    graphics, Component.translatable("screen.delvefold.ore_wizard.terrain"), x + 12, terrainY - 12);
         } else if (this.page == Page.FILTERS) {
-            this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.ore_wizard.filters.title"),
-                    x + 10, scrolledY + 7);
+            this.drawSectionTitle(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.filters.title"),
+                    x + 10,
+                    scrolledY + 7);
             int fieldY = scrolledY + 39;
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.state", this.focusedVariant), x + 12, fieldY - 12);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.biomes.include"), x + 12, fieldY + 36);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.biomes.exclude"), x + 12, fieldY + 84);
-            graphics.drawWordWrap(this.font, Component.translatable("screen.delvefold.ore_wizard.filters.help"),
-                    x + 12, fieldY + 121, width - 24, DIM_TEXT);
+            this.drawFieldLabel(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.state", this.focusedVariant),
+                    x + 12,
+                    fieldY - 12);
+            this.drawFieldLabel(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.biomes.include"),
+                    x + 12,
+                    fieldY + 36);
+            this.drawFieldLabel(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.biomes.exclude"),
+                    x + 12,
+                    fieldY + 84);
+            graphics.drawWordWrap(
+                    this.font,
+                    Component.translatable("screen.delvefold.ore_wizard.filters.help"),
+                    x + 12,
+                    fieldY + 121,
+                    width - 24,
+                    DIM_TEXT);
         } else {
             AdminSnapshot.OreBandDraft band = this.bands.get(this.bandIndex);
             int fieldY = scrolledY + (compact ? 31 : 39);
             int rowTwoY = fieldY + (compact ? 31 : 42);
             int rowThreeY = fieldY + (compact ? 62 : 84);
-            this.drawSectionTitle(graphics,
-                    Component.translatable("screen.delvefold.ore_wizard.band.title",
-                            this.bandIndex + 1, this.bands.size()),
-                    x + 10, scrolledY + 7);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.band_id"), x + 12, fieldY - 12);
+            this.drawSectionTitle(
+                    graphics,
+                    Component.translatable(
+                            "screen.delvefold.ore_wizard.band.title", this.bandIndex + 1, this.bands.size()),
+                    x + 10,
+                    scrolledY + 7);
+            this.drawFieldLabel(
+                    graphics, Component.translatable("screen.delvefold.ore_wizard.band_id"), x + 12, fieldY - 12);
             int selectorGap = 6;
             int selectorWidth = Math.min(132, Math.max(64, (width - 24) / 4));
             int bandIdWidth = Math.max(72, width - 24 - selectorWidth * 2 - selectorGap * 2);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.placement"),
-                    x + 12 + bandIdWidth + selectorGap, fieldY - 12);
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.distribution"),
-                    x + 12 + bandIdWidth + selectorGap + selectorWidth + selectorGap, fieldY - 12);
+            this.drawFieldLabel(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.placement"),
+                    x + 12 + bandIdWidth + selectorGap,
+                    fieldY - 12);
+            this.drawFieldLabel(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.distribution"),
+                    x + 12 + bandIdWidth + selectorGap + selectorWidth + selectorGap,
+                    fieldY - 12);
             if (band.placement() == OreBandPlacement.PROVINCE) {
-                this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.province"),
-                        x + 12, rowTwoY - 12);
+                this.drawFieldLabel(
+                        graphics, Component.translatable("screen.delvefold.ore_wizard.province"), x + 12, rowTwoY - 12);
             } else {
-                this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.vein_size"), x + 12, rowTwoY - 12);
-                this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.attempts"),
-                        x + 12 + ((width - 24 - 16) / 3) + 8, rowTwoY - 12);
+                this.drawFieldLabel(
+                        graphics,
+                        Component.translatable("screen.delvefold.ore_wizard.vein_size"),
+                        x + 12,
+                        rowTwoY - 12);
+                this.drawFieldLabel(
+                        graphics,
+                        Component.translatable("screen.delvefold.ore_wizard.attempts"),
+                        x + 12 + ((width - 24 - 16) / 3) + 8,
+                        rowTwoY - 12);
             }
-            this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.ore_wizard.air_discard"),
-                    x + 12 + (((width - 24 - 16) / 3) + 8) * 2, rowTwoY - 12);
+            this.drawFieldLabel(
+                    graphics,
+                    Component.translatable("screen.delvefold.ore_wizard.air_discard"),
+                    x + 12 + (((width - 24 - 16) / 3) + 8) * 2,
+                    rowTwoY - 12);
 
             int innerWidth = width - 24;
             int gap = 6;
             int fieldWidth = (innerWidth - gap * 4) / 5;
             String suffix = width >= 430 ? "" : ".short";
-            Component[] heightLabels = new Component[]{
-                    Component.translatable("screen.delvefold.ore_wizard.height.min" + suffix),
-                    Component.translatable("screen.delvefold.ore_wizard.height.max" + suffix),
-                    Component.translatable("screen.delvefold.ore_wizard.height.peak" + suffix),
-                    Component.translatable("screen.delvefold.ore_wizard.height.plateau_min" + suffix),
-                    Component.translatable("screen.delvefold.ore_wizard.height.plateau_max" + suffix)};
+            Component[] heightLabels = new Component[] {
+                Component.translatable("screen.delvefold.ore_wizard.height.min" + suffix),
+                Component.translatable("screen.delvefold.ore_wizard.height.max" + suffix),
+                Component.translatable("screen.delvefold.ore_wizard.height.peak" + suffix),
+                Component.translatable("screen.delvefold.ore_wizard.height.plateau_min" + suffix),
+                Component.translatable("screen.delvefold.ore_wizard.height.plateau_max" + suffix)
+            };
             for (int index = 0; index < heightLabels.length; index++) {
-                this.drawFieldLabel(graphics, heightLabels[index],
-                        x + 12 + index * (fieldWidth + gap), rowThreeY - 12);
+                this.drawFieldLabel(graphics, heightLabels[index], x + 12 + index * (fieldWidth + gap), rowThreeY - 12);
             }
 
             if (!compact) {
@@ -1118,20 +1372,32 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             ProvinceSettings province = draft.province() == null ? ProvinceSettings.defaults() : draft.province();
             graphics.fill(x, y, x + width, y + height, 0xCC142127);
             graphics.renderOutline(x, y, width, height, CARD_BORDER);
-            Component lineOne = Component.translatable("screen.delvefold.ore_wizard.preview.province.geometry",
-                    province.radius(), province.verticalThickness(), province.regionSize());
-            Component lineTwo = Component.translatable("screen.delvefold.ore_wizard.preview.province.work",
+            Component lineOne = Component.translatable(
+                    "screen.delvefold.ore_wizard.preview.province.geometry",
+                    province.radius(),
+                    province.verticalThickness(),
+                    province.regionSize());
+            Component lineTwo = Component.translatable(
+                    "screen.delvefold.ore_wizard.preview.province.work",
                     String.format(Locale.ROOT, "%.1f", province.density() * 100.0D),
-                    province.perChunkWorkCap(), draft.minY(), draft.maxY());
-            graphics.drawString(this.font, clipped(lineOne, width - 10),
-                    x + 5, y + 7, TEXT, false);
-            graphics.drawString(this.font, clipped(lineTwo, width - 10),
-                    x + 5, y + 19, MUTED_TEXT, false);
+                    province.perChunkWorkCap(),
+                    draft.minY(),
+                    draft.maxY());
+            graphics.drawString(this.font, clipped(lineOne, width - 10), x + 5, y + 7, TEXT, false);
+            graphics.drawString(this.font, clipped(lineTwo, width - 10), x + 5, y + 19, MUTED_TEXT, false);
             return;
         }
-        SpawnBand band = new SpawnBand(draft.id(), draft.veinSize(), draft.attemptsPerChunk(),
-                draft.distribution(), draft.minY(), draft.maxY(), draft.peakY(),
-                draft.plateauMinY(), draft.plateauMaxY(), draft.discardOnAirExposure());
+        SpawnBand band = new SpawnBand(
+                draft.id(),
+                draft.veinSize(),
+                draft.attemptsPerChunk(),
+                draft.distribution(),
+                draft.minY(),
+                draft.maxY(),
+                draft.peakY(),
+                draft.plateauMinY(),
+                draft.plateauMaxY(),
+                draft.discardOnAirExposure());
         OreDistributionAnalysis.Summary analysis = OreDistributionAnalysis.analyze(band);
         graphics.fill(x, y, x + width, y + height, 0xCC142127);
         graphics.renderOutline(x, y, width, height, CARD_BORDER);
@@ -1141,26 +1407,34 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         double maximum = analysis.maximumProbability();
         if (maximum > 0.0D && !analysis.samples().isEmpty()) {
             for (int pixel = graphLeft; pixel < graphRight; pixel++) {
-                int sampleIndex = (pixel - graphLeft) * analysis.samples().size()
-                        / Math.max(1, graphRight - graphLeft);
-                double normalized = analysis.samples().get(Math.min(sampleIndex, analysis.samples().size() - 1)).probability()
+                int sampleIndex = (pixel - graphLeft) * analysis.samples().size() / Math.max(1, graphRight - graphLeft);
+                double normalized = analysis.samples()
+                                .get(Math.min(sampleIndex, analysis.samples().size() - 1))
+                                .probability()
                         / maximum;
                 int barHeight = Math.max(1, (int) Math.round(normalized * (height - 9)));
                 graphics.fill(pixel, graphBottom - barHeight, pixel + 1, graphBottom, ACCENT);
             }
         }
-        Component lineOne = Component.translatable("screen.delvefold.ore_wizard.preview.vein.work",
+        Component lineOne = Component.translatable(
+                "screen.delvefold.ore_wizard.preview.vein.work",
                 String.format(Locale.ROOT, "%.2f", analysis.attemptsPerChunk()),
                 String.format(Locale.ROOT, "%.1f", analysis.workUnits()));
-        Component lineTwo = Component.translatable("screen.delvefold.ore_wizard.preview.vein.density",
+        Component lineTwo = Component.translatable(
+                "screen.delvefold.ore_wizard.preview.vein.density",
                 Component.translatable("screen.delvefold.ore_wizard.density."
                         + analysis.density().name().toLowerCase(Locale.ROOT)),
-                draft.minY(), draft.maxY());
+                draft.minY(),
+                draft.maxY());
         int textX = graphRight + 8;
-        graphics.drawString(this.font, clipped(lineOne, x + width - textX - 4),
-                textX, y + 7, TEXT, false);
-        graphics.drawString(this.font, clipped(lineTwo, x + width - textX - 4),
-                textX, y + 19, analysis.density() == OreDistributionAnalysis.Density.EXTREME ? WARNING : MUTED_TEXT, false);
+        graphics.drawString(this.font, clipped(lineOne, x + width - textX - 4), textX, y + 7, TEXT, false);
+        graphics.drawString(
+                this.font,
+                clipped(lineTwo, x + width - textX - 4),
+                textX,
+                y + 19,
+                analysis.density() == OreDistributionAnalysis.Density.EXTREME ? WARNING : MUTED_TEXT,
+                false);
     }
 
     private FormattedCharSequence clipped(Component text, int maximumWidth) {
@@ -1251,8 +1525,10 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         String family = family(primary.getPath());
         for (Block block : BuiltInRegistries.BLOCK) {
             ResourceLocation candidate = BuiltInRegistries.BLOCK.getKey(block);
-            if (candidate == null || !candidate.getNamespace().equals(primary.getNamespace())
-                    || block.asItem() == Items.AIR || !family(candidate.getPath()).equals(family)) {
+            if (candidate == null
+                    || !candidate.getNamespace().equals(primary.getNamespace())
+                    || block.asItem() == Items.AIR
+                    || !family(candidate.getPath()).equals(family)) {
                 continue;
             }
             if (!result.contains(candidate.toString())) {
@@ -1294,8 +1570,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             String candidate = this.candidateVariants.get(index);
             if (this.selectedVariants.containsKey(candidate)) {
                 this.focusedVariant = candidate;
-                this.rawWeight = Integer.toString(this.variantWeights.getOrDefault(
-                        candidate, AdminSnapshot.OreVariantDraft.MIN_WEIGHT));
+                this.rawWeight = Integer.toString(
+                        this.variantWeights.getOrDefault(candidate, AdminSnapshot.OreVariantDraft.MIN_WEIGHT));
                 return;
             }
         }
@@ -1330,8 +1606,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         VerticalScrollLayout layout = bodyScrollLayout();
         this.bodyScrollOffset = layout.clamp(this.bodyScrollOffset);
         for (AbstractWidget widget : this.bodyWidgets) {
-            int y = layout.screenY(
-                    this.bodyWidgetY.getOrDefault(widget, widget.getY()), this.bodyScrollOffset);
+            int y = layout.screenY(this.bodyWidgetY.getOrDefault(widget, widget.getY()), this.bodyScrollOffset);
             widget.setY(y);
             widget.visible = layout.fullyVisible(y, widget.getHeight());
         }
@@ -1376,13 +1651,13 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         Component state = this.validationMessage.getString().isEmpty()
                 ? Component.translatable("screen.delvefold.status.ready")
                 : this.validationMessage;
-        String pageKey = switch (this.page) {
-            case TARGETS -> "screen.delvefold.ore_wizard.tab.blocks";
-            case FILTERS -> "screen.delvefold.ore_wizard.tab.filters";
-            case BANDS -> "screen.delvefold.ore_wizard.tab.bands";
-        };
-        return Component.translatable("screen.delvefold.ore_wizard.narration",
-                Component.translatable(pageKey), state);
+        String pageKey =
+                switch (this.page) {
+                    case TARGETS -> "screen.delvefold.ore_wizard.tab.blocks";
+                    case FILTERS -> "screen.delvefold.ore_wizard.tab.filters";
+                    case BANDS -> "screen.delvefold.ore_wizard.tab.bands";
+                };
+        return Component.translatable("screen.delvefold.ore_wizard.narration", Component.translatable(pageKey), state);
     }
 
     private void drawBodyScrollbar(GuiGraphics graphics, int x, VerticalScrollLayout layout) {
@@ -1410,8 +1685,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     private void showDuplicateSourceMessage() {
-        this.validationMessage = Component.translatable(
-                "screen.delvefold.ore_wizard.validation.duplicate_sources");
+        this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.validation.duplicate_sources");
         this.validationColor = DANGER;
     }
 

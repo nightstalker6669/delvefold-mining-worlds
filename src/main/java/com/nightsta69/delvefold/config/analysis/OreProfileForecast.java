@@ -8,8 +8,8 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Immutable, bounded, server-authoritative administrative forecast for one ore profile page.
- * This contract intentionally contains no world seed, coordinates, paths, or mutation data.
+ * Immutable, bounded, server-authoritative administrative forecast for one ore profile page. This contract
+ * intentionally contains no world seed, coordinates, paths, or mutation data.
  */
 public record OreProfileForecast(
         int formatVersion,
@@ -60,12 +60,13 @@ public record OreProfileForecast(
         }
         long activeTotals = terrainTotals.stream().filter(TerrainTotals::active).count();
         if ((activeTerrain == null ? activeTotals != 0L : activeTotals != 1L)
-                || activeTerrain != null && terrainTotals.stream()
-                        .noneMatch(totals -> totals.active() && totals.terrain() == activeTerrain)) {
+                || activeTerrain != null
+                        && terrainTotals.stream()
+                                .noneMatch(totals -> totals.active() && totals.terrain() == activeTerrain)) {
             throw new IllegalArgumentException("Terrain totals do not identify the active terrain");
         }
-        activeTerrainHeightOverlay = activeTerrainHeightOverlay == null
-                ? List.of() : List.copyOf(activeTerrainHeightOverlay);
+        activeTerrainHeightOverlay =
+                activeTerrainHeightOverlay == null ? List.of() : List.copyOf(activeTerrainHeightOverlay);
         if (activeTerrainHeightOverlay.size() > MAX_HEIGHT_SAMPLES) {
             throw new IllegalArgumentException("Too many height samples");
         }
@@ -111,8 +112,7 @@ public record OreProfileForecast(
     }
 
     public int estimatedNetworkBytes() {
-        return estimatedNetworkBytes(
-                profileId, terrainTotals, activeTerrainHeightOverlay, rules, references);
+        return estimatedNetworkBytes(profileId, terrainTotals, activeTerrainHeightOverlay, rules, references);
     }
 
     private static int estimatedNetworkBytes(
@@ -186,8 +186,10 @@ public record OreProfileForecast(
             count(effectiveOutputCount, "effectiveOutputCount");
             count(missingReferenceCount, "missingReferenceCount");
             count(shadowedOutputCount, "shadowedOutputCount");
-            if (targetCount > MAX_TARGETS_PER_RULE || effectiveOutputCount > MAX_RULE_COUNTER
-                    || missingReferenceCount > MAX_RULE_COUNTER || shadowedOutputCount > MAX_RULE_COUNTER) {
+            if (targetCount > MAX_TARGETS_PER_RULE
+                    || effectiveOutputCount > MAX_RULE_COUNTER
+                    || missingReferenceCount > MAX_RULE_COUNTER
+                    || shadowedOutputCount > MAX_RULE_COUNTER) {
                 throw new IllegalArgumentException("Forecast rule counter exceeds its network bound");
             }
             issues = issues == null ? List.of() : List.copyOf(issues);
@@ -221,9 +223,12 @@ public record OreProfileForecast(
             count(invalidStates, "invalidStates");
             count(shadowedOutputs, "shadowedOutputs");
             count(totalIssues, "totalIssues");
-            if (missingBlocks > MAX_SUMMARY_COUNTER || missingOutputTags > MAX_SUMMARY_COUNTER
-                    || missingHostTags > MAX_SUMMARY_COUNTER || invalidStates > MAX_SUMMARY_COUNTER
-                    || shadowedOutputs > MAX_SUMMARY_COUNTER || totalIssues > MAX_SUMMARY_COUNTER) {
+            if (missingBlocks > MAX_SUMMARY_COUNTER
+                    || missingOutputTags > MAX_SUMMARY_COUNTER
+                    || missingHostTags > MAX_SUMMARY_COUNTER
+                    || invalidStates > MAX_SUMMARY_COUNTER
+                    || shadowedOutputs > MAX_SUMMARY_COUNTER
+                    || totalIssues > MAX_SUMMARY_COUNTER) {
                 throw new IllegalArgumentException("Forecast summary counter exceeds its network bound");
             }
             details = details == null ? List.of() : List.copyOf(details);
@@ -253,8 +258,10 @@ public record OreProfileForecast(
         public ReferenceIssue {
             Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(severity, "severity");
-            if (ruleIndex < 0 || ruleIndex >= MAX_TOTAL_RULES
-                    || targetIndex < -1 || targetIndex >= MAX_TARGETS_PER_RULE) {
+            if (ruleIndex < 0
+                    || ruleIndex >= MAX_TOTAL_RULES
+                    || targetIndex < -1
+                    || targetIndex >= MAX_TARGETS_PER_RULE) {
                 throw new IllegalArgumentException("Invalid forecast issue location");
             }
             ruleId = identifier(ruleId, "ruleId");
@@ -267,8 +274,7 @@ public record OreProfileForecast(
         }
 
         int estimatedNetworkBytes() {
-            return 40 + networkStringBytes(ruleId)
-                    + networkStringBytes(sourceId) + networkStringBytes(referenceId);
+            return 40 + networkStringBytes(ruleId) + networkStringBytes(sourceId) + networkStringBytes(referenceId);
         }
     }
 

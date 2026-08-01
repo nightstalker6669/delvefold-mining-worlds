@@ -4,17 +4,17 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
-import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
-import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalHubSettings;
 import com.nightsta69.delvefold.config.model.PortalRoutingMode;
+import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
+import com.nightsta69.delvefold.config.model.RenewalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
-import com.nightsta69.delvefold.config.model.LandmarkPreset;
-import com.nightsta69.delvefold.config.model.RenewalSettings;
-import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -24,8 +24,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 
 public final class DelvefoldStreamCodecs {
-    private DelvefoldStreamCodecs() {
-    }
+    private DelvefoldStreamCodecs() {}
 
     public static void writeSnapshot(RegistryFriendlyByteBuf buffer, AdminSnapshot snapshot) {
         buffer.writeLong(snapshot.oreRevision());
@@ -65,8 +64,7 @@ public final class DelvefoldStreamCodecs {
         writeString(buffer, snapshot.portalStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeString(buffer, snapshot.worldStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeEnum(buffer, snapshot.pendingOperation());
-        writeStringList(buffer, snapshot.diagnostics(), ProtocolLimits.MAX_DIAGNOSTICS,
-                ProtocolLimits.MESSAGE_LENGTH);
+        writeStringList(buffer, snapshot.diagnostics(), ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
         buffer.writeVarInt(snapshot.oreRuleTotal());
         buffer.writeVarInt(snapshot.orePage());
         writeCount(buffer, snapshot.oreRules().size(), ProtocolLimits.MAX_ORE_RULES_PER_PAGE, "ore rules");
@@ -90,24 +88,35 @@ public final class DelvefoldStreamCodecs {
         int profileCount = readCount(buffer, ProtocolLimits.MAX_PROFILES, "ore profiles");
         List<AdminSnapshot.ProfileDraft> profiles = new ArrayList<>(profileCount);
         for (int index = 0; index < profileCount; index++) {
-            profiles.add(new AdminSnapshot.ProfileDraft(readString(buffer, ProtocolLimits.ID_LENGTH),
-                    buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(), buffer.readLong(),
+            profiles.add(new AdminSnapshot.ProfileDraft(
+                    readString(buffer, ProtocolLimits.ID_LENGTH),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readVarInt(),
+                    buffer.readLong(),
                     buffer.readBoolean()));
         }
         int backupCount = readCount(buffer, ProtocolLimits.MAX_BACKUPS, "world backups");
         List<AdminSnapshot.BackupDraft> backups = new ArrayList<>(backupCount);
         for (int index = 0; index < backupCount; index++) {
             backups.add(new AdminSnapshot.BackupDraft(
-                    readString(buffer, ProtocolLimits.SHORT_TEXT_LENGTH), buffer.readLong(),
-                    readString(buffer, ProtocolLimits.ID_LENGTH), readString(buffer, ProtocolLimits.ID_LENGTH),
-                    buffer.readLong(), buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                    buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean()));
+                    readString(buffer, ProtocolLimits.SHORT_TEXT_LENGTH),
+                    buffer.readLong(),
+                    readString(buffer, ProtocolLimits.ID_LENGTH),
+                    readString(buffer, ProtocolLimits.ID_LENGTH),
+                    buffer.readLong(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean(),
+                    buffer.readBoolean()));
         }
         String portalStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         String worldStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         AdminSnapshot.PendingOperation pendingOperation = readEnum(buffer, AdminSnapshot.PendingOperation.class);
-        List<String> diagnostics = readStringList(buffer, ProtocolLimits.MAX_DIAGNOSTICS,
-                ProtocolLimits.MESSAGE_LENGTH);
+        List<String> diagnostics =
+                readStringList(buffer, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
         int oreRuleTotal = buffer.readVarInt();
         if (oreRuleTotal < 0 || oreRuleTotal > ProtocolLimits.MAX_ORE_RULES) {
             throw new IllegalArgumentException("Invalid total ore rule count: " + oreRuleTotal);
@@ -121,10 +130,27 @@ public final class DelvefoldStreamCodecs {
         for (int index = 0; index < oreCount; index++) {
             rules.add(readOreRule(buffer));
         }
-        return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, identity, capabilities,
-                activeProfileId, profiles,
+        return new AdminSnapshot(
+                oreRevision,
+                settingsRevision,
+                backendReady,
+                initialized,
+                terrain,
+                orePreset,
+                gameplay,
+                portal,
+                identity,
+                capabilities,
+                activeProfileId,
+                profiles,
                 backups,
-                portalStatus, worldStatus, pendingOperation, diagnostics, oreRuleTotal, orePage, rules);
+                portalStatus,
+                worldStatus,
+                pendingOperation,
+                diagnostics,
+                oreRuleTotal,
+                orePage,
+                rules);
     }
 
     public static void writeCapabilities(RegistryFriendlyByteBuf buffer, AdminSnapshot.AdminCapabilities capabilities) {
@@ -136,8 +162,12 @@ public final class DelvefoldStreamCodecs {
     }
 
     public static AdminSnapshot.AdminCapabilities readCapabilities(RegistryFriendlyByteBuf buffer) {
-        return new AdminSnapshot.AdminCapabilities(buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                buffer.readBoolean(), buffer.readBoolean());
+        return new AdminSnapshot.AdminCapabilities(
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean());
     }
 
     public static void writePortal(RegistryFriendlyByteBuf buffer, PortalSettings portal) {
@@ -152,7 +182,10 @@ public final class DelvefoldStreamCodecs {
     }
 
     public static PortalSettings readPortal(RegistryFriendlyByteBuf buffer) {
-        return new PortalSettings(buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(),
+        return new PortalSettings(
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readVarInt(),
                 readFiniteDouble(buffer, "portal coordinate scale"),
                 readEnum(buffer, PortalRoutingMode.class),
                 new PortalHubSettings(buffer.readInt(), buffer.readInt(), buffer.readVarInt()));
@@ -179,9 +212,15 @@ public final class DelvefoldStreamCodecs {
                 readString(buffer, 64),
                 readEnum(buffer, TerrainVariant.class),
                 readEnum(buffer, LandmarkPreset.class),
-                buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
+                buffer.readBoolean(),
                 readEnum(buffer, GeologyTheme.class),
-                new RenewalSettings(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt(), buffer.readLong(),
+                new RenewalSettings(
+                        buffer.readBoolean(),
+                        buffer.readVarInt(),
+                        buffer.readVarInt(),
+                        buffer.readLong(),
                         readEnum(buffer, RenewalSeedMode.class)));
     }
 
@@ -230,9 +269,15 @@ public final class DelvefoldStreamCodecs {
             writeEnum(buffer, terrainMode);
         }
 
-        writeStringList(buffer, rule.biomeIncludes(), ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+        writeStringList(
+                buffer,
+                rule.biomeIncludes(),
+                ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
                 ProtocolLimits.ID_LENGTH + 1);
-        writeStringList(buffer, rule.biomeExcludes(), ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
+        writeStringList(
+                buffer,
+                rule.biomeExcludes(),
+                ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
                 ProtocolLimits.ID_LENGTH + 1);
 
         writeCount(buffer, rule.bands().size(), ProtocolLimits.MAX_BANDS, "spawn bands");
@@ -276,18 +321,18 @@ public final class DelvefoldStreamCodecs {
             }
         }
 
-        List<String> biomeIncludes = readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
-                ProtocolLimits.ID_LENGTH + 1);
-        List<String> biomeExcludes = readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
-                ProtocolLimits.ID_LENGTH + 1);
+        List<String> biomeIncludes =
+                readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST, ProtocolLimits.ID_LENGTH + 1);
+        List<String> biomeExcludes =
+                readStringList(buffer, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST, ProtocolLimits.ID_LENGTH + 1);
 
         int bandCount = readCount(buffer, ProtocolLimits.MAX_BANDS, "spawn bands");
         List<AdminSnapshot.OreBandDraft> bands = new ArrayList<>(bandCount);
         for (int index = 0; index < bandCount; index++) {
             bands.add(readOreBand(buffer));
         }
-        return new AdminSnapshot.OreRuleDraft(id, enabled, required, primaryBlockId, variants, terrainModes,
-                biomeIncludes, biomeExcludes, bands);
+        return new AdminSnapshot.OreRuleDraft(
+                id, enabled, required, primaryBlockId, variants, terrainModes, biomeIncludes, biomeExcludes, bands);
     }
 
     public static void writeOreBand(RegistryFriendlyByteBuf buffer, AdminSnapshot.OreBandDraft band) {
@@ -327,12 +372,25 @@ public final class DelvefoldStreamCodecs {
         ProvinceSettings province = null;
         if (buffer.readBoolean()) {
             province = new ProvinceSettings(
-                    buffer.readVarInt(), buffer.readVarInt(), buffer.readVarInt(),
-                    readFiniteDouble(buffer, "province density"), buffer.readVarInt());
+                    buffer.readVarInt(),
+                    buffer.readVarInt(),
+                    buffer.readVarInt(),
+                    readFiniteDouble(buffer, "province density"),
+                    buffer.readVarInt());
         }
         return new AdminSnapshot.OreBandDraft(
-                id, veinSize, attempts, distribution, minY, maxY, peakY,
-                plateauMinY, plateauMaxY, discard, placement, province);
+                id,
+                veinSize,
+                attempts,
+                distribution,
+                minY,
+                maxY,
+                peakY,
+                plateauMinY,
+                plateauMaxY,
+                discard,
+                placement,
+                province);
     }
 
     public static void writeString(RegistryFriendlyByteBuf buffer, String value, int maximumLength) {
@@ -376,8 +434,8 @@ public final class DelvefoldStreamCodecs {
         return values[ordinal];
     }
 
-    private static void writeStringList(RegistryFriendlyByteBuf buffer, List<String> values, int maximumCount,
-            int maximumLength) {
+    private static void writeStringList(
+            RegistryFriendlyByteBuf buffer, List<String> values, int maximumCount, int maximumLength) {
         writeCount(buffer, values.size(), maximumCount, "strings");
         for (String value : values) {
             writeString(buffer, value, maximumLength);

@@ -5,8 +5,7 @@ import net.minecraft.network.chat.Component;
 
 /** Centralized translatable labels shared by the administration screens. */
 public final class DelvefoldText {
-    private DelvefoldText() {
-    }
+    private DelvefoldText() {}
 
     static Component option(String group, String id) {
         return Component.translatable("option.delvefold." + group + '.' + id);

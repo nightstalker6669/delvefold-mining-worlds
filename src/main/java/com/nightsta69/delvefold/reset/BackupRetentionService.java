@@ -1,9 +1,9 @@
 package com.nightsta69.delvefold.reset;
 
-import com.nightsta69.delvefold.config.ConfigJson;
-import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.nightsta69.delvefold.config.ConfigJson;
+import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -24,40 +24,35 @@ import java.util.UUID;
 /** Path-based preview/apply boundary for safe automatic backup retention. */
 public final class BackupRetentionService {
     private static final long MAX_PENDING_BYTES = 64L * 1024L;
-    private static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter
-            .ofPattern("uuuuMMdd-HHmmss", Locale.ROOT)
-            .withZone(ZoneOffset.UTC);
+    private static final DateTimeFormatter BACKUP_TIMESTAMP =
+            DateTimeFormatter.ofPattern("uuuuMMdd-HHmmss", Locale.ROOT).withZone(ZoneOffset.UTC);
 
-    private BackupRetentionService() {
-    }
+    private BackupRetentionService() {}
 
-    public static Preview preview(
-            Path saveRoot,
-            BackupRetentionSettings settings,
-            Instant now) throws IOException {
+    public static Preview preview(Path saveRoot, BackupRetentionSettings settings, Instant now) throws IOException {
         Path root = checkedSaveRoot(saveRoot);
         BackupRetentionSettings policy = settings == null ? BackupRetentionSettings.defaults() : settings;
         Instant evaluatedAt = now == null ? Instant.now() : now;
         WorldBackupCatalog catalog = new WorldBackupCatalog(root);
-        List<BackupRetentionPlanner.Candidate> candidates = catalog.list().stream()
-                .map(BackupRetentionPlanner::fromSummary)
-                .toList();
+        List<BackupRetentionPlanner.Candidate> candidates =
+                catalog.list().stream().map(BackupRetentionPlanner::fromSummary).toList();
         Set<String> protectedIds = protectedBackupIds(root);
-        BackupRetentionPlanner.Plan plan = BackupRetentionPlanner.plan(
-                policy, candidates, protectedIds, evaluatedAt);
+        BackupRetentionPlanner.Plan plan = BackupRetentionPlanner.plan(policy, candidates, protectedIds, evaluatedAt);
         return new Preview(root, policy, evaluatedAt, protectedIds, plan);
     }
 
     /**
-     * Applies only IDs present in both the audited preview and a fresh safety
-     * preview. New pins, pending references, or newest-two protection win.
+     * Applies only IDs present in both the audited preview and a fresh safety preview. New pins, pending references, or
+     * newest-two protection win.
      */
     public static ApplyResult apply(Preview preview) throws IOException {
         if (preview == null) {
             throw new IOException("Backup retention preview is missing");
         }
         Path root = checkedSaveRoot(preview.saveRoot());
-        if (!preview.settings().enabled() || !preview.plan().enabled() || preview.plan().prunes().isEmpty()) {
+        if (!preview.settings().enabled()
+                || !preview.plan().enabled()
+                || preview.plan().prunes().isEmpty()) {
             return new ApplyResult(List.of(), Map.of());
         }
         List<String> planned = preview.plan().prunes().stream()
@@ -90,8 +85,8 @@ public final class BackupRetentionService {
     }
 
     /**
-     * Reads persisted operation journals conservatively. If a journal exists but
-     * is malformed, preview fails and automatic pruning must be skipped.
+     * Reads persisted operation journals conservatively. If a journal exists but is malformed, preview fails and
+     * automatic pruning must be skipped.
      */
     public static Set<String> protectedBackupIds(Path saveRoot) throws IOException {
         Path root = checkedSaveRoot(saveRoot);
@@ -115,8 +110,7 @@ public final class BackupRetentionService {
                 throw new IOException("Pending restore phase is missing");
             }
             result.add(restore.backupId());
-            result.add(formatBackupTimestamp(restore.createdAtEpochMillis())
-                    + "-pre-restore-" + restore.operationId());
+            result.add(formatBackupTimestamp(restore.createdAtEpochMillis()) + "-pre-restore-" + restore.operationId());
         }
 
         Path operationPath = configRoot.resolve("pending_world_operation.json");
@@ -137,8 +131,7 @@ public final class BackupRetentionService {
                 throw new IOException("Pending recreation target terrain is missing");
             }
             if (operation.backupMode() == BackupMode.KEEP_BACKUP) {
-                result.add(formatBackupTimestamp(operation.createdAtEpochMillis())
-                        + '-' + operation.operationId());
+                result.add(formatBackupTimestamp(operation.createdAtEpochMillis()) + '-' + operation.operationId());
             }
         }
         List<String> ordered = result.stream().sorted().toList();
@@ -176,11 +169,23 @@ public final class BackupRetentionService {
 
     private static void requirePendingFields(JsonObject object, Class<?> type) throws IOException {
         if (type == PendingWorldRestore.class) {
-            requireJsonFields(object, "schema_version", "operation_id", "backup_id", "phase",
-                    "created_at_epoch_millis", "requested_by");
+            requireJsonFields(
+                    object,
+                    "schema_version",
+                    "operation_id",
+                    "backup_id",
+                    "phase",
+                    "created_at_epoch_millis",
+                    "requested_by");
         } else if (type == PendingWorldOperation.class) {
-            requireJsonFields(object, "schema_version", "operation_id", "type", "backup_mode",
-                    "created_at_epoch_millis", "requested_by");
+            requireJsonFields(
+                    object,
+                    "schema_version",
+                    "operation_id",
+                    "type",
+                    "backup_mode",
+                    "created_at_epoch_millis",
+                    "requested_by");
         }
     }
 
@@ -241,8 +246,7 @@ public final class BackupRetentionService {
             BackupRetentionSettings settings,
             Instant evaluatedAt,
             Set<String> protectedBackupIds,
-            BackupRetentionPlanner.Plan plan
-    ) {
+            BackupRetentionPlanner.Plan plan) {
         public Preview {
             saveRoot = saveRoot.toAbsolutePath().normalize();
             settings = settings == null ? BackupRetentionSettings.defaults() : settings;
@@ -250,8 +254,8 @@ public final class BackupRetentionService {
             if (protectedBackupIds == null || protectedBackupIds.isEmpty()) {
                 protectedBackupIds = Set.of();
             } else {
-                protectedBackupIds = Collections.unmodifiableSet(new LinkedHashSet<>(
-                        protectedBackupIds.stream().sorted().toList()));
+                protectedBackupIds = Collections.unmodifiableSet(
+                        new LinkedHashSet<>(protectedBackupIds.stream().sorted().toList()));
             }
         }
     }

@@ -4,12 +4,7 @@ import java.util.List;
 
 /** Immutable inventory of every restorable file in one Delvefold backup. */
 public record BackupManifest(
-        int schemaVersion,
-        String hashAlgorithm,
-        Metadata metadata,
-        long totalBytes,
-        List<FileEntry> files
-) {
+        int schemaVersion, String hashAlgorithm, Metadata metadata, long totalBytes, List<FileEntry> files) {
     public static final int CURRENT_SCHEMA_VERSION = 1;
     public static final String HASH_ALGORITHM = "SHA-256";
     public static final String FILE_NAME = "manifest.json";
@@ -25,8 +20,7 @@ public record BackupManifest(
             String operationId,
             String operation,
             String terrain,
-            String requestedBy
-    ) {
+            String requestedBy) {
         public Metadata {
             backupId = backupId == null ? "" : backupId;
             operationId = operationId == null ? "" : operationId;

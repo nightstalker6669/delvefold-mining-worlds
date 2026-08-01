@@ -8,19 +8,21 @@ import net.minecraft.network.chat.Component;
 /** Localized display projection that keeps issue codes and JSON paths machine-stable. */
 public final class ConfigIssueMessages {
     private static final Set<String> TECHNICAL_DETAILS = Set.of(
-            "json.invalid", "profile.invalid", "initialize.failed", "ores.save_failed",
-            "settings.save_failed", "profile.activate_failed");
+            "json.invalid",
+            "profile.invalid",
+            "initialize.failed",
+            "ores.save_failed",
+            "settings.save_failed",
+            "profile.activate_failed");
 
-    private ConfigIssueMessages() {
-    }
+    private ConfigIssueMessages() {}
 
     public static String encode(ConfigIssue issue) {
         ConfigIssue safe = java.util.Objects.requireNonNull(issue, "issue");
-        String severity = AdminLocalizedMessage.encode(
-                "message.delvefold.config_issue.severity."
-                        + safe.severity().name().toLowerCase(java.util.Locale.ROOT));
-        return AdminLocalizedMessage.encode("message.delvefold.config_issue.row",
-                severity, safe.code(), safe.path(), detail(safe));
+        String severity = AdminLocalizedMessage.encode("message.delvefold.config_issue.severity."
+                + safe.severity().name().toLowerCase(java.util.Locale.ROOT));
+        return AdminLocalizedMessage.encode(
+                "message.delvefold.config_issue.row", severity, safe.code(), safe.path(), detail(safe));
     }
 
     public static Component component(ConfigIssue issue) {
@@ -41,7 +43,8 @@ public final class ConfigIssueMessages {
             key = "message.delvefold.config_issue.detail.non_negative";
         } else if (code.equals("settings.generation_salt.uninitialized")) {
             key = "message.delvefold.config_issue.detail.generation_salt";
-        } else if (code.endsWith(".too_long") || code.equals("settings.operation_id.too_long")
+        } else if (code.endsWith(".too_long")
+                || code.equals("settings.operation_id.too_long")
                 || code.equals("settings.identity.name")) {
             key = "message.delvefold.config_issue.detail.length";
         } else if (code.contains("duplicate")) {
@@ -86,8 +89,11 @@ public final class ConfigIssueMessages {
             key = "message.delvefold.config_issue.detail.selection_required";
         } else if (code.contains("unexpected")) {
             key = "message.delvefold.config_issue.detail.unexpected";
-        } else if (code.contains("invalid") || code.contains("interval") || code.contains("warning")
-                || code.contains("time") || code.contains("retention")) {
+        } else if (code.contains("invalid")
+                || code.contains("interval")
+                || code.contains("warning")
+                || code.contains("time")
+                || code.contains("retention")) {
             key = "message.delvefold.config_issue.detail.range";
         } else {
             key = "message.delvefold.config_issue.detail.invalid";

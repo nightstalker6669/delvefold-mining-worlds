@@ -4,8 +4,8 @@ import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
-import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
+import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
@@ -15,9 +15,8 @@ import com.nightsta69.delvefold.network.ProtocolLimits;
 import java.util.List;
 
 /**
- * Immutable, bounded server snapshot used to render the administration GUI.
- * The server remains the source of truth; clients never mutate this object in
- * place and every write includes {@link #revision()} for stale-write checks.
+ * Immutable, bounded server snapshot used to render the administration GUI. The server remains the source of truth;
+ * clients never mutate this object in place and every write includes {@link #revision()} for stale-write checks.
  */
 public record AdminSnapshot(
         long oreRevision,
@@ -53,11 +52,13 @@ public record AdminSnapshot(
         activeProfileId = cleanId(activeProfileId, "vanilla_balanced");
         profiles = limitedCopy(profiles, ProtocolLimits.MAX_PROFILES);
         backups = limitedCopy(backups, ProtocolLimits.MAX_BACKUPS);
-        portalStatus = clean(portalStatus, AdminLocalizedMessage.encode(
-                "message.delvefold.admin.snapshot.portal_unavailable"));
-        worldStatus = clean(worldStatus, initialized
-                ? AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.world_ready")
-                : AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.world_uninitialized"));
+        portalStatus = clean(
+                portalStatus, AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.portal_unavailable"));
+        worldStatus = clean(
+                worldStatus,
+                initialized
+                        ? AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.world_ready")
+                        : AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.world_uninitialized"));
         pendingOperation = pendingOperation == null ? PendingOperation.NONE : pendingOperation;
         diagnostics = limitedStrings(diagnostics, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
         oreRules = limitedCopy(oreRules, ProtocolLimits.MAX_ORE_RULES_PER_PAGE);
@@ -66,9 +67,9 @@ public record AdminSnapshot(
     }
 
     /**
-     * Source-compatible constructor for protocol-11 callers that only knew whether
-     * some mining-world reset was pending. Legacy {@code true} values represent the established
-     * delete/recreate operation; protocol 12 carries the explicit operation kind.
+     * Source-compatible constructor for protocol-11 callers that only knew whether some mining-world reset was pending.
+     * Legacy {@code true} values represent the established delete/recreate operation; protocol 12 carries the explicit
+     * operation kind.
      */
     public AdminSnapshot(
             long oreRevision,
@@ -91,10 +92,27 @@ public record AdminSnapshot(
             int oreRuleTotal,
             int orePage,
             List<OreRuleDraft> oreRules) {
-        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal,
-                identity, capabilities, activeProfileId, profiles, backups, portalStatus, worldStatus,
+        this(
+                oreRevision,
+                settingsRevision,
+                backendReady,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                identity,
+                capabilities,
+                activeProfileId,
+                profiles,
+                backups,
+                portalStatus,
+                worldStatus,
                 resetPending ? PendingOperation.WORLD_OPERATION : PendingOperation.NONE,
-                diagnostics, oreRuleTotal, orePage, oreRules);
+                diagnostics,
+                oreRuleTotal,
+                orePage,
+                oreRules);
     }
 
     public AdminSnapshot(
@@ -116,12 +134,27 @@ public record AdminSnapshot(
             boolean resetPending,
             List<String> diagnostics,
             List<OreRuleDraft> oreRules) {
-        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, identity, capabilities,
-                activeProfileId, profiles,
+        this(
+                oreRevision,
+                settingsRevision,
+                backendReady,
+                initialized,
+                terrainMode,
+                orePreset,
+                gameplay,
+                portal,
+                identity,
+                capabilities,
+                activeProfileId,
+                profiles,
                 backups,
-                portalStatus, worldStatus,
-                resetPending ? PendingOperation.WORLD_OPERATION : PendingOperation.NONE, diagnostics,
-                oreRules == null ? 0 : oreRules.size(), 0, oreRules);
+                portalStatus,
+                worldStatus,
+                resetPending ? PendingOperation.WORLD_OPERATION : PendingOperation.NONE,
+                diagnostics,
+                oreRules == null ? 0 : oreRules.size(),
+                0,
+                oreRules);
     }
 
     public static AdminSnapshot unavailable() {
@@ -142,8 +175,7 @@ public record AdminSnapshot(
                 AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.backend_portal_disabled"),
                 AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.backend_unavailable"),
                 PendingOperation.NONE,
-                List.of(AdminLocalizedMessage.encode(
-                        "message.delvefold.admin.snapshot.backend_diagnostic")),
+                List.of(AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.backend_diagnostic")),
                 0,
                 0,
                 List.of());
@@ -175,9 +207,9 @@ public record AdminSnapshot(
         BOTH;
 
         /**
-         * Resolves the two lifecycle services without losing either cancellation path. BOTH is a
-         * defensive representation for legacy or externally-corrupted saves containing both
-         * journals; each administration screen can then expose its matching recovery action.
+         * Resolves the two lifecycle services without losing either cancellation path. BOTH is a defensive
+         * representation for legacy or externally-corrupted saves containing both journals; each administration screen
+         * can then expose its matching recovery action.
          */
         public static PendingOperation resolve(boolean worldOperationPending, boolean restorePending) {
             if (worldOperationPending && restorePending) {
@@ -240,8 +272,18 @@ public record AdminSnapshot(
                 boolean pinned,
                 boolean restorable,
                 boolean valid) {
-            this(id, createdAtEpochMillis, operation, terrain, sizeBytes, pinned, restorable, valid,
-                    false, false, true);
+            this(
+                    id,
+                    createdAtEpochMillis,
+                    operation,
+                    terrain,
+                    sizeBytes,
+                    pinned,
+                    restorable,
+                    valid,
+                    false,
+                    false,
+                    true);
         }
 
         public String integrityState() {
@@ -303,10 +345,10 @@ public record AdminSnapshot(
             primaryBlockId = cleanId(primaryBlockId, "minecraft:iron_ore");
             variants = limitedCopy(variants, ProtocolLimits.MAX_VARIANTS);
             terrainModes = limitedCopy(terrainModes, ProtocolLimits.MAX_TERRAIN_MODES);
-            biomeIncludes = limitedStrings(biomeIncludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
-                    ProtocolLimits.ID_LENGTH + 1);
-            biomeExcludes = limitedStrings(biomeExcludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST,
-                    ProtocolLimits.ID_LENGTH + 1);
+            biomeIncludes = limitedStrings(
+                    biomeIncludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST, ProtocolLimits.ID_LENGTH + 1);
+            biomeExcludes = limitedStrings(
+                    biomeExcludes, ProtocolLimits.MAX_BIOME_SELECTORS_PER_LIST, ProtocolLimits.ID_LENGTH + 1);
             bands = limitedCopy(bands, ProtocolLimits.MAX_BANDS);
         }
 
@@ -327,17 +369,13 @@ public record AdminSnapshot(
         }
 
         public OreRuleDraft withEnabled(boolean value) {
-            return new OreRuleDraft(id, value, required, primaryBlockId, variants, terrainModes,
-                    biomeIncludes, biomeExcludes, bands);
+            return new OreRuleDraft(
+                    id, value, required, primaryBlockId, variants, terrainModes, biomeIncludes, biomeExcludes, bands);
         }
     }
 
     public record OreVariantDraft(
-            String blockId,
-            String blockTag,
-            String replaceTag,
-            java.util.Map<String, String> state,
-            int weight) {
+            String blockId, String blockTag, String replaceTag, java.util.Map<String, String> state, int weight) {
         public static final int MIN_WEIGHT = OreTarget.MIN_WEIGHT;
         public static final int MAX_WEIGHT = OreTarget.MAX_WEIGHT;
 
@@ -352,7 +390,8 @@ public record AdminSnapshot(
                 state = java.util.Map.of();
             } else {
                 java.util.TreeMap<String, String> sanitized = new java.util.TreeMap<>();
-                state.entrySet().stream().limit(ProtocolLimits.MAX_STATE_PROPERTIES)
+                state.entrySet().stream()
+                        .limit(ProtocolLimits.MAX_STATE_PROPERTIES)
                         .forEach(entry -> sanitized.put(entry.getKey(), entry.getValue()));
                 state = java.util.Collections.unmodifiableMap(sanitized);
             }
@@ -409,13 +448,35 @@ public record AdminSnapshot(
                 int plateauMinY,
                 int plateauMaxY,
                 double discardOnAirExposure) {
-            this(id, veinSize, attemptsPerChunk, distribution, minY, maxY, peakY,
-                    plateauMinY, plateauMaxY, discardOnAirExposure, OreBandPlacement.VEIN, null);
+            this(
+                    id,
+                    veinSize,
+                    attemptsPerChunk,
+                    distribution,
+                    minY,
+                    maxY,
+                    peakY,
+                    plateauMinY,
+                    plateauMaxY,
+                    discardOnAirExposure,
+                    OreBandPlacement.VEIN,
+                    null);
         }
 
         public static OreBandDraft defaultBand() {
-            return new OreBandDraft("main", 8, 8.0D, HeightDistribution.UNIFORM,
-                    -64, 64, 0, -16, 16, 0.0D, OreBandPlacement.VEIN, null);
+            return new OreBandDraft(
+                    "main",
+                    8,
+                    8.0D,
+                    HeightDistribution.UNIFORM,
+                    -64,
+                    64,
+                    0,
+                    -16,
+                    16,
+                    0.0D,
+                    OreBandPlacement.VEIN,
+                    null);
         }
     }
 
@@ -424,8 +485,6 @@ public record AdminSnapshot(
             return fallback;
         }
         String trimmed = value.trim();
-        return trimmed.length() > ProtocolLimits.ID_LENGTH
-                ? trimmed.substring(0, ProtocolLimits.ID_LENGTH)
-                : trimmed;
+        return trimmed.length() > ProtocolLimits.ID_LENGTH ? trimmed.substring(0, ProtocolLimits.ID_LENGTH) : trimmed;
     }
 }

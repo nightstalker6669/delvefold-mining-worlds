@@ -2,9 +2,9 @@ package com.nightsta69.delvefold.network;
 
 import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
+import com.nightsta69.delvefold.admin.OreImportAdminService;
 import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.AdminAccess;
-import com.nightsta69.delvefold.admin.OreImportAdminService;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -12,15 +12,15 @@ import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
-import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ForecastRequestPayload;
+import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.GuideOpenedPayload;
-import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
+import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
+import com.nightsta69.delvefold.network.payload.OpenForecastPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuidePayload;
-import com.nightsta69.delvefold.network.payload.OpenForecastPayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportPreviewPayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportScanPayload;
 import com.nightsta69.delvefold.network.payload.OreImportCreatePayload;
@@ -28,11 +28,11 @@ import com.nightsta69.delvefold.network.payload.OreImportPreviewPageRequestPaylo
 import com.nightsta69.delvefold.network.payload.OreImportPreviewRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanPageRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanRequestPayload;
+import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportRequestPayload;
-import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.SaveOreRulePayload;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminService;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminServices;
@@ -53,33 +53,22 @@ public final class DelvefoldNetwork {
     public static final String PROTOCOL_VERSION = "12";
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {
-    };
-    private static volatile Consumer<ActionResultPayload> clientResultHandler = payload -> {
-    };
-    private static volatile Consumer<ProfileExportPayload> clientProfileExportHandler = payload -> {
-    };
-    private static volatile Consumer<OpenGuidePayload> clientGuideHandler = payload -> {
-    };
-    private static volatile Consumer<OpenForecastPayload> clientForecastHandler = payload -> {
-    };
-    private static volatile Consumer<OpenOreImportScanPayload> clientImportScanHandler = payload -> {
-    };
-    private static volatile Consumer<OpenOreImportPreviewPayload> clientImportPreviewHandler = payload -> {
-    };
+    private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {};
+    private static volatile Consumer<ActionResultPayload> clientResultHandler = payload -> {};
+    private static volatile Consumer<ProfileExportPayload> clientProfileExportHandler = payload -> {};
+    private static volatile Consumer<OpenGuidePayload> clientGuideHandler = payload -> {};
+    private static volatile Consumer<OpenForecastPayload> clientForecastHandler = payload -> {};
+    private static volatile Consumer<OpenOreImportScanPayload> clientImportScanHandler = payload -> {};
+    private static volatile Consumer<OpenOreImportPreviewPayload> clientImportPreviewHandler = payload -> {};
 
-    private DelvefoldNetwork() {
-    }
+    private DelvefoldNetwork() {}
 
     /** Call once from the mod constructor with the mod event bus. */
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(DelvefoldNetwork::registerPayloadHandlers);
     }
 
-    /**
-     * Client bootstrap hook. Kept free of client-only types so this class is
-     * safe to load on a dedicated server.
-     */
+    /** Client bootstrap hook. Kept free of client-only types so this class is safe to load on a dedicated server. */
     public static void installClientHandlers(
             Consumer<OpenGuiPayload> openHandler,
             Consumer<ActionResultPayload> resultHandler,
@@ -108,59 +97,84 @@ public final class DelvefoldNetwork {
 
     private static void registerPayloadHandlers(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(PROTOCOL_VERSION);
-        registrar.playToServer(OpenGuiRequestPayload.TYPE, OpenGuiRequestPayload.STREAM_CODEC,
-                DelvefoldNetwork::handleOpenRequest);
-        registrar.playToServer(OrePageRequestPayload.TYPE, OrePageRequestPayload.STREAM_CODEC,
-                DelvefoldNetwork::handleOrePageRequest);
-        registrar.playToServer(InitializeWorldPayload.TYPE, InitializeWorldPayload.STREAM_CODEC,
-                DelvefoldNetwork::handleInitialize);
-        registrar.playToServer(IdentityUpdatePayload.TYPE, IdentityUpdatePayload.STREAM_CODEC,
-                DelvefoldNetwork::handleIdentityUpdate);
-        registrar.playToServer(SaveOreRulePayload.TYPE, SaveOreRulePayload.STREAM_CODEC,
-                DelvefoldNetwork::handleSaveOreRule);
-        registrar.playToServer(DeleteOreRulePayload.TYPE, DeleteOreRulePayload.STREAM_CODEC,
-                DelvefoldNetwork::handleDeleteOreRule);
-        registrar.playToServer(GameplayUpdatePayload.TYPE, GameplayUpdatePayload.STREAM_CODEC,
-                DelvefoldNetwork::handleGameplayUpdate);
-        registrar.playToServer(PortalUpdatePayload.TYPE, PortalUpdatePayload.STREAM_CODEC,
-                DelvefoldNetwork::handlePortalUpdate);
-        registrar.playToServer(ProfileActionPayload.TYPE, ProfileActionPayload.STREAM_CODEC,
-                DelvefoldNetwork::handleProfileAction);
-        registrar.playToServer(ProfileExportRequestPayload.TYPE, ProfileExportRequestPayload.STREAM_CODEC,
+        registrar.playToServer(
+                OpenGuiRequestPayload.TYPE, OpenGuiRequestPayload.STREAM_CODEC, DelvefoldNetwork::handleOpenRequest);
+        registrar.playToServer(
+                OrePageRequestPayload.TYPE, OrePageRequestPayload.STREAM_CODEC, DelvefoldNetwork::handleOrePageRequest);
+        registrar.playToServer(
+                InitializeWorldPayload.TYPE, InitializeWorldPayload.STREAM_CODEC, DelvefoldNetwork::handleInitialize);
+        registrar.playToServer(
+                IdentityUpdatePayload.TYPE, IdentityUpdatePayload.STREAM_CODEC, DelvefoldNetwork::handleIdentityUpdate);
+        registrar.playToServer(
+                SaveOreRulePayload.TYPE, SaveOreRulePayload.STREAM_CODEC, DelvefoldNetwork::handleSaveOreRule);
+        registrar.playToServer(
+                DeleteOreRulePayload.TYPE, DeleteOreRulePayload.STREAM_CODEC, DelvefoldNetwork::handleDeleteOreRule);
+        registrar.playToServer(
+                GameplayUpdatePayload.TYPE, GameplayUpdatePayload.STREAM_CODEC, DelvefoldNetwork::handleGameplayUpdate);
+        registrar.playToServer(
+                PortalUpdatePayload.TYPE, PortalUpdatePayload.STREAM_CODEC, DelvefoldNetwork::handlePortalUpdate);
+        registrar.playToServer(
+                ProfileActionPayload.TYPE, ProfileActionPayload.STREAM_CODEC, DelvefoldNetwork::handleProfileAction);
+        registrar.playToServer(
+                ProfileExportRequestPayload.TYPE,
+                ProfileExportRequestPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleProfileExportRequest);
-        registrar.playToServer(BackupActionPayload.TYPE, BackupActionPayload.STREAM_CODEC,
-                DelvefoldNetwork::handleBackupAction);
-        registrar.playToServer(AdminActionPayload.TYPE, AdminActionPayload.STREAM_CODEC,
-                DelvefoldNetwork::handleAdminAction);
-        registrar.playToServer(GuideOpenedPayload.TYPE, GuideOpenedPayload.STREAM_CODEC,
-                DelvefoldNetwork::handleGuideOpened);
-        registrar.playToServer(ForecastRequestPayload.TYPE, ForecastRequestPayload.STREAM_CODEC,
+        registrar.playToServer(
+                BackupActionPayload.TYPE, BackupActionPayload.STREAM_CODEC, DelvefoldNetwork::handleBackupAction);
+        registrar.playToServer(
+                AdminActionPayload.TYPE, AdminActionPayload.STREAM_CODEC, DelvefoldNetwork::handleAdminAction);
+        registrar.playToServer(
+                GuideOpenedPayload.TYPE, GuideOpenedPayload.STREAM_CODEC, DelvefoldNetwork::handleGuideOpened);
+        registrar.playToServer(
+                ForecastRequestPayload.TYPE,
+                ForecastRequestPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleForecastRequest);
-        registrar.playToServer(OreImportScanRequestPayload.TYPE, OreImportScanRequestPayload.STREAM_CODEC,
+        registrar.playToServer(
+                OreImportScanRequestPayload.TYPE,
+                OreImportScanRequestPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleImportScan);
-        registrar.playToServer(OreImportScanPageRequestPayload.TYPE, OreImportScanPageRequestPayload.STREAM_CODEC,
+        registrar.playToServer(
+                OreImportScanPageRequestPayload.TYPE,
+                OreImportScanPageRequestPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleImportScanPage);
-        registrar.playToServer(OreImportPreviewRequestPayload.TYPE, OreImportPreviewRequestPayload.STREAM_CODEC,
+        registrar.playToServer(
+                OreImportPreviewRequestPayload.TYPE,
+                OreImportPreviewRequestPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleImportPreview);
-        registrar.playToServer(OreImportPreviewPageRequestPayload.TYPE,
+        registrar.playToServer(
+                OreImportPreviewPageRequestPayload.TYPE,
                 OreImportPreviewPageRequestPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleImportPreviewPage);
-        registrar.playToServer(OreImportCreatePayload.TYPE, OreImportCreatePayload.STREAM_CODEC,
-                DelvefoldNetwork::handleImportCreate);
+        registrar.playToServer(
+                OreImportCreatePayload.TYPE, OreImportCreatePayload.STREAM_CODEC, DelvefoldNetwork::handleImportCreate);
 
-        registrar.playToClient(OpenGuiPayload.TYPE, OpenGuiPayload.STREAM_CODEC,
+        registrar.playToClient(
+                OpenGuiPayload.TYPE,
+                OpenGuiPayload.STREAM_CODEC,
                 (payload, context) -> clientOpenHandler.accept(payload));
-        registrar.playToClient(ActionResultPayload.TYPE, ActionResultPayload.STREAM_CODEC,
+        registrar.playToClient(
+                ActionResultPayload.TYPE,
+                ActionResultPayload.STREAM_CODEC,
                 (payload, context) -> clientResultHandler.accept(payload));
-        registrar.playToClient(ProfileExportPayload.TYPE, ProfileExportPayload.STREAM_CODEC,
+        registrar.playToClient(
+                ProfileExportPayload.TYPE,
+                ProfileExportPayload.STREAM_CODEC,
                 (payload, context) -> clientProfileExportHandler.accept(payload));
-        registrar.playToClient(OpenGuidePayload.TYPE, OpenGuidePayload.STREAM_CODEC,
+        registrar.playToClient(
+                OpenGuidePayload.TYPE,
+                OpenGuidePayload.STREAM_CODEC,
                 (payload, context) -> clientGuideHandler.accept(payload));
-        registrar.playToClient(OpenForecastPayload.TYPE, OpenForecastPayload.STREAM_CODEC,
+        registrar.playToClient(
+                OpenForecastPayload.TYPE,
+                OpenForecastPayload.STREAM_CODEC,
                 (payload, context) -> clientForecastHandler.accept(payload));
-        registrar.playToClient(OpenOreImportScanPayload.TYPE, OpenOreImportScanPayload.STREAM_CODEC,
+        registrar.playToClient(
+                OpenOreImportScanPayload.TYPE,
+                OpenOreImportScanPayload.STREAM_CODEC,
                 (payload, context) -> clientImportScanHandler.accept(payload));
-        registrar.playToClient(OpenOreImportPreviewPayload.TYPE, OpenOreImportPreviewPayload.STREAM_CODEC,
+        registrar.playToClient(
+                OpenOreImportPreviewPayload.TYPE,
+                OpenOreImportPreviewPayload.STREAM_CODEC,
                 (payload, context) -> clientImportPreviewHandler.accept(payload));
     }
 
@@ -174,8 +188,7 @@ public final class DelvefoldNetwork {
     private static void handleGuideOpened(GuideOpenedPayload payload, IPayloadContext context) {
         ServerPlayer player = serverPlayer(context);
         if (player != null) {
-            com.nightsta69.delvefold.guide.DelvefoldGuideService.confirmOpened(
-                    player, payload.authorizationId());
+            com.nightsta69.delvefold.guide.DelvefoldGuideService.confirmOpened(player, payload.authorizationId());
         }
     }
 
@@ -185,25 +198,31 @@ public final class DelvefoldNetwork {
             return;
         }
         try {
-            var forecast = DelvefoldAdminServices.get().forecast(
-                    player, payload.profileId(), payload.page());
+            var forecast = DelvefoldAdminServices.get().forecast(player, payload.profileId(), payload.page());
             PacketDistributor.sendToPlayer(player, new OpenForecastPayload(forecast));
         } catch (RuntimeException exception) {
-            LOGGER.warn("Could not build Delvefold ore forecast for {}",
-                    player.getGameProfile().getName(), exception);
-            finish(player, new DelvefoldAdminService.ServiceResult(
-                    ActionStatus.REJECTED,
-                    com.nightsta69.delvefold.config.DelvefoldConfigService.get().snapshot().ores().revision(),
-                    AdminLocalizedMessage.encode("message.delvefold.network.forecast_failed",
-                            exception.getMessage()), false));
+            LOGGER.warn(
+                    "Could not build Delvefold ore forecast for {}",
+                    player.getGameProfile().getName(),
+                    exception);
+            finish(
+                    player,
+                    new DelvefoldAdminService.ServiceResult(
+                            ActionStatus.REJECTED,
+                            com.nightsta69.delvefold.config.DelvefoldConfigService.get()
+                                    .snapshot()
+                                    .ores()
+                                    .revision(),
+                            AdminLocalizedMessage.encode(
+                                    "message.delvefold.network.forecast_failed", exception.getMessage()),
+                            false));
         }
     }
 
     private static void handleImportScan(OreImportScanRequestPayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION);
         if (player == null) return;
-        var result = OreImportAdminService.get().scan(
-                player, payload.expectedOreRevision(), payload.includeVanilla());
+        var result = OreImportAdminService.get().scan(player, payload.expectedOreRevision(), payload.includeVanilla());
         if (result.accepted()) {
             PacketDistributor.sendToPlayer(player, new OpenOreImportScanPayload(result.view()));
         } else {
@@ -211,8 +230,7 @@ public final class DelvefoldNetwork {
         }
     }
 
-    private static void handleImportScanPage(
-            OreImportScanPageRequestPayload payload, IPayloadContext context) {
+    private static void handleImportScanPage(OreImportScanPageRequestPayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION);
         if (player == null) return;
         var result = OreImportAdminService.get().scanPage(player, payload.scanToken(), payload.page());
@@ -223,12 +241,10 @@ public final class DelvefoldNetwork {
         }
     }
 
-    private static void handleImportPreview(
-            OreImportPreviewRequestPayload payload, IPayloadContext context) {
+    private static void handleImportPreview(OreImportPreviewRequestPayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION);
         if (player == null) return;
-        var result = OreImportAdminService.get().preview(
-                player, payload.scanToken(), payload.selectedGroupIds());
+        var result = OreImportAdminService.get().preview(player, payload.scanToken(), payload.selectedGroupIds());
         if (result.accepted()) {
             PacketDistributor.sendToPlayer(player, new OpenOreImportPreviewPayload(result.view()));
         } else {
@@ -236,12 +252,10 @@ public final class DelvefoldNetwork {
         }
     }
 
-    private static void handleImportPreviewPage(
-            OreImportPreviewPageRequestPayload payload, IPayloadContext context) {
+    private static void handleImportPreviewPage(OreImportPreviewPageRequestPayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION);
         if (player == null) return;
-        var result = OreImportAdminService.get().previewPage(
-                player, payload.commitToken(), payload.page());
+        var result = OreImportAdminService.get().previewPage(player, payload.commitToken(), payload.page());
         if (result.accepted()) {
             PacketDistributor.sendToPlayer(player, new OpenOreImportPreviewPayload(result.view()));
         } else {
@@ -252,22 +266,25 @@ public final class DelvefoldNetwork {
     private static void handleImportCreate(OreImportCreatePayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION);
         if (player != null) {
-            invoke(player, () -> OreImportAdminService.get().create(
-                    player, payload.commitToken(), payload.targetProfileId()));
+            invoke(
+                    player,
+                    () -> OreImportAdminService.get().create(player, payload.commitToken(), payload.targetProfileId()));
         }
     }
 
-    private static void finishImportFailure(
-            ServerPlayer player, ActionStatus status, String message) {
+    private static void finishImportFailure(ServerPlayer player, ActionStatus status, String message) {
         long revision;
         try {
             revision = com.nightsta69.delvefold.config.DelvefoldConfigService.get()
-                    .snapshot().ores().revision();
+                    .snapshot()
+                    .ores()
+                    .revision();
         } catch (IllegalStateException ignored) {
             revision = 0L;
         }
-        finish(player, new DelvefoldAdminService.ServiceResult(status, revision, message,
-                status == ActionStatus.STALE));
+        finish(
+                player,
+                new DelvefoldAdminService.ServiceResult(status, revision, message, status == ActionStatus.STALE));
     }
 
     private static void handleOrePageRequest(OrePageRequestPayload payload, IPayloadContext context) {
@@ -283,67 +300,92 @@ public final class DelvefoldNetwork {
             return;
         }
         if (!payload.lockConfirmed()) {
-            finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.REJECTED,
-                    payload.expectedSettingsRevision(), AdminLocalizedMessage.encode(
-                            "message.delvefold.network.initialize_confirmation"), false));
+            finish(
+                    player,
+                    new DelvefoldAdminService.ServiceResult(
+                            ActionStatus.REJECTED,
+                            payload.expectedSettingsRevision(),
+                            AdminLocalizedMessage.encode("message.delvefold.network.initialize_confirmation"),
+                            false));
             return;
         }
-        invoke(player, () -> DelvefoldAdminServices.get().initialize(
+        invoke(
                 player,
-                payload.expectedOreRevision(),
-                payload.expectedSettingsRevision(),
-                payload.terrainMode(),
-                payload.orePreset(),
-                payload.gameplay(),
-                payload.identity()));
+                () -> DelvefoldAdminServices.get()
+                        .initialize(
+                                player,
+                                payload.expectedOreRevision(),
+                                payload.expectedSettingsRevision(),
+                                payload.terrainMode(),
+                                payload.orePreset(),
+                                payload.gameplay(),
+                                payload.identity()));
     }
 
     private static void handleSaveOreRule(SaveOreRulePayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, 2);
         if (player != null) {
-            invoke(player, () -> DelvefoldAdminServices.get().saveOreRule(
-                    player, payload.expectedRevision(), payload.rule(), payload.createOnly()));
+            invoke(
+                    player,
+                    () -> DelvefoldAdminServices.get()
+                            .saveOreRule(player, payload.expectedRevision(), payload.rule(), payload.createOnly()));
         }
     }
 
     private static void handleIdentityUpdate(IdentityUpdatePayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, 2);
         if (player != null) {
-            invoke(player, () -> DelvefoldAdminServices.get().updateIdentity(
-                    player, payload.expectedRevision(), payload.identity()));
+            invoke(
+                    player,
+                    () -> DelvefoldAdminServices.get()
+                            .updateIdentity(player, payload.expectedRevision(), payload.identity()));
         }
     }
 
     private static void handleDeleteOreRule(DeleteOreRulePayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, 2);
         if (player != null) {
-            invoke(player, () -> DelvefoldAdminServices.get().deleteOreRule(
-                    player, payload.expectedRevision(), payload.ruleId()));
+            invoke(
+                    player,
+                    () -> DelvefoldAdminServices.get()
+                            .deleteOreRule(player, payload.expectedRevision(), payload.ruleId()));
         }
     }
 
     private static void handleGameplayUpdate(GameplayUpdatePayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, 2);
         if (player != null) {
-            invoke(player, () -> DelvefoldAdminServices.get().updateGameplay(
-                    player, payload.expectedRevision(), payload.gameplay()));
+            invoke(
+                    player,
+                    () -> DelvefoldAdminServices.get()
+                            .updateGameplay(player, payload.expectedRevision(), payload.gameplay()));
         }
     }
 
     private static void handlePortalUpdate(PortalUpdatePayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, 2);
         if (player != null) {
-            invoke(player, () -> DelvefoldAdminServices.get().updatePortal(
-                    player, payload.expectedRevision(), payload.portal()));
+            invoke(
+                    player,
+                    () -> DelvefoldAdminServices.get()
+                            .updatePortal(player, payload.expectedRevision(), payload.portal()));
         }
     }
 
     private static void handleProfileAction(ProfileActionPayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, 2);
         if (player != null) {
-            invoke(player, () -> DelvefoldAdminServices.get().performProfile(player,
-                    payload.expectedOreRevision(), payload.operation(), payload.sourceId(), payload.targetId(),
-                    payload.json(), payload.overwrite()));
+            invoke(
+                    player,
+                    () -> DelvefoldAdminServices.get()
+                            .performProfile(
+                                    player,
+                                    payload.expectedOreRevision(),
+                                    payload.operation(),
+                                    payload.sourceId(),
+                                    payload.targetId(),
+                                    payload.json(),
+                                    payload.overwrite()));
         }
     }
 
@@ -353,27 +395,45 @@ public final class DelvefoldNetwork {
             return;
         }
         try {
-            String json = com.nightsta69.delvefold.config.DelvefoldConfigService.get()
-                    .exportProfileJson(payload.profileId());
+            String json =
+                    com.nightsta69.delvefold.config.DelvefoldConfigService.get().exportProfileJson(payload.profileId());
             if (json.length() > ProtocolLimits.MAX_PROFILE_CLIPBOARD_CHARS) {
-                finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.REJECTED,
-                        com.nightsta69.delvefold.config.DelvefoldConfigService.get().snapshot().ores().revision(),
-                        AdminLocalizedMessage.encode("message.delvefold.network.profile_clipboard_large"), false));
+                finish(
+                        player,
+                        new DelvefoldAdminService.ServiceResult(
+                                ActionStatus.REJECTED,
+                                com.nightsta69.delvefold.config.DelvefoldConfigService.get()
+                                        .snapshot()
+                                        .ores()
+                                        .revision(),
+                                AdminLocalizedMessage.encode("message.delvefold.network.profile_clipboard_large"),
+                                false));
                 return;
             }
             PacketDistributor.sendToPlayer(player, new ProfileExportPayload(payload.profileId(), json));
         } catch (IOException | IllegalArgumentException exception) {
-            finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.ERROR, 0,
-                    AdminLocalizedMessage.encode("message.delvefold.network.profile_export_failed",
-                            exception.getMessage()), false));
+            finish(
+                    player,
+                    new DelvefoldAdminService.ServiceResult(
+                            ActionStatus.ERROR,
+                            0,
+                            AdminLocalizedMessage.encode(
+                                    "message.delvefold.network.profile_export_failed", exception.getMessage()),
+                            false));
         }
     }
 
     private static void handleBackupAction(BackupActionPayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, AdminAccess.WORLD_MANAGEMENT_PERMISSION);
         if (player != null) {
-            invoke(player, () -> DelvefoldAdminServices.get().performBackup(player,
-                    payload.expectedSettingsRevision(), payload.operation(), payload.backupId()));
+            invoke(
+                    player,
+                    () -> DelvefoldAdminServices.get()
+                            .performBackup(
+                                    player,
+                                    payload.expectedSettingsRevision(),
+                                    payload.operation(),
+                                    payload.backupId()));
         }
     }
 
@@ -388,27 +448,38 @@ public final class DelvefoldNetwork {
             return;
         }
         if (!operation.confirmationMatches(payload.confirmation())) {
-            finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.REJECTED,
-                    payload.expectedRevision(), AdminLocalizedMessage.encode(
-                            "message.delvefold.network.confirmation_mismatch"), false));
+            finish(
+                    player,
+                    new DelvefoldAdminService.ServiceResult(
+                            ActionStatus.REJECTED,
+                            payload.expectedRevision(),
+                            AdminLocalizedMessage.encode("message.delvefold.network.confirmation_mismatch"),
+                            false));
             return;
         }
-        invoke(player, () -> DelvefoldAdminServices.get().perform(
+        invoke(
                 player,
-                payload.expectedRevision(),
-                operation,
-                payload.confirmation()));
+                () -> DelvefoldAdminServices.get()
+                        .perform(player, payload.expectedRevision(), operation, payload.confirmation()));
     }
 
     private static void invoke(ServerPlayer player, ServiceCall call) {
-        try (DelvefoldAuditService.ActorScope ignored = DelvefoldAuditService.get()
-                .pushActor(player.getGameProfile().getName())) {
+        try (DelvefoldAuditService.ActorScope ignored =
+                DelvefoldAuditService.get().pushActor(player.getGameProfile().getName())) {
             DelvefoldAdminService.ServiceResult result = Objects.requireNonNull(call.run(), "service result");
             finish(player, result);
         } catch (RuntimeException exception) {
-            LOGGER.error("Delvefold administration request failed for {}", player.getGameProfile().getName(), exception);
-            finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.ERROR, 0L,
-                    AdminLocalizedMessage.encode("message.delvefold.network.internal_error"), true));
+            LOGGER.error(
+                    "Delvefold administration request failed for {}",
+                    player.getGameProfile().getName(),
+                    exception);
+            finish(
+                    player,
+                    new DelvefoldAdminService.ServiceResult(
+                            ActionStatus.ERROR,
+                            0L,
+                            AdminLocalizedMessage.encode("message.delvefold.network.internal_error"),
+                            true));
         }
     }
 
@@ -426,13 +497,21 @@ public final class DelvefoldNetwork {
 
     private static void sendSnapshot(ServerPlayer player, int orePage) {
         try {
-            AdminSnapshot snapshot = Objects.requireNonNull(DelvefoldAdminServices.get().snapshot(
-                    player, orePage, ProtocolLimits.GUI_ORE_RULES_PER_PAGE), "snapshot");
+            AdminSnapshot snapshot = Objects.requireNonNull(
+                    DelvefoldAdminServices.get().snapshot(player, orePage, ProtocolLimits.GUI_ORE_RULES_PER_PAGE),
+                    "snapshot");
             PacketDistributor.sendToPlayer(player, new OpenGuiPayload(snapshot));
         } catch (RuntimeException exception) {
-            LOGGER.error("Could not create Delvefold GUI snapshot for {}", player.getGameProfile().getName(), exception);
-            PacketDistributor.sendToPlayer(player, new ActionResultPayload(ActionStatus.ERROR, 0L,
-                    AdminLocalizedMessage.encode("message.delvefold.network.snapshot_failed")));
+            LOGGER.error(
+                    "Could not create Delvefold GUI snapshot for {}",
+                    player.getGameProfile().getName(),
+                    exception);
+            PacketDistributor.sendToPlayer(
+                    player,
+                    new ActionResultPayload(
+                            ActionStatus.ERROR,
+                            0L,
+                            AdminLocalizedMessage.encode("message.delvefold.network.snapshot_failed")));
         }
     }
 

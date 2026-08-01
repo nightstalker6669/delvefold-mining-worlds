@@ -3,15 +3,10 @@ package com.nightsta69.delvefold.config.model;
 /**
  * Optional limits for automatic backup retention.
  *
- * <p>A zero limit is unbounded. Retention is compatibility-safe and performs
- * no pruning unless {@link #enabled()} is explicitly set to {@code true}.</p>
+ * <p>A zero limit is unbounded. Retention is compatibility-safe and performs no pruning unless {@link #enabled()} is
+ * explicitly set to {@code true}.
  */
-public record BackupRetentionSettings(
-        boolean enabled,
-        int maxCount,
-        long maxAgeDays,
-        long maxTotalBytes
-) {
+public record BackupRetentionSettings(boolean enabled, int maxCount, long maxAgeDays, long maxTotalBytes) {
     public BackupRetentionSettings {
         if (maxCount < 0) {
             throw new IllegalArgumentException("Backup retention max_count cannot be negative");

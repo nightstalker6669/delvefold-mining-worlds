@@ -9,9 +9,8 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * Keeps administration payloads protocol-compatible while allowing the client to localize
- * server-authorized result and status messages. Arguments are display-only strings; the server
- * never trusts values decoded by the client.
+ * Keeps administration payloads protocol-compatible while allowing the client to localize server-authorized result and
+ * status messages. Arguments are display-only strings; the server never trusts values decoded by the client.
  */
 public final class AdminLocalizedMessage {
     private static final String PREFIX = "delvefold:i18n:v1:";
@@ -19,11 +18,11 @@ public final class AdminLocalizedMessage {
     private static final Base64.Encoder ENCODER = Base64.getUrlEncoder().withoutPadding();
     private static final Base64.Decoder DECODER = Base64.getUrlDecoder();
 
-    private AdminLocalizedMessage() {
-    }
+    private AdminLocalizedMessage() {}
 
     public static String encode(String translationKey, Object... arguments) {
-        if (translationKey == null || translationKey.length() > 256
+        if (translationKey == null
+                || translationKey.length() > 256
                 || !KEY.matcher(translationKey).matches()) {
             throw new IllegalArgumentException("Invalid translation key");
         }
@@ -37,7 +36,9 @@ public final class AdminLocalizedMessage {
         while (encoded.length() > ProtocolLimits.MESSAGE_LENGTH) {
             int longest = -1;
             for (int index = 0; index < safeArguments.size(); index++) {
-                if (longest < 0 || safeArguments.get(index).length() > safeArguments.get(longest).length()) {
+                if (longest < 0
+                        || safeArguments.get(index).length()
+                                > safeArguments.get(longest).length()) {
                     longest = index;
                 }
             }

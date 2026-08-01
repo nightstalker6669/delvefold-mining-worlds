@@ -13,8 +13,7 @@ import java.util.TreeSet;
 
 /** Deterministic SHA-256 bindings used to reject stale ore-import sessions. */
 public final class OreImportFingerprints {
-    private OreImportFingerprints() {
-    }
+    private OreImportFingerprints() {}
 
     /** Hashes the sorted block IDs and each block's sorted tag IDs. */
     public static String registry(OreImportRegistry registry) {
@@ -25,7 +24,8 @@ public final class OreImportFingerprints {
                 if (block == null) {
                     continue;
                 }
-                tagsByBlock.computeIfAbsent(block.id(), ignored -> new TreeSet<>())
+                tagsByBlock
+                        .computeIfAbsent(block.id(), ignored -> new TreeSet<>())
                         .addAll(block.tags());
             }
         }

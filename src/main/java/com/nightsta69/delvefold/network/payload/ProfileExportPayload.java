@@ -8,8 +8,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 public record ProfileExportPayload(String profileId, String json) implements CustomPacketPayload {
-    public static final Type<ProfileExportPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "profile_export"));
+    public static final Type<ProfileExportPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "profile_export"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ProfileExportPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 DelvefoldStreamCodecs.writeString(buffer, payload.profileId(), ProtocolLimits.ID_LENGTH);

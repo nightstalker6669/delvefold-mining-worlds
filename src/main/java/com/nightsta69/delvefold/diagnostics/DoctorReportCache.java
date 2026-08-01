@@ -24,8 +24,7 @@ final class DoctorReportCache {
         if (cachedAtEpochMillis < 0L) {
             throw new IllegalArgumentException("cachedAtEpochMillis must not be negative");
         }
-        entries.put(key(saveRoot), new Entry(
-                Objects.requireNonNull(report, "report"), cachedAtEpochMillis));
+        entries.put(key(saveRoot), new Entry(Objects.requireNonNull(report, "report"), cachedAtEpochMillis));
         while (entries.size() > maximumSaves) {
             entries.remove(entries.keySet().iterator().next());
         }
@@ -47,6 +46,5 @@ final class DoctorReportCache {
         return Objects.requireNonNull(saveRoot, "saveRoot").toAbsolutePath().normalize();
     }
 
-    record Entry(DoctorReport report, long cachedAtEpochMillis) {
-    }
+    record Entry(DoctorReport report, long cachedAtEpochMillis) {}
 }

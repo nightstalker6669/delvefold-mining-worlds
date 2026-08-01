@@ -1,8 +1,8 @@
 package com.nightsta69.delvefold.config.model;
 
 /**
- * One independently-salted placement band. Nullable peak and plateau values are
- * ignored unless the selected distribution needs them.
+ * One independently-salted placement band. Nullable peak and plateau values are ignored unless the selected
+ * distribution needs them.
  */
 public record SpawnBand(
         String id,
@@ -16,8 +16,7 @@ public record SpawnBand(
         Integer plateauMaxY,
         double discardOnAirExposure,
         OreBandPlacement placement,
-        ProvinceSettings province
-) {
+        ProvinceSettings province) {
     public SpawnBand {
         id = id == null ? "" : id.trim();
         distribution = distribution == null ? HeightDistribution.UNIFORM : distribution;
@@ -36,21 +35,46 @@ public record SpawnBand(
             Integer plateauMinY,
             Integer plateauMaxY,
             double discardOnAirExposure) {
-        this(id, veinSize, attemptsPerChunk, distribution, minY, maxY, peakY,
-                plateauMinY, plateauMaxY, discardOnAirExposure, OreBandPlacement.VEIN, null);
+        this(
+                id,
+                veinSize,
+                attemptsPerChunk,
+                distribution,
+                minY,
+                maxY,
+                peakY,
+                plateauMinY,
+                plateauMaxY,
+                discardOnAirExposure,
+                OreBandPlacement.VEIN,
+                null);
     }
 
     public static SpawnBand uniform(String id, int veinSize, double attempts, int minY, int maxY, double airDiscard) {
-        return new SpawnBand(id, veinSize, attempts, HeightDistribution.UNIFORM, minY, maxY, null, null, null, airDiscard);
+        return new SpawnBand(
+                id, veinSize, attempts, HeightDistribution.UNIFORM, minY, maxY, null, null, null, airDiscard);
     }
 
-    public static SpawnBand triangle(String id, int veinSize, double attempts, int minY, int maxY, int peakY, double airDiscard) {
-        return new SpawnBand(id, veinSize, attempts, HeightDistribution.TRIANGLE, minY, maxY, peakY, null, null, airDiscard);
+    public static SpawnBand triangle(
+            String id, int veinSize, double attempts, int minY, int maxY, int peakY, double airDiscard) {
+        return new SpawnBand(
+                id, veinSize, attempts, HeightDistribution.TRIANGLE, minY, maxY, peakY, null, null, airDiscard);
     }
 
     public SpawnBand withAttempts(double attempts) {
-        return new SpawnBand(id, veinSize, attempts, distribution, minY, maxY, peakY,
-                plateauMinY, plateauMaxY, discardOnAirExposure, placement, province);
+        return new SpawnBand(
+                id,
+                veinSize,
+                attempts,
+                distribution,
+                minY,
+                maxY,
+                peakY,
+                plateauMinY,
+                plateauMaxY,
+                discardOnAirExposure,
+                placement,
+                province);
     }
 
     public static SpawnBand province(
@@ -63,8 +87,19 @@ public record SpawnBand(
             Integer plateauMaxY,
             double airDiscard,
             ProvinceSettings province) {
-        return new SpawnBand(id, 1, 0.0D, distribution, minY, maxY, peakY,
-                plateauMinY, plateauMaxY, airDiscard, OreBandPlacement.PROVINCE, province);
+        return new SpawnBand(
+                id,
+                1,
+                0.0D,
+                distribution,
+                minY,
+                maxY,
+                peakY,
+                plateauMinY,
+                plateauMaxY,
+                airDiscard,
+                OreBandPlacement.PROVINCE,
+                province);
     }
 
     public boolean provinceBand() {

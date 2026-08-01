@@ -20,8 +20,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 
 /**
- * Bounded, asynchronous view of backup catalogs for tick-thread GUI callers.
- * Callers only normalize a save path; all catalog parsing happens on the daemon worker.
+ * Bounded, asynchronous view of backup catalogs for tick-thread GUI callers. Callers only normalize a save path; all
+ * catalog parsing happens on the daemon worker.
  */
 public final class BackupCatalogCache {
     private static final System.Logger LOGGER = System.getLogger(BackupCatalogCache.class.getName());
@@ -30,7 +30,10 @@ public final class BackupCatalogCache {
     private static final AtomicInteger WORKER_IDS = new AtomicInteger();
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(new WorkerThreadFactory());
     private static final BackupCatalogCache INSTANCE = new BackupCatalogCache(
-            WORKER, Clock.systemUTC(), DEFAULT_TTL_MILLIS, DEFAULT_MAX_SAVES,
+            WORKER,
+            Clock.systemUTC(),
+            DEFAULT_TTL_MILLIS,
+            DEFAULT_MAX_SAVES,
             saveRoot -> new WorldBackupCatalog(saveRoot).list());
 
     private final Object lock = new Object();
@@ -99,8 +102,8 @@ public final class BackupCatalogCache {
     }
 
     /**
-     * Captures protected references on the server thread, then performs the potentially
-     * large deletion walk on the bounded daemon worker and refreshes the catalog.
+     * Captures protected references on the server thread, then performs the potentially large deletion walk on the
+     * bounded daemon worker and refreshes the catalog.
      */
     public CompletableFuture<Boolean> deleteAndRefreshAsync(MinecraftServer server, String backupId) {
         Objects.requireNonNull(server, "server");
@@ -114,15 +117,15 @@ public final class BackupCatalogCache {
     }
 
     /** Test seam supplied with an already captured deletion reservation. */
-    CompletableFuture<Boolean> deleteAndRefreshAsync(Path saveRoot, String backupId,
-            BackupDeletionGuard.Reservation reservation) {
+    CompletableFuture<Boolean> deleteAndRefreshAsync(
+            Path saveRoot, String backupId, BackupDeletionGuard.Reservation reservation) {
         Path key = normalize(saveRoot);
         DeleteKey deleteKey = new DeleteKey(key, backupId == null ? "" : backupId);
         Objects.requireNonNull(reservation, "reservation");
         if (!reservation.matches(key, deleteKey.backupId())) {
             reservation.close();
-            return CompletableFuture.failedFuture(new IllegalArgumentException(
-                    "Backup deletion reservation does not match its target"));
+            return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("Backup deletion reservation does not match its target"));
         }
         synchronized (lock) {
             CompletableFuture<Boolean> existing = deletes.get(deleteKey);
@@ -237,8 +240,11 @@ public final class BackupCatalogCache {
         future.complete(published);
     }
 
-    private void delete(DeleteKey key, long submittedGeneration,
-            BackupDeletionGuard.Reservation reservation, CompletableFuture<Boolean> future) {
+    private void delete(
+            DeleteKey key,
+            long submittedGeneration,
+            BackupDeletionGuard.Reservation reservation,
+            CompletableFuture<Boolean> future) {
         boolean deleted = false;
         Throwable deleteFailure = null;
         try {
@@ -292,8 +298,7 @@ public final class BackupCatalogCache {
     }
 
     private static String safeMessage(Exception exception) {
-        LOGGER.log(System.Logger.Level.WARNING,
-                "Could not refresh the Delvefold backup catalog", exception);
+        LOGGER.log(System.Logger.Level.WARNING, "Could not refresh the Delvefold backup catalog", exception);
         return AdminLocalizedMessage.encode("message.delvefold.backup_catalog.refresh_failed");
     }
 
@@ -302,10 +307,7 @@ public final class BackupCatalogCache {
         List<WorldBackupCatalog.BackupSummary> load(Path saveRoot) throws IOException;
     }
 
-    public record Snapshot(
-            List<WorldBackupCatalog.BackupSummary> backups,
-            boolean refreshing,
-            String lastError) {
+    public record Snapshot(List<WorldBackupCatalog.BackupSummary> backups, boolean refreshing, String lastError) {
         public Snapshot {
             backups = List.copyOf(backups);
             lastError = lastError == null ? "" : lastError;
@@ -321,8 +323,7 @@ public final class BackupCatalogCache {
         private CompletableFuture<Snapshot> inFlight;
     }
 
-    private record DeleteKey(Path saveRoot, String backupId) {
-    }
+    private record DeleteKey(Path saveRoot, String backupId) {}
 
     private static final class WorkerThreadFactory implements ThreadFactory {
         @Override

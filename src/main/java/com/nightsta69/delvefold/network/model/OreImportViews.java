@@ -11,8 +11,7 @@ import java.util.Objects;
 
 /** Bounded, display-only views for the server-authoritative ore importer. */
 public final class OreImportViews {
-    private OreImportViews() {
-    }
+    private OreImportViews() {}
 
     public record ScanView(
             String scanToken,
@@ -33,13 +32,15 @@ public final class OreImportViews {
             totalGroups = OreImportViews.bounded(totalGroups, 0, ProtocolLimits.MAX_IMPORT_GROUPS, "scan group count");
             scannedBlocks = OreImportViews.bounded(scannedBlocks, 0, 1_000_000, "scanned block count");
             groups = OreImportViews.limited(groups, ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE, "scan page groups");
-            int expectedPageCount = Math.max(1,
+            int expectedPageCount = Math.max(
+                    1,
                     (totalGroups + ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE - 1)
                             / ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE);
             if (pageCount != expectedPageCount || page >= pageCount) {
                 throw new IllegalArgumentException("Invalid scan paging metadata");
             }
-            int expectedPageSize = Math.min(ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE,
+            int expectedPageSize = Math.min(
+                    ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE,
                     Math.max(0, totalGroups - page * ProtocolLimits.MAX_IMPORT_GROUPS_PER_PAGE));
             if (groups.size() != expectedPageSize) {
                 throw new IllegalArgumentException("Scan page contents do not match its bounded total");
@@ -64,17 +65,17 @@ public final class OreImportViews {
             evidence = Objects.requireNonNull(evidence, "evidence");
             candidates = OreImportViews.limited(candidates, ProtocolLimits.MAX_VARIANTS, "group candidates");
             if (candidates.isEmpty()
-                    || candidates.stream().map(CandidateView::blockId).distinct().count() != candidates.size()) {
+                    || candidates.stream()
+                                    .map(CandidateView::blockId)
+                                    .distinct()
+                                    .count()
+                            != candidates.size()) {
                 throw new IllegalArgumentException("Import groups require distinct candidate blocks");
             }
         }
     }
 
-    public record CandidateView(
-            String blockId,
-            String replaceTag,
-            HostKind hostKind,
-            Evidence evidence) {
+    public record CandidateView(String blockId, String replaceTag, HostKind hostKind, Evidence evidence) {
         public CandidateView {
             blockId = OreImportViews.id(blockId, "candidate block ID");
             replaceTag = OreImportViews.optionalId(replaceTag, "replacement tag");
@@ -102,19 +103,21 @@ public final class OreImportViews {
             baseProfileId = OreImportViews.id(baseProfileId, "base profile ID");
             page = OreImportViews.bounded(page, 0, ProtocolLimits.MAX_IMPORT_GROUPS, "preview page");
             pageCount = OreImportViews.bounded(pageCount, 1, ProtocolLimits.MAX_IMPORT_GROUPS, "preview page count");
-            totalDiffEntries = OreImportViews.bounded(totalDiffEntries, 0, ProtocolLimits.MAX_IMPORT_SELECTED_GROUPS,
-                    "preview diff count");
+            totalDiffEntries = OreImportViews.bounded(
+                    totalDiffEntries, 0, ProtocolLimits.MAX_IMPORT_SELECTED_GROUPS, "preview diff count");
             addedRuleCount = OreImportViews.nonNegative(addedRuleCount, "added rule count");
             diff = OreImportViews.limited(diff, ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE, "preview diff page");
             workloads = OreImportViews.limited(workloads, TerrainMode.values().length, "preview workloads");
             issues = OreImportViews.limited(issues, ProtocolLimits.MAX_IMPORT_ISSUES, "preview issues");
-            int expectedPageCount = Math.max(1,
+            int expectedPageCount = Math.max(
+                    1,
                     (totalDiffEntries + ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE - 1)
                             / ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE);
             if (pageCount != expectedPageCount || page >= pageCount) {
                 throw new IllegalArgumentException("Invalid preview paging metadata");
             }
-            int expectedPageSize = Math.min(ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE,
+            int expectedPageSize = Math.min(
+                    ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE,
                     Math.max(0, totalDiffEntries - page * ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE));
             if (diff.size() != expectedPageSize) {
                 throw new IllegalArgumentException("Preview page contents do not match its bounded total");
@@ -175,7 +178,9 @@ public final class OreImportViews {
     }
 
     private static List<String> ids(List<String> values, int maximum, String label) {
-        return limited(values, maximum, label).stream().map(value -> id(value, label)).toList();
+        return limited(values, maximum, label).stream()
+                .map(value -> id(value, label))
+                .toList();
     }
 
     private static <T> List<T> limited(List<T> values, int maximum, String label) {

@@ -1,7 +1,7 @@
 package com.nightsta69.delvefold.diagnostics;
 
-import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.Delvefold;
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.api.DelvefoldApi;
 import com.nightsta69.delvefold.config.ConfigJson;
 import com.nightsta69.delvefold.config.ConfigPaths;
@@ -33,12 +33,6 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,6 +41,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Registry;
@@ -92,9 +92,9 @@ public final class DelvefoldDoctorService {
     }
 
     /**
-     * Captures Minecraft-owned state on the caller/server thread, then performs all directory
-     * walks, backup inspection, retention planning, hashing metadata reads, and disk estimates on
-     * one bounded daemon worker. Concurrent requests for the same save share one future.
+     * Captures Minecraft-owned state on the caller/server thread, then performs all directory walks, backup inspection,
+     * retention planning, hashing metadata reads, and disk estimates on one bounded daemon worker. Concurrent requests
+     * for the same save share one future.
      */
     public CompletableFuture<DoctorReport> refreshAsync(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
@@ -105,8 +105,8 @@ public final class DelvefoldDoctorService {
                 return existing;
             }
             CapturedState captured = capture(server);
-            CompletableFuture<DoctorReport> future = CompletableFuture.supplyAsync(
-                    () -> buildCaptured(captured), WORKER);
+            CompletableFuture<DoctorReport> future =
+                    CompletableFuture.supplyAsync(() -> buildCaptured(captured), WORKER);
             inFlight.put(key, future);
             future.whenComplete((report, failure) -> {
                 synchronized (asyncLock) {
@@ -170,13 +170,16 @@ public final class DelvefoldDoctorService {
     public CompletableFuture<Path> exportAsync(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
         ConfigPaths paths = ConfigPaths.forServer(server);
-        return refreshAsync(server).thenApplyAsync(report -> {
-            try {
-                return exporter.export(ensureExportsDirectory(paths), report);
-            } catch (IOException exception) {
-                throw new CompletionException(exception);
-            }
-        }, WORKER);
+        return refreshAsync(server)
+                .thenApplyAsync(
+                        report -> {
+                            try {
+                                return exporter.export(ensureExportsDirectory(paths), report);
+                            } catch (IOException exception) {
+                                throw new CompletionException(exception);
+                            }
+                        },
+                        WORKER);
     }
 
     private CapturedState capture(MinecraftServer server) {
@@ -186,40 +189,61 @@ public final class DelvefoldDoctorService {
         ConfigPaths paths = ConfigPaths.forServer(server);
         Path saveRoot = saveRoot(server);
         DoctorReportBuilder builder = new DoctorReportBuilder(generatedAt)
-                .versions(modVersion(), SharedConstants.getCurrentVersion().getName(),
-                        NeoForgeVersion.getVersion(), DelvefoldApi.API_VERSION,
-                        protocolVersion(), WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
+                .versions(
+                        modVersion(),
+                        SharedConstants.getCurrentVersion().getName(),
+                        NeoForgeVersion.getVersion(),
+                        DelvefoldApi.API_VERSION,
+                        protocolVersion(),
+                        WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
 
         addDimensions(server, builder);
-        addProfileHealth(snapshot, builder, new MinecraftRegistryLookup(),
-                configService.isReadOnlyIncompatible());
-        return new CapturedState(generatedAt, snapshot, paths, saveRoot, builder,
+        addProfileHealth(snapshot, builder, new MinecraftRegistryLookup(), configService.isReadOnlyIncompatible());
+        return new CapturedState(
+                generatedAt,
+                snapshot,
+                paths,
+                saveRoot,
+                builder,
                 BackupRetentionRunState.get().current().orElse(null));
     }
 
     private DoctorReport buildCaptured(CapturedState captured) {
         DoctorReportBuilder builder = captured.builder();
         PendingScan pending = scanPending(captured.paths().directory());
-        pending.statuses().forEach(status -> builder.addPendingOperation(
-                status.operationId(), status.operation(), status.state(), status.createdAtEpochMillis()));
+        pending.statuses()
+                .forEach(status -> builder.addPendingOperation(
+                        status.operationId(), status.operation(), status.state(), status.createdAtEpochMillis()));
 
         BackupAnalysis backups = readBackups(captured.saveRoot());
-        builder.backups(backups.total(), backups.verified(), backups.invalid(), backups.legacy(),
-                backups.pinned(), backups.knownBytes());
-        backups.problems().forEach(problem -> builder.addBackupProblem(
-                problem.backupId(), problem.state(), problem.reasonCode()));
+        builder.backups(
+                backups.total(),
+                backups.verified(),
+                backups.invalid(),
+                backups.legacy(),
+                backups.pinned(),
+                backups.knownBytes());
+        backups.problems()
+                .forEach(
+                        problem -> builder.addBackupProblem(problem.backupId(), problem.state(), problem.reasonCode()));
 
         try {
             BackupRetentionService.Preview retention = BackupRetentionService.preview(
-                    captured.saveRoot(), captured.snapshot().settings().backupRetention(),
+                    captured.saveRoot(),
+                    captured.snapshot().settings().backupRetention(),
                     Instant.ofEpochMilli(captured.generatedAtEpochMillis()));
-            builder.retention(retentionPreview(
-                    retention.plan(), captured.retentionRun()));
+            builder.retention(retentionPreview(retention.plan(), captured.retentionRun()));
         } catch (IOException | RuntimeException exception) {
             boolean enabled = captured.snapshot().settings().backupRetention().enabled();
             builder.retention(new DoctorReport.RetentionPreview(
-                    enabled, backups.total(), backups.total(), backups.knownBytes(), backups.knownBytes(),
-                    !enabled, List.of(), List.of("retention_preview_unavailable"),
+                    enabled,
+                    backups.total(),
+                    backups.total(),
+                    backups.knownBytes(),
+                    backups.knownBytes(),
+                    !enabled,
+                    List.of(),
+                    List.of("retention_preview_unavailable"),
                     retentionRun(captured.retentionRun())));
         }
         builder.disk(diskEstimate(captured.saveRoot(), captured.paths(), backups.diskBytes()));
@@ -253,26 +277,47 @@ public final class DelvefoldDoctorService {
             DoctorReport.DimensionState state = loaded
                     ? DoctorReport.DimensionState.ACTIVE
                     : registered ? DoctorReport.DimensionState.UNLOADED : DoctorReport.DimensionState.MISSING;
-            builder.addDimension(definition.level().location().toString(),
-                    definition.terrain().serializedName() + "/" + definition.variant().serializedName(), state);
+            builder.addDimension(
+                    definition.level().location().toString(),
+                    definition.terrain().serializedName() + "/"
+                            + definition.variant().serializedName(),
+                    state);
         }
     }
 
     /** Kept lazy so path/backup mapping tests do not bootstrap Minecraft registries. */
     private static List<DimensionDefinition> dimensionDefinitions() {
         return List.of(
-                new DimensionDefinition(DelvefoldWorldgen.FLAT_LEVEL, DelvefoldWorldgen.FLAT_LEVEL_STEM,
-                        TerrainMode.FLAT, TerrainVariant.CLASSIC),
-                new DimensionDefinition(DelvefoldWorldgen.CAVERN_LEVEL, DelvefoldWorldgen.CAVERN_LEVEL_STEM,
-                        TerrainMode.CAVERN, TerrainVariant.CLASSIC),
-                new DimensionDefinition(DelvefoldWorldgen.WILD_LEVEL, DelvefoldWorldgen.WILD_LEVEL_STEM,
-                        TerrainMode.WILD, TerrainVariant.CLASSIC),
-                new DimensionDefinition(DelvefoldWorldgen.FLAT_EXPANSIVE_LEVEL,
-                        DelvefoldWorldgen.FLAT_EXPANSIVE_LEVEL_STEM, TerrainMode.FLAT, TerrainVariant.EXPANSIVE),
-                new DimensionDefinition(DelvefoldWorldgen.CAVERN_EXPANSIVE_LEVEL,
-                        DelvefoldWorldgen.CAVERN_EXPANSIVE_LEVEL_STEM, TerrainMode.CAVERN, TerrainVariant.EXPANSIVE),
-                new DimensionDefinition(DelvefoldWorldgen.WILD_EXPANSIVE_LEVEL,
-                        DelvefoldWorldgen.WILD_EXPANSIVE_LEVEL_STEM, TerrainMode.WILD, TerrainVariant.EXPANSIVE));
+                new DimensionDefinition(
+                        DelvefoldWorldgen.FLAT_LEVEL,
+                        DelvefoldWorldgen.FLAT_LEVEL_STEM,
+                        TerrainMode.FLAT,
+                        TerrainVariant.CLASSIC),
+                new DimensionDefinition(
+                        DelvefoldWorldgen.CAVERN_LEVEL,
+                        DelvefoldWorldgen.CAVERN_LEVEL_STEM,
+                        TerrainMode.CAVERN,
+                        TerrainVariant.CLASSIC),
+                new DimensionDefinition(
+                        DelvefoldWorldgen.WILD_LEVEL,
+                        DelvefoldWorldgen.WILD_LEVEL_STEM,
+                        TerrainMode.WILD,
+                        TerrainVariant.CLASSIC),
+                new DimensionDefinition(
+                        DelvefoldWorldgen.FLAT_EXPANSIVE_LEVEL,
+                        DelvefoldWorldgen.FLAT_EXPANSIVE_LEVEL_STEM,
+                        TerrainMode.FLAT,
+                        TerrainVariant.EXPANSIVE),
+                new DimensionDefinition(
+                        DelvefoldWorldgen.CAVERN_EXPANSIVE_LEVEL,
+                        DelvefoldWorldgen.CAVERN_EXPANSIVE_LEVEL_STEM,
+                        TerrainMode.CAVERN,
+                        TerrainVariant.EXPANSIVE),
+                new DimensionDefinition(
+                        DelvefoldWorldgen.WILD_EXPANSIVE_LEVEL,
+                        DelvefoldWorldgen.WILD_EXPANSIVE_LEVEL_STEM,
+                        TerrainMode.WILD,
+                        TerrainVariant.EXPANSIVE));
     }
 
     private static void addProfileHealth(
@@ -286,37 +331,44 @@ public final class DelvefoldDoctorService {
         List<DoctorReport.Finding> findings = new ArrayList<>();
         Set<String> unique = new HashSet<>();
         for (ConfigIssue issue : validation.issues()) {
-            addFinding(findings, unique, new DoctorReport.Finding(
-                    severity(issue.severity()), issue.code(), diagnosticObject(issue.path())));
+            addFinding(
+                    findings,
+                    unique,
+                    new DoctorReport.Finding(severity(issue.severity()), issue.code(), diagnosticObject(issue.path())));
         }
         for (DoctorReport.Finding finding : runtime.findings()) {
             addFinding(findings, unique, finding);
         }
         if (configSchemaIncompatible) {
-            addFinding(findings, unique, new DoctorReport.Finding(
-                    DoctorReport.Severity.ERROR, "config.schema_incompatible", "settings"));
+            addFinding(
+                    findings,
+                    unique,
+                    new DoctorReport.Finding(DoctorReport.Severity.ERROR, "config.schema_incompatible", "settings"));
         }
         boolean findingsTruncated = runtime.findingsTruncated() || findings.size() > MAX_PROFILE_FINDINGS;
         int markerCount = (findingsTruncated ? 1 : 0) + (runtime.ineffectiveTruncated() ? 1 : 0);
         int findingLimit = MAX_PROFILE_FINDINGS - markerCount;
-        findings.stream().limit(findingLimit).forEach(finding -> builder.addProfileFinding(
-                finding.severity(), finding.code(), finding.objectId()));
+        findings.stream()
+                .limit(findingLimit)
+                .forEach(finding -> builder.addProfileFinding(finding.severity(), finding.code(), finding.objectId()));
         if (findingsTruncated) {
-            builder.addProfileFinding(DoctorReport.Severity.WARNING,
-                    "doctor.profile_findings_truncated", "profile");
+            builder.addProfileFinding(DoctorReport.Severity.WARNING, "doctor.profile_findings_truncated", "profile");
         }
         if (runtime.ineffectiveTruncated()) {
-            builder.addProfileFinding(DoctorReport.Severity.WARNING,
-                    "doctor.ineffective_targets_truncated", "profile");
+            builder.addProfileFinding(DoctorReport.Severity.WARNING, "doctor.ineffective_targets_truncated", "profile");
         }
-        builder.profile(snapshot.settings().activeProfileId(), profile.revision(),
-                (int) profile.rules().stream().filter(rule -> rule.enabled()).count(), profile.rules().size(),
-                saturatingAdd(saturatingAdd(validation.errorCount(), runtime.errorCount()),
-                        configSchemaIncompatible ? 1 : 0),
+        builder.profile(
+                snapshot.settings().activeProfileId(),
+                profile.revision(),
+                (int) profile.rules().stream().filter(rule -> rule.enabled()).count(),
+                profile.rules().size(),
+                saturatingAdd(
+                        saturatingAdd(validation.errorCount(), runtime.errorCount()), configSchemaIncompatible ? 1 : 0),
                 saturatingAdd(validation.warningCount(), runtime.warningCount()));
-        runtime.ineffectiveTargets().stream().limit(MAX_INEFFECTIVE_TARGETS)
-                .forEach(target -> builder.addIneffectiveTarget(
-                        target.ruleId(), target.targetId(), target.reasonCode()));
+        runtime.ineffectiveTargets().stream()
+                .limit(MAX_INEFFECTIVE_TARGETS)
+                .forEach(target ->
+                        builder.addIneffectiveTarget(target.ruleId(), target.targetId(), target.reasonCode()));
     }
 
     static ProfileAnalysis analyzeTargets(OreProfileDocument profile) {
@@ -332,11 +384,13 @@ public final class DelvefoldDoctorService {
                 for (OreTargetResolution.TargetResult target : resolution.targets()) {
                     byIndex.put(target.targetIndex(), target);
                     switch (target.status()) {
-                        case SHADOWED, MISSING_OUTPUT, INVALID_HOST, INVALID_WEIGHT -> addIneffective(
-                                ineffective, rule.id(), target.sourceId(),
-                                target.status().name().toLowerCase(Locale.ROOT));
-                        case EFFECTIVE, PARTIALLY_SHADOWED -> {
-                        }
+                        case SHADOWED, MISSING_OUTPUT, INVALID_HOST, INVALID_WEIGHT ->
+                            addIneffective(
+                                    ineffective,
+                                    rule.id(),
+                                    target.sourceId(),
+                                    target.status().name().toLowerCase(Locale.ROOT));
+                        case EFFECTIVE, PARTIALLY_SHADOWED -> {}
                     }
                 }
                 for (OreTargetResolution.Issue issue : resolution.issues()) {
@@ -345,10 +399,13 @@ public final class DelvefoldDoctorService {
                     } else {
                         warningCount = saturatingAdd(warningCount, 1L);
                     }
-                    addFinding(findings, uniqueFindings, new DoctorReport.Finding(
-                            severity(issue.severity()),
-                            "ore_target." + issue.kind().name().toLowerCase(Locale.ROOT),
-                            issue.ruleId()));
+                    addFinding(
+                            findings,
+                            uniqueFindings,
+                            new DoctorReport.Finding(
+                                    severity(issue.severity()),
+                                    "ore_target." + issue.kind().name().toLowerCase(Locale.ROOT),
+                                    issue.ruleId()));
                     if (issue.kind() == OreTargetResolution.IssueKind.MISSING_HOST_TAG) {
                         OreTargetResolution.TargetResult target = byIndex.get(issue.targetIndex());
                         if (target != null) {
@@ -358,13 +415,19 @@ public final class DelvefoldDoctorService {
                 }
                 if (resolution.issuesTruncated()) {
                     warningCount = saturatingAdd(warningCount, 1L);
-                    addFinding(findings, uniqueFindings, new DoctorReport.Finding(
-                            DoctorReport.Severity.WARNING, "ore_target.issues_truncated", rule.id()));
+                    addFinding(
+                            findings,
+                            uniqueFindings,
+                            new DoctorReport.Finding(
+                                    DoctorReport.Severity.WARNING, "ore_target.issues_truncated", rule.id()));
                 }
             } catch (RuntimeException exception) {
                 errorCount = saturatingAdd(errorCount, 1L);
-                addFinding(findings, uniqueFindings, new DoctorReport.Finding(
-                        DoctorReport.Severity.ERROR, "ore_target.resolution_failed", rule.id()));
+                addFinding(
+                        findings,
+                        uniqueFindings,
+                        new DoctorReport.Finding(
+                                DoctorReport.Severity.ERROR, "ore_target.resolution_failed", rule.id()));
             }
         }
         List<DoctorReport.IneffectiveTarget> ordered = ineffective.values().stream()
@@ -418,18 +481,32 @@ public final class DelvefoldDoctorService {
             }
             candidates.add(BackupRetentionPlanner.fromSummary(summary));
         }
-        return new BackupAnalysis(summaries.size(), verified, invalid, legacy, pinned, knownBytes,
+        return new BackupAnalysis(
+                summaries.size(),
+                verified,
+                invalid,
+                legacy,
+                pinned,
+                knownBytes,
                 sizesKnown ? knownBytes : -1L,
-                problems.stream().limit(MAX_BACKUP_PROBLEMS).toList(), List.copyOf(candidates));
+                problems.stream().limit(MAX_BACKUP_PROBLEMS).toList(),
+                List.copyOf(candidates));
     }
 
     private static BackupAnalysis readBackups(Path saveRoot) {
         try {
             return analyzeBackups(new WorldBackupCatalog(saveRoot).list());
         } catch (IOException | RuntimeException exception) {
-            return new BackupAnalysis(0, 0, 0, 0, 0, 0L, -1L,
-                    List.of(new DoctorReport.BackupProblem(
-                            "catalog", "unavailable", "backup_catalog_unavailable")), List.of());
+            return new BackupAnalysis(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0L,
+                    -1L,
+                    List.of(new DoctorReport.BackupProblem("catalog", "unavailable", "backup_catalog_unavailable")),
+                    List.of());
         }
     }
 
@@ -438,27 +515,37 @@ public final class DelvefoldDoctorService {
     }
 
     static DoctorReport.RetentionPreview retentionPreview(
-            BackupRetentionPlanner.Plan plan,
-            BackupRetentionRunState.Snapshot lastRun) {
+            BackupRetentionPlanner.Plan plan, BackupRetentionRunState.Snapshot lastRun) {
         List<DoctorReport.RetentionPrune> prunes = plan.prunes().stream()
                 .limit(MAX_RETENTION_PRUNES)
                 .map(prune -> new DoctorReport.RetentionPrune(
-                        prune.id(), Math.max(0L, prune.createdAtEpochMillis()),
+                        prune.id(),
+                        Math.max(0L, prune.createdAtEpochMillis()),
                         Math.max(0L, prune.sizeBytes()),
-                        prune.reasons().stream().map(reason -> reason.name().toLowerCase(Locale.ROOT)).toList()))
+                        prune.reasons().stream()
+                                .map(reason -> reason.name().toLowerCase(Locale.ROOT))
+                                .toList()))
                 .toList();
         List<String> warnings = plan.warnings().stream()
                 .map(DelvefoldDoctorService::retentionWarningCode)
-                .distinct().sorted().toList();
+                .distinct()
+                .sorted()
+                .toList();
         if (plan.prunes().size() > MAX_RETENTION_PRUNES) {
             List<String> bounded = new ArrayList<>(warnings);
             bounded.add("retention_preview_truncated");
             warnings = bounded.stream().distinct().sorted().toList();
         }
         return new DoctorReport.RetentionPreview(
-                plan.enabled(), plan.beforeCount(), plan.afterCount(),
-                Math.max(0L, plan.beforeBytes()), Math.max(0L, plan.afterBytes()),
-                plan.constraintsSatisfied(), prunes, warnings, retentionRun(lastRun));
+                plan.enabled(),
+                plan.beforeCount(),
+                plan.afterCount(),
+                Math.max(0L, plan.beforeBytes()),
+                Math.max(0L, plan.afterBytes()),
+                plan.constraintsSatisfied(),
+                prunes,
+                warnings,
+                retentionRun(lastRun));
     }
 
     static DoctorReport.RetentionRun retentionRun(BackupRetentionRunState.Snapshot snapshot) {
@@ -468,22 +555,35 @@ public final class DelvefoldDoctorService {
         List<DoctorReport.RetentionProposal> proposals = snapshot.proposals().stream()
                 .limit(MAX_RETENTION_PRUNES)
                 .map(proposal -> new DoctorReport.RetentionProposal(
-                        proposal.backupId(), proposal.reasons().stream()
-                                .map(reason -> reason.name().toLowerCase(Locale.ROOT)).toList()))
+                        proposal.backupId(),
+                        proposal.reasons().stream()
+                                .map(reason -> reason.name().toLowerCase(Locale.ROOT))
+                                .toList()))
                 .toList();
         int proposalCount = saturatingCount(snapshot.proposals().size(), snapshot.omittedProposalCount());
-        int protectedCount = saturatingCount(
-                snapshot.protectedBackupIds().size(), snapshot.omittedProtectedCount());
+        int protectedCount = saturatingCount(snapshot.protectedBackupIds().size(), snapshot.omittedProtectedCount());
         int appliedCount = saturatingCount(snapshot.prunedBackupIds().size(), snapshot.omittedPrunedCount());
         int failureCount = saturatingCount(snapshot.failedBackupIds().size(), snapshot.omittedFailureCount());
         int before = Math.max(0, snapshot.beforeCount());
         int after = Math.min(before, Math.max(0, snapshot.afterCount()));
         return new DoctorReport.RetentionRun(
-                true, Math.max(0L, snapshot.evaluatedAtEpochMillis()), snapshot.enabled(),
-                before, after, proposalCount, proposals, protectedCount,
-                snapshot.constraintsSatisfied(), snapshot.applyRecorded(), appliedCount, failureCount,
-                snapshot.warnings().stream().map(DelvefoldDoctorService::retentionWarningCode)
-                        .distinct().sorted().toList());
+                true,
+                Math.max(0L, snapshot.evaluatedAtEpochMillis()),
+                snapshot.enabled(),
+                before,
+                after,
+                proposalCount,
+                proposals,
+                protectedCount,
+                snapshot.constraintsSatisfied(),
+                snapshot.applyRecorded(),
+                appliedCount,
+                failureCount,
+                snapshot.warnings().stream()
+                        .map(DelvefoldDoctorService::retentionWarningCode)
+                        .distinct()
+                        .sorted()
+                        .toList());
     }
 
     static PendingScan scanPending(Path configDirectory) {
@@ -495,43 +595,49 @@ public final class DelvefoldDoctorService {
         return new PendingScan(statuses, backupIds);
     }
 
-    private static void readPendingWorldOperation(
-            Path path, List<DoctorReport.PendingOperationStatus> statuses) {
+    private static void readPendingWorldOperation(Path path, List<DoctorReport.PendingOperationStatus> statuses) {
         if (Files.notExists(path)) {
             return;
         }
         try {
             PendingWorldOperation pending = readBounded(path, PendingWorldOperation.class);
-            if (pending == null || pending.schemaVersion() != PendingWorldOperation.CURRENT_SCHEMA_VERSION
-                    || !validOperationId(pending.operationId()) || pending.type() == null
+            if (pending == null
+                    || pending.schemaVersion() != PendingWorldOperation.CURRENT_SCHEMA_VERSION
+                    || !validOperationId(pending.operationId())
+                    || pending.type() == null
                     || pending.createdAtEpochMillis() < 0L) {
                 throw new IOException("Pending world operation is invalid");
             }
             statuses.add(new DoctorReport.PendingOperationStatus(
-                    pending.operationId(), pending.type().name().toLowerCase(Locale.ROOT),
-                    "restart_required", pending.createdAtEpochMillis()));
+                    pending.operationId(),
+                    pending.type().name().toLowerCase(Locale.ROOT),
+                    "restart_required",
+                    pending.createdAtEpochMillis()));
         } catch (IOException | RuntimeException exception) {
             statuses.add(invalidPending("pending_world_operation", "world_operation", path));
         }
     }
 
     private static void readPendingRestore(
-            Path path,
-            List<DoctorReport.PendingOperationStatus> statuses,
-            Set<String> backupIds) {
+            Path path, List<DoctorReport.PendingOperationStatus> statuses, Set<String> backupIds) {
         if (Files.notExists(path)) {
             return;
         }
         try {
             PendingWorldRestore pending = readBounded(path, PendingWorldRestore.class);
-            if (pending == null || pending.schemaVersion() != PendingWorldRestore.CURRENT_SCHEMA_VERSION
-                    || !validOperationId(pending.operationId()) || !validBackupId(pending.backupId())
-                    || pending.phase() == null || pending.createdAtEpochMillis() < 0L) {
+            if (pending == null
+                    || pending.schemaVersion() != PendingWorldRestore.CURRENT_SCHEMA_VERSION
+                    || !validOperationId(pending.operationId())
+                    || !validBackupId(pending.backupId())
+                    || pending.phase() == null
+                    || pending.createdAtEpochMillis() < 0L) {
                 throw new IOException("Pending restore is invalid");
             }
             statuses.add(new DoctorReport.PendingOperationStatus(
-                    pending.operationId(), "restore",
-                    pending.phase().name().toLowerCase(Locale.ROOT), pending.createdAtEpochMillis()));
+                    pending.operationId(),
+                    "restore",
+                    pending.phase().name().toLowerCase(Locale.ROOT),
+                    pending.createdAtEpochMillis()));
             backupIds.add(pending.backupId());
         } catch (IOException | RuntimeException exception) {
             statuses.add(invalidPending("pending_restore", "restore", path));
@@ -549,8 +655,7 @@ public final class DelvefoldDoctorService {
         }
     }
 
-    private static DoctorReport.PendingOperationStatus invalidPending(
-            String id, String operation, Path path) {
+    private static DoctorReport.PendingOperationStatus invalidPending(String id, String operation, Path path) {
         long modified = 0L;
         try {
             modified = Math.max(0L, Files.getLastModifiedTime(path).toMillis());
@@ -635,15 +740,16 @@ public final class DelvefoldDoctorService {
         } catch (IOException | RuntimeException ignored) {
         }
         long nextBackup = estimateCurrentBackupBytes(saveRoot, paths);
-        long headroom = nextBackup < 0L
-                ? -1L : Math.min(nextBackup, 64L * MEBIBYTE) + 16L * MEBIBYTE;
+        long headroom = nextBackup < 0L ? -1L : Math.min(nextBackup, 64L * MEBIBYTE) + 16L * MEBIBYTE;
         return new DoctorReport.DiskEstimate(usable, Math.max(-1L, backupBytes), nextBackup, headroom);
     }
 
     static Path ensureExportsDirectory(ConfigPaths paths) throws IOException {
         Path directory = paths.directory().toAbsolutePath().normalize();
         Path exports = paths.exports().toAbsolutePath().normalize();
-        if (!exports.startsWith(directory) || exports.equals(directory) || !exports.getParent().equals(directory)) {
+        if (!exports.startsWith(directory)
+                || exports.equals(directory)
+                || !exports.getParent().equals(directory)) {
             throw new IOException("Doctor exports directory escaped Delvefold serverconfig");
         }
         if (Files.exists(directory) && (Files.isSymbolicLink(directory) || !Files.isDirectory(directory))) {
@@ -676,8 +782,7 @@ public final class DelvefoldDoctorService {
     }
 
     private static DoctorReport.Severity severity(IssueSeverity severity) {
-        return severity == IssueSeverity.ERROR
-                ? DoctorReport.Severity.ERROR : DoctorReport.Severity.WARNING;
+        return severity == IssueSeverity.ERROR ? DoctorReport.Severity.ERROR : DoctorReport.Severity.WARNING;
     }
 
     private static String diagnosticObject(String path) {
@@ -685,16 +790,15 @@ public final class DelvefoldDoctorService {
             return "root";
         }
         String value = path.replace("$", "root")
-                .replace('[', '.').replace("]", "")
+                .replace('[', '.')
+                .replace("]", "")
                 .replaceAll("[^A-Za-z0-9_.:/#-]", ".")
                 .replaceAll("\\.{2,}", ".");
         return value.length() > 160 ? value.substring(0, 160) : value;
     }
 
     private static void addFinding(
-            List<DoctorReport.Finding> findings,
-            Set<String> unique,
-            DoctorReport.Finding finding) {
+            List<DoctorReport.Finding> findings, Set<String> unique, DoctorReport.Finding finding) {
         if (findings.size() > MAX_PROFILE_FINDINGS) {
             return;
         }
@@ -705,10 +809,7 @@ public final class DelvefoldDoctorService {
     }
 
     private static void addIneffective(
-            Map<String, DoctorReport.IneffectiveTarget> targets,
-            String ruleId,
-            String targetId,
-            String reason) {
+            Map<String, DoctorReport.IneffectiveTarget> targets, String ruleId, String targetId, String reason) {
         if (targets.size() > MAX_INEFFECTIVE_TARGETS) {
             return;
         }
@@ -718,10 +819,7 @@ public final class DelvefoldDoctorService {
     }
 
     private static void addBackupProblem(
-            List<DoctorReport.BackupProblem> problems,
-            String id,
-            String state,
-            String reason) {
+            List<DoctorReport.BackupProblem> problems, String id, String state, String reason) {
         if (problems.size() < MAX_BACKUP_PROBLEMS) {
             problems.add(new DoctorReport.BackupProblem(id, state, reason));
         }
@@ -756,11 +854,7 @@ public final class DelvefoldDoctorService {
     }
 
     private record DimensionDefinition(
-            ResourceKey<Level> level,
-            ResourceKey<LevelStem> stem,
-            TerrainMode terrain,
-            TerrainVariant variant) {
-    }
+            ResourceKey<Level> level, ResourceKey<LevelStem> stem, TerrainMode terrain, TerrainVariant variant) {}
 
     record ProfileAnalysis(
             List<DoctorReport.IneffectiveTarget> ineffectiveTargets,
@@ -791,9 +885,7 @@ public final class DelvefoldDoctorService {
         }
     }
 
-    record PendingScan(
-            List<DoctorReport.PendingOperationStatus> statuses,
-            Set<String> pendingBackupIds) {
+    record PendingScan(List<DoctorReport.PendingOperationStatus> statuses, Set<String> pendingBackupIds) {
         PendingScan {
             statuses = List.copyOf(statuses);
             pendingBackupIds = Set.copyOf(pendingBackupIds);
@@ -806,8 +898,7 @@ public final class DelvefoldDoctorService {
             ConfigPaths paths,
             Path saveRoot,
             DoctorReportBuilder builder,
-            BackupRetentionRunState.Snapshot retentionRun) {
-    }
+            BackupRetentionRunState.Snapshot retentionRun) {}
 
     private static final class DoctorThreadFactory implements ThreadFactory {
         @Override

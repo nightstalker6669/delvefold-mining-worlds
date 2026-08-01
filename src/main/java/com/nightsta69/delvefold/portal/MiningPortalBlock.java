@@ -46,8 +46,7 @@ public final class MiningPortalBlock extends Block implements Portal {
     }
 
     @Override
-    protected VoxelShape getShape(
-            BlockState state, BlockGetter level, BlockPos position, CollisionContext context) {
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos position, CollisionContext context) {
         return state.getValue(AXIS) == Direction.Axis.X ? X_SHAPE : Z_SHAPE;
     }
 
@@ -62,7 +61,8 @@ public final class MiningPortalBlock extends Block implements Portal {
         boolean complete = PortalFrameShape.findFromInterior(level, position, state.getValue(AXIS))
                 .filter(shape -> shape.isFilled(level))
                 .isPresent();
-        return complete ? super.updateShape(state, direction, neighborState, level, position, neighborPosition)
+        return complete
+                ? super.updateShape(state, direction, neighborState, level, position, neighborPosition)
                 : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
     }
 
@@ -88,8 +88,7 @@ public final class MiningPortalBlock extends Block implements Portal {
         return 0;
     }
 
-    @Nullable
-    @Override
+    @Nullable @Override
     public DimensionTransition getPortalDestination(ServerLevel source, Entity entity, BlockPos entryPosition) {
         if (!(entity instanceof ServerPlayer player)) {
             return null;
@@ -140,16 +139,15 @@ public final class MiningPortalBlock extends Block implements Portal {
             double dx = (random.nextDouble() - 0.5D) * 0.25D;
             double dy = (random.nextDouble() - 0.5D) * 0.25D;
             double dz = (random.nextDouble() - 0.5D) * 0.25D;
-            level.addParticle(count == 0 ? ParticleTypes.REVERSE_PORTAL : ParticleTypes.PORTAL,
-                    x, y, z, dx, dy, dz);
+            level.addParticle(count == 0 ? ParticleTypes.REVERSE_PORTAL : ParticleTypes.PORTAL, x, y, z, dx, dy, dz);
         }
     }
 
     @Override
     protected BlockState rotate(BlockState state, Rotation rotation) {
         return switch (rotation) {
-            case CLOCKWISE_90, COUNTERCLOCKWISE_90 -> state.setValue(
-                    AXIS, state.getValue(AXIS) == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X);
+            case CLOCKWISE_90, COUNTERCLOCKWISE_90 ->
+                state.setValue(AXIS, state.getValue(AXIS) == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X);
             default -> state;
         };
     }

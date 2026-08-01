@@ -17,8 +17,8 @@ public record PendingWorldRestore(
     }
 
     public PendingWorldRestore withPhase(Phase replacement) {
-        return new PendingWorldRestore(schemaVersion, operationId, backupId, replacement,
-                createdAtEpochMillis, requestedBy);
+        return new PendingWorldRestore(
+                schemaVersion, operationId, backupId, replacement, createdAtEpochMillis, requestedBy);
     }
 
     public enum Phase {

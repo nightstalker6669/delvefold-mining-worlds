@@ -9,8 +9,8 @@ import net.minecraft.resources.ResourceLocation;
 
 public record IdentityUpdatePayload(long expectedRevision, WorldIdentitySettings identity)
         implements CustomPacketPayload {
-    public static final Type<IdentityUpdatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "identity_update"));
+    public static final Type<IdentityUpdatePayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "identity_update"));
     public static final StreamCodec<RegistryFriendlyByteBuf, IdentityUpdatePayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeLong(payload.expectedRevision());

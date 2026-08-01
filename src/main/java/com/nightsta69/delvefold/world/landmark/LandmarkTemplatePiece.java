@@ -53,9 +53,14 @@ public final class LandmarkTemplatePiece extends TemplateStructurePiece {
             BlockPos position,
             Rotation rotation,
             long contentSeed) {
-        super(LandmarkRegistries.LANDMARK_PIECE.get(), 0, templates, definition.template(),
+        super(
+                LandmarkRegistries.LANDMARK_PIECE.get(),
+                0,
+                templates,
+                definition.template(),
                 definition.template().toString(),
-                settings(rotation, definition.processors(), registryAccess), position);
+                settings(rotation, definition.processors(), registryAccess),
+                position);
         this.landmarkId = definition.id();
         this.processorKeys = definition.processors();
         this.lootTable = definition.lootTable();
@@ -63,19 +68,20 @@ public final class LandmarkTemplatePiece extends TemplateStructurePiece {
     }
 
     public LandmarkTemplatePiece(StructurePieceSerializationContext context, CompoundTag tag) {
-        super(LandmarkRegistries.LANDMARK_PIECE.get(), tag, context.structureTemplateManager(),
+        super(
+                LandmarkRegistries.LANDMARK_PIECE.get(),
+                tag,
+                context.structureTemplateManager(),
                 ignored -> settings(readRotation(tag), readProcessors(tag), context.registryAccess()));
         this.landmarkId = ResourceLocation.parse(tag.getString(TAG_LANDMARK));
         this.processorKeys = readProcessors(tag);
-        this.lootTable = ResourceKey.create(Registries.LOOT_TABLE,
-                ResourceLocation.parse(tag.getString(TAG_LOOT_TABLE)));
+        this.lootTable =
+                ResourceKey.create(Registries.LOOT_TABLE, ResourceLocation.parse(tag.getString(TAG_LOOT_TABLE)));
         this.contentSeed = tag.getLong(TAG_CONTENT_SEED);
     }
 
     private static StructurePlaceSettings settings(
-            Rotation rotation,
-            List<ResourceKey<StructureProcessorList>> processors,
-            RegistryAccess registryAccess) {
+            Rotation rotation, List<ResourceKey<StructureProcessorList>> processors, RegistryAccess registryAccess) {
         StructurePlaceSettings settings = new StructurePlaceSettings()
                 .setRotation(rotation)
                 .setMirror(Mirror.NONE)
@@ -117,7 +123,8 @@ public final class LandmarkTemplatePiece extends TemplateStructurePiece {
         tag.putString(TAG_LANDMARK, landmarkId.toString());
         tag.putString(TAG_ROTATION, placeSettings.getRotation().name());
         ListTag processors = new ListTag();
-        processorKeys.forEach(key -> processors.add(StringTag.valueOf(key.location().toString())));
+        processorKeys.forEach(
+                key -> processors.add(StringTag.valueOf(key.location().toString())));
         tag.put(TAG_PROCESSORS, processors);
         tag.putString(TAG_LOOT_TABLE, lootTable.location().toString());
         tag.putLong(TAG_CONTENT_SEED, contentSeed);
@@ -125,28 +132,21 @@ public final class LandmarkTemplatePiece extends TemplateStructurePiece {
 
     @Override
     protected void handleDataMarker(
-            String name,
-            BlockPos pos,
-            ServerLevelAccessor level,
-            RandomSource random,
-            BoundingBox box) {
+            String name, BlockPos pos, ServerLevelAccessor level, RandomSource random, BoundingBox box) {
         if ("loot".equals(name)) {
-            installLootOnce(level, pos.below(), lootTable,
-                    LandmarkSeeds.lootSeed(contentSeed, pos.asLong()));
+            installLootOnce(level, pos.below(), lootTable, LandmarkSeeds.lootSeed(contentSeed, pos.asLong()));
         }
     }
 
     static boolean installLootOnce(
-            ServerLevelAccessor level,
-            BlockPos position,
-            ResourceKey<LootTable> lootTable,
-            long seed) {
+            ServerLevelAccessor level, BlockPos position, ResourceKey<LootTable> lootTable, long seed) {
         BlockEntity blockEntity = level.getBlockEntity(position);
         if (!(blockEntity instanceof RandomizableContainer container)) {
             return false;
         }
         if (blockEntity.getPersistentData().getBoolean(PERSISTENT_LOOT_INITIALIZED)
-                || container.getLootTable() != null || !container.isEmpty()) {
+                || container.getLootTable() != null
+                || !container.isEmpty()) {
             return false;
         }
         container.setLootTable(lootTable, seed);

@@ -25,8 +25,8 @@ class OreRuleTemplatesTest {
         assertEquals(16, band.peakY());
         assertEquals(0.0D, band.discardOnAirExposure());
 
-        var rule = OreRuleTemplates.uncommon("example_tin", List.of(
-                OreTarget.of("example:tin_ore", "minecraft:stone_ore_replaceables")));
+        var rule = OreRuleTemplates.uncommon(
+                "example_tin", List.of(OreTarget.of("example:tin_ore", "minecraft:stone_ore_replaceables")));
         assertTrue(rule.enabled());
         assertFalse(rule.required());
         assertEquals(EnumSet.allOf(TerrainMode.class), rule.terrainModes());

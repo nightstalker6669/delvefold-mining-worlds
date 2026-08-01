@@ -25,35 +25,34 @@ import java.util.Objects;
 
 /** Converts the immutable configuration snapshot into the deliberately narrow guide contract. */
 public final class GuideSnapshotBuilder {
-    private GuideSnapshotBuilder() {
-    }
+    private GuideSnapshotBuilder() {}
 
     public static GuideSnapshot build(ConfigSnapshot source, long nowEpochMillis, boolean portalEntryBlocked) {
         return build(source, nowEpochMillis, portalEntryBlocked, MinecraftGuideIconResolver.INSTANCE);
     }
 
     public static GuideSnapshot build(
-            ConfigSnapshot source,
-            long nowEpochMillis,
-            boolean portalEntryBlocked,
-            GuideIconResolver iconResolver) {
+            ConfigSnapshot source, long nowEpochMillis, boolean portalEntryBlocked, GuideIconResolver iconResolver) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(source.settings(), "source.settings");
         Objects.requireNonNull(source.ores(), "source.ores");
         Objects.requireNonNull(iconResolver, "iconResolver");
 
         WorldSettingsDocument settings = source.settings();
-        String worldName = GuideLimits.boundedText(
-                settings.identity().displayName(), GuideLimits.MAX_WORLD_NAME_CHARACTERS);
-        String terrain = settings.terrainMode() == null ? "uninitialized" : settings.terrainMode().serializedName();
+        String worldName =
+                GuideLimits.boundedText(settings.identity().displayName(), GuideLimits.MAX_WORLD_NAME_CHARACTERS);
+        String terrain = settings.terrainMode() == null
+                ? "uninitialized"
+                : settings.terrainMode().serializedName();
         String terrainVariant = settings.identity().terrainVariant().serializedName();
         String geologyTheme = settings.identity().geologyTheme().serializedName();
-        String activeProfile = GuideLimits.boundedText(
-                settings.activeProfileId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
+        String activeProfile =
+                GuideLimits.boundedText(settings.activeProfileId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         PortalStatus portalStatus = portalStatus(settings, portalEntryBlocked);
         Renewal renewal = renewal(settings.identity().renewal(), nowEpochMillis);
 
-        List<OreRule> enabledRules = source.ores().rules().stream().filter(OreRule::enabled).toList();
+        List<OreRule> enabledRules =
+                source.ores().rules().stream().filter(OreRule::enabled).toList();
         double maximumWork = enabledRules.stream()
                 .mapToDouble(rule -> activeWork(rule, settings.terrainMode()))
                 .max()
@@ -118,10 +117,7 @@ public final class GuideSnapshotBuilder {
     }
 
     private static OreEntry oreEntry(
-            OreRule rule,
-            TerrainMode activeTerrain,
-            double maximumWork,
-            GuideIconResolver iconResolver) {
+            OreRule rule, TerrainMode activeTerrain, double maximumWork, GuideIconResolver iconResolver) {
         boolean truncated = rule.targets().size() > GuideLimits.MAX_OUTPUTS_PER_ENTRY
                 || rule.bands().size() > GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY
                 || rule.biomes().include().size() > GuideLimits.MAX_BIOME_SELECTORS_PER_LIST
@@ -139,8 +135,12 @@ public final class GuideSnapshotBuilder {
                 terrains,
                 applies,
                 customBiomeFilter(rule.biomes()),
-                rule.biomes().include().stream().limit(GuideLimits.MAX_BIOME_SELECTORS_PER_LIST).toList(),
-                rule.biomes().exclude().stream().limit(GuideLimits.MAX_BIOME_SELECTORS_PER_LIST).toList());
+                rule.biomes().include().stream()
+                        .limit(GuideLimits.MAX_BIOME_SELECTORS_PER_LIST)
+                        .toList(),
+                rule.biomes().exclude().stream()
+                        .limit(GuideLimits.MAX_BIOME_SELECTORS_PER_LIST)
+                        .toList());
         List<HeightBand> bands = rule.bands().stream()
                 .filter(GuideSnapshotBuilder::validBand)
                 .limit(GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY)
@@ -171,8 +171,7 @@ public final class GuideSnapshotBuilder {
 
     private static boolean validBand(SpawnBand band) {
         return band.minY() <= band.maxY()
-                && (band.placement() == OreBandPlacement.PROVINCE
-                        || band.veinSize() >= 1 && band.veinSize() <= 64);
+                && (band.placement() == OreBandPlacement.PROVINCE || band.veinSize() >= 1 && band.veinSize() <= 64);
     }
 
     private static HeightBand heightBand(SpawnBand band) {
@@ -193,8 +192,12 @@ public final class GuideSnapshotBuilder {
             distribution = "province_" + distribution;
         }
         return new HeightBand(
-                band.id(), distribution,
-                band.minY(), band.maxY(), bestMin, bestMax,
+                band.id(),
+                distribution,
+                band.minY(),
+                band.maxY(),
+                bestMin,
+                bestMax,
                 band.placement() == OreBandPlacement.PROVINCE ? 1 : band.veinSize());
     }
 

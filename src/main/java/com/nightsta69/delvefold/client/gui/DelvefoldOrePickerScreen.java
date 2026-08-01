@@ -1,7 +1,7 @@
 package com.nightsta69.delvefold.client.gui;
 
-import com.nightsta69.delvefold.client.gui.widget.OreIconButton;
 import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
+import com.nightsta69.delvefold.client.gui.widget.OreIconButton;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,8 +22,8 @@ import net.minecraft.world.level.block.Block;
 
 public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     private static final int TILE_STEP = 27;
-    private static final TagKey<Block> COMMON_ORES = TagKey.create(
-            Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "ores"));
+    private static final TagKey<Block> COMMON_ORES =
+            TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "ores"));
 
     private final Screen parent;
     private final List<OrePickerEntry> allEntries = new ArrayList<>();
@@ -63,8 +63,8 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
         int showAllWidth = compact ? (width - controlGap) / 2 : 122;
         int idWidth = compact ? width - showAllWidth - controlGap : 94;
         int searchWidth = compact ? width : width - showAllWidth - idWidth - controlGap * 2;
-        this.searchBox = this.addRenderableWidget(new EditBox(this.font, x, y, searchWidth, 20,
-                Component.translatable("screen.delvefold.ore_picker.search")));
+        this.searchBox = this.addRenderableWidget(new EditBox(
+                this.font, x, y, searchWidth, 20, Component.translatable("screen.delvefold.ore_picker.search")));
         this.searchBox.setMaxLength(128);
         this.searchBox.setHint(Component.translatable("screen.delvefold.ore_picker.search_hint"));
         this.searchBox.setValue(this.searchQuery);
@@ -77,17 +77,28 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
 
         int controlsY = compact ? y + 26 : y;
         int showAllX = compact ? x : x + searchWidth + controlGap;
-        this.showAllButton = this.addButton(showAllX, controlsY, showAllWidth, 20, showAllLabel(),
-                this.showAll ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
-            this.showAll = !this.showAll;
-            this.page = 0;
-            this.showAllButton.setMessage(showAllLabel());
-            setButtonStyle(this.showAllButton, this.showAll ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
-            updateGrid();
-        });
+        this.showAllButton = this.addButton(
+                showAllX,
+                controlsY,
+                showAllWidth,
+                20,
+                showAllLabel(),
+                this.showAll ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
+                    this.showAll = !this.showAll;
+                    this.page = 0;
+                    this.showAllButton.setMessage(showAllLabel());
+                    setButtonStyle(this.showAllButton, this.showAll ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+                    updateGrid();
+                });
         int idX = showAllX + showAllWidth + controlGap;
-        this.addButton(idX, controlsY, idWidth, 20,
-                Component.translatable("screen.delvefold.ore_picker.exact_id"), Style.SECONDARY,
+        this.addButton(
+                idX,
+                controlsY,
+                idWidth,
+                20,
+                Component.translatable("screen.delvefold.ore_picker.exact_id"),
+                Style.SECONDARY,
                 button -> chooseTypedId());
 
         this.columns = Math.max(6, Math.min(14, (width - 20) / TILE_STEP));
@@ -111,18 +122,36 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
         }
 
         int pagerY = this.gridTop + this.rows * TILE_STEP + 8;
-        this.previousButton = this.addButton(this.gridLeft, pagerY, 68, 20,
-                Component.translatable("screen.delvefold.previous"), Style.GHOST, button -> {
-            this.page--;
-            updateGrid();
-        });
-        this.nextButton = this.addButton(this.gridLeft + this.gridWidth - 68, pagerY, 68, 20,
-                Component.translatable("screen.delvefold.next"), Style.GHOST, button -> {
-            this.page++;
-            updateGrid();
-        });
-        this.addButton(this.contentLeft(), this.panelTop + this.panelHeight - 29, 76, 22,
-                Component.translatable("gui.back"), Style.GHOST, button -> this.minecraft.setScreen(this.parent));
+        this.previousButton = this.addButton(
+                this.gridLeft,
+                pagerY,
+                68,
+                20,
+                Component.translatable("screen.delvefold.previous"),
+                Style.GHOST,
+                button -> {
+                    this.page--;
+                    updateGrid();
+                });
+        this.nextButton = this.addButton(
+                this.gridLeft + this.gridWidth - 68,
+                pagerY,
+                68,
+                20,
+                Component.translatable("screen.delvefold.next"),
+                Style.GHOST,
+                button -> {
+                    this.page++;
+                    updateGrid();
+                });
+        this.addButton(
+                this.contentLeft(),
+                this.panelTop + this.panelHeight - 29,
+                76,
+                22,
+                Component.translatable("gui.back"),
+                Style.GHOST,
+                button -> this.minecraft.setScreen(this.parent));
 
         updateGrid();
         this.setInitialFocus(this.searchBox);
@@ -137,16 +166,11 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
             ItemStack icon = new ItemStack(block.asItem());
             boolean common = block.defaultBlockState().is(COMMON_ORES);
             boolean oreLike = common || id.getPath().contains("ore");
-            this.allEntries.add(new OrePickerEntry(
-                    id,
-                    block,
-                    icon,
-                    icon.getHoverName().getString(),
-                    common,
-                    oreLike));
+            this.allEntries.add(
+                    new OrePickerEntry(id, block, icon, icon.getHoverName().getString(), common, oreLike));
         }
-        this.allEntries.sort(Comparator
-                .comparing(OrePickerEntry::commonTagged).reversed()
+        this.allEntries.sort(Comparator.comparing(OrePickerEntry::commonTagged)
+                .reversed()
                 .thenComparing(entry -> entry.translatedName().toLowerCase(Locale.ROOT))
                 .thenComparing(entry -> entry.id().toString()));
     }
@@ -178,18 +202,17 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
         int start = this.page * this.pageSize;
         for (int index = 0; index < this.iconButtons.size(); index++) {
             int entryIndex = start + index;
-            this.iconButtons.get(index).setEntry(entryIndex < this.filteredEntries.size()
-                    ? this.filteredEntries.get(entryIndex)
-                    : null);
+            this.iconButtons
+                    .get(index)
+                    .setEntry(entryIndex < this.filteredEntries.size() ? this.filteredEntries.get(entryIndex) : null);
         }
         this.previousButton.active = this.page > 0;
         this.nextButton.active = this.page + 1 < pageCount;
     }
 
     private Component showAllLabel() {
-        return Component.translatable(this.showAll
-                ? "screen.delvefold.ore_picker.all_blocks"
-                : "screen.delvefold.ore_picker.ores_only");
+        return Component.translatable(
+                this.showAll ? "screen.delvefold.ore_picker.all_blocks" : "screen.delvefold.ore_picker.ores_only");
     }
 
     private void choose(OrePickerEntry entry) {
@@ -206,8 +229,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     }
 
     private void chooseBlock(ResourceLocation id) {
-        AdminSnapshot.OreRuleDraft draft = AdminSnapshot.OreRuleDraft.createDefault(
-                id.toString(), inferredHost(id));
+        AdminSnapshot.OreRuleDraft draft = AdminSnapshot.OreRuleDraft.createDefault(id.toString(), inferredHost(id));
         this.minecraft.setScreen(new DelvefoldOreRuleWizardScreen(this, this.snapshot, draft));
     }
 
@@ -219,21 +241,32 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
 
     @Override
     protected void renderPanelContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.drawString(this.font, Component.translatable("screen.delvefold.ore_picker.registry"),
-                this.contentLeft(), this.contentTop(), MUTED_TEXT, false);
+        graphics.drawString(
+                this.font,
+                Component.translatable("screen.delvefold.ore_picker.registry"),
+                this.contentLeft(),
+                this.contentTop(),
+                MUTED_TEXT,
+                false);
         int gridCardY = this.gridTop - 7;
-        this.drawCard(graphics, this.gridLeft - 7, gridCardY,
-                this.gridWidth + 14, this.rows * TILE_STEP + 14);
+        this.drawCard(graphics, this.gridLeft - 7, gridCardY, this.gridWidth + 14, this.rows * TILE_STEP + 14);
         int pageCount = Math.max(1, (this.filteredEntries.size() + this.pageSize - 1) / this.pageSize);
-        Component resultText = Component.translatable("screen.delvefold.ore_picker.results",
-                this.filteredEntries.size(), this.page + 1, pageCount);
-        graphics.drawCenteredString(this.font, resultText,
+        Component resultText = Component.translatable(
+                "screen.delvefold.ore_picker.results", this.filteredEntries.size(), this.page + 1, pageCount);
+        graphics.drawCenteredString(
+                this.font,
+                resultText,
                 this.panelLeft + this.panelWidth / 2,
                 this.gridTop + this.rows * TILE_STEP + 14,
                 MUTED_TEXT);
         if (!this.localStatus.getString().isEmpty()) {
-            graphics.drawString(this.font, this.localStatus,
-                    this.contentLeft() + 88, this.panelTop + this.panelHeight - 22, DANGER, false);
+            graphics.drawString(
+                    this.font,
+                    this.localStatus,
+                    this.contentLeft() + 88,
+                    this.panelTop + this.panelHeight - 22,
+                    DANGER,
+                    false);
         }
     }
 
@@ -248,10 +281,14 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     public Component getNarrationMessage() {
         int safePageSize = Math.max(1, this.pageSize);
         int pageCount = Math.max(1, (this.filteredEntries.size() + safePageSize - 1) / safePageSize);
-        return Component.translatable("screen.delvefold.ore_picker.narration",
-                this.filteredEntries.size(), this.page + 1, pageCount,
-                Component.translatable(this.showAll
-                        ? "screen.delvefold.ore_picker.all_blocks"
-                        : "screen.delvefold.ore_picker.ores_only"));
+        return Component.translatable(
+                "screen.delvefold.ore_picker.narration",
+                this.filteredEntries.size(),
+                this.page + 1,
+                pageCount,
+                Component.translatable(
+                        this.showAll
+                                ? "screen.delvefold.ore_picker.all_blocks"
+                                : "screen.delvefold.ore_picker.ores_only"));
     }
 }

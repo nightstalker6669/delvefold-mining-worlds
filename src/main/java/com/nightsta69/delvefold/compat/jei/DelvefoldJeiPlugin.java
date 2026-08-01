@@ -16,8 +16,7 @@ import net.minecraft.world.item.Items;
 /** Optional JEI information page; this class is discovered only when JEI is installed. */
 @JeiPlugin
 public final class DelvefoldJeiPlugin implements IModPlugin {
-    private static final ResourceLocation UID = ResourceLocation.fromNamespaceAndPath(
-            Delvefold.MOD_ID, "jei_plugin");
+    private static final ResourceLocation UID = ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "jei_plugin");
 
     @Override
     public ResourceLocation getPluginUid() {
@@ -26,15 +25,15 @@ public final class DelvefoldJeiPlugin implements IModPlugin {
 
     @Override
     public void registerCategories(IRecipeCategoryRegistration registration) {
-        registration.addRecipeCategories(new DelvefoldJeiPortalCategory(
-                registration.getJeiHelpers().getGuiHelper()));
+        registration.addRecipeCategories(
+                new DelvefoldJeiPortalCategory(registration.getJeiHelpers().getGuiHelper()));
     }
 
     @Override
     public void registerRecipes(IRecipeRegistration registration) {
-        registration.addRecipes(DelvefoldJeiRecipeTypes.PORTAL_CONSTRUCTION,
-                List.of(PortalConstructionGuide.INSTANCE));
-        registration.addIngredientInfo(PortalRegistries.PORTAL_FRAME_ITEM.get(),
+        registration.addRecipes(DelvefoldJeiRecipeTypes.PORTAL_CONSTRUCTION, List.of(PortalConstructionGuide.INSTANCE));
+        registration.addIngredientInfo(
+                PortalRegistries.PORTAL_FRAME_ITEM.get(),
                 Component.translatable("compat.delvefold.recipe_viewer.portal.1"),
                 Component.translatable("compat.delvefold.recipe_viewer.portal.2"),
                 Component.translatable("compat.delvefold.recipe_viewer.portal.3"));

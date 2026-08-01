@@ -23,18 +23,15 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 /** Static registrations for the Delvefold portal and creative tab. */
 public final class PortalRegistries {
-    private static final DeferredRegister<Block> BLOCKS =
-            DeferredRegister.create(Registries.BLOCK, Delvefold.MOD_ID);
-    private static final DeferredRegister<Item> ITEMS =
-            DeferredRegister.create(Registries.ITEM, Delvefold.MOD_ID);
+    private static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(Registries.BLOCK, Delvefold.MOD_ID);
+    private static final DeferredRegister<Item> ITEMS = DeferredRegister.create(Registries.ITEM, Delvefold.MOD_ID);
     private static final DeferredRegister<PoiType> POI_TYPES =
             DeferredRegister.create(Registries.POINT_OF_INTEREST_TYPE, Delvefold.MOD_ID);
     private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Delvefold.MOD_ID);
 
     public static final ResourceKey<PoiType> PORTAL_POI_KEY = ResourceKey.create(
-            Registries.POINT_OF_INTEREST_TYPE,
-            ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "portal"));
+            Registries.POINT_OF_INTEREST_TYPE, ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "portal"));
 
     public static final DeferredHolder<Block, PortalFrameBlock> PORTAL_FRAME = BLOCKS.register(
             "portal_frame",
@@ -55,11 +52,11 @@ public final class PortalRegistries {
                     .pushReaction(PushReaction.BLOCK)
                     .noLootTable()));
 
-    public static final DeferredHolder<Item, BlockItem> PORTAL_FRAME_ITEM = ITEMS.register(
-            "portal_frame", () -> new BlockItem(PORTAL_FRAME.get(), new Item.Properties()));
+    public static final DeferredHolder<Item, BlockItem> PORTAL_FRAME_ITEM =
+            ITEMS.register("portal_frame", () -> new BlockItem(PORTAL_FRAME.get(), new Item.Properties()));
 
-    public static final DeferredHolder<Item, SeamLedgerItem> SEAM_LEDGER = ITEMS.register(
-            "seam_ledger", () -> new SeamLedgerItem(new Item.Properties().stacksTo(1)));
+    public static final DeferredHolder<Item, SeamLedgerItem> SEAM_LEDGER =
+            ITEMS.register("seam_ledger", () -> new SeamLedgerItem(new Item.Properties().stacksTo(1)));
 
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> DELVEFOLD_TAB = CREATIVE_TABS.register(
             "mining_worlds",
@@ -74,13 +71,9 @@ public final class PortalRegistries {
 
     public static final DeferredHolder<PoiType, PoiType> PORTAL_POI = POI_TYPES.register(
             "portal",
-            () -> new PoiType(
-                    Set.copyOf(PORTAL.get().getStateDefinition().getPossibleStates()),
-                    0,
-                    1));
+            () -> new PoiType(Set.copyOf(PORTAL.get().getStateDefinition().getPossibleStates()), 0, 1));
 
-    private PortalRegistries() {
-    }
+    private PortalRegistries() {}
 
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);

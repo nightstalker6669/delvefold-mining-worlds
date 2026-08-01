@@ -31,7 +31,8 @@ class PublicApiCompatibilityTest {
         }
 
         assertTrue(!signatures.isEmpty(), "The API-v1 descriptor baseline must not be empty");
-        assertTrue(signatures.stream().distinct().count() == signatures.size(),
+        assertTrue(
+                signatures.stream().distinct().count() == signatures.size(),
                 "The API-v1 descriptor baseline must not contain duplicate entries");
         for (String signature : signatures) {
             verify(signature);
@@ -54,20 +55,20 @@ class PublicApiCompatibilityTest {
         }
     }
 
-    private static void verifyField(
-            ClassContract owner, String name, String expectedDescriptor, String signature) {
+    private static void verifyField(ClassContract owner, String name, String expectedDescriptor, String signature) {
         MemberContract match = owner.fields().stream()
-                .filter(member -> member.name().equals(name) && member.descriptor().equals(expectedDescriptor))
+                .filter(member ->
+                        member.name().equals(name) && member.descriptor().equals(expectedDescriptor))
                 .findFirst()
                 .orElse(null);
         assertNotNull(match, "Missing API field or changed JVM descriptor: " + signature);
         assertTrue(Modifier.isPublic(match.access()), "API field is no longer public: " + signature);
     }
 
-    private static void verifyMethod(
-            ClassContract owner, String name, String expectedDescriptor, String signature) {
+    private static void verifyMethod(ClassContract owner, String name, String expectedDescriptor, String signature) {
         MemberContract match = owner.methods().stream()
-                .filter(member -> member.name().equals(name) && member.descriptor().equals(expectedDescriptor))
+                .filter(member ->
+                        member.name().equals(name) && member.descriptor().equals(expectedDescriptor))
                 .findFirst()
                 .orElse(null);
         assertNotNull(match, "Missing API method or changed JVM descriptor: " + signature);
@@ -76,8 +77,8 @@ class PublicApiCompatibilityTest {
 
     private static void verifyConstructor(ClassContract owner, String expectedDescriptor, String signature) {
         MemberContract match = owner.methods().stream()
-                .filter(member -> member.name().equals("<init>")
-                        && member.descriptor().equals(expectedDescriptor))
+                .filter(member ->
+                        member.name().equals("<init>") && member.descriptor().equals(expectedDescriptor))
                 .findFirst()
                 .orElse(null);
         assertNotNull(match, "Missing API constructor or changed JVM descriptor: " + signature);

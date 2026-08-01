@@ -59,7 +59,10 @@ class OreWorkBudgetAnalysisTest {
         OreWorkBudgetAnalysis.Budget result = OreWorkBudgetAnalysis.analyze(rule, TerrainMode.WILD);
 
         assertEquals(3.0D, result.attemptsPerChunk(), 1.0E-9);
-        assertEquals(3.0D, result.workUnitsPerChunk(), 1.0E-9,
+        assertEquals(
+                3.0D,
+                result.workUnitsPerChunk(),
+                1.0E-9,
                 "The safety analysis must retain the validator's max(1, vein size) behavior");
     }
 
@@ -83,11 +86,21 @@ class OreWorkBudgetAnalysisTest {
     @Test
     void provinceCapIsCanonicalConservativeAttemptAndWorkBudget() {
         SpawnBand province = SpawnBand.province(
-                "province", com.nightsta69.delvefold.config.model.HeightDistribution.UNIFORM,
-                -32, 64, null, null, null, 0.0D,
+                "province",
+                com.nightsta69.delvefold.config.model.HeightDistribution.UNIFORM,
+                -32,
+                64,
+                null,
+                null,
+                null,
+                0.0D,
                 new ProvinceSettings(512, 192, 48, 0.01D, 777));
         OreRule rule = new OreRule(
-                "mixed", true, false, Set.of(TerrainMode.FLAT), List.of(),
+                "mixed",
+                true,
+                false,
+                Set.of(TerrainMode.FLAT),
+                List.of(),
                 BiomeFilter.ALL_MINING_BIOMES,
                 List.of(SpawnBand.uniform("vein", 8, 2.0D, -32, 32, 0.0D), province));
 

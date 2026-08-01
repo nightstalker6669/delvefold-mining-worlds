@@ -18,7 +18,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,15 +47,23 @@ public final class OreProfileCatalog {
             OreProfileDocument document = OrePresets.create(builtIn.getValue());
             summaries.put(builtIn.getKey(), summary(document, true, false));
         }
-        for (Map.Entry<String, EcosystemProfileRegistry.RegisteredProfile> entry
-                : EcosystemProfileRegistry.profiles().entrySet()) {
+        for (Map.Entry<String, EcosystemProfileRegistry.RegisteredProfile> entry :
+                EcosystemProfileRegistry.profiles().entrySet()) {
             OreProfileDocument document = entry.getValue().document();
             ValidationReport report = OreConfigValidator.validate(document, registryLookup);
-            summaries.put(entry.getKey(), new ProfileSummary(entry.getKey(), true, false,
-                    document.rules().size(), document.revision(), report.issues()));
+            summaries.put(
+                    entry.getKey(),
+                    new ProfileSummary(
+                            entry.getKey(),
+                            true,
+                            false,
+                            document.rules().size(),
+                            document.revision(),
+                            report.issues()));
         }
         try (var files = Files.list(paths.profiles())) {
-            for (Path file : files.filter(path -> path.getFileName().toString().endsWith(".json")).toList()) {
+            for (Path file : files.filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .toList()) {
                 if (Files.isSymbolicLink(file) || !Files.isRegularFile(file)) {
                     continue;
                 }
@@ -66,15 +73,31 @@ public final class OreProfileCatalog {
                     validateId(id);
                     OreProfileDocument document = read(file);
                     ValidationReport report = OreConfigValidator.validate(document, registryLookup);
-                    summaries.put(id, new ProfileSummary(id, BUILT_INS.containsKey(id), true,
-                            document.rules().size(), document.revision(), report.issues()));
+                    summaries.put(
+                            id,
+                            new ProfileSummary(
+                                    id,
+                                    BUILT_INS.containsKey(id),
+                                    true,
+                                    document.rules().size(),
+                                    document.revision(),
+                                    report.issues()));
                 } catch (IOException | RuntimeException exception) {
-                    summaries.put(id, new ProfileSummary(id, BUILT_INS.containsKey(id), true,
-                            0, 0, List.of(ConfigIssue.error("profile.invalid", "$", exception.getMessage()))));
+                    summaries.put(
+                            id,
+                            new ProfileSummary(
+                                    id,
+                                    BUILT_INS.containsKey(id),
+                                    true,
+                                    0,
+                                    0,
+                                    List.of(ConfigIssue.error("profile.invalid", "$", exception.getMessage()))));
                 }
             }
         }
-        return summaries.values().stream().sorted(Comparator.comparing(ProfileSummary::id)).toList();
+        return summaries.values().stream()
+                .sorted(Comparator.comparing(ProfileSummary::id))
+                .toList();
     }
 
     public OreProfileDocument load(String id) throws IOException {
@@ -109,27 +132,33 @@ public final class OreProfileCatalog {
         Path target = localPath(safeId);
         boolean exists = Files.exists(target, LinkOption.NOFOLLOW_LINKS);
         if (!overwrite && exists) {
-            return ProfileWriteResult.rejected(localized(
-                    "message.delvefold.profile.local_exists", safeId));
+            return ProfileWriteResult.rejected(localized("message.delvefold.profile.local_exists", safeId));
         }
         long previousRevision = exists ? Math.max(0, read(target).revision()) : -1L;
         long revision = previousRevision < 0L ? 0L : previousRevision + 1L;
-        OreProfileDocument replacement = new OreProfileDocument(
-                OreProfileDocument.CURRENT_SCHEMA_VERSION, revision, safeId, source.rules());
+        OreProfileDocument replacement =
+                new OreProfileDocument(OreProfileDocument.CURRENT_SCHEMA_VERSION, revision, safeId, source.rules());
         ValidationReport report = OreConfigValidator.validate(replacement, registryLookup);
         if (!report.valid()) {
-            return new ProfileWriteResult(false, null, report.issues(), localized(
-                    "message.delvefold.profile.validation_failed"), previousRevision);
+            return new ProfileWriteResult(
+                    false,
+                    null,
+                    report.issues(),
+                    localized("message.delvefold.profile.validation_failed"),
+                    previousRevision);
         }
         write(target, replacement);
-        return new ProfileWriteResult(true, replacement, report.issues(), localized(
-                "message.delvefold.profile.saved", safeId), previousRevision);
+        return new ProfileWriteResult(
+                true,
+                replacement,
+                report.issues(),
+                localized("message.delvefold.profile.saved", safeId),
+                previousRevision);
     }
 
     /**
-     * Creates a genuinely new local profile. Unlike {@link #saveAs}, this path
-     * cannot create a local override of a built-in/ecosystem profile and never
-     * replaces an existing filesystem entry.
+     * Creates a genuinely new local profile. Unlike {@link #saveAs}, this path cannot create a local override of a
+     * built-in/ecosystem profile and never replaces an existing filesystem entry.
      */
     public ProfileWriteResult createNew(String id, OreProfileDocument source) throws IOException {
         String safeId = validateLocalId(id);
@@ -138,39 +167,36 @@ public final class OreProfileCatalog {
         if (BUILT_INS.containsKey(safeId)
                 || EcosystemProfileRegistry.find(safeId) != null
                 || Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            return ProfileWriteResult.rejected(localized(
-                    "message.delvefold.profile.exists", safeId));
+            return ProfileWriteResult.rejected(localized("message.delvefold.profile.exists", safeId));
         }
-        OreProfileDocument replacement = new OreProfileDocument(
-                OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, safeId, source.rules());
+        OreProfileDocument replacement =
+                new OreProfileDocument(OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, safeId, source.rules());
         ValidationReport report = OreConfigValidator.validate(replacement, registryLookup);
         if (!report.valid()) {
-            return new ProfileWriteResult(false, null, report.issues(), localized(
-                    "message.delvefold.profile.validation_failed"), -1L);
+            return new ProfileWriteResult(
+                    false, null, report.issues(), localized("message.delvefold.profile.validation_failed"), -1L);
         }
         try {
             writeNew(target, replacement);
         } catch (java.nio.file.FileAlreadyExistsException exception) {
-            return ProfileWriteResult.rejected(localized(
-                    "message.delvefold.profile.exists", safeId));
+            return ProfileWriteResult.rejected(localized("message.delvefold.profile.exists", safeId));
         }
-        return new ProfileWriteResult(true, replacement, report.issues(), localized(
-                "message.delvefold.profile.created", safeId), -1L);
+        return new ProfileWriteResult(
+                true, replacement, report.issues(), localized("message.delvefold.profile.created", safeId), -1L);
     }
 
     public ProfileWriteResult importJson(String id, String json, boolean overwrite) throws IOException {
         byte[] bytes = (json == null ? "" : json).getBytes(StandardCharsets.UTF_8);
         if (bytes.length == 0 || bytes.length > MAX_TRANSFER_BYTES) {
-            return ProfileWriteResult.rejected(localized(
-                    "message.delvefold.profile.json_size", MAX_TRANSFER_BYTES));
+            return ProfileWriteResult.rejected(localized("message.delvefold.profile.json_size", MAX_TRANSFER_BYTES));
         }
         try {
             JsonElement parsed = StrictConfigStructure.parseAndValidate(json, OreProfileDocument.class);
             OreProfileDocument source = ConfigJson.GSON.fromJson(parsed, OreProfileDocument.class);
             return saveAs(id, source, overwrite);
         } catch (RuntimeException exception) {
-            return ProfileWriteResult.rejected(localized(
-                    "message.delvefold.profile.invalid_json", exception.getMessage()));
+            return ProfileWriteResult.rejected(
+                    localized("message.delvefold.profile.invalid_json", exception.getMessage()));
         }
     }
 
@@ -178,8 +204,7 @@ public final class OreProfileCatalog {
         Path source = transferPath(paths.imports(), fileName);
         ensureSafeFile(source);
         if (Files.size(source) > MAX_TRANSFER_BYTES) {
-            return ProfileWriteResult.rejected(localized(
-                    "message.delvefold.profile.import_size", MAX_TRANSFER_BYTES));
+            return ProfileWriteResult.rejected(localized("message.delvefold.profile.import_size", MAX_TRANSFER_BYTES));
         }
         return importJson(id, Files.readString(source, StandardCharsets.UTF_8), overwrite);
     }
@@ -275,8 +300,8 @@ public final class OreProfileCatalog {
     }
 
     private static void write(Path target, OreProfileDocument document) throws IOException {
-        writeBytesAtomically(target,
-                (ConfigJson.GSON.toJson(document) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
+        writeBytesAtomically(
+                target, (ConfigJson.GSON.toJson(document) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8));
     }
 
     private static void writeNew(Path target, OreProfileDocument document) throws IOException {
@@ -285,11 +310,12 @@ public final class OreProfileCatalog {
             throw new IOException(target.getFileName() + " exceeds the profile size limit");
         }
         Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
+        Path temporary =
+                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
         boolean moved = false;
         try {
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (FileChannel channel =
+                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 ByteBuffer buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
@@ -311,11 +337,12 @@ public final class OreProfileCatalog {
             throw new IOException(target.getFileName() + " exceeds the profile size limit");
         }
         Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
+        Path temporary =
+                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
         boolean moved = false;
         try {
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (FileChannel channel =
+                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 ByteBuffer buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
@@ -336,8 +363,8 @@ public final class OreProfileCatalog {
     }
 
     private static ProfileSummary summary(OreProfileDocument document, boolean builtIn, boolean local) {
-        return new ProfileSummary(document.profile(), builtIn, local, document.rules().size(),
-                document.revision(), List.of());
+        return new ProfileSummary(
+                document.profile(), builtIn, local, document.rules().size(), document.revision(), List.of());
     }
 
     public record ProfileSummary(
@@ -364,8 +391,7 @@ public final class OreProfileCatalog {
         }
 
         /** Source-compatible constructor for callers predating mutation-kind audit metadata. */
-        public ProfileWriteResult(
-                boolean saved, OreProfileDocument profile, List<ConfigIssue> issues, String message) {
+        public ProfileWriteResult(boolean saved, OreProfileDocument profile, List<ConfigIssue> issues, String message) {
             this(saved, profile, issues, message, -1L);
         }
 

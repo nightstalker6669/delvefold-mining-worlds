@@ -10,5 +10,4 @@ public record OrePickerEntry(
         ItemStack icon,
         String translatedName,
         boolean commonTagged,
-        boolean oreLike) {
-}
+        boolean oreLike) {}

@@ -10,8 +10,7 @@ import java.util.List;
 
 /** Shared rule templates used by commands and server-authored import plans. */
 public final class OreRuleTemplates {
-    private OreRuleTemplates() {
-    }
+    private OreRuleTemplates() {}
 
     public static SpawnBand commonBand() {
         return SpawnBand.triangle("main", 10, 16.0D, -64, 160, 32, 0.0D);

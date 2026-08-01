@@ -22,11 +22,9 @@ public final class PortalConstructionGuide {
     private final List<FrameCell> minimumFrameCells;
 
     private PortalConstructionGuide(
-            int minimumInteriorWidth,
-            int minimumInteriorHeight,
-            int maximumInteriorWidth,
-            int maximumInteriorHeight) {
-        if (minimumInteriorWidth < 1 || minimumInteriorHeight < 1
+            int minimumInteriorWidth, int minimumInteriorHeight, int maximumInteriorWidth, int maximumInteriorHeight) {
+        if (minimumInteriorWidth < 1
+                || minimumInteriorHeight < 1
                 || maximumInteriorWidth < minimumInteriorWidth
                 || maximumInteriorHeight < minimumInteriorHeight) {
             throw new IllegalArgumentException("Invalid portal guide dimensions");
@@ -93,6 +91,5 @@ public final class PortalConstructionGuide {
         return List.copyOf(cells);
     }
 
-    public record FrameCell(int column, int row) {
-    }
+    public record FrameCell(int column, int row) {}
 }

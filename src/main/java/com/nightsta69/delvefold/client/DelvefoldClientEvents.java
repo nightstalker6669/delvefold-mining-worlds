@@ -5,8 +5,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 
 public final class DelvefoldClientEvents {
-    private DelvefoldClientEvents() {
-    }
+    private DelvefoldClientEvents() {}
 
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(DelvefoldClientEvents::onClientSetup);

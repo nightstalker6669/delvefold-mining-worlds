@@ -13,8 +13,7 @@ import java.util.function.Function;
 
 /** Pure definition/candidate selection against exactly one immutable catalog revision. */
 final class LandmarkGenerationPlanner {
-    private LandmarkGenerationPlanner() {
-    }
+    private LandmarkGenerationPlanner() {}
 
     static <T> Optional<Selection<T>> select(
             LandmarkCatalogSnapshot catalog,

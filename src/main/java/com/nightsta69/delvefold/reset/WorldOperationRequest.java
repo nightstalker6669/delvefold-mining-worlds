@@ -14,8 +14,7 @@ public record WorldOperationRequest(
         OrePreset targetOrePreset,
         GameplayPreset targetGameplayPreset,
         BackupMode backupMode,
-        boolean resetOreConfiguration
-) {
+        boolean resetOreConfiguration) {
     /** Source-compatible constructor for callers written before geology themes. */
     public WorldOperationRequest(
             WorldOperationType type,
@@ -24,10 +23,16 @@ public record WorldOperationRequest(
             OrePreset targetOrePreset,
             GameplayPreset targetGameplayPreset,
             BackupMode backupMode,
-            boolean resetOreConfiguration
-    ) {
-        this(type, targetTerrain, targetVariant, null, targetOrePreset, targetGameplayPreset,
-                backupMode, resetOreConfiguration);
+            boolean resetOreConfiguration) {
+        this(
+                type,
+                targetTerrain,
+                targetVariant,
+                null,
+                targetOrePreset,
+                targetGameplayPreset,
+                backupMode,
+                resetOreConfiguration);
     }
 
     public static WorldOperationRequest recreate(TerrainMode targetTerrain) {
@@ -43,8 +48,7 @@ public record WorldOperationRequest(
                 null,
                 null,
                 BackupMode.KEEP_BACKUP,
-                false
-        );
+                false);
     }
 
     public static WorldOperationRequest recreate(
@@ -57,20 +61,11 @@ public record WorldOperationRequest(
                 null,
                 null,
                 BackupMode.KEEP_BACKUP,
-                false
-        );
+                false);
     }
 
     public static WorldOperationRequest delete() {
         return new WorldOperationRequest(
-                WorldOperationType.DELETE,
-                null,
-                null,
-                null,
-                null,
-                null,
-                BackupMode.KEEP_BACKUP,
-                false
-        );
+                WorldOperationType.DELETE, null, null, null, null, null, BackupMode.KEEP_BACKUP, false);
     }
 }

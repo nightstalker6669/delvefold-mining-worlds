@@ -1,8 +1,8 @@
 package com.nightsta69.delvefold.network;
 
 /**
- * Hard protocol bounds. Client-to-server payloads must remain comfortably
- * below Minecraft's 32 KiB custom payload ceiling.
+ * Hard protocol bounds. Client-to-server payloads must remain comfortably below Minecraft's 32 KiB custom payload
+ * ceiling.
  */
 public final class ProtocolLimits {
     public static final int ID_LENGTH = 128;
@@ -25,14 +25,15 @@ public final class ProtocolLimits {
     public static final int MAX_IMPORT_GROUPS = 256;
     /** Four maximal registry-ID groups, including all 16 candidates, remain below 24 KiB. */
     public static final int MAX_IMPORT_GROUPS_PER_PAGE = 4;
+
     public static final int MAX_IMPORT_SELECTED_GROUPS = 128;
     /** Two maximal diff entries leave room for workloads and bounded validation details. */
     public static final int MAX_IMPORT_DIFF_PER_PAGE = 2;
     /** Four worst-case UTF-8 validation details fit alongside a maximal two-entry diff page. */
     public static final int MAX_IMPORT_ISSUES = 4;
+
     public static final int MAX_IMPORT_MESSAGE_LENGTH = 512;
     public static final int MAX_IMPORT_NETWORK_BYTES = 24 * 1024;
 
-    private ProtocolLimits() {
-    }
+    private ProtocolLimits() {}
 }

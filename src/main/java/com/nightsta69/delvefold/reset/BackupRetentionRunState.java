@@ -12,8 +12,7 @@ public final class BackupRetentionRunState {
 
     private final AtomicReference<Snapshot> current = new AtomicReference<>();
 
-    private BackupRetentionRunState() {
-    }
+    private BackupRetentionRunState() {}
 
     public static BackupRetentionRunState get() {
         return INSTANCE;
@@ -29,7 +28,10 @@ public final class BackupRetentionRunState {
                 .limit(MAX_ENTRIES)
                 .map(prune -> new Proposal(prune.id(), prune.reasons()))
                 .toList();
-        List<String> protectedIds = preview.protectedBackupIds().stream().sorted().limit(MAX_ENTRIES).toList();
+        List<String> protectedIds = preview.protectedBackupIds().stream()
+                .sorted()
+                .limit(MAX_ENTRIES)
+                .toList();
         current.set(new Snapshot(
                 preview.evaluatedAt().toEpochMilli(),
                 plan.enabled(),
@@ -54,8 +56,10 @@ public final class BackupRetentionRunState {
         if (result == null) {
             return;
         }
-        List<String> pruned = result.prunedIds().stream().sorted().limit(MAX_ENTRIES).toList();
-        List<String> failed = result.failures().keySet().stream().sorted().limit(MAX_ENTRIES).toList();
+        List<String> pruned =
+                result.prunedIds().stream().sorted().limit(MAX_ENTRIES).toList();
+        List<String> failed =
+                result.failures().keySet().stream().sorted().limit(MAX_ENTRIES).toList();
         current.updateAndGet(previous -> {
             Snapshot base = previous == null ? Snapshot.empty() : previous;
             return new Snapshot(
@@ -111,8 +115,7 @@ public final class BackupRetentionRunState {
             int omittedPrunedCount,
             List<String> failedBackupIds,
             int omittedFailureCount,
-            boolean applyRecorded
-    ) {
+            boolean applyRecorded) {
         public Snapshot {
             proposals = proposals == null ? List.of() : List.copyOf(proposals);
             protectedBackupIds = protectedBackupIds == null ? List.of() : List.copyOf(protectedBackupIds);
@@ -122,8 +125,9 @@ public final class BackupRetentionRunState {
         }
 
         private static Snapshot empty() {
-            return new Snapshot(0L, false, 0, 0, 0L, 0L, true,
-                    List.of(), 0, List.of(), 0, List.of(), List.of(), 0, List.of(), 0, false);
+            return new Snapshot(
+                    0L, false, 0, 0, 0L, 0L, true, List.of(), 0, List.of(), 0, List.of(), List.of(), 0, List.of(), 0,
+                    false);
         }
     }
 }

@@ -13,9 +13,9 @@ import net.minecraft.world.level.levelgen.feature.configurations.FeatureConfigur
 /**
  * A complete, data-driven ore table executed once per mining-dimension chunk.
  *
- * <p>Output blocks are stored as resource locations rather than registry holders. This is
- * intentional: a datapack can mention an optional mod's block and Delvefold will skip that entry
- * when the mod is absent instead of making the entire worldgen registry fail to load.</p>
+ * <p>Output blocks are stored as resource locations rather than registry holders. This is intentional: a datapack can
+ * mention an optional mod's block and Delvefold will skip that entry when the mod is absent instead of making the
+ * entire worldgen registry fail to load.
  */
 public record MiningOreConfiguration(List<OreDefinition> ores) implements FeatureConfiguration {
     public static final Codec<MiningOreConfiguration> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -42,7 +42,8 @@ public record MiningOreConfiguration(List<OreDefinition> ores) implements Featur
                         Codec.intRange(0, 128).fieldOf("veins_per_chunk").forGetter(OreDefinition::veinsPerChunk),
                         Codec.INT.fieldOf("min_y").forGetter(OreDefinition::minY),
                         Codec.INT.fieldOf("max_y").forGetter(OreDefinition::maxY),
-                        HeightDistribution.CODEC.optionalFieldOf("distribution", HeightDistribution.UNIFORM)
+                        HeightDistribution.CODEC
+                                .optionalFieldOf("distribution", HeightDistribution.UNIFORM)
                                 .forGetter(OreDefinition::distribution),
                         Codec.floatRange(0.0F, 1.0F)
                                 .optionalFieldOf("discard_chance_on_air_exposure", 0.0F)
@@ -73,8 +74,7 @@ public record MiningOreConfiguration(List<OreDefinition> ores) implements Featur
         UNIFORM("uniform"),
         TRIANGLE("triangle");
 
-        public static final Codec<HeightDistribution> CODEC =
-                StringRepresentable.fromEnum(HeightDistribution::values);
+        public static final Codec<HeightDistribution> CODEC = StringRepresentable.fromEnum(HeightDistribution::values);
 
         private final String serializedName;
 

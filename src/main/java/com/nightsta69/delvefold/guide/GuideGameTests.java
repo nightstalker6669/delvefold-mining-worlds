@@ -24,8 +24,7 @@ import net.neoforged.neoforge.network.connection.ConnectionType;
 public final class GuideGameTests {
     private static final String EMPTY_TEMPLATE = "bastion/mobs/empty";
 
-    private GuideGameTests() {
-    }
+    private GuideGameTests() {}
 
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void guideCodecRoundTripsEveryPublicField(GameTestHelper helper) {
@@ -34,7 +33,8 @@ public final class GuideGameTests {
                 Unpooled.buffer(), helper.getLevel().registryAccess(), ConnectionType.NEOFORGE);
         try {
             GuideStreamCodecs.write(buffer, expected);
-            helper.assertTrue(buffer.readableBytes() <= GuideLimits.MAX_ESTIMATED_NETWORK_BYTES,
+            helper.assertTrue(
+                    buffer.readableBytes() <= GuideLimits.MAX_ESTIMATED_NETWORK_BYTES,
                     "Encoded guide exceeded its payload budget");
             GuideSnapshot decoded = GuideStreamCodecs.read(buffer);
             helper.assertTrue(expected.equals(decoded), "Guide codec changed public fields");
@@ -121,8 +121,12 @@ public final class GuideGameTests {
         OreEntry ore = new OreEntry(
                 "tin",
                 List.of(new Output(OutputKind.BLOCK_TAG, "c:ores/tin", "minecraft:iron_ore")),
-                new Applicability(List.of("flat", "cavern"), true, true,
-                        List.of("#delvefold:mining_biomes"), List.of("minecraft:deep_dark")),
+                new Applicability(
+                        List.of("flat", "cavern"),
+                        true,
+                        true,
+                        List.of("#delvefold:mining_biomes"),
+                        List.of("minecraft:deep_dark")),
                 List.of(new HeightBand("main", "triangle", -32, 80, 12, 12, 6)),
                 RelativeFrequency.UNCOMMON,
                 true);

@@ -25,11 +25,9 @@ public final class DelvefoldEmiPlugin implements EmiPlugin {
                         PortalConstructionGuide.RECIPE_NAMESPACE, PortalConstructionGuide.RECIPE_PATH),
                 EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get()));
         registry.addCategory(portalConstruction);
-        registry.addWorkstation(portalConstruction,
-                EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get()));
+        registry.addWorkstation(portalConstruction, EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get()));
         registry.addWorkstation(portalConstruction, EmiStack.of(Items.FLINT_AND_STEEL));
-        registry.addRecipe(new DelvefoldEmiPortalRecipe(
-                portalConstruction, PortalConstructionGuide.INSTANCE));
+        registry.addRecipe(new DelvefoldEmiPortalRecipe(portalConstruction, PortalConstructionGuide.INSTANCE));
         if (!ModList.get().isLoaded("jei")) {
             registry.addRecipe(new EmiInfoRecipe(
                     List.of(EmiStack.of(PortalRegistries.PORTAL_FRAME_ITEM.get())),

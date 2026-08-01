@@ -22,12 +22,9 @@ class LifecycleOperationCoordinatorTest {
         assertFalse(LifecycleOperationCoordinator.conflicts(
                 LifecycleOperationCoordinator.Kind.WORLD_OPERATION, true, false));
 
-        assertFalse(LifecycleOperationCoordinator.conflicts(
-                LifecycleOperationCoordinator.Kind.RESTORE, false, false));
-        assertTrue(LifecycleOperationCoordinator.conflicts(
-                LifecycleOperationCoordinator.Kind.RESTORE, true, false));
-        assertFalse(LifecycleOperationCoordinator.conflicts(
-                LifecycleOperationCoordinator.Kind.RESTORE, false, true));
+        assertFalse(LifecycleOperationCoordinator.conflicts(LifecycleOperationCoordinator.Kind.RESTORE, false, false));
+        assertTrue(LifecycleOperationCoordinator.conflicts(LifecycleOperationCoordinator.Kind.RESTORE, true, false));
+        assertFalse(LifecycleOperationCoordinator.conflicts(LifecycleOperationCoordinator.Kind.RESTORE, false, true));
     }
 
     @Test
@@ -50,7 +47,8 @@ class LifecycleOperationCoordinatorTest {
                 LifecycleOperationCoordinator.coordinate(secondEntered::countDown);
             });
             assertTrue(secondStarted.await(1, TimeUnit.SECONDS));
-            assertFalse(secondEntered.await(100, TimeUnit.MILLISECONDS),
+            assertFalse(
+                    secondEntered.await(100, TimeUnit.MILLISECONDS),
                     "A second lifecycle transition entered before the first released the coordinator");
 
             releaseFirst.countDown();
@@ -76,14 +74,14 @@ class LifecycleOperationCoordinatorTest {
         assertTrue(restore.contains("() -> LifecycleOperationCoordinator.coordinate("));
         assertTrue(restore.contains("return LifecycleOperationCoordinator.coordinate(() -> confirmCoordinated"));
         assertTrue(restore.contains("LifecycleOperationCoordinator.Kind.RESTORE"));
-        assertTrue(restore.indexOf("LifecycleOperationCoordinator.Kind.RESTORE")
-                < restore.indexOf("draft = new Draft"));
+        assertTrue(
+                restore.indexOf("LifecycleOperationCoordinator.Kind.RESTORE") < restore.indexOf("draft = new Draft"));
     }
 
     @Test
     void snapshotProducerClassifiesBothPersistedJournalsWithoutCollapsingThem() throws IOException {
-        String service = Files.readString(Path.of(
-                "src/main/java/com/nightsta69/delvefold/admin/DefaultDelvefoldAdminService.java"));
+        String service = Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/admin/DefaultDelvefoldAdminService.java"));
 
         assertTrue(service.contains("AdminSnapshot.PendingOperation.resolve("));
         assertTrue(service.contains("WorldOperationService.get().hasPending(player.getServer())"));
@@ -91,7 +89,8 @@ class LifecycleOperationCoordinatorTest {
     }
 
     private static String source(String name) throws IOException {
-        return Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/reset").resolve(name));
+        return Files.readString(
+                Path.of("src/main/java/com/nightsta69/delvefold/reset").resolve(name));
     }
 
     private static void await(CountDownLatch latch) {

@@ -5,14 +5,14 @@ import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.GeologyTheme;
-import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.PortalHubSettings;
 import com.nightsta69.delvefold.config.model.PortalRoutingMode;
+import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
+import com.nightsta69.delvefold.config.model.RenewalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
-import com.nightsta69.delvefold.config.model.LandmarkPreset;
-import com.nightsta69.delvefold.config.model.RenewalSettings;
-import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -30,8 +30,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
@@ -92,7 +92,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     }
 
     public DelvefoldDashboardScreen refreshed(AdminSnapshot updatedSnapshot) {
-        return new DelvefoldDashboardScreen(updatedSnapshot, this.selectedTab, updatedSnapshot.orePage(), this.profilePage);
+        return new DelvefoldDashboardScreen(
+                updatedSnapshot, this.selectedTab, updatedSnapshot.orePage(), this.profilePage);
     }
 
     private DelvefoldDashboardScreen(AdminSnapshot snapshot, Tab selectedTab, int orePage, int profilePage) {
@@ -120,7 +121,12 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int x = this.contentLeft();
         int y = this.contentTop();
         for (Tab tab : Tab.values()) {
-            Button button = this.addButton(x, y, tabWidth, 24, Component.translatable(tab.translationKey),
+            Button button = this.addButton(
+                    x,
+                    y,
+                    tabWidth,
+                    24,
+                    Component.translatable(tab.translationKey),
                     tab == this.selectedTab ? Style.TAB_SELECTED : Style.GHOST,
                     ignored -> {
                         if (tab != this.selectedTab) {
@@ -144,14 +150,20 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         }
 
         int doneWidth = footerDoneWidth();
-        this.addButton(this.contentRight() - doneWidth, footerY(), doneWidth, 22,
-                Component.translatable("gui.done"), Style.GHOST, button -> this.onClose());
+        this.addButton(
+                this.contentRight() - doneWidth,
+                footerY(),
+                doneWidth,
+                22,
+                Component.translatable("gui.done"),
+                Style.GHOST,
+                button -> this.onClose());
     }
 
     private void selectTab(Tab tab) {
         if (this.minecraft != null) {
-            this.minecraft.setScreen(new DelvefoldDashboardScreen(
-                    this.snapshot, tab, this.snapshot.orePage(), this.profilePage));
+            this.minecraft.setScreen(
+                    new DelvefoldDashboardScreen(this.snapshot, tab, this.snapshot.orePage(), this.profilePage));
         }
     }
 
@@ -163,20 +175,38 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int forecastWidth = Math.max(1, usable * 2 / 5);
         int refreshWidth = Math.max(1, innerWidth - addWidth - forecastWidth - actionGap * 2);
         int y = bodyTop() + (compactHeight() ? 23 : 25);
-        this.addBodyButton(this.contentLeft() + 10, y, addWidth, 22,
-                Component.translatable("screen.delvefold.ores.add"), Style.PRIMARY,
+        this.addBodyButton(
+                this.contentLeft() + 10,
+                y,
+                addWidth,
+                22,
+                Component.translatable("screen.delvefold.ores.add"),
+                Style.PRIMARY,
                 button -> this.minecraft.setScreen(new DelvefoldOrePickerScreen(this, this.snapshot)));
-        this.addBodyButton(this.contentLeft() + 10 + addWidth + actionGap, y, forecastWidth, 22,
-                Component.translatable("screen.delvefold.forecast.open"), Style.SECONDARY,
+        this.addBodyButton(
+                this.contentLeft() + 10 + addWidth + actionGap,
+                y,
+                forecastWidth,
+                22,
+                Component.translatable("screen.delvefold.forecast.open"),
+                Style.SECONDARY,
                 button -> DelvefoldClientRequests.requestForecast(this.snapshot.activeProfileId(), 0));
-        this.addBodyButton(this.contentLeft() + 10 + addWidth + forecastWidth + actionGap * 2,
-                y, refreshWidth, 22,
-                Component.translatable("screen.delvefold.refresh"), Style.GHOST, button -> refresh());
+        this.addBodyButton(
+                this.contentLeft() + 10 + addWidth + forecastWidth + actionGap * 2,
+                y,
+                refreshWidth,
+                22,
+                Component.translatable("screen.delvefold.refresh"),
+                Style.GHOST,
+                button -> refresh());
 
         List<AdminSnapshot.OreRuleDraft> rules = this.snapshot.oreRules();
-        int pageCount = Math.max(1, (this.snapshot.oreRuleTotal()
-                + com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE - 1)
-                / com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE);
+        int pageCount = Math.max(
+                1,
+                (this.snapshot.oreRuleTotal()
+                                + com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE
+                                - 1)
+                        / com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE);
         int safePage = Math.min(this.orePage, pageCount - 1);
         int start = 0;
         int end = rules.size();
@@ -185,28 +215,40 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int rowHeight = 22;
         for (int index = start; index < end; index++) {
             AdminSnapshot.OreRuleDraft rule = rules.get(index);
-            Component label = Component.translatable(
-                    "screen.delvefold.ores.row", rule.id(), rule.primaryBlockId());
-            this.addBodyButton(this.contentLeft() + 10, rowY, innerWidth, rowHeight,
+            Component label = Component.translatable("screen.delvefold.ores.row", rule.id(), rule.primaryBlockId());
+            this.addBodyButton(
+                    this.contentLeft() + 10,
+                    rowY,
+                    innerWidth,
+                    rowHeight,
                     DelvefoldText.toggle(rule.enabled(), label),
                     rule.enabled() ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                     button -> this.minecraft.setScreen(new DelvefoldOreRuleWizardScreen(this, this.snapshot, rule)));
             rowY += rowStep;
         }
         if (rules.isEmpty()) {
-            includeBodyText(Component.translatable("screen.delvefold.ores.empty"), innerWidth - 4,
-                    bodyTop() + 63);
+            includeBodyText(Component.translatable("screen.delvefold.ores.empty"), innerWidth - 4, bodyTop() + 63);
         }
 
         int pagerY = footerY();
         int pagerWidth = footerPagerButtonWidth();
         int pagerGap = Math.min(6, Math.max(0, this.contentWidth() - footerDoneWidth() - pagerWidth * 2));
-        Button previous = this.addButton(this.contentLeft(), pagerY, pagerWidth, 22,
-                Component.translatable("screen.delvefold.previous"), Style.GHOST,
+        Button previous = this.addButton(
+                this.contentLeft(),
+                pagerY,
+                pagerWidth,
+                22,
+                Component.translatable("screen.delvefold.previous"),
+                Style.GHOST,
                 button -> setOrePage(safePage - 1));
         previous.active = safePage > 0;
-        Button next = this.addButton(this.contentLeft() + pagerWidth + pagerGap, pagerY, pagerWidth, 22,
-                Component.translatable("screen.delvefold.next"), Style.GHOST,
+        Button next = this.addButton(
+                this.contentLeft() + pagerWidth + pagerGap,
+                pagerY,
+                pagerWidth,
+                22,
+                Component.translatable("screen.delvefold.next"),
+                Style.GHOST,
                 button -> setOrePage(safePage + 1));
         next.active = safePage + 1 < pageCount;
     }
@@ -232,64 +274,107 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                     : profile.valid()
                             ? "screen.delvefold.profiles.row.available"
                             : "screen.delvefold.profiles.row.invalid";
-            this.addButton(x, y, rowWidth, layout.rowHeight(),
+            this.addButton(
+                    x,
+                    y,
+                    rowWidth,
+                    layout.rowHeight(),
                     Component.translatable(rowKey, profile.id(), profile.ruleCount()),
                     active ? Style.TOGGLE_ON : Style.GHOST,
                     button -> performProfile(ProfileOperation.SELECT, profile.id(), "", "", false));
-            Button delete = this.addButton(x + rowWidth + gap, y, deleteWidth, layout.rowHeight(),
-                    Component.translatable(profile.id().equals(this.deleteArmedProfile)
-                            ? "screen.delvefold.confirm" : "screen.delvefold.delete"),
-                    Style.DANGER, button -> deleteProfile(profile));
+            Button delete = this.addButton(
+                    x + rowWidth + gap,
+                    y,
+                    deleteWidth,
+                    layout.rowHeight(),
+                    Component.translatable(
+                            profile.id().equals(this.deleteArmedProfile)
+                                    ? "screen.delvefold.confirm"
+                                    : "screen.delvefold.delete"),
+                    Style.DANGER,
+                    button -> deleteProfile(profile));
             delete.active = !active && profile.localOverride();
             y += layout.rowStep();
         }
 
         if (pageCount > 1) {
-            Button previous = this.addButton(this.contentLeft(), footerY(), 58, 22,
-                    Component.translatable("screen.delvefold.previous"), Style.GHOST,
+            Button previous = this.addButton(
+                    this.contentLeft(),
+                    footerY(),
+                    58,
+                    22,
+                    Component.translatable("screen.delvefold.previous"),
+                    Style.GHOST,
                     button -> setProfilePage(safePage - 1));
             previous.active = safePage > 0;
-            Button next = this.addButton(this.contentLeft() + 64, footerY(), 58, 22,
-                    Component.translatable("screen.delvefold.next"), Style.GHOST,
+            Button next = this.addButton(
+                    this.contentLeft() + 64,
+                    footerY(),
+                    58,
+                    22,
+                    Component.translatable("screen.delvefold.next"),
+                    Style.GHOST,
                     button -> setProfilePage(safePage + 1));
             next.active = safePage + 1 < pageCount;
         }
 
         int controlsY = layout.controlsY();
         int nameWidth = Math.max(100, innerWidth / 2);
-        EditBox name = this.addRenderableWidget(new EditBox(this.font, x, controlsY, nameWidth, 20,
-                Component.translatable("screen.delvefold.profiles.id")));
+        EditBox name = this.addRenderableWidget(new EditBox(
+                this.font, x, controlsY, nameWidth, 20, Component.translatable("screen.delvefold.profiles.id")));
         name.setMaxLength(com.nightsta69.delvefold.network.ProtocolLimits.ID_LENGTH);
         name.setValue(this.profileName);
         name.setHint(Component.translatable("screen.delvefold.profiles.id_hint"));
         name.setResponder(value -> this.profileName = value);
         name.setTextColor(TEXT);
-        this.addButton(x + nameWidth + gap, controlsY, innerWidth - nameWidth - gap, 20,
+        this.addButton(
+                x + nameWidth + gap,
+                controlsY,
+                innerWidth - nameWidth - gap,
+                20,
                 portalToggleLabel("screen.delvefold.profiles.overwrite", this.profileOverwrite),
-                this.profileOverwrite ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
+                this.profileOverwrite ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
                     this.profileOverwrite = !this.profileOverwrite;
-                    button.setMessage(portalToggleLabel(
-                            "screen.delvefold.profiles.overwrite", this.profileOverwrite));
+                    button.setMessage(portalToggleLabel("screen.delvefold.profiles.overwrite", this.profileOverwrite));
                     setButtonStyle(button, this.profileOverwrite ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
                 });
 
         int actionY = controlsY + 25;
         int actionGap = 5;
         int actionWidth = Math.max(1, (innerWidth - actionGap * 3) / 4);
-        this.addButton(x, actionY, actionWidth, 20,
-                Component.translatable("screen.delvefold.profiles.save_current"), Style.PRIMARY,
-                button -> performProfile(ProfileOperation.SAVE_CURRENT, "", this.profileName, "",
-                        this.profileOverwrite));
-        this.addButton(x + actionWidth + actionGap, actionY, actionWidth, 20,
-                Component.translatable("screen.delvefold.profiles.import_clipboard"), Style.SECONDARY,
+        this.addButton(
+                x,
+                actionY,
+                actionWidth,
+                20,
+                Component.translatable("screen.delvefold.profiles.save_current"),
+                Style.PRIMARY,
+                button ->
+                        performProfile(ProfileOperation.SAVE_CURRENT, "", this.profileName, "", this.profileOverwrite));
+        this.addButton(
+                x + actionWidth + actionGap,
+                actionY,
+                actionWidth,
+                20,
+                Component.translatable("screen.delvefold.profiles.import_clipboard"),
+                Style.SECONDARY,
                 button -> importClipboard());
-        this.addButton(x + (actionWidth + actionGap) * 2, actionY,
-                actionWidth, 20,
-                Component.translatable("screen.delvefold.profiles.copy_active"), Style.GHOST,
+        this.addButton(
+                x + (actionWidth + actionGap) * 2,
+                actionY,
+                actionWidth,
+                20,
+                Component.translatable("screen.delvefold.profiles.copy_active"),
+                Style.GHOST,
                 button -> DelvefoldClientRequests.requestProfileExport(this.snapshot.activeProfileId()));
-        this.addButton(x + (actionWidth + actionGap) * 3, actionY,
-                innerWidth - actionWidth * 3 - actionGap * 3, 20,
-                Component.translatable("screen.delvefold.import.open"), Style.SECONDARY,
+        this.addButton(
+                x + (actionWidth + actionGap) * 3,
+                actionY,
+                innerWidth - actionWidth * 3 - actionGap * 3,
+                20,
+                Component.translatable("screen.delvefold.import.open"),
+                Style.SECONDARY,
                 button -> this.minecraft.setScreen(new DelvefoldOreImportScreen(this, this.snapshot)));
     }
 
@@ -324,7 +409,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             return;
         }
         String json = this.minecraft.keyboardHandler.getClipboard();
-        if (json == null || json.isBlank()
+        if (json == null
+                || json.isBlank()
                 || json.length() > com.nightsta69.delvefold.network.ProtocolLimits.MAX_PROFILE_CLIPBOARD_CHARS) {
             this.profileError = Component.translatable("screen.delvefold.profiles.clipboard_invalid");
             return;
@@ -335,8 +421,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private void performProfile(
             ProfileOperation operation, String sourceId, String targetId, String json, boolean overwrite) {
         this.profileError = Component.empty();
-        DelvefoldClientRequests.send(new ProfileActionPayload(this.snapshot.oreRevision(), operation,
-                sourceId, targetId, json, overwrite));
+        DelvefoldClientRequests.send(
+                new ProfileActionPayload(this.snapshot.oreRevision(), operation, sourceId, targetId, json, overwrite));
     }
 
     private void setOrePage(int page) {
@@ -350,47 +436,85 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int controlsWidth = Math.max(1, Math.min(354, this.contentWidth() - 20));
         int gap = Math.min(6, Math.max(0, controlsWidth - 2));
         int toggleWidth = (controlsWidth - gap) / 2;
-        this.addBodyButton(x, y, controlsWidth, 22, gameplayPresetLabel(), Style.SECONDARY,
-                button -> cycleGameplayPreset());
+        this.addBodyButton(
+                x, y, controlsWidth, 22, gameplayPresetLabel(), Style.SECONDARY, button -> cycleGameplayPreset());
         int firstRow = compact ? 26 : 30;
         int secondRow = compact ? 50 : 58;
         int thirdRow = compact ? 74 : 86;
-        addGameplayToggle(x, y + firstRow, toggleWidth,
-                Component.translatable("screen.delvefold.gameplay.monsters"), this.monsters,
+        addGameplayToggle(
+                x,
+                y + firstRow,
+                toggleWidth,
+                Component.translatable("screen.delvefold.gameplay.monsters"),
+                this.monsters,
                 value -> this.monsters = value);
-        addGameplayToggle(x + toggleWidth + gap, y + firstRow, toggleWidth,
-                Component.translatable("screen.delvefold.gameplay.creatures"), this.creatures,
+        addGameplayToggle(
+                x + toggleWidth + gap,
+                y + firstRow,
+                toggleWidth,
+                Component.translatable("screen.delvefold.gameplay.creatures"),
+                this.creatures,
                 value -> this.creatures = value);
-        addGameplayToggle(x, y + secondRow, toggleWidth,
-                Component.translatable("screen.delvefold.gameplay.ambient"), this.ambient,
+        addGameplayToggle(
+                x,
+                y + secondRow,
+                toggleWidth,
+                Component.translatable("screen.delvefold.gameplay.ambient"),
+                this.ambient,
                 value -> this.ambient = value);
-        addGameplayToggle(x + toggleWidth + gap, y + secondRow, toggleWidth,
-                Component.translatable("screen.delvefold.gameplay.water_mobs"), this.waterCreatures,
+        addGameplayToggle(
+                x + toggleWidth + gap,
+                y + secondRow,
+                toggleWidth,
+                Component.translatable("screen.delvefold.gameplay.water_mobs"),
+                this.waterCreatures,
                 value -> this.waterCreatures = value);
-        addGameplayToggle(x, y + thirdRow, toggleWidth,
-                Component.translatable("screen.delvefold.gameplay.patrols"), this.patrols,
+        addGameplayToggle(
+                x,
+                y + thirdRow,
+                toggleWidth,
+                Component.translatable("screen.delvefold.gameplay.patrols"),
+                this.patrols,
                 value -> this.patrols = value);
-        addGameplayToggle(x + toggleWidth + gap, y + thirdRow, toggleWidth,
-                Component.translatable("screen.delvefold.gameplay.phantoms"), this.phantoms,
+        addGameplayToggle(
+                x + toggleWidth + gap,
+                y + thirdRow,
+                toggleWidth,
+                Component.translatable("screen.delvefold.gameplay.phantoms"),
+                this.phantoms,
                 value -> this.phantoms = value);
-        this.addBodyButton(x, y + (compact ? 105 : 124), controlsWidth, 22,
-                Component.translatable("screen.delvefold.gameplay.save"), Style.PRIMARY,
+        this.addBodyButton(
+                x,
+                y + (compact ? 105 : 124),
+                controlsWidth,
+                22,
+                Component.translatable("screen.delvefold.gameplay.save"),
+                Style.PRIMARY,
                 button -> saveGameplay());
 
         if (!compactHeight() && this.contentWidth() - Math.min(374, this.contentWidth()) >= 150) {
             int infoWidth = this.contentWidth() - Math.min(374, this.contentWidth()) - 8;
-            includeBodyText(Component.translatable("screen.delvefold.gameplay.description"),
-                    infoWidth - 20, bodyTop() + 28);
-            includeBodyText(Component.translatable("screen.delvefold.gameplay.unaffected"),
-                    infoWidth - 20, bodyTop() + 92);
+            includeBodyText(
+                    Component.translatable("screen.delvefold.gameplay.description"), infoWidth - 20, bodyTop() + 28);
+            includeBodyText(
+                    Component.translatable("screen.delvefold.gameplay.unaffected"), infoWidth - 20, bodyTop() + 92);
         }
     }
 
     private void addGameplayToggle(
-            int x, int y, int width, Component label, boolean initialValue,
+            int x,
+            int y,
+            int width,
+            Component label,
+            boolean initialValue,
             java.util.function.Consumer<Boolean> setter) {
         boolean[] state = {initialValue};
-        this.addBodyButton(x, y, width, 22, toggleLabel(label, initialValue),
+        this.addBodyButton(
+                x,
+                y,
+                width,
+                22,
+                toggleLabel(label, initialValue),
                 initialValue ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                 button -> {
                     boolean next = !state[0];
@@ -407,14 +531,26 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         setGameplay(GameplaySettings.fromPreset(next));
         if (this.minecraft != null) {
             this.minecraft.setScreen(new DelvefoldDashboardScreen(
-                    new AdminSnapshot(this.snapshot.oreRevision(), this.snapshot.settingsRevision(),
-                            this.snapshot.backendReady(), this.snapshot.initialized(),
-                            this.snapshot.terrainMode(), this.snapshot.orePreset(), currentGameplay(),
-                            this.snapshot.portal(), this.snapshot.identity(),
+                    new AdminSnapshot(
+                            this.snapshot.oreRevision(),
+                            this.snapshot.settingsRevision(),
+                            this.snapshot.backendReady(),
+                            this.snapshot.initialized(),
+                            this.snapshot.terrainMode(),
+                            this.snapshot.orePreset(),
+                            currentGameplay(),
+                            this.snapshot.portal(),
+                            this.snapshot.identity(),
                             this.snapshot.capabilities(),
-                            this.snapshot.activeProfileId(), this.snapshot.profiles(), this.snapshot.backups(),
-                            this.snapshot.portalStatus(), this.snapshot.worldStatus(), this.snapshot.pendingOperation(),
-                            this.snapshot.diagnostics(), this.snapshot.oreRuleTotal(), this.snapshot.orePage(),
+                            this.snapshot.activeProfileId(),
+                            this.snapshot.profiles(),
+                            this.snapshot.backups(),
+                            this.snapshot.portalStatus(),
+                            this.snapshot.worldStatus(),
+                            this.snapshot.pendingOperation(),
+                            this.snapshot.diagnostics(),
+                            this.snapshot.oreRuleTotal(),
+                            this.snapshot.orePage(),
                             this.snapshot.oreRules()),
                     Tab.GAMEPLAY,
                     0,
@@ -432,20 +568,29 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int innerWidth = Math.max(1, this.contentWidth() - 20);
         int gap = 6;
         int half = Math.max(1, (innerWidth - gap) / 2);
-        this.addBodyButton(x, y, half, 22, portalToggleLabel(
-                        "screen.delvefold.portal.travel", this.portalEnabled),
-                this.portalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
+        this.addBodyButton(
+                x,
+                y,
+                half,
+                22,
+                portalToggleLabel("screen.delvefold.portal.travel", this.portalEnabled),
+                this.portalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
                     this.portalEnabled = !this.portalEnabled;
-                    button.setMessage(portalToggleLabel(
-                            "screen.delvefold.portal.travel", this.portalEnabled));
+                    button.setMessage(portalToggleLabel("screen.delvefold.portal.travel", this.portalEnabled));
                     setButtonStyle(button, this.portalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
                 });
-        this.addBodyButton(x + half + gap, y, innerWidth - half - gap, 22,
+        this.addBodyButton(
+                x + half + gap,
+                y,
+                innerWidth - half - gap,
+                22,
                 portalToggleLabel("screen.delvefold.portal.overworld_only", this.portalOverworldOnly),
-                this.portalOverworldOnly ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
+                this.portalOverworldOnly ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
                     this.portalOverworldOnly = !this.portalOverworldOnly;
-                    button.setMessage(portalToggleLabel(
-                            "screen.delvefold.portal.overworld_only", this.portalOverworldOnly));
+                    button.setMessage(
+                            portalToggleLabel("screen.delvefold.portal.overworld_only", this.portalOverworldOnly));
                     setButtonStyle(button, this.portalOverworldOnly ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
                 });
 
@@ -457,16 +602,21 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         });
 
         int fieldsY = routingY + (compactHeight() ? 27 : 31);
-        EditBox cooldown = registerBodyWidget(this.addRenderableWidget(new EditBox(this.font, x, fieldsY, half, 20,
-                Component.translatable("screen.delvefold.portal.cooldown"))));
+        EditBox cooldown = registerBodyWidget(this.addRenderableWidget(new EditBox(
+                this.font, x, fieldsY, half, 20, Component.translatable("screen.delvefold.portal.cooldown"))));
         cooldown.setMaxLength(4);
         cooldown.setValue(this.portalCooldown);
         cooldown.setHint(Component.translatable("screen.delvefold.portal.cooldown"));
         cooldown.setTextColor(TEXT);
         cooldown.setTextColorUneditable(DIM_TEXT);
         cooldown.setResponder(value -> this.portalCooldown = value);
-        EditBox scale = registerBodyWidget(this.addRenderableWidget(new EditBox(this.font, x + half + gap, fieldsY,
-                innerWidth - half - gap, 20, Component.translatable("screen.delvefold.portal.scale"))));
+        EditBox scale = registerBodyWidget(this.addRenderableWidget(new EditBox(
+                this.font,
+                x + half + gap,
+                fieldsY,
+                innerWidth - half - gap,
+                20,
+                Component.translatable("screen.delvefold.portal.scale"))));
         scale.setMaxLength(8);
         scale.setValue(this.portalScale);
         scale.setHint(Component.translatable("screen.delvefold.portal.scale"));
@@ -477,53 +627,68 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int hubY = fieldsY + (compactHeight() ? 25 : 29);
         int thirdGap = 4;
         int third = Math.max(1, (innerWidth - thirdGap * 2) / 3);
-        EditBox hubX = registerBodyWidget(this.addRenderableWidget(new EditBox(
-                this.font, x, hubY, third, 20, Component.translatable("screen.delvefold.portal.hub_x"))));
+        EditBox hubX = registerBodyWidget(this.addRenderableWidget(
+                new EditBox(this.font, x, hubY, third, 20, Component.translatable("screen.delvefold.portal.hub_x"))));
         hubX.setMaxLength(10);
         hubX.setValue(this.portalHubX);
         hubX.setHint(Component.translatable("screen.delvefold.portal.hub_x"));
         hubX.setEditable(this.snapshot.capabilities().canManageWorld());
         if (!this.snapshot.capabilities().canManageWorld()) {
-            hubX.setTooltip(Tooltip.create(Component.translatable(
-                    "screen.delvefold.portal.hub_read_only")));
+            hubX.setTooltip(Tooltip.create(Component.translatable("screen.delvefold.portal.hub_read_only")));
         }
         hubX.setResponder(value -> this.portalHubX = value);
         EditBox hubZ = registerBodyWidget(this.addRenderableWidget(new EditBox(
-                this.font, x + third + thirdGap, hubY, third, 20,
+                this.font,
+                x + third + thirdGap,
+                hubY,
+                third,
+                20,
                 Component.translatable("screen.delvefold.portal.hub_z"))));
         hubZ.setMaxLength(10);
         hubZ.setValue(this.portalHubZ);
         hubZ.setHint(Component.translatable("screen.delvefold.portal.hub_z"));
         hubZ.setEditable(this.snapshot.capabilities().canManageWorld());
         if (!this.snapshot.capabilities().canManageWorld()) {
-            hubZ.setTooltip(Tooltip.create(Component.translatable(
-                    "screen.delvefold.portal.hub_read_only")));
+            hubZ.setTooltip(Tooltip.create(Component.translatable("screen.delvefold.portal.hub_read_only")));
         }
         hubZ.setResponder(value -> this.portalHubZ = value);
         EditBox radius = registerBodyWidget(this.addRenderableWidget(new EditBox(
-                this.font, x + (third + thirdGap) * 2, hubY,
-                innerWidth - third * 2 - thirdGap * 2, 20,
+                this.font,
+                x + (third + thirdGap) * 2,
+                hubY,
+                innerWidth - third * 2 - thirdGap * 2,
+                20,
                 Component.translatable("screen.delvefold.portal.protection_radius"))));
         radius.setMaxLength(3);
         radius.setValue(this.portalProtectionRadius);
         radius.setHint(Component.translatable("screen.delvefold.portal.protection_radius"));
         radius.setEditable(this.snapshot.capabilities().canManageWorld());
         if (!this.snapshot.capabilities().canManageWorld()) {
-            radius.setTooltip(Tooltip.create(Component.translatable(
-                    "screen.delvefold.portal.hub_read_only")));
+            radius.setTooltip(Tooltip.create(Component.translatable("screen.delvefold.portal.hub_read_only")));
         }
         radius.setResponder(value -> this.portalProtectionRadius = value);
 
         int actionY = hubY + (compactHeight() ? 25 : 29);
-        this.addBodyButton(x, actionY, half, 22,
-                Component.translatable("screen.delvefold.portal.save"), Style.PRIMARY,
+        this.addBodyButton(
+                x,
+                actionY,
+                half,
+                22,
+                Component.translatable("screen.delvefold.portal.save"),
+                Style.PRIMARY,
                 button -> savePortal());
-        this.addBodyButton(x + half + gap, actionY, innerWidth - half - gap, 22,
-                Component.translatable("screen.delvefold.refresh"), Style.GHOST, button -> refresh());
+        this.addBodyButton(
+                x + half + gap,
+                actionY,
+                innerWidth - half - gap,
+                22,
+                Component.translatable("screen.delvefold.refresh"),
+                Style.GHOST,
+                button -> refresh());
 
         this.portalStatusVirtualY = actionY + (compactHeight() ? 28 : 32);
-        int statusBottom = includeBodyText(DelvefoldText.serverMessage(this.snapshot.portalStatus()), innerWidth,
-                this.portalStatusVirtualY);
+        int statusBottom = includeBodyText(
+                DelvefoldText.serverMessage(this.snapshot.portalStatus()), innerWidth, this.portalStatusVirtualY);
         this.portalErrorVirtualY = Math.max(statusBottom + 6, this.contentBottom() - 17);
         if (!this.portalError.getString().isEmpty()) {
             includeBodyText(this.portalError, innerWidth, this.portalErrorVirtualY);
@@ -553,27 +718,32 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             }
             PortalHubSettings hub = new PortalHubSettings(hubX, hubZ, protectionRadius);
             this.portalError = Component.empty();
-            DelvefoldClientRequests.send(new PortalUpdatePayload(this.snapshot.settingsRevision(),
-                    new PortalSettings(this.portalEnabled, this.portalOverworldOnly, cooldown, scale,
-                            this.portalRoutingMode, hub)));
+            DelvefoldClientRequests.send(new PortalUpdatePayload(
+                    this.snapshot.settingsRevision(),
+                    new PortalSettings(
+                            this.portalEnabled,
+                            this.portalOverworldOnly,
+                            cooldown,
+                            scale,
+                            this.portalRoutingMode,
+                            hub)));
         } catch (IllegalArgumentException exception) {
             this.portalError = Component.translatable("screen.delvefold.portal.validation");
-            includeBodyText(this.portalError, this.contentWidth() - 20,
-                    this.portalErrorVirtualY);
+            includeBodyText(this.portalError, this.contentWidth() - 20, this.portalErrorVirtualY);
             applyBodyScroll();
         }
     }
 
     private static Component portalToggleLabel(String translationKey, boolean enabled) {
-        return Component.translatable(enabled
-                        ? "screen.delvefold.toggle.on" : "screen.delvefold.toggle.off",
+        return Component.translatable(
+                enabled ? "screen.delvefold.toggle.on" : "screen.delvefold.toggle.off",
                 Component.translatable(translationKey));
     }
 
     private Component portalRoutingLabel() {
-        return Component.translatable("screen.delvefold.portal.routing",
-                Component.translatable("option.delvefold.portal_routing."
-                        + this.portalRoutingMode.serializedName()));
+        return Component.translatable(
+                "screen.delvefold.portal.routing",
+                Component.translatable("option.delvefold.portal_routing." + this.portalRoutingMode.serializedName()));
     }
 
     private void initDiagnostics() {
@@ -583,23 +753,38 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int gap = Math.min(6, Math.max(0, (available - 3) / 2));
         int buttonWidth = Math.max(1, (available - gap * 2) / 3);
         int finalButtonWidth = Math.max(1, available - buttonWidth * 2 - gap * 2);
-        this.addButton(x, y, buttonWidth, 22, Component.translatable("screen.delvefold.diagnostics.validate"),
-                Style.PRIMARY, button -> perform(AdminOperation.VALIDATE_CONFIG, ""));
-        this.addButton(x + buttonWidth + gap, y, buttonWidth, 22,
+        this.addButton(
+                x,
+                y,
+                buttonWidth,
+                22,
+                Component.translatable("screen.delvefold.diagnostics.validate"),
+                Style.PRIMARY,
+                button -> perform(AdminOperation.VALIDATE_CONFIG, ""));
+        this.addButton(
+                x + buttonWidth + gap,
+                y,
+                buttonWidth,
+                22,
                 Component.translatable("screen.delvefold.diagnostics.reload"),
                 Style.SECONDARY,
                 button -> perform(AdminOperation.RELOAD_CONFIG, ""));
-        this.addButton(x + (buttonWidth + gap) * 2, y, finalButtonWidth, 22,
+        this.addButton(
+                x + (buttonWidth + gap) * 2,
+                y,
+                finalButtonWidth,
+                22,
                 Component.translatable("screen.delvefold.refresh"),
-                Style.GHOST, button -> refresh());
+                Style.GHOST,
+                button -> refresh());
     }
 
     private void initIdentity() {
         int x = this.contentLeft() + 10;
         int y = bodyTop() + 30;
         int width = this.contentWidth() - 20;
-        EditBox name = registerBodyWidget(this.addRenderableWidget(new EditBox(this.font, x, y, width, 20,
-                Component.translatable("screen.delvefold.identity.name"))));
+        EditBox name = registerBodyWidget(this.addRenderableWidget(
+                new EditBox(this.font, x, y, width, 20, Component.translatable("screen.delvefold.identity.name"))));
         name.setMaxLength(64);
         name.setValue(this.identityName);
         name.setHint(Component.translatable("screen.delvefold.identity.name"));
@@ -607,20 +792,22 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
         int gap = 6;
         int half = (width - gap) / 2;
-        Button geology = this.addBodyButton(x, y + 34, width, 22,
-                geologyLockedLabel(), Style.GHOST, button -> { });
+        Button geology = this.addBodyButton(x, y + 34, width, 22, geologyLockedLabel(), Style.GHOST, button -> {});
         geology.active = false;
 
-        this.addBodyButton(x, y + 68, half, 22,
-                landmarkLabel(), Style.SECONDARY,
-                button -> {
-                    LandmarkPreset[] values = LandmarkPreset.values();
-                    this.landmarkPreset = values[(this.landmarkPreset.ordinal() + 1) % values.length];
-                    button.setMessage(landmarkLabel());
-                });
-        Button renewalToggle = this.addBodyButton(x + half + gap, y + 68, width - half - gap, 22,
+        this.addBodyButton(x, y + 68, half, 22, landmarkLabel(), Style.SECONDARY, button -> {
+            LandmarkPreset[] values = LandmarkPreset.values();
+            this.landmarkPreset = values[(this.landmarkPreset.ordinal() + 1) % values.length];
+            button.setMessage(landmarkLabel());
+        });
+        Button renewalToggle = this.addBodyButton(
+                x + half + gap,
+                y + 68,
+                width - half - gap,
+                22,
                 toggleLabel(Component.translatable("screen.delvefold.identity.renewal"), this.renewalEnabled),
-                this.renewalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
+                this.renewalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
                     this.renewalEnabled = !this.renewalEnabled;
                     button.setMessage(toggleLabel(
                             Component.translatable("screen.delvefold.identity.renewal"), this.renewalEnabled));
@@ -628,33 +815,43 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 });
         renewalToggle.active = this.snapshot.capabilities().canManageWorld();
 
-        EditBox days = registerBodyWidget(this.addRenderableWidget(new EditBox(this.font, x, y + 102, half, 20,
-                Component.translatable("screen.delvefold.identity.renewal_days"))));
+        EditBox days = registerBodyWidget(this.addRenderableWidget(new EditBox(
+                this.font, x, y + 102, half, 20, Component.translatable("screen.delvefold.identity.renewal_days"))));
         days.setMaxLength(4);
         days.setValue(this.renewalDays);
         days.setHint(Component.translatable("screen.delvefold.identity.renewal_days"));
         days.setResponder(value -> this.renewalDays = value);
         days.active = this.snapshot.capabilities().canManageWorld();
-        EditBox warning = registerBodyWidget(this.addRenderableWidget(new EditBox(this.font, x + half + gap, y + 102,
-                width - half - gap, 20, Component.translatable("screen.delvefold.identity.warning_minutes"))));
+        EditBox warning = registerBodyWidget(this.addRenderableWidget(new EditBox(
+                this.font,
+                x + half + gap,
+                y + 102,
+                width - half - gap,
+                20,
+                Component.translatable("screen.delvefold.identity.warning_minutes"))));
         warning.setMaxLength(5);
         warning.setValue(this.renewalWarning);
         warning.setHint(Component.translatable("screen.delvefold.identity.warning_minutes"));
         warning.setResponder(value -> this.renewalWarning = value);
         warning.active = this.snapshot.capabilities().canManageWorld();
 
-        Button seedMode = this.addBodyButton(x, y + 136, width, 22,
-                renewalSeedModeLabel(), Style.SECONDARY, button -> {
+        Button seedMode = this.addBodyButton(x, y + 136, width, 22, renewalSeedModeLabel(), Style.SECONDARY, button -> {
             RenewalSeedMode[] values = RenewalSeedMode.values();
             this.renewalSeedMode = values[(this.renewalSeedMode.ordinal() + 1) % values.length];
             button.setMessage(renewalSeedModeLabel());
         });
         seedMode.active = this.snapshot.capabilities().canManageWorld();
 
-        Button save = this.addBodyButton(x, y + 164, width, 22,
-                Component.translatable("screen.delvefold.identity.save"), Style.PRIMARY,
+        Button save = this.addBodyButton(
+                x,
+                y + 164,
+                width,
+                22,
+                Component.translatable("screen.delvefold.identity.save"),
+                Style.PRIMARY,
                 button -> saveIdentity());
-        save.active = this.snapshot.backendReady() && this.snapshot.capabilities().canConfigure();
+        save.active =
+                this.snapshot.backendReady() && this.snapshot.capabilities().canConfigure();
 
         this.identityMessageVirtualY = compactHeight() ? y + 194 : this.contentBottom() - 15;
         includeBodyBottom(this.identityMessageVirtualY + wrappedTextHeight(identityMessage(), width) + 1);
@@ -675,9 +872,11 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             WorldIdentitySettings current = this.snapshot.identity();
             boolean canManageRenewal = this.snapshot.capabilities().canManageWorld();
             int days = canManageRenewal
-                    ? Integer.parseInt(this.renewalDays.trim()) : current.renewal().intervalDays();
+                    ? Integer.parseInt(this.renewalDays.trim())
+                    : current.renewal().intervalDays();
             int warning = canManageRenewal
-                    ? Integer.parseInt(this.renewalWarning.trim()) : current.renewal().warningMinutes();
+                    ? Integer.parseInt(this.renewalWarning.trim())
+                    : current.renewal().warningMinutes();
             if (this.identityName.isBlank()
                     || canManageRenewal && (days < 1 || days > 3650 || warning < 1 || warning > 10080)) {
                 throw new NumberFormatException();
@@ -698,8 +897,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             DelvefoldClientRequests.send(new IdentityUpdatePayload(this.snapshot.settingsRevision(), updated));
         } catch (NumberFormatException exception) {
             this.identityError = Component.translatable("screen.delvefold.identity.validation");
-            includeBodyText(this.identityError, this.contentWidth() - 20,
-                    this.identityMessageVirtualY);
+            includeBodyText(this.identityError, this.contentWidth() - 20, this.identityMessageVirtualY);
             applyBodyScroll();
         }
     }
@@ -715,8 +913,14 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             this.recreateTerrain = modes[(this.recreateTerrain.ordinal() + 1) % modes.length];
             button.setMessage(recreateTerrainLabel());
         });
-        this.addBodyButton(x + choiceWidth + choiceGap, y, innerWidth - choiceWidth - choiceGap, 22,
-                recreateVariantLabel(), Style.SECONDARY, button -> {
+        this.addBodyButton(
+                x + choiceWidth + choiceGap,
+                y,
+                innerWidth - choiceWidth - choiceGap,
+                22,
+                recreateVariantLabel(),
+                Style.SECONDARY,
+                button -> {
                     TerrainVariant[] variants = TerrainVariant.values();
                     this.recreateVariant = variants[(this.recreateVariant.ordinal() + 1) % variants.length];
                     button.setMessage(recreateVariantLabel());
@@ -731,16 +935,30 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int actionGap = Math.min(6, Math.max(0, innerWidth - 2));
         int actionWidth = Math.max(1, (innerWidth - actionGap) / 2);
         int secondaryActionWidth = Math.max(1, innerWidth - actionWidth - actionGap);
-        this.destructiveButton = this.addBodyButton(x, y, actionWidth, 22,
-                Component.translatable("screen.delvefold.world.delete"), Style.DANGER,
+        this.destructiveButton = this.addBodyButton(
+                x,
+                y,
+                actionWidth,
+                22,
+                Component.translatable("screen.delvefold.world.delete"),
+                Style.DANGER,
                 button -> armOrPerform(AdminOperation.DELETE_WORLD));
-        this.secondaryDestructiveButton = this.addBodyButton(x + actionWidth + actionGap, y, secondaryActionWidth, 22,
-                Component.translatable("screen.delvefold.world.recreate"), Style.DANGER,
+        this.secondaryDestructiveButton = this.addBodyButton(
+                x + actionWidth + actionGap,
+                y,
+                secondaryActionWidth,
+                22,
+                Component.translatable("screen.delvefold.world.recreate"),
+                Style.DANGER,
                 button -> armOrPerform(AdminOperation.RECREATE_WORLD));
         this.destructiveButton.active = this.snapshot.capabilities().canManageWorld();
         this.secondaryDestructiveButton.active = this.snapshot.capabilities().canManageWorld();
         if (this.snapshot.worldOperationPending()) {
-            this.cancelPendingButton = this.addBodyButton(x, y + (compactHeight() ? 24 : 30), innerWidth, 22,
+            this.cancelPendingButton = this.addBodyButton(
+                    x,
+                    y + (compactHeight() ? 24 : 30),
+                    innerWidth,
+                    22,
                     Component.translatable("screen.delvefold.world.cancel_reset"),
                     Style.GHOST,
                     button -> armOrPerform(AdminOperation.CANCEL_PENDING_RESET));
@@ -748,22 +966,28 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         }
         y += compactHeight() ? 55 : 65;
         int backupY = y;
-        this.addBodyButton(x, backupY, Math.min(220, innerWidth), 22,
+        this.addBodyButton(
+                x,
+                backupY,
+                Math.min(220, innerWidth),
+                22,
                 Component.translatable("screen.delvefold.backup.manage"),
-                Style.SECONDARY, button -> this.minecraft.setScreen(new DelvefoldBackupScreen(this, this.snapshot)));
+                Style.SECONDARY,
+                button -> this.minecraft.setScreen(new DelvefoldBackupScreen(this, this.snapshot)));
 
         this.worldContentStacked = this.contentWidth() < 430 || compactHeight();
         if (this.worldContentStacked) {
             this.worldStatusVirtualY = backupY + 30;
-            int statusBottom = includeBodyText(DelvefoldText.serverMessage(this.snapshot.worldStatus()), innerWidth,
-                    this.worldStatusVirtualY);
-            int warningTextHeight = wrappedTextHeight(Component.translatable("screen.delvefold.world.warning"),
-                    Math.max(1, innerWidth - 22));
+            int statusBottom = includeBodyText(
+                    DelvefoldText.serverMessage(this.snapshot.worldStatus()), innerWidth, this.worldStatusVirtualY);
+            int warningTextHeight = wrappedTextHeight(
+                    Component.translatable("screen.delvefold.world.warning"), Math.max(1, innerWidth - 22));
             this.worldWarningHeight = Math.max(this.contentWidth() < 380 ? 64 : 52, warningTextHeight + 16);
             this.worldWarningVirtualY = statusBottom + 8;
         } else {
             this.worldStatusVirtualY = bodyTop() + 30;
-            includeBodyText(DelvefoldText.serverMessage(this.snapshot.worldStatus()),
+            includeBodyText(
+                    DelvefoldText.serverMessage(this.snapshot.worldStatus()),
                     Math.max(1, this.contentWidth() - 258),
                     this.worldStatusVirtualY);
             this.worldWarningHeight = this.contentWidth() < 380 ? 64 : 52;
@@ -779,15 +1003,18 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             updateDestructiveLabels();
             return;
         }
-        perform(operation, switch (operation) {
-            case DELETE_WORLD -> "DELETE";
-            case RECREATE_WORLD -> "RECREATE:"
-                    + this.recreateTerrain.serializedName().toUpperCase(java.util.Locale.ROOT) + ":"
-                    + this.recreateVariant.serializedName().toUpperCase(java.util.Locale.ROOT) + ":"
-                    + this.recreateGeologyTheme.serializedName().toUpperCase(java.util.Locale.ROOT);
-            case CANCEL_PENDING_RESET -> "CANCEL";
-            default -> "";
-        });
+        perform(
+                operation,
+                switch (operation) {
+                    case DELETE_WORLD -> "DELETE";
+                    case RECREATE_WORLD ->
+                        "RECREATE:"
+                                + this.recreateTerrain.serializedName().toUpperCase(java.util.Locale.ROOT) + ":"
+                                + this.recreateVariant.serializedName().toUpperCase(java.util.Locale.ROOT) + ":"
+                                + this.recreateGeologyTheme.serializedName().toUpperCase(java.util.Locale.ROOT);
+                    case CANCEL_PENDING_RESET -> "CANCEL";
+                    default -> "";
+                });
     }
 
     private void updateDestructiveLabels() {
@@ -798,22 +1025,23 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             this.destructiveButton.setMessage(label);
         }
         if (this.secondaryDestructiveButton != null) {
-            this.secondaryDestructiveButton.setMessage(this.armedOperation == AdminOperation.RECREATE_WORLD
-                    ? Component.translatable("screen.delvefold.world.confirm_recreate")
-                    : Component.translatable("screen.delvefold.world.recreate"));
+            this.secondaryDestructiveButton.setMessage(
+                    this.armedOperation == AdminOperation.RECREATE_WORLD
+                            ? Component.translatable("screen.delvefold.world.confirm_recreate")
+                            : Component.translatable("screen.delvefold.world.recreate"));
         }
         if (this.cancelPendingButton != null) {
             boolean armed = this.armedOperation == AdminOperation.CANCEL_PENDING_RESET;
-            this.cancelPendingButton.setMessage(armed
-                    ? Component.translatable("screen.delvefold.world.confirm_cancel")
-                    : Component.translatable("screen.delvefold.world.cancel_reset"));
+            this.cancelPendingButton.setMessage(
+                    armed
+                            ? Component.translatable("screen.delvefold.world.confirm_cancel")
+                            : Component.translatable("screen.delvefold.world.cancel_reset"));
             setButtonStyle(this.cancelPendingButton, armed ? Style.DANGER : Style.GHOST);
         }
     }
 
     private void perform(AdminOperation operation, String confirmation) {
-        DelvefoldClientRequests.send(new AdminActionPayload(
-                this.snapshot.settingsRevision(), operation, confirmation));
+        DelvefoldClientRequests.send(new AdminActionPayload(this.snapshot.settingsRevision(), operation, confirmation));
     }
 
     private void refresh() {
@@ -831,42 +1059,55 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     }
 
     private GameplaySettings currentGameplay() {
-        return new GameplaySettings(this.gameplayPreset, this.monsters, this.creatures, this.ambient,
-                this.waterCreatures, this.patrols, this.phantoms);
+        return new GameplaySettings(
+                this.gameplayPreset,
+                this.monsters,
+                this.creatures,
+                this.ambient,
+                this.waterCreatures,
+                this.patrols,
+                this.phantoms);
     }
 
     private Component gameplayPresetLabel() {
-        return Component.translatable("screen.delvefold.gameplay.preset",
+        return Component.translatable(
+                "screen.delvefold.gameplay.preset",
                 DelvefoldText.option("gameplay", this.gameplayPreset.serializedName()));
     }
 
     private Component recreateTerrainLabel() {
-        return Component.translatable("screen.delvefold.world.recreate_terrain",
+        return Component.translatable(
+                "screen.delvefold.world.recreate_terrain",
                 DelvefoldText.option("terrain", this.recreateTerrain.serializedName()));
     }
 
     private Component recreateVariantLabel() {
-        return Component.translatable("screen.delvefold.world.recreate_scale",
+        return Component.translatable(
+                "screen.delvefold.world.recreate_scale",
                 DelvefoldText.option("terrain_variant", this.recreateVariant.serializedName()));
     }
 
     private Component recreateGeologyThemeLabel() {
-        return Component.translatable("screen.delvefold.world.recreate_geology_theme",
+        return Component.translatable(
+                "screen.delvefold.world.recreate_geology_theme",
                 DelvefoldText.option("geology_theme", this.recreateGeologyTheme.serializedName()));
     }
 
     private Component geologyLockedLabel() {
-        return Component.translatable("screen.delvefold.identity.geology_locked",
+        return Component.translatable(
+                "screen.delvefold.identity.geology_locked",
                 DelvefoldText.option("geology_theme", this.activeGeologyTheme.serializedName()));
     }
 
     private Component landmarkLabel() {
-        return Component.translatable("screen.delvefold.identity.landmarks",
+        return Component.translatable(
+                "screen.delvefold.identity.landmarks",
                 DelvefoldText.option("landmark", this.landmarkPreset.serializedName()));
     }
 
     private Component renewalSeedModeLabel() {
-        return Component.translatable("screen.delvefold.identity.seed_mode",
+        return Component.translatable(
+                "screen.delvefold.identity.seed_mode",
                 DelvefoldText.option("renewal_seed_mode", this.renewalSeedMode.serializedName()));
     }
 
@@ -877,9 +1118,10 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         if (!this.snapshot.capabilities().canManageWorld()) {
             return Component.translatable("screen.delvefold.identity.renewal_read_only");
         }
-        return Component.translatable(this.snapshot.identity().renewal().enabled()
-                ? "screen.delvefold.identity.renewal_enabled_help"
-                : "screen.delvefold.identity.renewal_disabled_help");
+        return Component.translatable(
+                this.snapshot.identity().renewal().enabled()
+                        ? "screen.delvefold.identity.renewal_enabled_help"
+                        : "screen.delvefold.identity.renewal_disabled_help");
     }
 
     private static Component toggleLabel(Component label, boolean enabled) {
@@ -914,7 +1156,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
     @Override
     public Component getNarrationMessage() {
-        return Component.translatable("screen.delvefold.dashboard.narration",
+        return Component.translatable(
+                "screen.delvefold.dashboard.narration",
                 Component.translatable(this.selectedTab.translationKey),
                 this.snapshot.initialized()
                         ? Component.translatable("screen.delvefold.status.ready")
@@ -935,8 +1178,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             }
         }
         VerticalScrollLayout layout = bodyScrollLayout();
-        graphics.enableScissor(this.contentLeft() + 1, layout.viewportTop(),
-                this.contentRight() - 1, layout.viewportBottom());
+        graphics.enableScissor(
+                this.contentLeft() + 1, layout.viewportTop(), this.contentRight() - 1, layout.viewportBottom());
         for (AbstractWidget widget : this.bodyWidgets) {
             widget.render(graphics, mouseX, mouseY, partialTick);
         }
@@ -947,12 +1190,13 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
         VerticalScrollLayout layout = bodyScrollLayout();
         if (hasScrollableBody()
-                && mouseX >= this.contentLeft() && mouseX < this.contentRight()
-                && mouseY >= layout.viewportTop() && mouseY < layout.viewportBottom()
+                && mouseX >= this.contentLeft()
+                && mouseX < this.contentRight()
+                && mouseY >= layout.viewportTop()
+                && mouseY < layout.viewportBottom()
                 && scrollY != 0.0D
                 && layout.maximumScroll() > 0) {
-            setBodyScrollOffset(this.bodyScrollOffset
-                    - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
+            setBodyScrollOffset(this.bodyScrollOffset - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
@@ -970,15 +1214,26 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.ores"), x + 10, y + 7);
                 if (this.snapshot.oreRules().isEmpty()) {
                     beginBodyScissor(graphics);
-                    graphics.drawWordWrap(this.font, Component.translatable("screen.delvefold.ores.empty"),
-                            x + 12, bodyScreenY(y + 63), width - 24, MUTED_TEXT);
+                    graphics.drawWordWrap(
+                            this.font,
+                            Component.translatable("screen.delvefold.ores.empty"),
+                            x + 12,
+                            bodyScreenY(y + 63),
+                            width - 24,
+                            MUTED_TEXT);
                     endBodyScissor(graphics);
                 }
-                int pageCount = Math.max(1, (this.snapshot.oreRuleTotal()
-                        + com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE - 1)
-                        / com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE);
-                Component pageLabel = Component.translatable("screen.delvefold.ores.page",
-                        this.snapshot.oreRuleTotal(), Math.min(this.orePage, pageCount - 1) + 1, pageCount);
+                int pageCount = Math.max(
+                        1,
+                        (this.snapshot.oreRuleTotal()
+                                        + com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE
+                                        - 1)
+                                / com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE);
+                Component pageLabel = Component.translatable(
+                        "screen.delvefold.ores.page",
+                        this.snapshot.oreRuleTotal(),
+                        Math.min(this.orePage, pageCount - 1) + 1,
+                        pageCount);
                 int pagerEnd = this.contentLeft() + footerPagerButtonWidth() * 2 + 16;
                 int pageLabelRight = this.contentRight() - footerDoneWidth() - 8;
                 if (this.contentWidth() >= 430 && pagerEnd + this.font.width(pageLabel) <= pageLabelRight) {
@@ -987,100 +1242,161 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             }
             case PROFILES -> {
                 this.drawCard(graphics, x, y, width, height);
-                this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.profiles"), x + 10, y + 7);
-                Component active = Component.translatable("screen.delvefold.profiles.active",
-                        this.snapshot.activeProfileId());
-                graphics.drawString(this.font, active, x + width - this.font.width(active) - 10,
-                        y + 8, ACCENT, false);
+                this.drawSectionTitle(
+                        graphics, Component.translatable("screen.delvefold.section.profiles"), x + 10, y + 7);
+                Component active =
+                        Component.translatable("screen.delvefold.profiles.active", this.snapshot.activeProfileId());
+                graphics.drawString(this.font, active, x + width - this.font.width(active) - 10, y + 8, ACCENT, false);
                 if (!this.profileError.getString().isEmpty()) {
-                    graphics.drawString(this.font,
+                    graphics.drawString(
+                            this.font,
                             this.font.plainSubstrByWidth(this.profileError.getString(), width - 20),
-                            x + 10, y + height - 15, DANGER, false);
+                            x + 10,
+                            y + height - 15,
+                            DANGER,
+                            false);
                 } else if (this.snapshot.profiles().size() > profilePageSize()) {
                     int pageSize = profilePageSize();
                     int pageCount = (this.snapshot.profiles().size() + pageSize - 1) / pageSize;
-                    graphics.drawString(this.font,
-                            Component.translatable("screen.delvefold.profiles.page",
+                    graphics.drawString(
+                            this.font,
+                            Component.translatable(
+                                    "screen.delvefold.profiles.page",
                                     Math.min(this.profilePage, pageCount - 1) + 1,
-                                    pageCount, this.snapshot.profiles().size()),
-                            x + 10, y + height - 15, DIM_TEXT, false);
+                                    pageCount,
+                                    this.snapshot.profiles().size()),
+                            x + 10,
+                            y + height - 15,
+                            DIM_TEXT,
+                            false);
                 }
             }
             case GAMEPLAY -> {
                 int controlsWidth = Math.min(374, width);
                 this.drawCard(graphics, x, y, controlsWidth, height);
-                this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.gameplay"), x + 10, y + 7);
+                this.drawSectionTitle(
+                        graphics, Component.translatable("screen.delvefold.section.gameplay"), x + 10, y + 7);
                 if (!compactHeight() && width - controlsWidth >= 150) {
                     int infoX = x + controlsWidth + 8;
                     int infoWidth = width - controlsWidth - 8;
                     this.drawCard(graphics, infoX, y, infoWidth, height);
-                    this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.about"), infoX + 10, y + 7);
+                    this.drawSectionTitle(
+                            graphics, Component.translatable("screen.delvefold.section.about"), infoX + 10, y + 7);
                     beginBodyScissor(graphics);
-                    graphics.drawWordWrap(this.font,
+                    graphics.drawWordWrap(
+                            this.font,
                             Component.translatable("screen.delvefold.gameplay.description"),
-                            infoX + 10, bodyScreenY(y + 28), infoWidth - 20, MUTED_TEXT);
-                    graphics.drawWordWrap(this.font,
+                            infoX + 10,
+                            bodyScreenY(y + 28),
+                            infoWidth - 20,
+                            MUTED_TEXT);
+                    graphics.drawWordWrap(
+                            this.font,
                             Component.translatable("screen.delvefold.gameplay.unaffected"),
-                            infoX + 10, bodyScreenY(y + 92), infoWidth - 20, DIM_TEXT);
+                            infoX + 10,
+                            bodyScreenY(y + 92),
+                            infoWidth - 20,
+                            DIM_TEXT);
                     endBodyScissor(graphics);
                 }
             }
             case PORTAL -> {
                 this.drawCard(graphics, x, y, width, height);
-                this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.portal"), x + 10, y + 7);
-                Component readiness = Component.translatable(this.snapshot.initialized()
-                        ? "screen.delvefold.status.ready" : "screen.delvefold.status.not_ready");
-                this.drawBadge(graphics, readiness,
-                        x + width - this.font.width(readiness) - 20, y + 6,
+                this.drawSectionTitle(
+                        graphics, Component.translatable("screen.delvefold.section.portal"), x + 10, y + 7);
+                Component readiness = Component.translatable(
+                        this.snapshot.initialized()
+                                ? "screen.delvefold.status.ready"
+                                : "screen.delvefold.status.not_ready");
+                this.drawBadge(
+                        graphics,
+                        readiness,
+                        x + width - this.font.width(readiness) - 20,
+                        y + 6,
                         this.snapshot.initialized() ? SUCCESS : WARNING);
                 beginBodyScissor(graphics);
-                graphics.drawWordWrap(this.font, DelvefoldText.serverMessage(this.snapshot.portalStatus()),
-                        x + 10, bodyScreenY(this.portalStatusVirtualY), width - 20, MUTED_TEXT);
+                graphics.drawWordWrap(
+                        this.font,
+                        DelvefoldText.serverMessage(this.snapshot.portalStatus()),
+                        x + 10,
+                        bodyScreenY(this.portalStatusVirtualY),
+                        width - 20,
+                        MUTED_TEXT);
                 if (!this.portalError.getString().isEmpty()) {
-                    graphics.drawWordWrap(this.font, this.portalError,
-                            x + 10, bodyScreenY(this.portalErrorVirtualY), width - 20, DANGER);
+                    graphics.drawWordWrap(
+                            this.font,
+                            this.portalError,
+                            x + 10,
+                            bodyScreenY(this.portalErrorVirtualY),
+                            width - 20,
+                            DANGER);
                 }
                 endBodyScissor(graphics);
             }
             case IDENTITY -> {
                 this.drawCard(graphics, x, y, width, height);
-                this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.identity"), x + 10, y + 7);
-                Component variant = Component.translatable("screen.delvefold.identity.scale_locked",
-                        DelvefoldText.option("terrain_variant",
+                this.drawSectionTitle(
+                        graphics, Component.translatable("screen.delvefold.section.identity"), x + 10, y + 7);
+                Component variant = Component.translatable(
+                        "screen.delvefold.identity.scale_locked",
+                        DelvefoldText.option(
+                                "terrain_variant",
                                 this.snapshot.identity().terrainVariant().serializedName()));
-                graphics.drawString(this.font, variant, x + width - this.font.width(variant) - 10,
-                        y + 8, ACCENT, false);
+                graphics.drawString(
+                        this.font, variant, x + width - this.font.width(variant) - 10, y + 8, ACCENT, false);
                 beginBodyScissor(graphics);
                 int messageY = bodyScreenY(this.identityMessageVirtualY);
-                graphics.drawWordWrap(this.font, identityMessage(), x + 10, messageY, width - 20,
+                graphics.drawWordWrap(
+                        this.font,
+                        identityMessage(),
+                        x + 10,
+                        messageY,
+                        width - 20,
                         this.identityError.getString().isEmpty() ? DIM_TEXT : DANGER);
                 endBodyScissor(graphics);
             }
             case DIAGNOSTICS -> {
                 this.drawCard(graphics, x, y, width, height);
-                this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.diagnostics"), x + 10, y + 7);
+                this.drawSectionTitle(
+                        graphics, Component.translatable("screen.delvefold.section.diagnostics"), x + 10, y + 7);
                 renderDiagnostics(graphics, x, y, width, height);
             }
             case WORLD_MANAGEMENT -> {
                 this.drawCard(graphics, x, y, width, height);
-                this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.section.world"), x + 10, y + 7);
+                this.drawSectionTitle(
+                        graphics, Component.translatable("screen.delvefold.section.world"), x + 10, y + 7);
                 int statusY = bodyScreenY(this.worldStatusVirtualY);
                 int warningY = bodyScreenY(this.worldWarningVirtualY);
                 beginBodyScissor(graphics);
                 if (!this.worldContentStacked) {
-                    drawClampedWrap(graphics, DelvefoldText.serverMessage(this.snapshot.worldStatus()),
-                            x + 244, statusY, width - 258, warningY - 5, MUTED_TEXT);
+                    drawClampedWrap(
+                            graphics,
+                            DelvefoldText.serverMessage(this.snapshot.worldStatus()),
+                            x + 244,
+                            statusY,
+                            width - 258,
+                            warningY - 5,
+                            MUTED_TEXT);
                 } else {
-                    drawClampedWrap(graphics, DelvefoldText.serverMessage(this.snapshot.worldStatus()),
-                            x + 10, statusY, width - 20, warningY - 5, MUTED_TEXT);
+                    drawClampedWrap(
+                            graphics,
+                            DelvefoldText.serverMessage(this.snapshot.worldStatus()),
+                            x + 10,
+                            statusY,
+                            width - 20,
+                            warningY - 5,
+                            MUTED_TEXT);
                 }
-                graphics.fill(x + 10, warningY, x + width - 10,
-                        warningY + this.worldWarningHeight, 0xCC2A1C20);
-                graphics.fill(x + 10, warningY, x + 13,
-                        warningY + this.worldWarningHeight, DANGER);
-                drawClampedWrap(graphics, Component.translatable("screen.delvefold.world.warning"),
-                        x + 21, warningY + 8, Math.max(1, width - 42),
-                        warningY + this.worldWarningHeight - 7, DANGER);
+                graphics.fill(x + 10, warningY, x + width - 10, warningY + this.worldWarningHeight, 0xCC2A1C20);
+                graphics.fill(x + 10, warningY, x + 13, warningY + this.worldWarningHeight, DANGER);
+                drawClampedWrap(
+                        graphics,
+                        Component.translatable("screen.delvefold.world.warning"),
+                        x + 21,
+                        warningY + 8,
+                        Math.max(1, width - 42),
+                        warningY + this.worldWarningHeight - 7,
+                        DANGER);
                 endBodyScissor(graphics);
             }
         }
@@ -1145,8 +1461,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         VerticalScrollLayout layout = bodyScrollLayout();
         this.bodyScrollOffset = layout.clamp(this.bodyScrollOffset);
         for (AbstractWidget widget : this.bodyWidgets) {
-            int y = layout.screenY(this.bodyWidgetY.getOrDefault(widget, widget.getY()),
-                    this.bodyScrollOffset);
+            int y = layout.screenY(this.bodyWidgetY.getOrDefault(widget, widget.getY()), this.bodyScrollOffset);
             widget.setY(y);
             widget.visible = layout.fullyVisible(y, widget.getHeight());
         }
@@ -1154,8 +1469,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
     private void beginBodyScissor(GuiGraphics graphics) {
         VerticalScrollLayout layout = bodyScrollLayout();
-        graphics.enableScissor(this.contentLeft() + 1, layout.viewportTop(),
-                this.contentRight() - 1, layout.viewportBottom());
+        graphics.enableScissor(
+                this.contentLeft() + 1, layout.viewportTop(), this.contentRight() - 1, layout.viewportBottom());
     }
 
     private static void endBodyScissor(GuiGraphics graphics) {
@@ -1185,7 +1500,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         for (int index = 0; index < diagnostics.size() && availableLines > 0; index++) {
             Component diagnostic = DelvefoldText.serverMessage(diagnostics.get(index));
             List<FormattedCharSequence> lines = this.font.split(
-                    Component.translatable(index == 0
+                    Component.translatable(
+                            index == 0
                                     ? "screen.delvefold.diagnostics.entry.first"
                                     : "screen.delvefold.diagnostics.entry.next",
                             diagnostic),
@@ -1194,33 +1510,36 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             if (lines.size() + (entriesFollow ? 1 : 0) > availableLines) {
                 int detailLines = Math.max(0, availableLines - 1);
                 for (int line = 0; line < detailLines; line++) {
-                    graphics.drawString(this.font, lines.get(line), x + 12, lineY,
-                            index == 0 ? TEXT : MUTED_TEXT, false);
+                    graphics.drawString(
+                            this.font, lines.get(line), x + 12, lineY, index == 0 ? TEXT : MUTED_TEXT, false);
                     lineY += 12;
                 }
                 if (availableLines > 0) {
                     int remainingEntries = diagnostics.size() - index;
-                    graphics.drawString(this.font,
-                            Component.translatable(remainingEntries == 1
+                    graphics.drawString(
+                            this.font,
+                            Component.translatable(
+                                    remainingEntries == 1
                                             ? "screen.delvefold.diagnostics.more_one"
                                             : "screen.delvefold.diagnostics.more_many",
                                     remainingEntries),
-                            x + 12, lineY, DIM_TEXT, false);
+                            x + 12,
+                            lineY,
+                            DIM_TEXT,
+                            false);
                 }
                 return;
             }
 
             for (FormattedCharSequence line : lines) {
-                graphics.drawString(this.font, line, x + 12, lineY,
-                        index == 0 ? TEXT : MUTED_TEXT, false);
+                graphics.drawString(this.font, line, x + 12, lineY, index == 0 ? TEXT : MUTED_TEXT, false);
                 lineY += 12;
                 availableLines--;
             }
         }
     }
 
-    private void drawClampedWrap(
-            GuiGraphics graphics, Component text, int x, int y, int width, int bottom, int color) {
+    private void drawClampedWrap(GuiGraphics graphics, Component text, int x, int y, int width, int bottom, int color) {
         if (width <= 0 || y + this.font.lineHeight > bottom) {
             return;
         }

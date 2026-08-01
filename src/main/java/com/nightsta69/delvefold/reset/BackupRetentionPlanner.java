@@ -16,15 +16,12 @@ import java.util.Set;
 /** Pure, deterministic planner for previewing automatic backup pruning. */
 public final class BackupRetentionPlanner {
     private static final int MINIMUM_NEWEST_BACKUPS = 2;
-    private static final Comparator<Candidate> NEWEST_FIRST = Comparator
-            .comparingLong(Candidate::createdAtEpochMillis).reversed()
-            .thenComparing(Candidate::id);
-    private static final Comparator<Candidate> OLDEST_FIRST = Comparator
-            .comparingLong(Candidate::createdAtEpochMillis)
-            .thenComparing(Candidate::id);
+    private static final Comparator<Candidate> NEWEST_FIRST =
+            Comparator.comparingLong(Candidate::createdAtEpochMillis).reversed().thenComparing(Candidate::id);
+    private static final Comparator<Candidate> OLDEST_FIRST =
+            Comparator.comparingLong(Candidate::createdAtEpochMillis).thenComparing(Candidate::id);
 
-    private BackupRetentionPlanner() {
-    }
+    private BackupRetentionPlanner() {}
 
     public static Plan plan(
             BackupRetentionSettings settings,
@@ -34,14 +31,24 @@ public final class BackupRetentionPlanner {
         List<Candidate> candidates = normalize(suppliedCandidates);
         long beforeBytes = totalBytes(candidates);
         if (settings == null || !settings.enabled()) {
-            return new Plan(false, List.of(), candidates.size(), candidates.size(), beforeBytes, beforeBytes,
-                    true, List.of(), immutableProtections(protections(candidates, pendingBackupIds)));
+            return new Plan(
+                    false,
+                    List.of(),
+                    candidates.size(),
+                    candidates.size(),
+                    beforeBytes,
+                    beforeBytes,
+                    true,
+                    List.of(),
+                    immutableProtections(protections(candidates, pendingBackupIds)));
         }
 
         Set<String> pending = pendingBackupIds == null ? Set.of() : Set.copyOf(pendingBackupIds);
         Map<String, LinkedHashSet<ProtectionReason>> protectionReasons = protections(candidates, pending);
-        candidates.stream().sorted(NEWEST_FIRST).limit(MINIMUM_NEWEST_BACKUPS).forEach(candidate ->
-                protect(protectionReasons, candidate.id(), ProtectionReason.NEWEST_TWO));
+        candidates.stream()
+                .sorted(NEWEST_FIRST)
+                .limit(MINIMUM_NEWEST_BACKUPS)
+                .forEach(candidate -> protect(protectionReasons, candidate.id(), ProtectionReason.NEWEST_TWO));
         Set<String> protectedIds = protectionReasons.entrySet().stream()
                 .filter(entry -> !entry.getValue().isEmpty())
                 .map(Map.Entry::getKey)
@@ -88,24 +95,41 @@ public final class BackupRetentionPlanner {
         Map<String, Candidate> byId = new HashMap<>();
         candidates.forEach(candidate -> byId.put(candidate.id(), candidate));
         List<Prune> prunes = removals.entrySet().stream()
-                .map(entry -> new Prune(entry.getKey(), byId.get(entry.getKey()).createdAtEpochMillis(),
-                        byId.get(entry.getKey()).sizeBytes(), entry.getValue()))
+                .map(entry -> new Prune(
+                        entry.getKey(),
+                        byId.get(entry.getKey()).createdAtEpochMillis(),
+                        byId.get(entry.getKey()).sizeBytes(),
+                        entry.getValue()))
                 .sorted(Comparator.comparingLong(Prune::createdAtEpochMillis).thenComparing(Prune::id))
                 .toList();
         long afterBytes = retainedBytes(candidates, kept);
         List<String> unmet = unmetConstraints(settings, candidates, kept, now, afterBytes);
-        return new Plan(true, prunes, candidates.size(), kept.size(), beforeBytes, afterBytes,
-                unmet.isEmpty(), unmet, immutableProtections(protectionReasons));
+        return new Plan(
+                true,
+                prunes,
+                candidates.size(),
+                kept.size(),
+                beforeBytes,
+                afterBytes,
+                unmet.isEmpty(),
+                unmet,
+                immutableProtections(protectionReasons));
     }
 
     public static Candidate fromSummary(WorldBackupCatalog.BackupSummary summary) {
-        return new Candidate(summary.id(), summary.createdAtEpochMillis(), summary.sizeBytes(), summary.pinned(),
-                summary.valid(), summary.manifestPresent(), summary.verified(), summary.restorable());
+        return new Candidate(
+                summary.id(),
+                summary.createdAtEpochMillis(),
+                summary.sizeBytes(),
+                summary.pinned(),
+                summary.valid(),
+                summary.manifestPresent(),
+                summary.verified(),
+                summary.restorable());
     }
 
     private static Map<String, LinkedHashSet<ProtectionReason>> protections(
-            List<Candidate> candidates,
-            Set<String> pendingBackupIds) {
+            List<Candidate> candidates, Set<String> pendingBackupIds) {
         Set<String> pending = pendingBackupIds == null ? Set.of() : pendingBackupIds;
         Map<String, LinkedHashSet<ProtectionReason>> result = new LinkedHashMap<>();
         for (Candidate candidate : candidates) {
@@ -139,9 +163,7 @@ public final class BackupRetentionPlanner {
     }
 
     private static void protect(
-            Map<String, LinkedHashSet<ProtectionReason>> protections,
-            String id,
-            ProtectionReason reason) {
+            Map<String, LinkedHashSet<ProtectionReason>> protections, String id, ProtectionReason reason) {
         protections.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(reason);
     }
 
@@ -174,10 +196,7 @@ public final class BackupRetentionPlanner {
     }
 
     private static void remove(
-            Candidate candidate,
-            Reason reason,
-            Set<String> kept,
-            Map<String, List<Reason>> removals) {
+            Candidate candidate, Reason reason, Set<String> kept, Map<String, List<Reason>> removals) {
         if (!kept.remove(candidate.id())) {
             return;
         }
@@ -223,16 +242,12 @@ public final class BackupRetentionPlanner {
     }
 
     private static List<String> unmetConstraints(
-            BackupRetentionSettings settings,
-            List<Candidate> candidates,
-            Set<String> kept,
-            Instant now,
-            long bytes) {
+            BackupRetentionSettings settings, List<Candidate> candidates, Set<String> kept, Instant now, long bytes) {
         List<String> result = new ArrayList<>();
         if (settings.maxAgeDays() > 0) {
             long cutoff = ageCutoff(now, settings.maxAgeDays());
-            boolean hasProtectedExpired = candidates.stream().anyMatch(candidate -> kept.contains(candidate.id())
-                    && candidate.createdAtEpochMillis() < cutoff);
+            boolean hasProtectedExpired = candidates.stream()
+                    .anyMatch(candidate -> kept.contains(candidate.id()) && candidate.createdAtEpochMillis() < cutoff);
             if (hasProtectedExpired) {
                 result.add("max_age_days cannot remove one or more protected backups");
             }
@@ -280,8 +295,7 @@ public final class BackupRetentionPlanner {
             long afterBytes,
             boolean constraintsSatisfied,
             List<String> warnings,
-            Map<String, List<ProtectionReason>> protections
-    ) {
+            Map<String, List<ProtectionReason>> protections) {
         public Plan {
             prunes = prunes == null ? List.of() : List.copyOf(prunes);
             warnings = warnings == null ? List.of() : List.copyOf(warnings);
@@ -289,8 +303,7 @@ public final class BackupRetentionPlanner {
                 protections = Map.of();
             } else {
                 Map<String, List<ProtectionReason>> copy = new LinkedHashMap<>();
-                protections.forEach((id, reasons) -> copy.put(id,
-                        reasons == null ? List.of() : List.copyOf(reasons)));
+                protections.forEach((id, reasons) -> copy.put(id, reasons == null ? List.of() : List.copyOf(reasons)));
                 protections = java.util.Collections.unmodifiableMap(copy);
             }
         }

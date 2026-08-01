@@ -18,8 +18,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Background API for backup hashing. Its default executor uses daemon worker
- * threads, so command and GUI callers never perform large hashes on a tick thread.
+ * Background API for backup hashing. Its default executor uses daemon worker threads, so command and GUI callers never
+ * perform large hashes on a tick thread.
  */
 public final class BackupVerificationService {
     private static final System.Logger LOGGER = System.getLogger(BackupVerificationService.class.getName());
@@ -41,7 +41,8 @@ public final class BackupVerificationService {
 
     /** Shared per-save instance used by command and GUI handlers. */
     public static BackupVerificationService forSave(Path saveRoot) {
-        Path normalized = Objects.requireNonNull(saveRoot, "saveRoot").toAbsolutePath().normalize();
+        Path normalized =
+                Objects.requireNonNull(saveRoot, "saveRoot").toAbsolutePath().normalize();
         synchronized (SERVICES) {
             BackupVerificationService existing = SERVICES.get(normalized);
             if (existing != null) {
@@ -60,7 +61,8 @@ public final class BackupVerificationService {
         if (SERVICES.size() < MAX_CACHED_SAVES) {
             return;
         }
-        Iterator<Map.Entry<Path, BackupVerificationService>> entries = SERVICES.entrySet().iterator();
+        Iterator<Map.Entry<Path, BackupVerificationService>> entries =
+                SERVICES.entrySet().iterator();
         while (entries.hasNext() && SERVICES.size() >= MAX_CACHED_SAVES) {
             if (!entries.next().getValue().hasInFlightWork()) {
                 entries.remove();
@@ -69,7 +71,8 @@ public final class BackupVerificationService {
     }
 
     BackupVerificationService(Path saveRoot, Executor executor, Clock clock) {
-        this.saveRoot = Objects.requireNonNull(saveRoot, "saveRoot").toAbsolutePath().normalize();
+        this.saveRoot =
+                Objects.requireNonNull(saveRoot, "saveRoot").toAbsolutePath().normalize();
         this.executor = Objects.requireNonNull(executor, "executor");
         this.clock = Objects.requireNonNull(clock, "clock");
     }
@@ -80,8 +83,8 @@ public final class BackupVerificationService {
     }
 
     /**
-     * Explicitly validates a legacy backup, creates its manifest, and verifies
-     * all hashes. No manifest is written unless the legacy layout is valid.
+     * Explicitly validates a legacy backup, creates its manifest, and verifies all hashes. No manifest is written
+     * unless the legacy layout is valid.
      */
     public CompletableFuture<BackupVerificationResult> validateLegacyAndCreateManifestAsync(String backupId) {
         return submit(backupId, Action.UPGRADE_LEGACY);
@@ -117,8 +120,8 @@ public final class BackupVerificationService {
         return created;
     }
 
-    private void execute(RequestKey key, String backupId, Action action,
-            CompletableFuture<BackupVerificationResult> created) {
+    private void execute(
+            RequestKey key, String backupId, Action action, CompletableFuture<BackupVerificationResult> created) {
         try {
             executor.execute(() -> {
                 try {
@@ -135,8 +138,7 @@ public final class BackupVerificationService {
         }
     }
 
-    private void finish(RequestKey key, String backupId,
-            CompletableFuture<BackupVerificationResult> completed) {
+    private void finish(RequestKey key, String backupId, CompletableFuture<BackupVerificationResult> completed) {
         synchronized (schedulingLock) {
             inFlight.remove(key, completed);
             tails.remove(backupId, completed);
@@ -158,28 +160,52 @@ public final class BackupVerificationService {
             BackupManifestService manifests = new BackupManifestService(clock);
             if (!BackupManifestService.hasManifest(root)) {
                 if (action == Action.VERIFY) {
-                    return result(backupId, BackupVerificationResult.Status.LEGACY_REQUIRES_VALIDATION,
-                            localized("message.delvefold.backup_verification.legacy_requires_validation",
-                                    backupId),
-                            0, sizeOrUnknown(root), started, worker);
+                    return result(
+                            backupId,
+                            BackupVerificationResult.Status.LEGACY_REQUIRES_VALIDATION,
+                            localized("message.delvefold.backup_verification.legacy_requires_validation", backupId),
+                            0,
+                            sizeOrUnknown(root),
+                            started,
+                            worker);
                 }
                 BackupManifestService.Verification verification = manifests.createVerifiedManifest(root);
-                return result(backupId, BackupVerificationResult.Status.LEGACY_UPGRADED,
-                        localized("message.delvefold.backup_verification.legacy_upgraded", backupId,
-                                verification.receipt().fileCount(), verification.receipt().totalBytes()),
-                        verification.receipt().fileCount(), verification.receipt().totalBytes(), started, worker);
+                return result(
+                        backupId,
+                        BackupVerificationResult.Status.LEGACY_UPGRADED,
+                        localized(
+                                "message.delvefold.backup_verification.legacy_upgraded",
+                                backupId,
+                                verification.receipt().fileCount(),
+                                verification.receipt().totalBytes()),
+                        verification.receipt().fileCount(),
+                        verification.receipt().totalBytes(),
+                        started,
+                        worker);
             }
             BackupManifestService.Verification verification = manifests.verify(root);
-            return result(backupId, BackupVerificationResult.Status.VERIFIED,
-                    localized("message.delvefold.backup_verification.verified", backupId,
-                            verification.receipt().fileCount(), verification.receipt().totalBytes()),
-                    verification.receipt().fileCount(), verification.receipt().totalBytes(), started, worker);
+            return result(
+                    backupId,
+                    BackupVerificationResult.Status.VERIFIED,
+                    localized(
+                            "message.delvefold.backup_verification.verified",
+                            backupId,
+                            verification.receipt().fileCount(),
+                            verification.receipt().totalBytes()),
+                    verification.receipt().fileCount(),
+                    verification.receipt().totalBytes(),
+                    started,
+                    worker);
         } catch (IOException | RuntimeException exception) {
-            LOGGER.log(System.Logger.Level.WARNING,
-                    "Backup verification failed for " + backupId, exception);
-            return result(backupId, BackupVerificationResult.Status.FAILED,
+            LOGGER.log(System.Logger.Level.WARNING, "Backup verification failed for " + backupId, exception);
+            return result(
+                    backupId,
+                    BackupVerificationResult.Status.FAILED,
                     localized("message.delvefold.backup_verification.failed", backupId),
-                    0, -1, started, worker);
+                    0,
+                    -1,
+                    started,
+                    worker);
         }
     }
 
@@ -191,8 +217,7 @@ public final class BackupVerificationService {
             long bytes,
             long started,
             String worker) {
-        return new BackupVerificationResult(id, status, message, files, bytes,
-                started, clock.millis(), worker);
+        return new BackupVerificationResult(id, status, message, files, bytes, started, clock.millis(), worker);
     }
 
     private static long sizeOrUnknown(Path root) {
@@ -216,8 +241,7 @@ public final class BackupVerificationService {
         UPGRADE_LEGACY
     }
 
-    private record RequestKey(String backupId, Action action) {
-    }
+    private record RequestKey(String backupId, Action action) {}
 
     private static final class WorkerThreadFactory implements ThreadFactory {
         @Override

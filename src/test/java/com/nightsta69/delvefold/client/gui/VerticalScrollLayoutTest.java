@@ -53,13 +53,10 @@ class VerticalScrollLayoutTest {
         }
     }
 
-    private static void assertLastActionReachable(
-            VerticalScrollLayout layout, int virtualY, int height) {
+    private static void assertLastActionReachable(VerticalScrollLayout layout, int virtualY, int height) {
         assertTrue(layout.maximumScroll() > 0);
         boolean reachable = false;
-        for (int requestedOffset = 0;
-                requestedOffset <= layout.maximumScroll() + 24;
-                requestedOffset += 24) {
+        for (int requestedOffset = 0; requestedOffset <= layout.maximumScroll() + 24; requestedOffset += 24) {
             int offset = layout.clamp(requestedOffset);
             reachable |= layout.fullyVisible(layout.screenY(virtualY, offset), height);
         }

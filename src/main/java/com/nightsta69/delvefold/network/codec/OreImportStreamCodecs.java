@@ -19,8 +19,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /** Strict bounded codecs for ore-import scan and preview pages. */
 public final class OreImportStreamCodecs {
-    private OreImportStreamCodecs() {
-    }
+    private OreImportStreamCodecs() {}
 
     public static void writeScan(RegistryFriendlyByteBuf buffer, ScanView view) {
         int start = buffer.writerIndex();
@@ -137,28 +136,38 @@ public final class OreImportStreamCodecs {
             String ruleId = readOptionalId(buffer);
             List<String> added = readIds(buffer, ProtocolLimits.MAX_VARIANTS, "added blocks");
             List<String> skipped = readIds(buffer, ProtocolLimits.MAX_VARIANTS, "skipped blocks");
-            diff.add(new DiffView(groupId, status, ruleId, added, skipped,
+            diff.add(new DiffView(
+                    groupId,
+                    status,
+                    ruleId,
+                    added,
+                    skipped,
                     readText(buffer, ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH)));
             ensureBudget(buffer.readerIndex() - start);
         }
         int workloadCount = readCount(buffer, TerrainMode.values().length, "terrain workloads");
         List<TerrainDeltaView> workloads = new ArrayList<>(workloadCount);
         for (int index = 0; index < workloadCount; index++) {
-            workloads.add(new TerrainDeltaView(readEnum(buffer, TerrainMode.class),
-                    readMetric(buffer), readMetric(buffer), readMetric(buffer), readMetric(buffer)));
+            workloads.add(new TerrainDeltaView(
+                    readEnum(buffer, TerrainMode.class),
+                    readMetric(buffer),
+                    readMetric(buffer),
+                    readMetric(buffer),
+                    readMetric(buffer)));
         }
         int issueCount = readCount(buffer, ProtocolLimits.MAX_IMPORT_ISSUES, "validation issues");
         List<ValidationIssueView> issues = new ArrayList<>(issueCount);
         for (int index = 0; index < issueCount; index++) {
             issues.add(new ValidationIssueView(
-                    readEnum(buffer, IssueSeverity.class), readId(buffer),
+                    readEnum(buffer, IssueSeverity.class),
+                    readId(buffer),
                     readText(buffer, ProtocolLimits.SHORT_TEXT_LENGTH),
                     readText(buffer, ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH)));
             ensureBudget(buffer.readerIndex() - start);
         }
         boolean truncated = buffer.readBoolean();
-        return new PreviewView(token, revision, base, page, pageCount, total, valid,
-                addedRules, diff, workloads, issues, truncated);
+        return new PreviewView(
+                token, revision, base, page, pageCount, total, valid, addedRules, diff, workloads, issues, truncated);
     }
 
     private static void writeIds(RegistryFriendlyByteBuf buffer, List<String> values, int maximum, String label) {

@@ -6,8 +6,8 @@ import java.util.Objects;
 /**
  * Bounded public information suitable for recipe viewers, API consumers, and client payloads.
  *
- * <p>This contract intentionally has no seed, horizontal position, filesystem,
- * confirmation, permission, validation, or administration fields.</p>
+ * <p>This contract intentionally has no seed, horizontal position, filesystem, confirmation, permission, validation, or
+ * administration fields.
  */
 public record GuideSnapshot(
         int formatVersion,
@@ -40,8 +40,9 @@ public record GuideSnapshot(
         if (ores.size() > GuideLimits.MAX_ORE_ENTRIES) {
             throw new IllegalArgumentException("Too many guide ore entries");
         }
-        if (estimatedNetworkBytes(formatVersion, worldName, terrain, terrainVariant, geologyTheme, activeProfile,
-                renewal, ores) > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
+        if (estimatedNetworkBytes(
+                        formatVersion, worldName, terrain, terrainVariant, geologyTheme, activeProfile, renewal, ores)
+                > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
             throw new IllegalArgumentException("Guide snapshot exceeds its network-size budget");
         }
     }
@@ -57,21 +58,40 @@ public record GuideSnapshot(
             Renewal renewal,
             List<OreEntry> ores,
             boolean truncated) {
-        this(formatVersion, worldName, terrain, terrainVariant, "classic", activeProfile,
-                portalStatus, renewal, ores, truncated);
+        this(
+                formatVersion,
+                worldName,
+                terrain,
+                terrainVariant,
+                "classic",
+                activeProfile,
+                portalStatus,
+                renewal,
+                ores,
+                truncated);
     }
 
     public int estimatedNetworkBytes() {
-        return estimatedNetworkBytes(formatVersion, worldName, terrain, terrainVariant, geologyTheme, activeProfile,
-                renewal, ores);
+        return estimatedNetworkBytes(
+                formatVersion, worldName, terrain, terrainVariant, geologyTheme, activeProfile, renewal, ores);
     }
 
     static int estimatedBaseNetworkBytes(
-            String worldName, String terrain, String terrainVariant, String geologyTheme,
-            String activeProfile, Renewal renewal) {
-        return estimatedNetworkBytes(CURRENT_FORMAT_VERSION, worldName, terrain, terrainVariant, geologyTheme,
+            String worldName,
+            String terrain,
+            String terrainVariant,
+            String geologyTheme,
+            String activeProfile,
+            Renewal renewal) {
+        return estimatedNetworkBytes(
+                CURRENT_FORMAT_VERSION,
+                worldName,
+                terrain,
+                terrainVariant,
+                geologyTheme,
                 activeProfile,
-                renewal, List.of());
+                renewal,
+                List.of());
     }
 
     private static int estimatedNetworkBytes(
@@ -174,9 +194,11 @@ public record GuideSnapshot(
             List<String> biomeIncludes,
             List<String> biomeExcludes) {
         public Applicability {
-            terrains = terrains == null ? List.of() : terrains.stream()
-                    .map(value -> GuideLimits.boundedText(value, GuideLimits.MAX_IDENTIFIER_CHARACTERS))
-                    .toList();
+            terrains = terrains == null
+                    ? List.of()
+                    : terrains.stream()
+                            .map(value -> GuideLimits.boundedText(value, GuideLimits.MAX_IDENTIFIER_CHARACTERS))
+                            .toList();
             if (terrains.size() > GuideLimits.MAX_APPLICABLE_TERRAINS) {
                 throw new IllegalArgumentException("Too many applicable terrains");
             }
@@ -199,9 +221,11 @@ public record GuideSnapshot(
         }
 
         private static List<String> boundedSelectors(List<String> values) {
-            List<String> safe = values == null ? List.of() : values.stream()
-                    .map(value -> GuideLimits.boundedText(value, GuideLimits.MAX_IDENTIFIER_CHARACTERS))
-                    .toList();
+            List<String> safe = values == null
+                    ? List.of()
+                    : values.stream()
+                            .map(value -> GuideLimits.boundedText(value, GuideLimits.MAX_IDENTIFIER_CHARACTERS))
+                            .toList();
             if (safe.size() > GuideLimits.MAX_BIOME_SELECTORS_PER_LIST) {
                 throw new IllegalArgumentException("Too many guide biome selectors");
             }
@@ -210,13 +234,7 @@ public record GuideSnapshot(
     }
 
     public record HeightBand(
-            String bandId,
-            String distribution,
-            int minY,
-            int maxY,
-            int bestMinY,
-            int bestMaxY,
-            int veinSize) {
+            String bandId, String distribution, int minY, int maxY, int bestMinY, int bestMaxY, int veinSize) {
         public HeightBand {
             bandId = GuideLimits.boundedText(bandId, GuideLimits.MAX_IDENTIFIER_CHARACTERS);
             distribution = GuideLimits.boundedText(distribution, GuideLimits.MAX_IDENTIFIER_CHARACTERS);

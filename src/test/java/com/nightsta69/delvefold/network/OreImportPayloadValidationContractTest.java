@@ -8,8 +8,7 @@ import org.junit.jupiter.api.Test;
 
 /** Source contracts for payloads whose NeoForge supertypes are not on the pure-test classpath. */
 class OreImportPayloadValidationContractTest {
-    private static final Path PAYLOADS = Path.of(
-            "src/main/java/com/nightsta69/delvefold/network/payload");
+    private static final Path PAYLOADS = Path.of("src/main/java/com/nightsta69/delvefold/network/payload");
 
     @Test
     void forecastAndScanRequestsBoundPagesAndRevisions() throws Exception {
@@ -39,16 +38,19 @@ class OreImportPayloadValidationContractTest {
         int nullHandling = constructor.indexOf("id == null");
         int idTrimming = constructor.indexOf("id.trim()");
         int duplicateCheck = constructor.indexOf(".distinct().count()");
-        assertTrue(nullHandling >= 0 && idTrimming > nullHandling && duplicateCheck > idTrimming,
+        assertTrue(
+                nullHandling >= 0 && idTrimming > nullHandling && duplicateCheck > idTrimming,
                 "Selected IDs must be null-checked, trimmed, and only then checked for duplicates");
         assertTrue(constructor.contains("ProtocolLimits.MAX_IMPORT_SELECTED_GROUPS"));
         assertTrue(constructor.contains("ProtocolLimits.ID_LENGTH"));
-        assertTrue(constructor.contains("List.copyOf") || constructor.contains(".toList()"),
+        assertTrue(
+                constructor.contains("List.copyOf") || constructor.contains(".toList()"),
                 "The constructor must retain an immutable defensive copy of selected IDs");
 
         int wireCountCheck = preview.indexOf("if (count < 1 || count >");
         int wireAllocation = preview.indexOf("new java.util.ArrayList<>(count)");
-        assertTrue(wireCountCheck >= 0 && wireAllocation > wireCountCheck,
+        assertTrue(
+                wireCountCheck >= 0 && wireAllocation > wireCountCheck,
                 "The wire count must be validated before allocating the selected-ID list");
     }
 

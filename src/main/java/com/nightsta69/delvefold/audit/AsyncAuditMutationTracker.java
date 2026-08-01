@@ -15,10 +15,10 @@ import java.util.function.Supplier;
 /**
  * Tracks asynchronous filesystem mutations whose audit entry must be queued before a save closes.
  *
- * <p>Normal completion notifications may still return to the server executor, but the small,
- * thread-safe audit callback registered here runs on the completing thread. Server shutdown drains
- * these callbacks before stopping the per-save audit writer, so a completed mutation cannot be
- * silently attributed to the next save or dropped after the writer has closed.</p>
+ * <p>Normal completion notifications may still return to the server executor, but the small, thread-safe audit callback
+ * registered here runs on the completing thread. Server shutdown drains these callbacks before stopping the per-save
+ * audit writer, so a completed mutation cannot be silently attributed to the next save or dropped after the writer has
+ * closed.
  */
 public final class AsyncAuditMutationTracker {
     private static final System.Logger LOGGER = System.getLogger(AsyncAuditMutationTracker.class.getName());
@@ -36,8 +36,7 @@ public final class AsyncAuditMutationTracker {
         Path key = normalize(saveRoot);
         synchronized (lock) {
             if (sessions.containsKey(key)) {
-                throw new IllegalStateException(
-                        "An earlier Delvefold asynchronous-audit session has not ended");
+                throw new IllegalStateException("An earlier Delvefold asynchronous-audit session has not ended");
             }
             sessions.put(key, new Session());
         }
@@ -49,25 +48,23 @@ public final class AsyncAuditMutationTracker {
         synchronized (lock) {
             Session session = sessions.get(key);
             if (session == null || session.accepting || !session.pending.isEmpty()) {
-                throw new IllegalStateException(
-                        "The Delvefold asynchronous-audit session cannot be opened");
+                throw new IllegalStateException("The Delvefold asynchronous-audit session cannot be opened");
             }
             session.accepting = true;
         }
     }
 
     /**
-     * Registers the shutdown gate before invoking {@code sourceFactory}, so closing a save either
-     * observes the operation or rejects it before its filesystem mutation can begin.
+     * Registers the shutdown gate before invoking {@code sourceFactory}, so closing a save either observes the
+     * operation or rejects it before its filesystem mutation can begin.
      *
-     * <p>Callback failures are contained because auditing must never roll back the completed
-     * mutation. A rejected start is returned as a failed future and never invokes the factory.</p>
+     * <p>Callback failures are contained because auditing must never roll back the completed mutation. A rejected start
+     * is returned as a failed future and never invokes the factory.
      */
     public <T> CompletableFuture<T> startTracked(
             Path saveRoot,
             Supplier<? extends CompletionStage<T>> sourceFactory,
-            BiConsumer<? super T, ? super Throwable> auditCompletion
-    ) {
+            BiConsumer<? super T, ? super Throwable> auditCompletion) {
         Path key = normalize(saveRoot);
         Objects.requireNonNull(sourceFactory, "sourceFactory");
         Objects.requireNonNull(auditCompletion, "auditCompletion");
@@ -77,8 +74,8 @@ public final class AsyncAuditMutationTracker {
         synchronized (lock) {
             Session session = sessions.get(key);
             if (session == null || !session.accepting) {
-                return CompletableFuture.failedFuture(new IllegalStateException(
-                        "The Delvefold save session is closing"));
+                return CompletableFuture.failedFuture(
+                        new IllegalStateException("The Delvefold save session is closing"));
             }
             trackedSession = session;
             session.pending.add(gate);
@@ -95,15 +92,16 @@ public final class AsyncAuditMutationTracker {
                 try {
                     auditCompletion.accept(result, failure);
                 } catch (RuntimeException exception) {
-                    LOGGER.log(System.Logger.Level.ERROR,
-                            "Delvefold asynchronous audit callback failed", exception);
+                    LOGGER.log(System.Logger.Level.ERROR, "Delvefold asynchronous audit callback failed", exception);
                 } finally {
                     gate.complete(null);
                 }
             });
         } catch (RuntimeException exception) {
-            LOGGER.log(System.Logger.Level.ERROR,
-                    "Delvefold could not register an asynchronous audit callback", exception);
+            LOGGER.log(
+                    System.Logger.Level.ERROR,
+                    "Delvefold could not register an asynchronous audit callback",
+                    exception);
             gate.complete(null);
         }
         return source.toCompletableFuture();

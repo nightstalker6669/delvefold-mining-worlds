@@ -17,10 +17,11 @@ public record InitializeWorldPayload(
         OrePreset orePreset,
         GameplaySettings gameplay,
         WorldIdentitySettings identity,
-        boolean lockConfirmed) implements CustomPacketPayload {
+        boolean lockConfirmed)
+        implements CustomPacketPayload {
 
-    public static final Type<InitializeWorldPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "initialize_world"));
+    public static final Type<InitializeWorldPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "initialize_world"));
     public static final StreamCodec<RegistryFriendlyByteBuf, InitializeWorldPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeLong(payload.expectedOreRevision());

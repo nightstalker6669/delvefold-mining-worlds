@@ -14,56 +14,91 @@ import java.util.Set;
 /** Rejects misspelled or structurally misplaced JSON fields before Gson applies record defaults. */
 final class StrictConfigStructure {
     private static final Set<String> ORE_DOCUMENT = Set.of("schema_version", "revision", "profile", "rules");
-    private static final Set<String> ORE_RULE = Set.of(
-            "id", "enabled", "required", "terrain_modes", "targets", "biomes", "bands");
+    private static final Set<String> ORE_RULE =
+            Set.of("id", "enabled", "required", "terrain_modes", "targets", "biomes", "bands");
     private static final Set<String> ORE_TARGET = Set.of("block", "block_tag", "state", "replace_tag", "weight");
     private static final Set<String> REQUIRED_ORE_TARGET = Set.of("state", "replace_tag");
     private static final Set<String> BIOME_FILTER = Set.of("include", "exclude");
     private static final Set<String> SPAWN_BAND = Set.of(
-            "id", "vein_size", "attempts_per_chunk", "distribution", "min_y", "max_y",
-            "peak_y", "plateau_min_y", "plateau_max_y", "discard_on_air_exposure",
-            "placement", "province");
+            "id",
+            "vein_size",
+            "attempts_per_chunk",
+            "distribution",
+            "min_y",
+            "max_y",
+            "peak_y",
+            "plateau_min_y",
+            "plateau_max_y",
+            "discard_on_air_exposure",
+            "placement",
+            "province");
     private static final Set<String> REQUIRED_SPAWN_BAND = Set.of(
-            "id", "vein_size", "attempts_per_chunk", "distribution", "min_y", "max_y",
-            "discard_on_air_exposure");
+            "id", "vein_size", "attempts_per_chunk", "distribution", "min_y", "max_y", "discard_on_air_exposure");
     private static final Set<String> BAND_PLACEMENT = Set.of("vein", "province");
-    private static final Set<String> PROVINCE = Set.of(
-            "region_size", "radius", "vertical_thickness", "density", "per_chunk_work_cap");
+    private static final Set<String> PROVINCE =
+            Set.of("region_size", "radius", "vertical_thickness", "density", "per_chunk_work_cap");
     private static final Set<String> SETTINGS_DOCUMENT = Set.of(
-            "schema_version", "revision", "generation_epoch", "generation_salt", "last_world_operation_id", "initialized",
-            "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal", "identity",
-            "guide_visibility", "backup_retention");
+            "schema_version",
+            "revision",
+            "generation_epoch",
+            "generation_salt",
+            "last_world_operation_id",
+            "initialized",
+            "terrain_mode",
+            "ore_preset",
+            "active_profile_id",
+            "gameplay",
+            "portal",
+            "identity",
+            "guide_visibility",
+            "backup_retention");
     private static final Set<String> REQUIRED_SETTINGS_DOCUMENT = Set.of(
-            "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
-            "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal");
-    private static final Set<String> GAMEPLAY = Set.of(
-            "preset", "monsters", "creatures", "ambient", "water_creatures", "patrols", "phantoms");
+            "schema_version",
+            "revision",
+            "generation_epoch",
+            "last_world_operation_id",
+            "initialized",
+            "terrain_mode",
+            "ore_preset",
+            "active_profile_id",
+            "gameplay",
+            "portal");
+    private static final Set<String> GAMEPLAY =
+            Set.of("preset", "monsters", "creatures", "ambient", "water_creatures", "patrols", "phantoms");
     private static final Set<String> PORTAL = Set.of(
-            "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale",
-            "routing_mode", "hub");
-    private static final Set<String> REQUIRED_PORTAL = Set.of(
-            "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale");
+            "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale", "routing_mode", "hub");
+    private static final Set<String> REQUIRED_PORTAL =
+            Set.of("enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale");
     private static final Set<String> PORTAL_ROUTING_MODE = Set.of("coordinate_linked", "central_hub");
     private static final Set<String> PORTAL_HUB = Set.of("x", "z", "protection_radius");
     private static final Set<String> GUIDE_VISIBILITY = Set.of("public", "operators", "disabled");
-    private static final Set<String> BACKUP_RETENTION = Set.of(
-            "enabled", "max_count", "max_age_days", "max_total_bytes");
+    private static final Set<String> BACKUP_RETENTION =
+            Set.of("enabled", "max_count", "max_age_days", "max_total_bytes");
     private static final Set<String> IDENTITY = Set.of(
-            "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
-            "fault_lines", "geology_theme", "renewal");
+            "display_name",
+            "terrain_variant",
+            "landmark_preset",
+            "survey_stations",
+            "motherlodes",
+            "fault_lines",
+            "geology_theme",
+            "renewal");
     private static final Set<String> REQUIRED_IDENTITY = Set.of(
-            "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
-            "fault_lines", "renewal");
-    private static final Set<String> GEOLOGY_THEMES = Set.of(
-            "classic", "volcanic", "dripstone", "lush", "crystal");
-    private static final Set<String> RENEWAL = Set.of(
-            "enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis", "seed_mode");
-    private static final Set<String> REQUIRED_RENEWAL = Set.of(
-            "enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis");
+            "display_name",
+            "terrain_variant",
+            "landmark_preset",
+            "survey_stations",
+            "motherlodes",
+            "fault_lines",
+            "renewal");
+    private static final Set<String> GEOLOGY_THEMES = Set.of("classic", "volcanic", "dripstone", "lush", "crystal");
+    private static final Set<String> RENEWAL =
+            Set.of("enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis", "seed_mode");
+    private static final Set<String> REQUIRED_RENEWAL =
+            Set.of("enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis");
     private static final Set<String> RENEWAL_SEED_MODE = Set.of("stable", "rotate_on_recreate");
 
-    private StrictConfigStructure() {
-    }
+    private StrictConfigStructure() {}
 
     static JsonElement parseAndValidate(String json, Class<?> type) {
         JsonElement root = JsonParser.parseString(json);
@@ -104,8 +139,8 @@ final class StrictConfigStructure {
                 }
                 string(target.get("replace_tag"), targetPath + ".replace_tag", false);
                 if (target.has("weight")) {
-                    boundedInteger(target.get("weight"), targetPath + ".weight",
-                            OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT);
+                    boundedInteger(
+                            target.get("weight"), targetPath + ".weight", OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT);
                 }
             }
 
@@ -192,15 +227,14 @@ final class StrictConfigStructure {
         fields(portal, PORTAL, REQUIRED_PORTAL, "$.portal");
         bool(portal.get("enabled"), "$.portal.enabled");
         bool(portal.get("allow_from_overworld_only"), "$.portal.allow_from_overworld_only");
-        boundedInteger(portal.get("cooldown_seconds"), "$.portal.cooldown_seconds",
-                Integer.MIN_VALUE, Integer.MAX_VALUE);
+        boundedInteger(
+                portal.get("cooldown_seconds"), "$.portal.cooldown_seconds", Integer.MIN_VALUE, Integer.MAX_VALUE);
         number(portal.get("coordinate_scale"), "$.portal.coordinate_scale");
         if (portal.has("routing_mode")) {
             string(portal.get("routing_mode"), "$.portal.routing_mode", false);
             String routingMode = portal.get("routing_mode").getAsString();
             if (!PORTAL_ROUTING_MODE.contains(routingMode)) {
-                throw new JsonParseException(
-                        "$.portal.routing_mode must be coordinate_linked or central_hub");
+                throw new JsonParseException("$.portal.routing_mode must be coordinate_linked or central_hub");
             }
         }
         if (portal.has("hub")) {
@@ -230,18 +264,26 @@ final class StrictConfigStructure {
             JsonObject renewal = object(identity.get("renewal"), "$.identity.renewal");
             fields(renewal, RENEWAL, REQUIRED_RENEWAL, "$.identity.renewal");
             bool(renewal.get("enabled"), "$.identity.renewal.enabled");
-            boundedInteger(renewal.get("interval_days"), "$.identity.renewal.interval_days",
-                    Integer.MIN_VALUE, Integer.MAX_VALUE);
-            boundedInteger(renewal.get("warning_minutes"), "$.identity.renewal.warning_minutes",
-                    Integer.MIN_VALUE, Integer.MAX_VALUE);
-            boundedLong(renewal.get("next_renewal_at_epoch_millis"),
-                    "$.identity.renewal.next_renewal_at_epoch_millis", 0L, Long.MAX_VALUE);
+            boundedInteger(
+                    renewal.get("interval_days"),
+                    "$.identity.renewal.interval_days",
+                    Integer.MIN_VALUE,
+                    Integer.MAX_VALUE);
+            boundedInteger(
+                    renewal.get("warning_minutes"),
+                    "$.identity.renewal.warning_minutes",
+                    Integer.MIN_VALUE,
+                    Integer.MAX_VALUE);
+            boundedLong(
+                    renewal.get("next_renewal_at_epoch_millis"),
+                    "$.identity.renewal.next_renewal_at_epoch_millis",
+                    0L,
+                    Long.MAX_VALUE);
             if (renewal.has("seed_mode")) {
                 string(renewal.get("seed_mode"), "$.identity.renewal.seed_mode", false);
                 String seedMode = renewal.get("seed_mode").getAsString();
                 if (!RENEWAL_SEED_MODE.contains(seedMode)) {
-                    throw new JsonParseException(
-                            "$.identity.renewal.seed_mode must be stable or rotate_on_recreate");
+                    throw new JsonParseException("$.identity.renewal.seed_mode must be stable or rotate_on_recreate");
                 }
             }
         }
@@ -285,19 +327,25 @@ final class StrictConfigStructure {
         if (nullable && element != null && element.isJsonNull()) {
             return;
         }
-        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isString()) {
+        if (element == null
+                || !element.isJsonPrimitive()
+                || !element.getAsJsonPrimitive().isString()) {
             throw new JsonParseException(path + " must be a JSON string" + (nullable ? " or null" : ""));
         }
     }
 
     private static void bool(JsonElement element, String path) {
-        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isBoolean()) {
+        if (element == null
+                || !element.isJsonPrimitive()
+                || !element.getAsJsonPrimitive().isBoolean()) {
             throw new JsonParseException(path + " must be a JSON boolean");
         }
     }
 
     private static void number(JsonElement element, String path) {
-        if (element == null || !element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber()) {
+        if (element == null
+                || !element.isJsonPrimitive()
+                || !element.getAsJsonPrimitive().isNumber()) {
             throw new JsonParseException(path + " must be a JSON number");
         }
     }
@@ -314,8 +362,7 @@ final class StrictConfigStructure {
         } catch (ArithmeticException exception) {
             throw new JsonParseException(path + " must be a whole number", exception);
         }
-        if (value.compareTo(BigInteger.valueOf(minimum)) < 0
-                || value.compareTo(BigInteger.valueOf(maximum)) > 0) {
+        if (value.compareTo(BigInteger.valueOf(minimum)) < 0 || value.compareTo(BigInteger.valueOf(maximum)) > 0) {
             throw new JsonParseException(path + " must be between " + minimum + " and " + maximum);
         }
     }
@@ -328,8 +375,7 @@ final class StrictConfigStructure {
         } catch (ArithmeticException exception) {
             throw new JsonParseException(path + " must be a whole number", exception);
         }
-        if (value.compareTo(BigInteger.valueOf(minimum)) < 0
-                || value.compareTo(BigInteger.valueOf(maximum)) > 0) {
+        if (value.compareTo(BigInteger.valueOf(minimum)) < 0 || value.compareTo(BigInteger.valueOf(maximum)) > 0) {
             throw new JsonParseException(path + " must be between " + minimum + " and " + maximum);
         }
     }

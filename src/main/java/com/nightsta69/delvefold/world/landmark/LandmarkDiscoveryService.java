@@ -28,8 +28,7 @@ public final class LandmarkDiscoveryService {
     private static final Map<UUID, Visit> CURRENT_VISITS = new ConcurrentHashMap<>();
     private static boolean registered;
 
-    private LandmarkDiscoveryService() {
-    }
+    private LandmarkDiscoveryService() {}
 
     public static synchronized void register() {
         if (registered) {
@@ -38,7 +37,8 @@ public final class LandmarkDiscoveryService {
         registered = true;
         IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener(PlayerTickEvent.Post.class, LandmarkDiscoveryService::onPlayerTick);
-        bus.addListener(PlayerEvent.PlayerLoggedOutEvent.class,
+        bus.addListener(
+                PlayerEvent.PlayerLoggedOutEvent.class,
                 event -> CURRENT_VISITS.remove(event.getEntity().getUUID()));
         bus.addListener(ServerStoppingEvent.class, event -> CURRENT_VISITS.clear());
     }
@@ -52,8 +52,8 @@ public final class LandmarkDiscoveryService {
             return;
         }
         ServerLevel level = player.serverLevel();
-        StructureStart start = level.structureManager().getStructureWithPieceAt(
-                player.blockPosition(), LandmarkRegistries.LANDMARKS);
+        StructureStart start =
+                level.structureManager().getStructureWithPieceAt(player.blockPosition(), LandmarkRegistries.LANDMARKS);
         if (!start.isValid()) {
             CURRENT_VISITS.remove(player.getUUID());
             return;
@@ -62,7 +62,8 @@ public final class LandmarkDiscoveryService {
                 .filter(candidate -> candidate.getBoundingBox().isInside(player.blockPosition()))
                 .filter(LandmarkTemplatePiece.class::isInstance)
                 .map(LandmarkTemplatePiece.class::cast)
-                .findFirst().orElse(null);
+                .findFirst()
+                .orElse(null);
         if (piece == null) {
             CURRENT_VISITS.remove(player.getUUID());
             return;
@@ -90,6 +91,5 @@ public final class LandmarkDiscoveryService {
         return current != null && !current.equals(previous);
     }
 
-    record Visit(ResourceKey<Level> dimension, ChunkPos startChunk, ResourceLocation landmarkId) {
-    }
+    record Visit(ResourceKey<Level> dimension, ChunkPos startChunk, ResourceLocation landmarkId) {}
 }

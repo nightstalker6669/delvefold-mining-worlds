@@ -11,7 +11,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /** Validates and fills rectangular Delvefold frames with a 2x3 through 21x21 interior. */
@@ -41,9 +40,8 @@ record PortalFrameShape(BlockPos bottomLeft, Direction.Axis axis, int width, int
             Direction widthDirection = positiveDirection(axis);
             for (int verticalOffset = -1; verticalOffset <= 1; verticalOffset++) {
                 for (int widthOffset = -1; widthOffset <= 1; widthOffset++) {
-                    BlockPos candidate = clickedFrame
-                            .relative(widthDirection, widthOffset)
-                            .above(verticalOffset);
+                    BlockPos candidate =
+                            clickedFrame.relative(widthDirection, widthOffset).above(verticalOffset);
                     Optional<PortalFrameShape> shape = findFromInterior(level, candidate, axis);
                     if (shape.isPresent() && shape.get().isFramePosition(clickedFrame)) {
                         return shape;
@@ -71,7 +69,9 @@ record PortalFrameShape(BlockPos bottomLeft, Direction.Axis axis, int width, int
         Direction positive = positiveDirection(axis);
         Direction negative = positive.getOpposite();
         BlockPos bottomLeft = bottom;
-        for (int moved = 0; moved < MAX_WIDTH && isInterior(level.getBlockState(bottomLeft.relative(negative))); moved++) {
+        for (int moved = 0;
+                moved < MAX_WIDTH && isInterior(level.getBlockState(bottomLeft.relative(negative)));
+                moved++) {
             bottomLeft = bottomLeft.relative(negative);
         }
         if (!isFrame(level.getBlockState(bottomLeft.relative(negative)))) {
@@ -89,7 +89,8 @@ record PortalFrameShape(BlockPos bottomLeft, Direction.Axis axis, int width, int
         }
 
         for (int offset = -1; offset <= width; offset++) {
-            if (!isFrame(level.getBlockState(bottomLeft.relative(positive, offset).below()))) {
+            if (!isFrame(
+                    level.getBlockState(bottomLeft.relative(positive, offset).below()))) {
                 return Optional.empty();
             }
         }
@@ -101,12 +102,15 @@ record PortalFrameShape(BlockPos bottomLeft, Direction.Axis axis, int width, int
                         : Optional.empty();
             }
             if (y == MAX_HEIGHT
-                    || !isFrame(level.getBlockState(bottomLeft.relative(negative).above(y)))
-                    || !isFrame(level.getBlockState(bottomLeft.relative(positive, width).above(y)))) {
+                    || !isFrame(
+                            level.getBlockState(bottomLeft.relative(negative).above(y)))
+                    || !isFrame(level.getBlockState(
+                            bottomLeft.relative(positive, width).above(y)))) {
                 return Optional.empty();
             }
             for (int offset = 0; offset < width; offset++) {
-                if (!isInterior(level.getBlockState(bottomLeft.relative(positive, offset).above(y)))) {
+                if (!isInterior(level.getBlockState(
+                        bottomLeft.relative(positive, offset).above(y)))) {
                     return Optional.empty();
                 }
             }
@@ -122,8 +126,7 @@ record PortalFrameShape(BlockPos bottomLeft, Direction.Axis axis, int width, int
     boolean isFilled(LevelAccessor level) {
         for (BlockPos position : interiorPositions()) {
             BlockState state = level.getBlockState(position);
-            if (!state.is(PortalRegistries.PORTAL.get())
-                    || state.getValue(MiningPortalBlock.AXIS) != axis) {
+            if (!state.is(PortalRegistries.PORTAL.get()) || state.getValue(MiningPortalBlock.AXIS) != axis) {
                 return false;
             }
         }
@@ -190,7 +193,8 @@ record PortalFrameShape(BlockPos bottomLeft, Direction.Axis axis, int width, int
     private static boolean isFullFrameRow(
             LevelAccessor level, BlockPos bottomLeft, Direction positive, int width, int y) {
         for (int offset = -1; offset <= width; offset++) {
-            if (!isFrame(level.getBlockState(bottomLeft.relative(positive, offset).above(y)))) {
+            if (!isFrame(
+                    level.getBlockState(bottomLeft.relative(positive, offset).above(y)))) {
                 return false;
             }
         }

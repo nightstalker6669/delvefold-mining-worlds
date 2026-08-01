@@ -11,8 +11,8 @@ public final class DelvefoldWorldLifecycleEvent extends Event {
     private final Optional<MiningWorldView> current;
     private final String operationId;
 
-    public DelvefoldWorldLifecycleEvent(Action action, Optional<MiningWorldView> previous,
-            Optional<MiningWorldView> current, String operationId) {
+    public DelvefoldWorldLifecycleEvent(
+            Action action, Optional<MiningWorldView> previous, Optional<MiningWorldView> current, String operationId) {
         this.action = java.util.Objects.requireNonNull(action, "action");
         this.previous = previous == null ? Optional.empty() : previous;
         this.current = current == null ? Optional.empty() : current;
@@ -35,5 +35,9 @@ public final class DelvefoldWorldLifecycleEvent extends Event {
         return operationId;
     }
 
-    public enum Action { INITIALIZED, RECREATED, DELETED }
+    public enum Action {
+        INITIALIZED,
+        RECREATED,
+        DELETED
+    }
 }

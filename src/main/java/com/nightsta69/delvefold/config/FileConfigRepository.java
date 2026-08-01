@@ -1,7 +1,7 @@
 package com.nightsta69.delvefold.config;
 
-import com.google.gson.JsonParseException;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
@@ -69,8 +69,8 @@ public final class FileConfigRepository {
                 return fallback(lastGood, issues, "Ore configuration did not pass validation");
             }
             String hash = hash(paths.ores(), paths.settings());
-            ConfigSnapshot snapshot = new ConfigSnapshot(ores, settings,
-                    combined(combined(report, settingsReport), consistencyReport), Instant.now(), hash);
+            ConfigSnapshot snapshot = new ConfigSnapshot(
+                    ores, settings, combined(combined(report, settingsReport), consistencyReport), Instant.now(), hash);
             return new ConfigLoadResult(snapshot, false, issues);
         } catch (IOException | RuntimeException exception) {
             issues.add(ConfigIssue.error("json.invalid", "$", exception.getMessage()));
@@ -88,7 +88,8 @@ public final class FileConfigRepository {
         Files.createDirectories(paths.directory());
         Path transactionPath = transactionPath();
         if (Files.exists(transactionPath)) {
-            throw new IOException("A previous configuration transaction must be recovered by reloading or restarting first");
+            throw new IOException(
+                    "A previous configuration transaction must be recovered by reloading or restarting first");
         }
         writeJsonAtomically(
                 transactionPath,
@@ -97,8 +98,12 @@ public final class FileConfigRepository {
         writeJsonAtomically(paths.ores(), ores);
         writeJsonAtomically(paths.settings(), settings);
         Files.delete(transactionPath);
-        return new ConfigSnapshot(ores, settings, combined(combined(report, settingsReport), consistencyReport),
-                Instant.now(), hash(paths.ores(), paths.settings()));
+        return new ConfigSnapshot(
+                ores,
+                settings,
+                combined(combined(report, settingsReport), consistencyReport),
+                Instant.now(),
+                hash(paths.ores(), paths.settings()));
     }
 
     /** Reads and validates the current files without creating, recovering, replacing, or publishing anything. */
@@ -106,7 +111,9 @@ public final class FileConfigRepository {
         List<ConfigIssue> issues = new ArrayList<>();
         try {
             if (Files.exists(transactionPath())) {
-                issues.add(ConfigIssue.error("transaction.pending", "$",
+                issues.add(ConfigIssue.error(
+                        "transaction.pending",
+                        "$",
                         "A configuration transaction is pending recovery; reload or restart before validating"));
                 return fallback(lastGood, issues, "Configuration transaction recovery is pending");
             }
@@ -131,8 +138,11 @@ public final class FileConfigRepository {
                 return fallback(lastGood, issues, "Configuration files did not pass validation");
             }
             ConfigSnapshot candidate = new ConfigSnapshot(
-                    ores, settings, combined(combined(oresReport, settingsReport), consistencyReport),
-                    Instant.now(), hash(paths.ores(), paths.settings()));
+                    ores,
+                    settings,
+                    combined(combined(oresReport, settingsReport), consistencyReport),
+                    Instant.now(),
+                    hash(paths.ores(), paths.settings()));
             return new ConfigLoadResult(candidate, false, issues);
         } catch (IOException | RuntimeException exception) {
             issues.add(ConfigIssue.error("json.invalid", "$", exception.getMessage()));
@@ -144,17 +154,24 @@ public final class FileConfigRepository {
         return paths;
     }
 
-    private ConfigLoadResult fallback(ConfigSnapshot lastGood, List<ConfigIssue> issues, String reason) throws IOException {
+    private ConfigLoadResult fallback(ConfigSnapshot lastGood, List<ConfigIssue> issues, String reason)
+            throws IOException {
         if (lastGood != null) {
-            issues.add(ConfigIssue.warning("fallback.last_good", "$", reason + "; continuing with the last known-good snapshot"));
+            issues.add(ConfigIssue.warning(
+                    "fallback.last_good", "$", reason + "; continuing with the last known-good snapshot"));
             return new ConfigLoadResult(lastGood, true, issues);
         }
         OreProfileDocument defaultOres = OrePresets.create(OrePreset.VANILLA_BALANCED);
         WorldSettingsDocument defaultSettings = WorldSettingsDocument.uninitialized();
         ValidationReport report = OreConfigValidator.validate(defaultOres, registryLookup);
-        ConfigSnapshot defaults = new ConfigSnapshot(defaultOres, defaultSettings,
-                combined(report, WorldSettingsValidator.validate(defaultSettings)), Instant.now(), "built-in-defaults");
-        issues.add(ConfigIssue.warning("fallback.defaults", "$", reason + "; using built-in defaults without overwriting the rejected files"));
+        ConfigSnapshot defaults = new ConfigSnapshot(
+                defaultOres,
+                defaultSettings,
+                combined(report, WorldSettingsValidator.validate(defaultSettings)),
+                Instant.now(),
+                "built-in-defaults");
+        issues.add(ConfigIssue.warning(
+                "fallback.defaults", "$", reason + "; using built-in defaults without overwriting the rejected files"));
         return new ConfigLoadResult(defaults, true, issues);
     }
 
@@ -166,13 +183,17 @@ public final class FileConfigRepository {
         int oreSchema = schemaVersion(ores);
         int settingsSchema = schemaVersion(settings);
         if (oreSchema != OreProfileDocument.CURRENT_SCHEMA_VERSION) {
-            issues.add(ConfigIssue.error("schema.unsupported", "$.schema_version",
+            issues.add(ConfigIssue.error(
+                    "schema.unsupported",
+                    "$.schema_version",
                     "Expected ore schema " + OreProfileDocument.CURRENT_SCHEMA_VERSION + " but found " + oreSchema));
         }
         if (settingsSchema != WorldSettingsDocument.CURRENT_SCHEMA_VERSION) {
-            issues.add(ConfigIssue.error("settings.schema.unsupported", "$.schema_version",
-                    "Expected settings schema " + WorldSettingsDocument.CURRENT_SCHEMA_VERSION
-                            + " but found " + settingsSchema));
+            issues.add(ConfigIssue.error(
+                    "settings.schema.unsupported",
+                    "$.schema_version",
+                    "Expected settings schema " + WorldSettingsDocument.CURRENT_SCHEMA_VERSION + " but found "
+                            + settingsSchema));
         }
         return oreSchema == OreProfileDocument.CURRENT_SCHEMA_VERSION
                 && settingsSchema == WorldSettingsDocument.CURRENT_SCHEMA_VERSION;
@@ -184,15 +205,20 @@ public final class FileConfigRepository {
         }
         try {
             JsonElement root = com.google.gson.JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8));
-            if (!root.isJsonObject() || !root.getAsJsonObject().has("schema_version")
+            if (!root.isJsonObject()
+                    || !root.getAsJsonObject().has("schema_version")
                     || !root.getAsJsonObject().get("schema_version").isJsonPrimitive()
-                    || !root.getAsJsonObject().get("schema_version").getAsJsonPrimitive().isNumber()) {
+                    || !root.getAsJsonObject()
+                            .get("schema_version")
+                            .getAsJsonPrimitive()
+                            .isNumber()) {
                 throw new IOException(path.getFileName() + " has no numeric schema_version");
             }
-            BigInteger value = root.getAsJsonObject().get("schema_version")
-                    .getAsBigDecimal().toBigIntegerExact();
-            if (value.compareTo(BigInteger.ZERO) < 0
-                    || value.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
+            BigInteger value = root.getAsJsonObject()
+                    .get("schema_version")
+                    .getAsBigDecimal()
+                    .toBigIntegerExact();
+            if (value.compareTo(BigInteger.ZERO) < 0 || value.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
                 throw new IOException(path.getFileName() + " schema_version is outside the supported integer range");
             }
             return value.intValueExact();
@@ -231,10 +257,12 @@ public final class FileConfigRepository {
             throw new IOException(target.getFileName() + " would exceed the " + maximumBytes + " byte safety limit");
         }
         Files.createDirectories(target.getParent());
-        Path temporary = Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
+        Path temporary =
+                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
         boolean moved = false;
         try {
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            try (FileChannel channel =
+                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
                 ByteBuffer buffer = ByteBuffer.wrap(bytes);
                 while (buffer.hasRemaining()) {
                     channel.write(buffer);
@@ -294,7 +322,8 @@ public final class FileConfigRepository {
     }
 
     private static ValidationReport combined(ValidationReport first, ValidationReport second) {
-        List<ConfigIssue> issues = new ArrayList<>(first.issues().size() + second.issues().size());
+        List<ConfigIssue> issues =
+                new ArrayList<>(first.issues().size() + second.issues().size());
         issues.addAll(first.issues());
         issues.addAll(second.issues());
         return new ValidationReport(issues);
@@ -304,15 +333,12 @@ public final class FileConfigRepository {
         if (ores.profile().equals(settings.activeProfileId())) {
             return new ValidationReport(List.of());
         }
-        return new ValidationReport(List.of(ConfigIssue.error("profile.active_mismatch", "$.active_profile_id",
+        return new ValidationReport(List.of(ConfigIssue.error(
+                "profile.active_mismatch",
+                "$.active_profile_id",
                 "settings active_profile_id '" + settings.activeProfileId()
                         + "' does not match the active ore profile '" + ores.profile() + "'")));
     }
 
-    private record ConfigTransaction(
-            int schemaVersion,
-            OreProfileDocument ores,
-            WorldSettingsDocument settings
-    ) {
-    }
+    private record ConfigTransaction(int schemaVersion, OreProfileDocument ores, WorldSettingsDocument settings) {}
 }

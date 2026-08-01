@@ -10,8 +10,7 @@ public record RenewalSettings(
         int intervalDays,
         int warningMinutes,
         long nextRenewalAtEpochMillis,
-        RenewalSeedMode seedMode
-) {
+        RenewalSeedMode seedMode) {
     public RenewalSettings {
         seedMode = seedMode == null ? RenewalSeedMode.STABLE : seedMode;
     }
@@ -29,13 +28,12 @@ public record RenewalSettings(
         if (!enabled) {
             return this;
         }
-        return new RenewalSettings(true, intervalDays, warningMinutes,
-                nowEpochMillis + intervalDays * 86_400_000L, seedMode);
+        return new RenewalSettings(
+                true, intervalDays, warningMinutes, nowEpochMillis + intervalDays * 86_400_000L, seedMode);
     }
 
     public RenewalSettings withSeedMode(RenewalSeedMode replacement) {
-        return new RenewalSettings(enabled, intervalDays, warningMinutes,
-                nextRenewalAtEpochMillis, replacement);
+        return new RenewalSettings(enabled, intervalDays, warningMinutes, nextRenewalAtEpochMillis, replacement);
     }
 
     /** Pure warning schedule used by both the server scheduler and unit tests. */

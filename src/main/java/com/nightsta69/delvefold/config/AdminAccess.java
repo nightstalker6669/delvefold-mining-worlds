@@ -8,8 +8,7 @@ public final class AdminAccess {
     public static final int CONFIGURE_PERMISSION = 2;
     public static final int WORLD_MANAGEMENT_PERMISSION = 4;
 
-    private AdminAccess() {
-    }
+    private AdminAccess() {}
 
     public static boolean canConfigure(CommandSourceStack source) {
         return source.getEntity() instanceof ServerPlayer player
@@ -36,5 +35,4 @@ public final class AdminAccess {
     public static boolean canUsePortal(ServerPlayer player) {
         return DelvefoldPermissions.granted(player, DelvefoldPermissions.USE_PORTAL);
     }
-
 }

@@ -27,7 +27,17 @@ record GuideLayout(
         int doneX = panelLeft + panelWidth - doneWidth - 12;
         int doneY = panelTop + panelHeight - 31;
         int footerTextWidth = Math.max(0, doneX - 8 - (panelLeft + 14));
-        return new GuideLayout(panelLeft, panelTop, panelWidth, panelHeight,
-                listTop, listBottom, doneX, doneY, doneWidth, 20, footerTextWidth);
+        return new GuideLayout(
+                panelLeft,
+                panelTop,
+                panelWidth,
+                panelHeight,
+                listTop,
+                listBottom,
+                doneX,
+                doneY,
+                doneWidth,
+                20,
+                footerTextWidth);
     }
 }

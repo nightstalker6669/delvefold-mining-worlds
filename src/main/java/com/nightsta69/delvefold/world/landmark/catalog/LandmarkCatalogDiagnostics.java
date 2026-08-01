@@ -16,9 +16,13 @@ public record LandmarkCatalogDiagnostics(
         activeRevision = Math.max(0L, activeRevision);
         activeDefinitions = Math.max(0, activeDefinitions);
         attemptedAt = attemptedAt == null ? Instant.EPOCH : attemptedAt;
-        errors = errors == null ? List.of() : errors.stream().limit(16)
-                .map(value -> value == null ? "unknown error" : value.substring(0, Math.min(512, value.length())))
-                .toList();
+        errors = errors == null
+                ? List.of()
+                : errors.stream()
+                        .limit(16)
+                        .map(value ->
+                                value == null ? "unknown error" : value.substring(0, Math.min(512, value.length())))
+                        .toList();
     }
 
     public static LandmarkCatalogDiagnostics initial() {
@@ -29,9 +33,10 @@ public record LandmarkCatalogDiagnostics(
         java.util.ArrayList<String> lines = new java.util.ArrayList<>();
         lines.add("Landmark catalog: " + activeDefinitions + " active definition(s), revision " + activeRevision);
         if (!lastReloadAccepted && !errors.isEmpty()) {
-            lines.add(retainingLastGood
-                    ? "Landmark catalog reload rejected; retaining last-known-good data"
-                    : "Landmark catalog reload rejected; no valid catalog is active");
+            lines.add(
+                    retainingLastGood
+                            ? "Landmark catalog reload rejected; retaining last-known-good data"
+                            : "Landmark catalog reload rejected; no valid catalog is active");
             errors.forEach(error -> lines.add("Landmark catalog: " + error));
         }
         return List.copyOf(lines);

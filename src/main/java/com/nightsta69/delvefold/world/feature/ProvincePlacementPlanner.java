@@ -13,15 +13,12 @@ import java.util.Set;
 /**
  * Pure deterministic planner for regional ore provinces.
  *
- * <p>Every returned candidate is inside the requested chunk. Regional centers
- * depend only on their region coordinate, world seed, persisted generation
- * salt, and band ID, so neighboring chunks independently agree on the same
- * province. The hard work cap is shared by all province slices touching the
- * chunk.</p>
+ * <p>Every returned candidate is inside the requested chunk. Regional centers depend only on their region coordinate,
+ * world seed, persisted generation salt, and band ID, so neighboring chunks independently agree on the same province.
+ * The hard work cap is shared by all province slices touching the chunk.
  */
 public final class ProvincePlacementPlanner {
-    private ProvincePlacementPlanner() {
-    }
+    private ProvincePlacementPlanner() {}
 
     public static Plan plan(
             long worldSeed,
@@ -33,11 +30,16 @@ public final class ProvincePlacementPlanner {
             int minBuildHeight,
             int maxBuildHeightExclusive) {
         ProvinceSettings settings = band == null ? null : band.province();
-        if (band == null || band.placement() != OreBandPlacement.PROVINCE
-                || settings == null || settings.regionSize() <= 0 || settings.radius() <= 0
+        if (band == null
+                || band.placement() != OreBandPlacement.PROVINCE
+                || settings == null
+                || settings.regionSize() <= 0
+                || settings.radius() <= 0
                 || settings.radius() > settings.regionSize()
-                || settings.verticalThickness() <= 0 || !Double.isFinite(settings.density())
-                || settings.density() <= 0.0D || settings.density() > 1.0D
+                || settings.verticalThickness() <= 0
+                || !Double.isFinite(settings.density())
+                || settings.density() <= 0.0D
+                || settings.density() > 1.0D
                 || settings.perChunkWorkCap() <= 0
                 || minBuildHeight >= maxBuildHeightExclusive) {
             return Plan.EMPTY;
@@ -63,14 +65,15 @@ public final class ProvincePlacementPlanner {
                 DeterministicRandom centerRandom = new DeterministicRandom(centerSeed);
                 long centerXLong = regionX * (long) regionSize + centerRandom.nextInt(regionSize);
                 long centerZLong = regionZ * (long) regionSize + centerRandom.nextInt(regionSize);
-                if (centerXLong < Integer.MIN_VALUE || centerXLong > Integer.MAX_VALUE
-                        || centerZLong < Integer.MIN_VALUE || centerZLong > Integer.MAX_VALUE) {
+                if (centerXLong < Integer.MIN_VALUE
+                        || centerXLong > Integer.MAX_VALUE
+                        || centerZLong < Integer.MIN_VALUE
+                        || centerZLong > Integer.MAX_VALUE) {
                     continue;
                 }
                 int centerX = (int) centerXLong;
                 int centerZ = (int) centerZLong;
-                if (!circleIntersectsRectangle(centerX, centerZ, radius,
-                        chunkMinX, chunkMaxX, chunkMinZ, chunkMaxZ)) {
+                if (!circleIntersectsRectangle(centerX, centerZ, radius, chunkMinX, chunkMaxX, chunkMinZ, chunkMaxZ)) {
                     continue;
                 }
                 int centerY = sampleHeight(band, centerRandom);
@@ -96,9 +99,19 @@ public final class ProvincePlacementPlanner {
                     continue;
                 }
                 slices.add(new Slice(
-                        regionX, regionZ, centerX, centerY, centerZ,
-                        minX, maxX, minY, maxY, minZ, maxZ,
-                        desired, chunkSeed,
+                        regionX,
+                        regionZ,
+                        centerX,
+                        centerY,
+                        centerZ,
+                        minX,
+                        maxX,
+                        minY,
+                        maxY,
+                        minZ,
+                        maxZ,
+                        desired,
+                        chunkSeed,
                         GenerationSeedMixer.oreProvinceOutputSeed(
                                 worldSeed, regionX, regionZ, bandSalt, generationSalt)));
             }
@@ -119,8 +132,13 @@ public final class ProvincePlacementPlanner {
             workUnits += allocation;
             List<Candidate> candidates = sampleCandidates(slice, allocation, settings);
             planned.add(new ProvinceSlice(
-                    slice.regionX(), slice.regionZ(), slice.centerX(), slice.centerY(), slice.centerZ(),
-                    slice.outputSeed(), candidates));
+                    slice.regionX(),
+                    slice.regionZ(),
+                    slice.centerX(),
+                    slice.centerY(),
+                    slice.centerZ(),
+                    slice.outputSeed(),
+                    candidates));
         }
         return new Plan(planned, workUnits);
     }
@@ -156,10 +174,14 @@ public final class ProvincePlacementPlanner {
             long scaled = (long) slices.get(index).desired() * boundedCap;
             result[index] = (int) (scaled / totalDesired);
             assigned += result[index];
-            remainders.add(new AllocationRemainder(index, scaled % totalDesired,
-                    slices.get(index).regionX(), slices.get(index).regionZ()));
+            remainders.add(new AllocationRemainder(
+                    index,
+                    scaled % totalDesired,
+                    slices.get(index).regionX(),
+                    slices.get(index).regionZ()));
         }
-        remainders.sort(Comparator.comparingLong(AllocationRemainder::remainder).reversed()
+        remainders.sort(Comparator.comparingLong(AllocationRemainder::remainder)
+                .reversed()
                 .thenComparingLong(AllocationRemainder::regionX)
                 .thenComparingLong(AllocationRemainder::regionZ));
         for (int index = 0; assigned < boundedCap; index++, assigned++) {
@@ -168,8 +190,7 @@ public final class ProvincePlacementPlanner {
         return result;
     }
 
-    private static List<Candidate> sampleCandidates(
-            Slice slice, int count, ProvinceSettings settings) {
+    private static List<Candidate> sampleCandidates(Slice slice, int count, ProvinceSettings settings) {
         int width = slice.maxX() - slice.minX() + 1;
         int height = slice.maxY() - slice.minY() + 1;
         int depth = slice.maxZ() - slice.minZ() + 1;
@@ -200,24 +221,17 @@ public final class ProvincePlacementPlanner {
             double dx = x - slice.centerX();
             double dy = y - slice.centerY();
             double dz = z - slice.centerZ();
-            double normalized = (dx * dx + dz * dz) / radiusSquared
-                    + (dy * dy) / (verticalRadius * verticalRadius);
+            double normalized = (dx * dx + dz * dz) / radiusSquared + (dy * dy) / (verticalRadius * verticalRadius);
             if (normalized <= 1.0D) {
-                result.add(new Candidate(x, y, z,
-                        GenerationSeedMixer.oreProvincePositionSeed(slice.chunkSeed(), linearIndex)));
+                result.add(new Candidate(
+                        x, y, z, GenerationSeedMixer.oreProvincePositionSeed(slice.chunkSeed(), linearIndex)));
             }
         }
         return List.copyOf(result);
     }
 
     private static boolean circleIntersectsRectangle(
-            int centerX,
-            int centerZ,
-            int radius,
-            long minX,
-            long maxX,
-            long minZ,
-            long maxZ) {
+            int centerX, int centerZ, int radius, long minX, long maxX, long minZ, long maxZ) {
         long nearestX = Math.clamp((long) centerX, minX, maxX);
         long nearestZ = Math.clamp((long) centerZ, minZ, maxZ);
         long dx = centerX - nearestX;
@@ -265,8 +279,11 @@ public final class ProvincePlacementPlanner {
         }
         Integer plateauMin = band.plateauMinY();
         Integer plateauMax = band.plateauMaxY();
-        if (plateauMin == null || plateauMax == null || plateauMin < band.minY()
-                || plateauMax > band.maxY() || plateauMin > plateauMax) {
+        if (plateauMin == null
+                || plateauMax == null
+                || plateauMin < band.minY()
+                || plateauMax > band.maxY()
+                || plateauMin > plateauMax) {
             return 0.0D;
         }
         if (y < plateauMin) {
@@ -306,8 +323,7 @@ public final class ProvincePlacementPlanner {
         }
     }
 
-    public record Candidate(int x, int y, int z, long placementSeed) {
-    }
+    public record Candidate(int x, int y, int z, long placementSeed) {}
 
     private record Slice(
             long regionX,
@@ -323,12 +339,9 @@ public final class ProvincePlacementPlanner {
             int maxZ,
             int desired,
             long chunkSeed,
-            long outputSeed) {
-    }
+            long outputSeed) {}
 
-    private record AllocationRemainder(
-            int index, long remainder, long regionX, long regionZ) {
-    }
+    private record AllocationRemainder(int index, long remainder, long regionX, long regionZ) {}
 
     /** Fixed SplitMix64 stream so planning never depends on a client/server runtime class. */
     private static final class DeterministicRandom {

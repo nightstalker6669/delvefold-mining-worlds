@@ -5,12 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
+import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OreTarget;
-import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.PortalRoutingMode;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -54,8 +54,7 @@ class ConfigRepositorySafetyTest {
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         ConfigLoadResult baseline = repository.loadOrCreate(null);
 
-        String misspelled = Files.readString(paths.settings())
-                .replace("\"cooldown_seconds\"", "\"cooldown_secondz\"");
+        String misspelled = Files.readString(paths.settings()).replace("\"cooldown_seconds\"", "\"cooldown_secondz\"");
         Files.writeString(paths.settings(), misspelled);
 
         ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
@@ -73,8 +72,7 @@ class ConfigRepositorySafetyTest {
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         ConfigLoadResult baseline = repository.loadOrCreate(null);
 
-        String coerced = Files.readString(paths.settings())
-                .replace("\"enabled\": true", "\"enabled\": \"true\"");
+        String coerced = Files.readString(paths.settings()).replace("\"enabled\": true", "\"enabled\": \"true\"");
         Files.writeString(paths.settings(), coerced);
 
         ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
@@ -91,7 +89,8 @@ class ConfigRepositorySafetyTest {
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         repository.loadOrCreate(null);
         String oldOres = Files.readString(paths.ores()).replace("\"schema_version\": 2", "\"schema_version\": 1");
-        String oldSettings = Files.readString(paths.settings()).replace("\"schema_version\": 2", "\"schema_version\": 1");
+        String oldSettings =
+                Files.readString(paths.settings()).replace("\"schema_version\": 2", "\"schema_version\": 1");
         Files.writeString(paths.ores(), oldOres);
         Files.writeString(paths.settings(), oldSettings);
 
@@ -113,15 +112,13 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult baseline = repository.loadOrCreate(null);
 
         String mismatched = Files.readString(paths.settings())
-                .replace("\"active_profile_id\": \"vanilla_balanced\"",
-                        "\"active_profile_id\": \"rich\"");
+                .replace("\"active_profile_id\": \"vanilla_balanced\"", "\"active_profile_id\": \"rich\"");
         Files.writeString(paths.settings(), mismatched);
 
         ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
         assertTrue(rejected.usedFallback());
         assertEquals(baseline.snapshot(), rejected.snapshot());
-        assertTrue(rejected.issues().stream()
-                .anyMatch(issue -> "profile.active_mismatch".equals(issue.code())));
+        assertTrue(rejected.issues().stream().anyMatch(issue -> "profile.active_mismatch".equals(issue.code())));
     }
 
     @Test
@@ -133,8 +130,11 @@ class ConfigRepositorySafetyTest {
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         ConfigLoadResult baseline = repository.loadOrCreate(null);
 
-        assertThrows(IllegalArgumentException.class, () -> repository.save(
-                baseline.snapshot().ores(), baseline.snapshot().settings().withActiveProfile("rich")));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> repository.save(
+                        baseline.snapshot().ores(),
+                        baseline.snapshot().settings().withActiveProfile("rich")));
     }
 
     @Test
@@ -154,7 +154,9 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult loaded = repository.loadOrCreate(null);
 
         assertTrue(!loaded.usedFallback());
-        assertEquals("Delvefold Mining World", loaded.snapshot().settings().identity().displayName());
+        assertEquals(
+                "Delvefold Mining World",
+                loaded.snapshot().settings().identity().displayName());
         assertEquals(withoutIdentity, Files.readString(paths.settings()));
     }
 
@@ -166,7 +168,8 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         repository.loadOrCreate(null);
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings()))
+                .getAsJsonObject();
         root.remove("guide_visibility");
         String legacySettings = ConfigJson.GSON.toJson(root) + System.lineSeparator();
         Files.writeString(paths.settings(), legacySettings);
@@ -186,7 +189,8 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         repository.loadOrCreate(null);
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings()))
+                .getAsJsonObject();
         root.remove("backup_retention");
         byte[] legacySettings = (ConfigJson.GSON.toJson(root) + System.lineSeparator())
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -195,7 +199,8 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult loaded = repository.loadOrCreate(null);
 
         assertTrue(!loaded.usedFallback());
-        assertEquals(BackupRetentionSettings.defaults(), loaded.snapshot().settings().backupRetention());
+        assertEquals(
+                BackupRetentionSettings.defaults(), loaded.snapshot().settings().backupRetention());
         assertArrayEquals(legacySettings, Files.readAllBytes(paths.settings()));
     }
 
@@ -207,7 +212,8 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         repository.loadOrCreate(null);
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings()))
+                .getAsJsonObject();
         var portal = root.getAsJsonObject("portal");
         portal.remove("routing_mode");
         portal.remove("hub");
@@ -218,7 +224,8 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult loaded = repository.loadOrCreate(null);
 
         assertTrue(!loaded.usedFallback());
-        assertEquals(PortalRoutingMode.COORDINATE_LINKED,
+        assertEquals(
+                PortalRoutingMode.COORDINATE_LINKED,
                 loaded.snapshot().settings().portal().routingMode());
         assertEquals(16, loaded.snapshot().settings().portal().hub().protectionRadius());
         assertArrayEquals(legacySettings, Files.readAllBytes(paths.settings()));
@@ -232,7 +239,8 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         repository.loadOrCreate(null);
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings()))
+                .getAsJsonObject();
         root.remove("generation_salt");
         root.getAsJsonObject("identity").getAsJsonObject("renewal").remove("seed_mode");
         String legacySettings = ConfigJson.GSON.toJson(root) + System.lineSeparator();
@@ -242,7 +250,8 @@ class ConfigRepositorySafetyTest {
 
         assertTrue(!loaded.usedFallback());
         assertEquals(0L, loaded.snapshot().settings().generationSalt());
-        assertEquals(RenewalSeedMode.STABLE,
+        assertEquals(
+                RenewalSeedMode.STABLE,
                 loaded.snapshot().settings().identity().renewal().seedMode());
         assertEquals(legacySettings, Files.readString(paths.settings()));
     }
@@ -256,9 +265,11 @@ class ConfigRepositorySafetyTest {
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         repository.loadOrCreate(null);
 
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings()))
+                .getAsJsonObject();
         var identity = root.getAsJsonObject("identity");
-        assertTrue(identity.remove("geology_theme") != null,
+        assertTrue(
+                identity.remove("geology_theme") != null,
                 "The current settings fixture must contain the sole post-1.1 identity field");
         byte[] oneOneSettings = (ConfigJson.GSON.toJson(root) + System.lineSeparator())
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -267,8 +278,11 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult loaded = new FileConfigRepository(paths, RegistryLookup.SKIP).loadOrCreate(null);
 
         assertTrue(!loaded.usedFallback());
-        assertEquals(GeologyTheme.CLASSIC, loaded.snapshot().settings().identity().geologyTheme());
-        assertArrayEquals(oneOneSettings, Files.readAllBytes(paths.settings()),
+        assertEquals(
+                GeologyTheme.CLASSIC, loaded.snapshot().settings().identity().geologyTheme());
+        assertArrayEquals(
+                oneOneSettings,
+                Files.readAllBytes(paths.settings()),
                 "Loading a compatible 1.1 settings file must not rewrite it");
     }
 
@@ -280,10 +294,10 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         ConfigLoadResult baseline = repository.loadOrCreate(null);
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings()))
+                .getAsJsonObject();
         root.addProperty("generation_salt", new java.math.BigInteger("9223372036854775808"));
-        root.getAsJsonObject("identity").getAsJsonObject("renewal")
-                .addProperty("seed_mode", "random_every_restart");
+        root.getAsJsonObject("identity").getAsJsonObject("renewal").addProperty("seed_mode", "random_every_restart");
         String invalidSettings = ConfigJson.GSON.toJson(root) + System.lineSeparator();
         Files.writeString(paths.settings(), invalidSettings);
 
@@ -303,8 +317,8 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         ConfigLoadResult baseline = repository.loadOrCreate(null);
-        String invalidSettings = Files.readString(paths.settings())
-                .replace("\"schema_version\": 2", "\"schema_version\": 4294967298");
+        String invalidSettings =
+                Files.readString(paths.settings()).replace("\"schema_version\": 2", "\"schema_version\": 4294967298");
         Files.writeString(paths.settings(), invalidSettings);
 
         ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
@@ -322,14 +336,21 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         ConfigLoadResult baseline = repository.loadOrCreate(null);
-        var rotatingIdentity = baseline.snapshot().settings().identity().withRenewal(
-                baseline.snapshot().settings().identity().renewal()
+        var rotatingIdentity = baseline.snapshot()
+                .settings()
+                .identity()
+                .withRenewal(baseline.snapshot()
+                        .settings()
+                        .identity()
+                        .renewal()
                         .withSeedMode(RenewalSeedMode.ROTATE_ON_RECREATE));
-        var rotating = baseline.snapshot().settings().initialize(
-                com.nightsta69.delvefold.config.model.TerrainMode.FLAT,
-                com.nightsta69.delvefold.config.model.OrePreset.VANILLA_BALANCED,
-                com.nightsta69.delvefold.config.model.GameplayPreset.SAFE,
-                rotatingIdentity);
+        var rotating = baseline.snapshot()
+                .settings()
+                .initialize(
+                        com.nightsta69.delvefold.config.model.TerrainMode.FLAT,
+                        com.nightsta69.delvefold.config.model.OrePreset.VANILLA_BALANCED,
+                        com.nightsta69.delvefold.config.model.GameplayPreset.SAFE,
+                        rotatingIdentity);
         repository.save(baseline.snapshot().ores(), rotating);
 
         ConfigLoadResult restarted = new FileConfigRepository(paths, RegistryLookup.SKIP).loadOrCreate(null);
@@ -337,7 +358,8 @@ class ConfigRepositorySafetyTest {
         assertTrue(!restarted.usedFallback());
         assertTrue(restarted.snapshot().settings().generationSalt() > 0L);
         assertEquals(rotating.generationSalt(), restarted.snapshot().settings().generationSalt());
-        assertEquals(RenewalSeedMode.ROTATE_ON_RECREATE,
+        assertEquals(
+                RenewalSeedMode.ROTATE_ON_RECREATE,
                 restarted.snapshot().settings().identity().renewal().seedMode());
     }
 
@@ -349,7 +371,8 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         repository.loadOrCreate(null);
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.ores())).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.ores()))
+                .getAsJsonObject();
         for (var rule : root.getAsJsonArray("rules")) {
             for (var target : rule.getAsJsonObject().getAsJsonArray("targets")) {
                 target.getAsJsonObject().remove("weight");
@@ -375,9 +398,14 @@ class ConfigRepositorySafetyTest {
                 temporaryDirectory.resolve("settings.json"));
         FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
         ConfigLoadResult baseline = repository.loadOrCreate(null);
-        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.ores())).getAsJsonObject();
-        var firstTarget = root.getAsJsonArray("rules").get(0).getAsJsonObject()
-                .getAsJsonArray("targets").get(0).getAsJsonObject();
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.ores()))
+                .getAsJsonObject();
+        var firstTarget = root.getAsJsonArray("rules")
+                .get(0)
+                .getAsJsonObject()
+                .getAsJsonArray("targets")
+                .get(0)
+                .getAsJsonObject();
         firstTarget.addProperty("weight", new java.math.BigInteger("4294967297"));
         String invalidOres = ConfigJson.GSON.toJson(root) + System.lineSeparator();
         Files.writeString(paths.ores(), invalidOres);
@@ -406,12 +434,12 @@ class ConfigRepositorySafetyTest {
         assertTrue(!accepted.usedFallback());
         assertEquals(GuideVisibility.OPERATORS, accepted.snapshot().settings().guideVisibility());
 
-        Files.writeString(paths.settings(), operators.replace(
-                "\"guide_visibility\": \"operators\"", "\"guide_visibility\": \"everyone\""));
+        Files.writeString(
+                paths.settings(),
+                operators.replace("\"guide_visibility\": \"operators\"", "\"guide_visibility\": \"everyone\""));
         ConfigLoadResult rejected = repository.loadOrCreate(accepted.snapshot());
         assertTrue(rejected.usedFallback());
         assertEquals(accepted.snapshot(), rejected.snapshot());
-        assertTrue(rejected.issues().stream()
-                .anyMatch(issue -> issue.message().contains("guide_visibility")));
+        assertTrue(rejected.issues().stream().anyMatch(issue -> issue.message().contains("guide_visibility")));
     }
 }

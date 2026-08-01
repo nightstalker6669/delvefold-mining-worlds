@@ -14,14 +14,13 @@ import net.minecraft.world.level.biome.Biome;
 public final class OreBiomeMatcher {
     private static final String MINING_BIOMES_SELECTOR = "#delvefold:mining_biomes";
 
-    private OreBiomeMatcher() {
-    }
+    private OreBiomeMatcher() {}
 
     public static boolean matches(BiomeFilter filter, Holder<Biome> biome) {
         Objects.requireNonNull(filter, "filter");
         Objects.requireNonNull(biome, "biome");
-        boolean included = filter.include().isEmpty()
-                || filter.include().stream().anyMatch(selector -> matches(selector, biome));
+        boolean included =
+                filter.include().isEmpty() || filter.include().stream().anyMatch(selector -> matches(selector, biome));
         boolean excluded = filter.exclude().stream().anyMatch(selector -> matches(selector, biome));
         return included && !excluded;
     }

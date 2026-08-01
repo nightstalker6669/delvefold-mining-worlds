@@ -12,11 +12,11 @@ public final class LandmarkSeeds {
     private static final long CONTENT_DOMAIN = 0xA54FF53A5F1D36F1L;
     private static final long LOOT_DOMAIN = 0x1F83D9ABFB41BD6BL;
 
-    private LandmarkSeeds() {
-    }
+    private LandmarkSeeds() {}
 
     public static long placementWorldSeed(long worldSeed, long generationSalt) {
-        return generationSalt == 0L ? worldSeed
+        return generationSalt == 0L
+                ? worldSeed
                 : worldSeed ^ mix64(generationSalt ^ GENERATION_DOMAIN ^ PLACEMENT_DOMAIN);
     }
 
@@ -30,8 +30,8 @@ public final class LandmarkSeeds {
 
     public static long definitionSeed(
             long worldSeed, ChunkPos chunk, long generationSalt, ResourceLocation definitionId) {
-        return mix64(domainSeed(worldSeed, chunk, generationSalt, CONTENT_DOMAIN)
-                ^ stableHash64(definitionId.toString()));
+        return mix64(
+                domainSeed(worldSeed, chunk, generationSalt, CONTENT_DOMAIN) ^ stableHash64(definitionId.toString()));
     }
 
     public static long lootSeed(long contentSeed, long markerPosition) {

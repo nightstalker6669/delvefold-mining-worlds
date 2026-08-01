@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'com.diffplug.spotless' version '8.9.0'
     id 'net.neoforged.moddev' version '2.0.143'
     id 'idea'
 }
@@ -19,6 +20,17 @@ base {
 java {
     toolchain.languageVersion = JavaLanguageVersion.of(21)
     withSourcesJar()
+}
+
+spotless {
+    java {
+        target 'src/*/java/**/*.java'
+        palantirJavaFormat('2.96.0').formatJavadoc(true)
+        removeUnusedImports()
+        formatAnnotations()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }
 
 tasks.withType(AbstractArchiveTask).configureEach {

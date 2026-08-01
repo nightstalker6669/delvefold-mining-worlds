@@ -17,15 +17,18 @@ import net.minecraft.world.level.levelgen.structure.placement.StructurePlacement
 /** Vanilla random-spread spacing whose candidate grid rotates with Delvefold's persisted generation salt. */
 public final class GenerationSaltedRandomSpreadPlacement extends RandomSpreadStructurePlacement {
     public static final MapCodec<GenerationSaltedRandomSpreadPlacement> CODEC =
-            RecordCodecBuilder.<GenerationSaltedRandomSpreadPlacement>mapCodec(instance ->
-                    placementCodec(instance).and(instance.group(
-                            Codec.intRange(1, 4096).fieldOf("spacing")
-                                    .forGetter(GenerationSaltedRandomSpreadPlacement::spacing),
-                            Codec.intRange(0, 4096).fieldOf("separation")
-                                    .forGetter(GenerationSaltedRandomSpreadPlacement::separation),
-                            RandomSpreadType.CODEC.optionalFieldOf("spread_type", RandomSpreadType.LINEAR)
-                                    .forGetter(GenerationSaltedRandomSpreadPlacement::spreadType)
-                    )).apply(instance, GenerationSaltedRandomSpreadPlacement::new))
+            RecordCodecBuilder.<GenerationSaltedRandomSpreadPlacement>mapCodec(instance -> placementCodec(instance)
+                            .and(instance.group(
+                                    Codec.intRange(1, 4096)
+                                            .fieldOf("spacing")
+                                            .forGetter(GenerationSaltedRandomSpreadPlacement::spacing),
+                                    Codec.intRange(0, 4096)
+                                            .fieldOf("separation")
+                                            .forGetter(GenerationSaltedRandomSpreadPlacement::separation),
+                                    RandomSpreadType.CODEC
+                                            .optionalFieldOf("spread_type", RandomSpreadType.LINEAR)
+                                            .forGetter(GenerationSaltedRandomSpreadPlacement::spreadType)))
+                            .apply(instance, GenerationSaltedRandomSpreadPlacement::new))
                     .validate(GenerationSaltedRandomSpreadPlacement::validate);
 
     public GenerationSaltedRandomSpreadPlacement(
@@ -37,8 +40,7 @@ public final class GenerationSaltedRandomSpreadPlacement extends RandomSpreadStr
             int spacing,
             int separation,
             RandomSpreadType spreadType) {
-        super(locateOffset, frequencyReductionMethod, frequency, salt, exclusionZone,
-                spacing, separation, spreadType);
+        super(locateOffset, frequencyReductionMethod, frequency, salt, exclusionZone, spacing, separation, spreadType);
     }
 
     private static DataResult<GenerationSaltedRandomSpreadPlacement> validate(
@@ -50,8 +52,7 @@ public final class GenerationSaltedRandomSpreadPlacement extends RandomSpreadStr
 
     @Override
     protected boolean isPlacementChunk(ChunkGeneratorStructureState structureState, int x, int z) {
-        ChunkPos candidate = potentialStructureChunk(
-                structureState.getLevelSeed(), currentGenerationSalt(), x, z);
+        ChunkPos candidate = potentialStructureChunk(structureState.getLevelSeed(), currentGenerationSalt(), x, z);
         return candidate.x == x && candidate.z == z;
     }
 

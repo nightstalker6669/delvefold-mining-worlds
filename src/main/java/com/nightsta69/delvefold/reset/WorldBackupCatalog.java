@@ -43,13 +43,25 @@ public final class WorldBackupCatalog {
                 } catch (IOException | RuntimeException ignored) {
                     boolean manifestPresent = Files.exists(entry.resolve(BackupManifest.FILE_NAME))
                             || Files.isSymbolicLink(entry.resolve(BackupManifest.FILE_NAME));
-                    result.add(new BackupSummary(entry.getFileName().toString(), 0, "unknown", "unknown",
-                            -1L, Files.exists(entry.resolve(".pinned")), false, false,
-                            manifestPresent, false, !manifestPresent));
+                    result.add(new BackupSummary(
+                            entry.getFileName().toString(),
+                            0,
+                            "unknown",
+                            "unknown",
+                            -1L,
+                            Files.exists(entry.resolve(".pinned")),
+                            false,
+                            false,
+                            manifestPresent,
+                            false,
+                            !manifestPresent));
                 }
             }
         }
-        return result.stream().sorted(Comparator.comparingLong(BackupSummary::createdAtEpochMillis).reversed()).toList();
+        return result.stream()
+                .sorted(Comparator.comparingLong(BackupSummary::createdAtEpochMillis)
+                        .reversed())
+                .toList();
     }
 
     public Path resolve(String id) throws IOException {
@@ -60,8 +72,10 @@ public final class WorldBackupCatalog {
             throw new IOException("Delvefold backup root failed safety checks");
         }
         Path result = backupRoot.resolve(id).normalize();
-        if (!result.startsWith(backupRoot) || result.equals(backupRoot)
-                || Files.isSymbolicLink(result) || !Files.isDirectory(result)) {
+        if (!result.startsWith(backupRoot)
+                || result.equals(backupRoot)
+                || Files.isSymbolicLink(result)
+                || !Files.isDirectory(result)) {
             throw new IOException("Unknown or unsafe backup ID: " + id);
         }
         return result;
@@ -80,7 +94,10 @@ public final class WorldBackupCatalog {
             if (Files.exists(marker)) {
                 return false;
             } else {
-                Files.writeString(marker, "pinned\n", StandardCharsets.UTF_8,
+                Files.writeString(
+                        marker,
+                        "pinned\n",
+                        StandardCharsets.UTF_8,
                         java.nio.file.StandardOpenOption.CREATE_NEW,
                         java.nio.file.StandardOpenOption.WRITE);
             }
@@ -113,17 +130,19 @@ public final class WorldBackupCatalog {
         if (Files.isSymbolicLink(marker) || !Files.isRegularFile(marker) || Files.size(marker) > MAX_MARKER_BYTES) {
             throw new IOException("Backup marker failed safety checks");
         }
-        PendingWorldOperation operation = ConfigJson.GSON.fromJson(
-                Files.readString(marker, StandardCharsets.UTF_8), PendingWorldOperation.class);
+        PendingWorldOperation operation =
+                ConfigJson.GSON.fromJson(Files.readString(marker, StandardCharsets.UTF_8), PendingWorldOperation.class);
         if (operation == null || operation.schemaVersion() != PendingWorldOperation.CURRENT_SCHEMA_VERSION) {
             throw new IOException("Backup marker schema is unsupported");
         }
         WorldSettingsDocument settings = BackupManifestService.readCurrentSchema(
                 root.resolve("config/serverconfig/delvefold/settings.json"),
-                WorldSettingsDocument.class, WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
+                WorldSettingsDocument.class,
+                WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
         OreProfileDocument ores = BackupManifestService.readCurrentSchema(
                 root.resolve("config/serverconfig/delvefold/ores.json"),
-                OreProfileDocument.class, OreProfileDocument.CURRENT_SCHEMA_VERSION);
+                OreProfileDocument.class,
+                OreProfileDocument.CURRENT_SCHEMA_VERSION);
         boolean hasDimensions = false;
         if (settings != null) {
             try {
@@ -145,10 +164,15 @@ public final class WorldBackupCatalog {
             verified = manifests.hasCurrentVerification(root);
         }
         boolean valid = baseRestorable && (!manifestPresent || manifestValid);
-        return new BackupSummary(root.getFileName().toString(), operation.createdAtEpochMillis(),
+        return new BackupSummary(
+                root.getFileName().toString(),
+                operation.createdAtEpochMillis(),
                 operation.type().name().toLowerCase(java.util.Locale.ROOT),
-                operation.sourceTerrain() == null ? "unknown" : operation.sourceTerrain().serializedName(),
-                valid && manifestPresent ? manifestTotalBytes : -1L, Files.exists(root.resolve(".pinned")),
+                operation.sourceTerrain() == null
+                        ? "unknown"
+                        : operation.sourceTerrain().serializedName(),
+                valid && manifestPresent ? manifestTotalBytes : -1L,
+                Files.exists(root.resolve(".pinned")),
                 baseRestorable && manifestValid && verified,
                 valid,
                 manifestPresent,
@@ -178,8 +202,18 @@ public final class WorldBackupCatalog {
                 boolean pinned,
                 boolean restorable,
                 boolean valid) {
-            this(id, createdAtEpochMillis, operation, terrain, sizeBytes, pinned, restorable, valid,
-                    false, false, true);
+            this(
+                    id,
+                    createdAtEpochMillis,
+                    operation,
+                    terrain,
+                    sizeBytes,
+                    pinned,
+                    restorable,
+                    valid,
+                    false,
+                    false,
+                    true);
         }
 
         public Instant createdAt() {

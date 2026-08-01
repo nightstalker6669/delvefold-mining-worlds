@@ -7,8 +7,8 @@ import net.minecraft.resources.ResourceLocation;
 
 public record OreImportScanRequestPayload(long expectedOreRevision, boolean includeVanilla)
         implements CustomPacketPayload {
-    public static final Type<OreImportScanRequestPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "ore_import_scan"));
+    public static final Type<OreImportScanRequestPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "ore_import_scan"));
     public static final StreamCodec<RegistryFriendlyByteBuf, OreImportScanRequestPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeVarLong(payload.expectedOreRevision());
@@ -20,5 +20,8 @@ public record OreImportScanRequestPayload(long expectedOreRevision, boolean incl
         if (expectedOreRevision < 0L) throw new IllegalArgumentException("Negative ore revision");
     }
 
-    @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
 }

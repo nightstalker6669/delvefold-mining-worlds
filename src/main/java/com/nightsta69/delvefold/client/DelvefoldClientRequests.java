@@ -3,29 +3,28 @@ package com.nightsta69.delvefold.client;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
-import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ForecastRequestPayload;
+import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.GuideOpenedPayload;
-import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
+import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
-import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportCreatePayload;
 import com.nightsta69.delvefold.network.payload.OreImportPreviewPageRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportPreviewRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanPageRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanRequestPayload;
+import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportRequestPayload;
 import com.nightsta69.delvefold.network.payload.SaveOreRulePayload;
+import java.util.List;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.neoforged.neoforge.network.PacketDistributor;
-import java.util.List;
 
 public final class DelvefoldClientRequests {
-    private DelvefoldClientRequests() {
-    }
+    private DelvefoldClientRequests() {}
 
     public static void openGui() {
         send(new OpenGuiRequestPayload());

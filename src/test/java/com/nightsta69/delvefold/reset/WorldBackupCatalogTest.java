@@ -32,9 +32,11 @@ class WorldBackupCatalogTest {
         Files.createDirectories(backup.resolve("dimensions/delvefold/delve_flat"));
         Files.writeString(backup.resolve("dimensions/delvefold/delve_flat/level.dat"), "dimension-data");
         Files.createDirectories(backup.resolve("config/serverconfig/delvefold"));
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/settings.json"),
+        Files.writeString(
+                backup.resolve("config/serverconfig/delvefold/settings.json"),
                 ConfigJson.GSON.toJson(WorldSettingsDocument.uninitialized()));
-        Files.writeString(backup.resolve("config/serverconfig/delvefold/ores.json"),
+        Files.writeString(
+                backup.resolve("config/serverconfig/delvefold/ores.json"),
                 ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
         PendingWorldOperation operation = new PendingWorldOperation(
                 PendingWorldOperation.CURRENT_SCHEMA_VERSION,
@@ -61,7 +63,8 @@ class WorldBackupCatalogTest {
         assertEquals(backup, catalog.resolve(id));
         assertThrows(java.io.IOException.class, () -> catalog.resolve("../escape"));
 
-        BackupManifest manifest = new BackupManifestService().createVerifiedManifest(backup).manifest();
+        BackupManifest manifest =
+                new BackupManifestService().createVerifiedManifest(backup).manifest();
         summary = catalog.list().getFirst();
         assertTrue(summary.restorable());
         assertTrue(summary.manifestPresent());
@@ -87,25 +90,28 @@ class WorldBackupCatalogTest {
 
     @Test
     void catalogRejectsEmptyUnknownAndWrongActiveDimensionSnapshots() throws Exception {
-        createCatalogBackup("empty", WorldSettingsDocument.uninitialized(), TerrainMode.FLAT,
-                "delve_flat", false);
-        createCatalogBackup("unknown", WorldSettingsDocument.uninitialized(), TerrainMode.FLAT,
-                "not_a_delvefold_dimension", true);
-        WorldSettingsDocument expansiveCavern = WorldSettingsDocument.uninitialized().initialize(
-                TerrainMode.CAVERN,
-                OrePreset.VANILLA_BALANCED,
-                GameplayPreset.SAFE,
-                WorldIdentitySettings.defaults().withTerrainVariant(TerrainVariant.EXPANSIVE));
-        createCatalogBackup("wrong-active", expansiveCavern, TerrainMode.CAVERN,
-                "delve_cavern", true);
-        createCatalogBackup("valid-active", expansiveCavern, TerrainMode.CAVERN,
-                "delve_cavern_expansive", true);
-        createCatalogBackup("valid-legacy-expansive", WorldSettingsDocument.uninitialized(), TerrainMode.FLAT,
-                "delve_flat_expansive", true);
+        createCatalogBackup("empty", WorldSettingsDocument.uninitialized(), TerrainMode.FLAT, "delve_flat", false);
+        createCatalogBackup(
+                "unknown", WorldSettingsDocument.uninitialized(), TerrainMode.FLAT, "not_a_delvefold_dimension", true);
+        WorldSettingsDocument expansiveCavern = WorldSettingsDocument.uninitialized()
+                .initialize(
+                        TerrainMode.CAVERN,
+                        OrePreset.VANILLA_BALANCED,
+                        GameplayPreset.SAFE,
+                        WorldIdentitySettings.defaults().withTerrainVariant(TerrainVariant.EXPANSIVE));
+        createCatalogBackup("wrong-active", expansiveCavern, TerrainMode.CAVERN, "delve_cavern", true);
+        createCatalogBackup("valid-active", expansiveCavern, TerrainMode.CAVERN, "delve_cavern_expansive", true);
+        createCatalogBackup(
+                "valid-legacy-expansive",
+                WorldSettingsDocument.uninitialized(),
+                TerrainMode.FLAT,
+                "delve_flat_expansive",
+                true);
 
-        var summaries = new WorldBackupCatalog(saveRoot).list().stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        WorldBackupCatalog.BackupSummary::id, java.util.function.Function.identity()));
+        var summaries = new WorldBackupCatalog(saveRoot)
+                .list().stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                WorldBackupCatalog.BackupSummary::id, java.util.function.Function.identity()));
 
         assertFalse(summaries.get("empty").valid());
         assertFalse(summaries.get("unknown").valid());
@@ -173,7 +179,8 @@ class WorldBackupCatalogTest {
     @Test
     void pinningRejectsADanglingSymbolicLinkMarkerWithoutWritingOutsideTheBackup() throws Exception {
         String id = "dangling-pin-backup";
-        Path backup = Files.createDirectories(saveRoot.resolve("delvefold_backups").resolve(id));
+        Path backup =
+                Files.createDirectories(saveRoot.resolve("delvefold_backups").resolve(id));
         Path externalMarker = externalTemporaryDirectory.resolve("external-pin-marker");
         Files.createSymbolicLink(backup.resolve(".pinned"), externalMarker);
 
@@ -187,7 +194,8 @@ class WorldBackupCatalogTest {
     @Test
     void pinAndUnpinRejectANonRegularMarker() throws Exception {
         String id = "directory-pin-backup";
-        Path backup = Files.createDirectories(saveRoot.resolve("delvefold_backups").resolve(id));
+        Path backup =
+                Files.createDirectories(saveRoot.resolve("delvefold_backups").resolve(id));
         Path marker = Files.createDirectory(backup.resolve(".pinned"));
         WorldBackupCatalog catalog = new WorldBackupCatalog(saveRoot);
 
@@ -201,17 +209,18 @@ class WorldBackupCatalogTest {
             WorldSettingsDocument settings,
             TerrainMode sourceTerrain,
             String dimensionFolder,
-            boolean withData) throws Exception {
+            boolean withData)
+            throws Exception {
         Path backup = saveRoot.resolve("delvefold_backups").resolve(id);
-        Path dimension = Files.createDirectories(
-                backup.resolve("dimensions/delvefold").resolve(dimensionFolder));
+        Path dimension =
+                Files.createDirectories(backup.resolve("dimensions/delvefold").resolve(dimensionFolder));
         if (withData) {
             Files.writeString(dimension.resolve("level.dat"), "dimension-data");
         }
         Path config = Files.createDirectories(backup.resolve("config/serverconfig/delvefold"));
         Files.writeString(config.resolve("settings.json"), ConfigJson.GSON.toJson(settings));
-        Files.writeString(config.resolve("ores.json"),
-                ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
+        Files.writeString(
+                config.resolve("ores.json"), ConfigJson.GSON.toJson(OrePresets.create(OrePreset.VANILLA_BALANCED)));
         PendingWorldOperation operation = new PendingWorldOperation(
                 PendingWorldOperation.CURRENT_SCHEMA_VERSION,
                 "11111111-1111-1111-1111-111111111111",

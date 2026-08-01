@@ -18,14 +18,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
 /**
- * Resolves editable ore targets with the exact ordering, state application, weighting, and
- * first-wins deduplication used by runtime generation.
+ * Resolves editable ore targets with the exact ordering, state application, weighting, and first-wins deduplication
+ * used by runtime generation.
  */
 public final class OreTargetResolution {
     public static final int MAX_DIAGNOSTIC_ISSUES = 256;
 
-    private OreTargetResolution() {
-    }
+    private OreTargetResolution() {}
 
     public static Result resolve(OreRule rule) {
         Objects.requireNonNull(rule, "rule");
@@ -37,27 +36,46 @@ public final class OreTargetResolution {
             OreTarget target = rule.targets().get(targetIndex);
             ResourceLocation hostId = ResourceLocation.tryParse(stripHash(target.replaceTag()));
             if (hostId == null) {
-                issues.add(issue(rule, targetIndex, target, IssueKind.INVALID_HOST_TAG,
-                        IssueSeverity.ERROR, target.replaceTag(), 0));
-                targets.add(new TargetResult(targetIndex, target.sourceId(), target.replaceTag(),
-                        0, 0, 0, TargetStatus.INVALID_HOST));
+                issues.add(issue(
+                        rule,
+                        targetIndex,
+                        target,
+                        IssueKind.INVALID_HOST_TAG,
+                        IssueSeverity.ERROR,
+                        target.replaceTag(),
+                        0));
+                targets.add(new TargetResult(
+                        targetIndex, target.sourceId(), target.replaceTag(), 0, 0, 0, TargetStatus.INVALID_HOST));
                 continue;
             }
             if (target.weight() < OreTarget.MIN_WEIGHT || target.weight() > OreTarget.MAX_WEIGHT) {
-                issues.add(issue(rule, targetIndex, target, IssueKind.INVALID_WEIGHT,
-                        IssueSeverity.ERROR, Integer.toString(target.weight()), 0));
-                targets.add(new TargetResult(targetIndex, target.sourceId(), target.replaceTag(),
-                        0, 0, 0, TargetStatus.INVALID_WEIGHT));
+                issues.add(issue(
+                        rule,
+                        targetIndex,
+                        target,
+                        IssueKind.INVALID_WEIGHT,
+                        IssueSeverity.ERROR,
+                        Integer.toString(target.weight()),
+                        0));
+                targets.add(new TargetResult(
+                        targetIndex, target.sourceId(), target.replaceTag(), 0, 0, 0, TargetStatus.INVALID_WEIGHT));
                 continue;
             }
 
             TagKey<Block> replaceable = TagKey.create(Registries.BLOCK, hostId);
-            boolean hostTagPresent = BuiltInRegistries.BLOCK.getTag(replaceable)
+            boolean hostTagPresent = BuiltInRegistries.BLOCK
+                    .getTag(replaceable)
                     .map(holders -> holders.size() > 0)
                     .orElse(false);
             if (!hostTagPresent) {
-                issues.add(issue(rule, targetIndex, target, IssueKind.MISSING_HOST_TAG,
-                        IssueSeverity.ERROR, hostId.toString(), 0));
+                issues.add(issue(
+                        rule,
+                        targetIndex,
+                        target,
+                        IssueKind.MISSING_HOST_TAG,
+                        IssueSeverity.ERROR,
+                        hostId.toString(),
+                        0));
             }
 
             List<Map.Entry<ResourceLocation, Block>> outputs = outputBlocks(target);
@@ -66,45 +84,67 @@ public final class OreTargetResolution {
                 IssueSeverity severity = rule.required() ? IssueSeverity.ERROR : IssueSeverity.WARNING;
                 String reference = target.tagDriven() ? target.blockTag() : target.block();
                 issues.add(issue(rule, targetIndex, target, kind, severity, reference, 0));
-                targets.add(new TargetResult(targetIndex, target.sourceId(), target.replaceTag(),
-                        0, 0, 0, TargetStatus.MISSING_OUTPUT));
+                targets.add(new TargetResult(
+                        targetIndex, target.sourceId(), target.replaceTag(), 0, 0, 0, TargetStatus.MISSING_OUTPUT));
                 continue;
             }
 
-            MutableTargetGroup group = grouped.computeIfAbsent(
-                    replaceable, ignored -> new MutableTargetGroup(hostTagPresent));
-            double memberWeight = target.tagDriven()
-                    ? (double) target.weight() / outputs.size()
-                    : target.weight();
+            MutableTargetGroup group =
+                    grouped.computeIfAbsent(replaceable, ignored -> new MutableTargetGroup(hostTagPresent));
+            double memberWeight = target.tagDriven() ? (double) target.weight() / outputs.size() : target.weight();
             int acceptedOutputs = 0;
             int shadowedOutputs = 0;
             for (Map.Entry<ResourceLocation, Block> output : outputs) {
                 StateResult state = applyProperties(output.getValue().defaultBlockState(), target.state());
                 for (StateIssue stateIssue : state.issues()) {
-                    issues.add(issue(rule, targetIndex, target, stateIssue.kind(), IssueSeverity.WARNING,
-                            output.getKey().toString(), 0));
+                    issues.add(issue(
+                            rule,
+                            targetIndex,
+                            target,
+                            stateIssue.kind(),
+                            IssueSeverity.WARNING,
+                            output.getKey().toString(),
+                            0));
                 }
-                if (group.add(output.getKey(), state.state(), memberWeight,
-                        target.weight() == OreTarget.DEFAULT_WEIGHT)) {
+                if (group.add(
+                        output.getKey(), state.state(), memberWeight, target.weight() == OreTarget.DEFAULT_WEIGHT)) {
                     acceptedOutputs++;
                 } else {
                     shadowedOutputs++;
-                    issues.add(issue(rule, targetIndex, target, IssueKind.SHADOWED_OUTPUT,
-                            IssueSeverity.WARNING, output.getKey().toString(), 1));
+                    issues.add(issue(
+                            rule,
+                            targetIndex,
+                            target,
+                            IssueKind.SHADOWED_OUTPUT,
+                            IssueSeverity.WARNING,
+                            output.getKey().toString(),
+                            1));
                 }
             }
             TargetStatus status;
             if (acceptedOutputs == 0) {
                 status = TargetStatus.SHADOWED;
-                issues.add(issue(rule, targetIndex, target, IssueKind.SHADOWED_TARGET,
-                        IssueSeverity.WARNING, hostId.toString(), shadowedOutputs));
+                issues.add(issue(
+                        rule,
+                        targetIndex,
+                        target,
+                        IssueKind.SHADOWED_TARGET,
+                        IssueSeverity.WARNING,
+                        hostId.toString(),
+                        shadowedOutputs));
             } else if (shadowedOutputs > 0) {
                 status = TargetStatus.PARTIALLY_SHADOWED;
             } else {
                 status = TargetStatus.EFFECTIVE;
             }
-            targets.add(new TargetResult(targetIndex, target.sourceId(), target.replaceTag(),
-                    outputs.size(), acceptedOutputs, shadowedOutputs, status));
+            targets.add(new TargetResult(
+                    targetIndex,
+                    target.sourceId(),
+                    target.replaceTag(),
+                    outputs.size(),
+                    acceptedOutputs,
+                    shadowedOutputs,
+                    status));
         }
 
         List<TargetGroup> groups = grouped.entrySet().stream()
@@ -122,14 +162,21 @@ public final class OreTargetResolution {
             IssueSeverity severity,
             String referenceId,
             int affectedOutputs) {
-        return new Issue(kind, severity, targetIndex, rule.id(), target.sourceId(),
-                referenceId == null ? "" : referenceId, Math.max(0, affectedOutputs));
+        return new Issue(
+                kind,
+                severity,
+                targetIndex,
+                rule.id(),
+                target.sourceId(),
+                referenceId == null ? "" : referenceId,
+                Math.max(0, affectedOutputs));
     }
 
     private static List<Map.Entry<ResourceLocation, Block>> outputBlocks(OreTarget target) {
         if (!target.tagDriven()) {
             ResourceLocation id = ResourceLocation.tryParse(target.block());
-            Block block = id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
+            Block block =
+                    id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
             if (block == null) {
                 return List.of();
             }
@@ -180,10 +227,7 @@ public final class OreTargetResolution {
     }
 
     public record Result(
-            List<TargetGroup> groups,
-            List<TargetResult> targets,
-            List<Issue> issues,
-            boolean issuesTruncated) {
+            List<TargetGroup> groups, List<TargetResult> targets, List<Issue> issues, boolean issuesTruncated) {
         public Result {
             groups = groups == null ? List.of() : List.copyOf(groups);
             targets = targets == null ? List.of() : List.copyOf(targets);
@@ -199,7 +243,8 @@ public final class OreTargetResolution {
         }
 
         public int shadowedOutputCount() {
-            long count = targets.stream().mapToLong(TargetResult::shadowedOutputs).sum();
+            long count =
+                    targets.stream().mapToLong(TargetResult::shadowedOutputs).sum();
             return (int) Math.min(Integer.MAX_VALUE, count);
         }
     }
@@ -219,11 +264,7 @@ public final class OreTargetResolution {
         }
     }
 
-    public record Output(
-            ResourceLocation blockId,
-            BlockState state,
-            double selectionWeight,
-            double cumulativeWeight) {
+    public record Output(ResourceLocation blockId, BlockState state, double selectionWeight, double cumulativeWeight) {
         public Output {
             Objects.requireNonNull(blockId, "blockId");
             Objects.requireNonNull(state, "state");
@@ -290,8 +331,7 @@ public final class OreTargetResolution {
         }
     }
 
-    private record StateIssue(IssueKind kind) {
-    }
+    private record StateIssue(IssueKind kind) {}
 
     private static final class MutableTargetGroup {
         private final LinkedHashMap<BlockState, Candidate> candidates = new LinkedHashMap<>();
@@ -316,15 +356,17 @@ public final class OreTargetResolution {
             double cumulative = 0.0D;
             for (Map.Entry<BlockState, Candidate> candidate : candidates.entrySet()) {
                 cumulative += candidate.getValue().selectionWeight();
-                outputs.add(new Output(candidate.getValue().blockId(), candidate.getKey(),
-                        candidate.getValue().selectionWeight(), cumulative));
+                outputs.add(new Output(
+                        candidate.getValue().blockId(),
+                        candidate.getKey(),
+                        candidate.getValue().selectionWeight(),
+                        cumulative));
             }
             return new TargetGroup(replaceable, hostTagPresent, outputs, legacyUniform, cumulative);
         }
     }
 
-    private record Candidate(ResourceLocation blockId, double selectionWeight) {
-    }
+    private record Candidate(ResourceLocation blockId, double selectionWeight) {}
 
     private static final class IssueCollector {
         private final List<Issue> issues = new ArrayList<>();

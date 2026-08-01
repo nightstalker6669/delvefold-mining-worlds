@@ -22,10 +22,7 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
     private Component error = Component.empty();
 
     public DelvefoldProvinceSettingsScreen(
-            Screen parent,
-            AdminSnapshot snapshot,
-            ProvinceSettings initial,
-            Consumer<ProvinceSettings> onSave) {
+            Screen parent, AdminSnapshot snapshot, ProvinceSettings initial, Consumer<ProvinceSettings> onSave) {
         super(Component.translatable("screen.delvefold.province.title"), snapshot);
         this.parent = parent;
         this.onSave = onSave;
@@ -45,35 +42,48 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
     @Override
     protected void initPanel() {
         ProvinceSettingsLayout layout = layout();
-        EditBox region = editBox(layout.region(), this.regionSize,
-                Component.translatable("screen.delvefold.province.region_size"));
+        EditBox region = editBox(
+                layout.region(), this.regionSize, Component.translatable("screen.delvefold.province.region_size"));
         region.setResponder(value -> this.regionSize = value);
-        EditBox radiusBox = editBox(layout.radius(), this.radius,
-                Component.translatable("screen.delvefold.province.radius"));
+        EditBox radiusBox =
+                editBox(layout.radius(), this.radius, Component.translatable("screen.delvefold.province.radius"));
         radiusBox.setResponder(value -> this.radius = value);
 
-        EditBox thickness = editBox(layout.verticalThickness(), this.verticalThickness,
+        EditBox thickness = editBox(
+                layout.verticalThickness(),
+                this.verticalThickness,
                 Component.translatable("screen.delvefold.province.vertical_thickness"));
         thickness.setResponder(value -> this.verticalThickness = value);
-        EditBox densityBox = editBox(layout.density(), this.density,
-                Component.translatable("screen.delvefold.province.density"));
+        EditBox densityBox =
+                editBox(layout.density(), this.density, Component.translatable("screen.delvefold.province.density"));
         densityBox.setResponder(value -> this.density = value);
 
-        EditBox cap = editBox(layout.workCap(), this.workCap,
-                Component.translatable("screen.delvefold.province.work_cap"));
+        EditBox cap =
+                editBox(layout.workCap(), this.workCap, Component.translatable("screen.delvefold.province.work_cap"));
         cap.setResponder(value -> this.workCap = value);
 
         int footerY = this.panelTop + this.panelHeight - 29;
-        this.addButton(this.contentLeft(), footerY, 80, 22,
-                Component.translatable("gui.back"), Style.GHOST, button -> onClose());
-        this.addButton(this.contentRight() - 108, footerY, 108, 22,
-                Component.translatable("screen.delvefold.province.apply"), Style.PRIMARY,
+        this.addButton(
+                this.contentLeft(),
+                footerY,
+                80,
+                22,
+                Component.translatable("gui.back"),
+                Style.GHOST,
+                button -> onClose());
+        this.addButton(
+                this.contentRight() - 108,
+                footerY,
+                108,
+                22,
+                Component.translatable("screen.delvefold.province.apply"),
+                Style.PRIMARY,
                 button -> save());
     }
 
     private EditBox editBox(ProvinceSettingsLayout.Field field, String value, Component hint) {
-        EditBox box = this.addRenderableWidget(new EditBox(
-                this.font, field.x(), field.y(), field.width(), field.height(), hint));
+        EditBox box = this.addRenderableWidget(
+                new EditBox(this.font, field.x(), field.y(), field.width(), field.height(), hint));
         box.setMaxLength(16);
         box.setValue(value);
         box.setHint(hint);
@@ -95,17 +105,21 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
             boolean valid = parsedRegion >= OreConfigValidator.MIN_PROVINCE_REGION_SIZE
                     && parsedRegion <= OreConfigValidator.MAX_PROVINCE_REGION_SIZE
                     && parsedRegion % 16 == 0
-                    && parsedRadius >= 1 && parsedRadius <= parsedRegion
+                    && parsedRadius >= 1
+                    && parsedRadius <= parsedRegion
                     && parsedThickness >= 1
                     && parsedThickness <= OreConfigValidator.MAX_WORLD_Y - OreConfigValidator.MIN_WORLD_Y + 1
-                    && Double.isFinite(parsedDensity) && parsedDensity > 0.0D && parsedDensity <= 1.0D
-                    && parsedCap >= 1 && parsedCap <= OreConfigValidator.MAX_PROVINCE_WORK_PER_CHUNK;
+                    && Double.isFinite(parsedDensity)
+                    && parsedDensity > 0.0D
+                    && parsedDensity <= 1.0D
+                    && parsedCap >= 1
+                    && parsedCap <= OreConfigValidator.MAX_PROVINCE_WORK_PER_CHUNK;
             if (!valid) {
                 throw new NumberFormatException();
             }
             this.error = Component.empty();
-            this.onSave.accept(new ProvinceSettings(
-                    parsedRegion, parsedRadius, parsedThickness, parsedDensity, parsedCap));
+            this.onSave.accept(
+                    new ProvinceSettings(parsedRegion, parsedRadius, parsedThickness, parsedDensity, parsedCap));
         } catch (NumberFormatException exception) {
             this.error = Component.translatable("screen.delvefold.province.invalid");
         }
@@ -118,28 +132,47 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
         int y = layout.contentTop();
         int width = layout.contentWidth();
         this.drawCard(graphics, x, y, width, layout.contentBottom() - y);
-        this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.province.section"),
-                x + 10, layout.sectionTitleY());
-        this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.province.region_size"),
-                layout.region().x(), layout.region().labelY());
-        this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.province.radius"),
-                layout.radius().x(), layout.radius().labelY());
-        this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.province.vertical_thickness"),
-                layout.verticalThickness().x(), layout.verticalThickness().labelY());
-        this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.province.density"),
-                layout.density().x(), layout.density().labelY());
-        this.drawFieldLabel(graphics, Component.translatable("screen.delvefold.province.work_cap"),
-                layout.workCap().x(), layout.workCap().labelY());
+        this.drawSectionTitle(
+                graphics, Component.translatable("screen.delvefold.province.section"), x + 10, layout.sectionTitleY());
+        this.drawFieldLabel(
+                graphics,
+                Component.translatable("screen.delvefold.province.region_size"),
+                layout.region().x(),
+                layout.region().labelY());
+        this.drawFieldLabel(
+                graphics,
+                Component.translatable("screen.delvefold.province.radius"),
+                layout.radius().x(),
+                layout.radius().labelY());
+        this.drawFieldLabel(
+                graphics,
+                Component.translatable("screen.delvefold.province.vertical_thickness"),
+                layout.verticalThickness().x(),
+                layout.verticalThickness().labelY());
+        this.drawFieldLabel(
+                graphics,
+                Component.translatable("screen.delvefold.province.density"),
+                layout.density().x(),
+                layout.density().labelY());
+        this.drawFieldLabel(
+                graphics,
+                Component.translatable("screen.delvefold.province.work_cap"),
+                layout.workCap().x(),
+                layout.workCap().labelY());
         if (layout.showHelp()) {
-            graphics.drawWordWrap(this.font, Component.translatable("screen.delvefold.province.help"),
-                    x + 12, layout.helpY(), width - 24, DIM_TEXT);
+            graphics.drawWordWrap(
+                    this.font,
+                    Component.translatable("screen.delvefold.province.help"),
+                    x + 12,
+                    layout.helpY(),
+                    width - 24,
+                    DIM_TEXT);
         }
         if (!this.error.getString().isEmpty()) {
             if (layout.compact()) {
                 graphics.enableScissor(x + 1, layout.errorY(), x + width - 1, layout.contentBottom());
             }
-            graphics.drawWordWrap(this.font, this.error,
-                    x + 12, layout.errorY(), width - 24, DANGER);
+            graphics.drawWordWrap(this.font, this.error, x + 12, layout.errorY(), width - 24, DANGER);
             if (layout.compact()) {
                 graphics.disableScissor();
             }
@@ -179,8 +212,7 @@ record ProvinceSettingsLayout(
         int errorY) {
     private static final int NORMAL_BODY_HEIGHT = 214;
 
-    static ProvinceSettingsLayout calculate(
-            int contentLeft, int contentTop, int contentWidth, int contentBottom) {
+    static ProvinceSettingsLayout calculate(int contentLeft, int contentTop, int contentWidth, int contentBottom) {
         int innerX = contentLeft + 12;
         int innerWidth = Math.max(1, contentWidth - 24);
         boolean compact = contentBottom - contentTop < NORMAL_BODY_HEIGHT;

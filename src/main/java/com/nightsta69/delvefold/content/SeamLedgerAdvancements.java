@@ -12,17 +12,16 @@ public final class SeamLedgerAdvancements {
             ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "consult_seam_ledger");
     public static final String CONSULT_CRITERION = "consult";
 
-    private SeamLedgerAdvancements() {
-    }
+    private SeamLedgerAdvancements() {}
 
     /**
      * Records that a player successfully consulted the Seam Ledger.
      *
      * <p>This must be called on the logical server only after the player-bound client-open acknowledgement has been
-     * validated and the current guide visibility has been rechecked.</p>
+     * validated and the current guide visibility has been rechecked.
      *
-     * @return {@code true} when the criterion was newly awarded; {@code false} if the advancement is unavailable or
-     *         was already complete
+     * @return {@code true} when the criterion was newly awarded; {@code false} if the advancement is unavailable or was
+     *     already complete
      */
     public static boolean triggerConsulted(ServerPlayer player) {
         Objects.requireNonNull(player, "player");

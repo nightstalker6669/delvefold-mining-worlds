@@ -7,8 +7,7 @@ public record WorldOperationPreview(
         long expiresAtEpochMillis,
         long estimatedBytes,
         int playersToEvacuate,
-        BackupMode backupMode
-) {
+        BackupMode backupMode) {
     public static WorldOperationPreview rejected(String message) {
         return new WorldOperationPreview(false, message, "", 0, 0, 0, BackupMode.KEEP_BACKUP);
     }

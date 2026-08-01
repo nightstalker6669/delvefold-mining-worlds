@@ -6,6 +6,5 @@ import java.util.List;
 final class DelvefoldCommandNames {
     static final List<String> REGISTERED_ROOTS = List.of("delvefold");
 
-    private DelvefoldCommandNames() {
-    }
+    private DelvefoldCommandNames() {}
 }

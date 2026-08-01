@@ -1,7 +1,7 @@
 package com.nightsta69.delvefold.config.analysis;
 
-import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
+import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
@@ -13,13 +13,12 @@ import java.util.Objects;
 
 /** Canonical aggregate ore-placement work used by validation and diagnostics. */
 public final class OreWorkBudgetAnalysis {
-    private OreWorkBudgetAnalysis() {
-    }
+    private OreWorkBudgetAnalysis() {}
 
     /**
-     * Computes the same conservative per-terrain totals enforced by the configuration validator.
-     * Disabled rules and non-positive or non-finite attempt rates do not consume the budget.
-     * Biome filters are deliberately ignored because validation must budget for the worst case.
+     * Computes the same conservative per-terrain totals enforced by the configuration validator. Disabled rules and
+     * non-positive or non-finite attempt rates do not consume the budget. Biome filters are deliberately ignored
+     * because validation must budget for the worst case.
      */
     public static ProfileBudget analyze(OreProfileDocument document) {
         Objects.requireNonNull(document, "document");
@@ -57,8 +56,10 @@ public final class OreWorkBudgetAnalysis {
         Objects.requireNonNull(band, "band");
         if (band.placement() == OreBandPlacement.PROVINCE) {
             ProvinceSettings province = band.province();
-            if (province == null || !Double.isFinite(province.density())
-                    || province.density() <= 0.0D || province.perChunkWorkCap() <= 0) {
+            if (province == null
+                    || !Double.isFinite(province.density())
+                    || province.density() <= 0.0D
+                    || province.perChunkWorkCap() <= 0) {
                 return Budget.ZERO;
             }
             // A province sampler shares this hard cap across every regional center touching the chunk.
@@ -70,8 +71,7 @@ public final class OreWorkBudgetAnalysis {
         if (!Double.isFinite(bandAttempts) || bandAttempts <= 0.0D) {
             return Budget.ZERO;
         }
-        return new Budget(bandAttempts,
-                saturatingMultiply(bandAttempts, Math.max(1, band.veinSize())));
+        return new Budget(bandAttempts, saturatingMultiply(bandAttempts, Math.max(1, band.veinSize())));
     }
 
     private static EnumMap<TerrainMode, Budget> emptyBudgets() {
@@ -109,14 +109,17 @@ public final class OreWorkBudgetAnalysis {
         public static final Budget ZERO = new Budget(0.0D, 0.0D);
 
         public Budget {
-            if (!Double.isFinite(attemptsPerChunk) || attemptsPerChunk < 0.0D
-                    || !Double.isFinite(workUnitsPerChunk) || workUnitsPerChunk < 0.0D) {
+            if (!Double.isFinite(attemptsPerChunk)
+                    || attemptsPerChunk < 0.0D
+                    || !Double.isFinite(workUnitsPerChunk)
+                    || workUnitsPerChunk < 0.0D) {
                 throw new IllegalArgumentException("Ore work budgets must be finite and non-negative");
             }
         }
 
         Budget plus(Budget other) {
-            return new Budget(saturatingAdd(attemptsPerChunk, other.attemptsPerChunk),
+            return new Budget(
+                    saturatingAdd(attemptsPerChunk, other.attemptsPerChunk),
                     saturatingAdd(workUnitsPerChunk, other.workUnitsPerChunk));
         }
     }

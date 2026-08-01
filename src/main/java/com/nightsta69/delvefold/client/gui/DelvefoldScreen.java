@@ -75,25 +75,16 @@ public abstract class DelvefoldScreen extends Screen {
 
     protected abstract void initPanel();
 
-    public void handleActionResult(ActionResultPayload payload) {
-    }
+    public void handleActionResult(ActionResultPayload payload) {}
 
-    protected void renderPanelContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-    }
+    protected void renderPanelContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
 
-    protected DelvefoldButton addButton(
-            int x, int y, int width, int height, Component label, Button.OnPress onPress) {
+    protected DelvefoldButton addButton(int x, int y, int width, int height, Component label, Button.OnPress onPress) {
         return this.addButton(x, y, width, height, label, Style.SECONDARY, onPress);
     }
 
     protected DelvefoldButton addButton(
-            int x,
-            int y,
-            int width,
-            int height,
-            Component label,
-            Style style,
-            Button.OnPress onPress) {
+            int x, int y, int width, int height, Component label, Style style, Button.OnPress onPress) {
         return this.addRenderableWidget(new DelvefoldButton(x, y, width, height, label, onPress, style));
     }
 
@@ -149,23 +140,39 @@ public abstract class DelvefoldScreen extends Screen {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fillGradient(0, 0, this.width, this.height, 0xA80B1116, 0xDC05080B);
 
-        graphics.fill(this.panelLeft + 5, this.panelTop + 6,
-                this.panelLeft + this.panelWidth + 5, this.panelTop + this.panelHeight + 6, 0x88000000);
-        graphics.fill(this.panelLeft, this.panelTop, this.panelLeft + this.panelWidth,
-                this.panelTop + this.panelHeight, PANEL_BACKGROUND);
-        graphics.fillGradient(this.panelLeft + 1, this.panelTop + 1,
-                this.panelLeft + this.panelWidth - 1, this.panelTop + HEADER_HEIGHT,
-                0xFF1E3035, 0xFF142128);
-        graphics.fill(this.panelLeft + 1, this.panelTop + this.panelHeight - FOOTER_HEIGHT,
-                this.panelLeft + this.panelWidth - 1, this.panelTop + this.panelHeight - 1, 0xFF10191F);
-        graphics.fill(this.panelLeft + 1, this.panelTop + 1, this.panelLeft + this.panelWidth - 1,
-                this.panelTop + 4, ACCENT);
+        graphics.fill(
+                this.panelLeft + 5,
+                this.panelTop + 6,
+                this.panelLeft + this.panelWidth + 5,
+                this.panelTop + this.panelHeight + 6,
+                0x88000000);
+        graphics.fill(
+                this.panelLeft,
+                this.panelTop,
+                this.panelLeft + this.panelWidth,
+                this.panelTop + this.panelHeight,
+                PANEL_BACKGROUND);
+        graphics.fillGradient(
+                this.panelLeft + 1,
+                this.panelTop + 1,
+                this.panelLeft + this.panelWidth - 1,
+                this.panelTop + HEADER_HEIGHT,
+                0xFF1E3035,
+                0xFF142128);
+        graphics.fill(
+                this.panelLeft + 1,
+                this.panelTop + this.panelHeight - FOOTER_HEIGHT,
+                this.panelLeft + this.panelWidth - 1,
+                this.panelTop + this.panelHeight - 1,
+                0xFF10191F);
+        graphics.fill(
+                this.panelLeft + 1, this.panelTop + 1, this.panelLeft + this.panelWidth - 1, this.panelTop + 4, ACCENT);
         graphics.renderOutline(this.panelLeft, this.panelTop, this.panelWidth, this.panelHeight, PANEL_BORDER);
         graphics.drawString(this.font, this.title, this.panelLeft + CONTENT_PADDING, this.panelTop + 16, TEXT, false);
 
         if (this.panelWidth >= 430) {
-            Component revision = Component.translatable("screen.delvefold.revisions",
-                    this.snapshot.oreRevision(), this.snapshot.settingsRevision());
+            Component revision = Component.translatable(
+                    "screen.delvefold.revisions", this.snapshot.oreRevision(), this.snapshot.settingsRevision());
             int revisionWidth = this.font.width(revision) + 12;
             int revisionX = this.panelLeft + this.panelWidth - CONTENT_PADDING - revisionWidth;
             graphics.fill(revisionX, this.panelTop + 12, revisionX + revisionWidth, this.panelTop + 31, 0xAA0B1318);

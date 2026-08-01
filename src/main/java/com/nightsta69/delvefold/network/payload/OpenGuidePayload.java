@@ -8,8 +8,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 public record OpenGuidePayload(GuideSnapshot snapshot, long authorizationId) implements CustomPacketPayload {
-    public static final Type<OpenGuidePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "open_guide"));
+    public static final Type<OpenGuidePayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "open_guide"));
     public static final StreamCodec<RegistryFriendlyByteBuf, OpenGuidePayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 GuideStreamCodecs.write(buffer, payload.snapshot());

@@ -11,8 +11,7 @@ import java.util.List;
 final class ProductionSources {
     private static final Path ROOT = Path.of("src/main/java/com/nightsta69/delvefold");
 
-    private ProductionSources() {
-    }
+    private ProductionSources() {}
 
     static String read(String relativePath) throws IOException {
         return Files.readString(ROOT.resolve(relativePath));

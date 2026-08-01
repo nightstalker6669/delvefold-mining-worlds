@@ -3,9 +3,9 @@ package com.nightsta69.delvefold.client.gui.widget;
 import com.nightsta69.delvefold.client.gui.OrePickerEntry;
 import java.time.Duration;
 import java.util.function.Consumer;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 
@@ -24,15 +24,20 @@ public final class OreIconButton extends AbstractButton {
         this.entry = entry;
         this.visible = entry != null;
         this.active = entry != null;
-        this.setMessage(entry == null
-                ? Component.empty()
-                : Component.translatable("screen.delvefold.ore_picker.entry",
-                        entry.translatedName(), entry.id()));
-        this.setTooltip(entry == null ? null : Tooltip.create(Component.translatable(
-                entry.commonTagged()
-                        ? "screen.delvefold.ore_picker.entry.tooltip.common"
-                        : "screen.delvefold.ore_picker.entry.tooltip",
-                entry.translatedName(), entry.id())));
+        this.setMessage(
+                entry == null
+                        ? Component.empty()
+                        : Component.translatable(
+                                "screen.delvefold.ore_picker.entry", entry.translatedName(), entry.id()));
+        this.setTooltip(
+                entry == null
+                        ? null
+                        : Tooltip.create(Component.translatable(
+                                entry.commonTagged()
+                                        ? "screen.delvefold.ore_picker.entry.tooltip.common"
+                                        : "screen.delvefold.ore_picker.entry.tooltip",
+                                entry.translatedName(),
+                                entry.id())));
         this.setTooltipDelay(Duration.ofMillis(250));
     }
 

@@ -8,9 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Immutable, registry-ID-ordered catalog safe for concurrent world-generation reads. */
 public record LandmarkCatalogSnapshot(
-        long revision,
-        Map<ResourceLocation, LandmarkDefinition> definitions,
-        Instant loadedAt) {
+        long revision, Map<ResourceLocation, LandmarkDefinition> definitions, Instant loadedAt) {
 
     public LandmarkCatalogSnapshot {
         revision = Math.max(0L, revision);

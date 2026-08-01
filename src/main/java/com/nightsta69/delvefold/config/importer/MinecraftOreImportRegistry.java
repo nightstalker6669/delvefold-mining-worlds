@@ -32,7 +32,8 @@ public final class MinecraftOreImportRegistry implements OreImportRegistry, Regi
         }
 
         TreeMap<String, List<String>> membersByTag = new TreeMap<>();
-        BuiltInRegistries.BLOCK.getTags()
+        BuiltInRegistries.BLOCK
+                .getTags()
                 .sorted(java.util.Comparator.comparing(pair -> pair.getFirst().location()))
                 .forEach(pair -> captureTag(pair, tagsByBlock, membersByTag));
 
@@ -44,9 +45,9 @@ public final class MinecraftOreImportRegistry implements OreImportRegistry, Regi
     }
 
     /**
-     * Returns the immutable registry/tag snapshot and its deterministic fingerprint for the
-     * current server resource state. The expensive registry walk and SHA-256 calculation happen
-     * at most once between lifecycle or datapack-reload invalidations.
+     * Returns the immutable registry/tag snapshot and its deterministic fingerprint for the current server resource
+     * state. The expensive registry walk and SHA-256 calculation happen at most once between lifecycle or
+     * datapack-reload invalidations.
      */
     public static CachedSnapshot cachedSnapshot() {
         CachedSnapshot current = cachedSnapshot;

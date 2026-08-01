@@ -12,6 +12,5 @@ public final class ConfigJson {
             .disableHtmlEscaping()
             .create();
 
-    private ConfigJson() {
-    }
+    private ConfigJson() {}
 }

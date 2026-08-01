@@ -19,19 +19,19 @@ import net.minecraft.world.level.biome.Biome;
 
 /** Server-registry adapter for the pure ore-profile forecast builder. */
 public final class MinecraftOreProfileForecastBuilder {
-    private MinecraftOreProfileForecastBuilder() {
-    }
+    private MinecraftOreProfileForecastBuilder() {}
 
-    public static OreProfileForecast build(
-            ConfigSnapshot source,
-            RegistryAccess registries,
-            int page,
-            int pageSize) {
+    public static OreProfileForecast build(ConfigSnapshot source, RegistryAccess registries, int page, int pageSize) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(source.settings(), "source.settings");
         Objects.requireNonNull(source.ores(), "source.ores");
-        return build(source.settings().activeProfileId(), source.ores(), source.settings().terrainMode(),
-                registries, page, pageSize);
+        return build(
+                source.settings().activeProfileId(),
+                source.ores(),
+                source.settings().terrainMode(),
+                registries,
+                page,
+                pageSize);
     }
 
     public static OreProfileForecast build(
@@ -56,11 +56,7 @@ public final class MinecraftOreProfileForecastBuilder {
     }
 
     public static OreProfileForecast build(
-            OreProfileDocument profile,
-            TerrainMode activeTerrain,
-            RegistryAccess registries,
-            int page,
-            int pageSize) {
+            OreProfileDocument profile, TerrainMode activeTerrain, RegistryAccess registries, int page, int pageSize) {
         Objects.requireNonNull(profile, "profile");
         return build(profile.profile(), profile, activeTerrain, registries, page, pageSize);
     }
@@ -73,9 +69,9 @@ public final class MinecraftOreProfileForecastBuilder {
                 resolution.issues().stream()
                         .map(issue -> new TargetIssue(
                                 IssueKind.valueOf(issue.kind().name()),
-                                issue.severity()
-                                        == com.nightsta69.delvefold.config.validation.IssueSeverity.ERROR
-                                                ? IssueSeverity.ERROR : IssueSeverity.WARNING,
+                                issue.severity() == com.nightsta69.delvefold.config.validation.IssueSeverity.ERROR
+                                        ? IssueSeverity.ERROR
+                                        : IssueSeverity.WARNING,
                                 issue.targetIndex(),
                                 issue.sourceId(),
                                 issue.referenceId(),

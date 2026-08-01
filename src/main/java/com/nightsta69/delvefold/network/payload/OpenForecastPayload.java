@@ -9,8 +9,8 @@ import net.minecraft.resources.ResourceLocation;
 
 /** Opens or refreshes the read-only administrative forecast screen. */
 public record OpenForecastPayload(OreProfileForecast forecast) implements CustomPacketPayload {
-    public static final Type<OpenForecastPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "open_forecast"));
+    public static final Type<OpenForecastPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "open_forecast"));
     public static final StreamCodec<RegistryFriendlyByteBuf, OpenForecastPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> OreForecastStreamCodecs.write(buffer, payload.forecast()),
             buffer -> new OpenForecastPayload(OreForecastStreamCodecs.read(buffer)));

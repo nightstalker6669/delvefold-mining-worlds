@@ -17,7 +17,6 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorList;
-import net.minecraft.world.level.storage.loot.LootTable;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -26,8 +25,8 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class LandmarkCatalogGameTests {
     private static final String EMPTY_TEMPLATE = "bastion/mobs/empty";
-    private static final ResourceLocation FILE = ResourceLocation.fromNamespaceAndPath(
-            "test", "delvefold/landmarks/original.json");
+    private static final ResourceLocation FILE =
+            ResourceLocation.fromNamespaceAndPath("test", "delvefold/landmarks/original.json");
     private static final String VALID_DEFINITION = """
             {
               "format": 1,
@@ -44,34 +43,35 @@ public final class LandmarkCatalogGameTests {
             }
             """;
 
-    private LandmarkCatalogGameTests() {
-    }
+    private LandmarkCatalogGameTests() {}
 
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void malformedListenerInputRetainsTheExactLastKnownGoodCatalog(GameTestHelper helper) {
         LandmarkCatalogService service = new LandmarkCatalogService();
-        LandmarkDefinition valid = LandmarkCatalogReloadListener.decodeDefinition(
-                FILE, VALID_DEFINITION.getBytes(StandardCharsets.UTF_8));
-        LandmarkCatalogService.ReloadOutcome accepted = service.publish(
-                Map.of(valid.id(), valid), List.of(), Instant.EPOCH);
+        LandmarkDefinition valid =
+                LandmarkCatalogReloadListener.decodeDefinition(FILE, VALID_DEFINITION.getBytes(StandardCharsets.UTF_8));
+        LandmarkCatalogService.ReloadOutcome accepted =
+                service.publish(Map.of(valid.id(), valid), List.of(), Instant.EPOCH);
         LandmarkCatalogSnapshot lastGood = accepted.activeSnapshot();
 
-        String malformed = VALID_DEFINITION.replace(
-                "\"terrain_modes\": [\"flat\"]", "\"terrain_modes\": []");
+        String malformed = VALID_DEFINITION.replace("\"terrain_modes\": [\"flat\"]", "\"terrain_modes\": []");
         String decodeError = decodeError(malformed.getBytes(StandardCharsets.UTF_8));
-        LandmarkCatalogService.ReloadOutcome rejected = service.publish(
-                Map.of(), List.of(decodeError), Instant.EPOCH.plusSeconds(1));
+        LandmarkCatalogService.ReloadOutcome rejected =
+                service.publish(Map.of(), List.of(decodeError), Instant.EPOCH.plusSeconds(1));
 
         helper.assertTrue(accepted.applied(), "The valid definition was rejected");
         helper.assertTrue(!rejected.applied(), "Malformed listener input replaced the catalog");
-        helper.assertTrue(rejected.activeSnapshot() == lastGood,
+        helper.assertTrue(
+                rejected.activeSnapshot() == lastGood,
                 "Malformed input did not retain the exact last-known-good snapshot");
-        helper.assertTrue(rejected.diagnostics().retainingLastGood()
+        helper.assertTrue(
+                rejected.diagnostics().retainingLastGood()
                         && rejected.diagnostics().errors().size() == 1,
                 "Reload diagnostics omitted the retained catalog or codec error");
 
         byte[] oversized = new byte[LandmarkCatalogReloadListener.MAX_DEFINITION_BYTES + 1];
-        helper.assertTrue(decodeError(oversized).contains("exceeds"),
+        helper.assertTrue(
+                decodeError(oversized).contains("exceeds"),
                 "Oversized definitions were not rejected before JSON decoding");
         helper.succeed();
     }
@@ -87,19 +87,22 @@ public final class LandmarkCatalogGameTests {
         }
 
         LandmarkCatalogWorkBudget.Analysis repeated = LandmarkCatalogWorkBudget.analyze(repeatedBounds);
-        helper.assertTrue(repeated.distinctCaveProbes() == 1
-                        && repeated.caveScanCellsPerCandidate() == 384,
+        helper.assertTrue(
+                repeated.distinctCaveProbes() == 1 && repeated.caveScanCellsPerCandidate() == 384,
                 "Definitions sharing cave bounds did not reuse one bounded height probe");
-        helper.assertTrue(LandmarkCatalogWorkBudget.validate(repeatedBounds).isEmpty(),
+        helper.assertTrue(
+                LandmarkCatalogWorkBudget.validate(repeatedBounds).isEmpty(),
                 "A catalog with one shared bounded cave scan was rejected");
 
         LandmarkCatalogWorkBudget.Analysis adversarial = LandmarkCatalogWorkBudget.analyze(distinctBounds);
-        helper.assertTrue(adversarial.distinctCaveProbes() == LandmarkCatalogReloadListener.MAX_DEFINITIONS,
+        helper.assertTrue(
+                adversarial.distinctCaveProbes() == LandmarkCatalogReloadListener.MAX_DEFINITIONS,
                 "Distinct cave bounds were incorrectly coalesced");
-        helper.assertTrue(adversarial.caveScanCellsPerCandidate()
-                        > LandmarkCatalogWorkBudget.MAX_CAVE_SCAN_CELLS_PER_CANDIDATE,
+        helper.assertTrue(
+                adversarial.caveScanCellsPerCandidate() > LandmarkCatalogWorkBudget.MAX_CAVE_SCAN_CELLS_PER_CANDIDATE,
                 "The adversarial catalog did not exceed the reload work budget");
-        helper.assertTrue(LandmarkCatalogWorkBudget.validate(distinctBounds).size() == 1,
+        helper.assertTrue(
+                LandmarkCatalogWorkBudget.validate(distinctBounds).size() == 1,
                 "The adversarial catalog was not rejected with one bounded diagnostic");
         helper.succeed();
     }
@@ -108,15 +111,17 @@ public final class LandmarkCatalogGameTests {
     public static void templateDependencyBoundsRejectCatalogBreakingResources(GameTestHelper helper) {
         ResourceLocation template = ResourceLocation.fromNamespaceAndPath("test", "landmarks/oversized");
         LandmarkCatalogReloadListener.validateTemplateSize(template, templateSize(31, 20, 47));
-        String horizontalError = templateSizeError(template,
-                LandmarkDefinition.MAX_TEMPLATE_HORIZONTAL_SPAN + 1, 20, 8);
-        helper.assertTrue(horizontalError.contains("exceeds Delvefold's"),
+        String horizontalError =
+                templateSizeError(template, LandmarkDefinition.MAX_TEMPLATE_HORIZONTAL_SPAN + 1, 20, 8);
+        helper.assertTrue(
+                horizontalError.contains("exceeds Delvefold's"),
                 "An oversized horizontal structure dependency was accepted");
-        String verticalError = templateSizeError(template,
-                8, LandmarkDefinition.MAX_TEMPLATE_VERTICAL_SPAN + 1, 8);
-        helper.assertTrue(verticalError.contains("exceeds Delvefold's"),
+        String verticalError = templateSizeError(template, 8, LandmarkDefinition.MAX_TEMPLATE_VERTICAL_SPAN + 1, 8);
+        helper.assertTrue(
+                verticalError.contains("exceeds Delvefold's"),
                 "An oversized vertical structure dependency was accepted");
-        helper.assertTrue(templateSizeError(template, 0, 1, 1).contains("positive"),
+        helper.assertTrue(
+                templateSizeError(template, 0, 1, 1).contains("positive"),
                 "A structure dependency with an empty axis was accepted");
         helper.succeed();
     }
@@ -162,7 +167,7 @@ public final class LandmarkCatalogGameTests {
                 maxY,
                 LandmarkBiomeSelectors.miningBiomes(),
                 List.<ResourceKey<StructureProcessorList>>of(),
-                ResourceKey.create(Registries.LOOT_TABLE,
-                        ResourceLocation.fromNamespaceAndPath("test", "chests/" + path)));
+                ResourceKey.create(
+                        Registries.LOOT_TABLE, ResourceLocation.fromNamespaceAndPath("test", "chests/" + path)));
     }
 }

@@ -22,8 +22,8 @@ class DoctorReportExporterTest {
     void exportIsDeterministicWhitelistedAndRedactsSensitiveLookingIdentifiers() throws Exception {
         DoctorReport report = new DoctorReportBuilder(123L)
                 .versions("1.3.0", "1.21.1", "21.1.244", 1, 12, 2)
-                .addDimension("/home/alice/server/world/dimensions/delvefold", "wild",
-                        DoctorReport.DimensionState.ACTIVE)
+                .addDimension(
+                        "/home/alice/server/world/dimensions/delvefold", "wild", DoctorReport.DimensionState.ACTIVE)
                 .profile("token=DO_NOT_EXPORT", 4L, 1, 1, 0L, 1L)
                 .addIneffectiveTarget("ore", "example:tin_ore", "missing_block")
                 .addProfileFinding(DoctorReport.Severity.WARNING, "bad_target", "config/serverconfig/ores.json")
@@ -31,9 +31,14 @@ class DoctorReportExporterTest {
                 .backups(1, 0, 1, 0, 0, 42L)
                 .addBackupProblem("backup-1", "invalid", "confirmation_token=SECRET")
                 .retention(new DoctorReport.RetentionPreview(
-                        true, 1, 0, 42L, 0L, true,
-                        List.of(new DoctorReport.RetentionPrune(
-                                "backup-1", 1L, 42L, List.of("age"))), List.of()))
+                        true,
+                        1,
+                        0,
+                        42L,
+                        0L,
+                        true,
+                        List.of(new DoctorReport.RetentionPrune("backup-1", 1L, 42L, List.of("age"))),
+                        List.of()))
                 .disk(1000L, 42L, 100L, 200L)
                 .build();
         DoctorReportExporter exporter = new DoctorReportExporter();
@@ -51,8 +56,11 @@ class DoctorReportExporterTest {
         JsonObject parsed = JsonParser.parseString(first).getAsJsonObject();
         assertTrue(parsed.get("redacted").getAsBoolean());
         assertEquals(1, parsed.get("format_version").getAsInt());
-        assertEquals(12, parsed.getAsJsonObject("versions").get("network_protocol").getAsInt());
-        assertEquals(42L, parsed.getAsJsonObject("retention").get("reclaimable_bytes").getAsLong());
+        assertEquals(
+                12, parsed.getAsJsonObject("versions").get("network_protocol").getAsInt());
+        assertEquals(
+                42L,
+                parsed.getAsJsonObject("retention").get("reclaimable_bytes").getAsLong());
         assertFalse(parsed.has("confirmation_token"));
         assertFalse(parsed.has("filesystem_path"));
         assertFalse(parsed.has("server_address"));
@@ -72,8 +80,7 @@ class DoctorReportExporterTest {
         String original = Files.readString(written);
         assertEquals(written, exporter.export(exports, report));
         assertEquals(original, Files.readString(written));
-        assertThrows(IOException.class,
-                () -> exporter.export(temporary.resolve("missing"), report));
+        assertThrows(IOException.class, () -> exporter.export(temporary.resolve("missing"), report));
     }
 
     @Test
@@ -86,7 +93,7 @@ class DoctorReportExporterTest {
             return;
         }
 
-        assertThrows(IOException.class,
-                () -> new DoctorReportExporter().export(link, new DoctorReportBuilder(1L).build()));
+        assertThrows(
+                IOException.class, () -> new DoctorReportExporter().export(link, new DoctorReportBuilder(1L).build()));
     }
 }

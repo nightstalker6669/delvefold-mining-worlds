@@ -15,8 +15,7 @@ public final class LandmarkCatalogService {
     private final AtomicReference<LandmarkCatalogDiagnostics> diagnostics =
             new AtomicReference<>(LandmarkCatalogDiagnostics.initial());
 
-    LandmarkCatalogService() {
-    }
+    LandmarkCatalogService() {}
 
     public static LandmarkCatalogService get() {
         return INSTANCE;
@@ -31,21 +30,24 @@ public final class LandmarkCatalogService {
     }
 
     public synchronized ReloadOutcome publish(
-            Map<ResourceLocation, LandmarkDefinition> candidate,
-            List<String> errors,
-            Instant attemptedAt) {
+            Map<ResourceLocation, LandmarkDefinition> candidate, List<String> errors, Instant attemptedAt) {
         LandmarkCatalogSnapshot before = active.get();
         List<String> safeErrors = errors == null ? List.of() : List.copyOf(errors);
         Instant now = attemptedAt == null ? Instant.now() : attemptedAt;
         if (!safeErrors.isEmpty()) {
             LandmarkCatalogDiagnostics status = new LandmarkCatalogDiagnostics(
-                    false, !before.definitions().isEmpty(), before.revision(), before.definitions().size(), now, safeErrors);
+                    false,
+                    !before.definitions().isEmpty(),
+                    before.revision(),
+                    before.definitions().size(),
+                    now,
+                    safeErrors);
             diagnostics.set(status);
             return new ReloadOutcome(false, before, status);
         }
 
-        LandmarkCatalogSnapshot next = new LandmarkCatalogSnapshot(
-                before.revision() + 1L, candidate == null ? Map.of() : candidate, now);
+        LandmarkCatalogSnapshot next =
+                new LandmarkCatalogSnapshot(before.revision() + 1L, candidate == null ? Map.of() : candidate, now);
         active.set(next);
         LandmarkCatalogDiagnostics status = new LandmarkCatalogDiagnostics(
                 true, false, next.revision(), next.definitions().size(), now, List.of());
@@ -59,8 +61,5 @@ public final class LandmarkCatalogService {
     }
 
     public record ReloadOutcome(
-            boolean applied,
-            LandmarkCatalogSnapshot activeSnapshot,
-            LandmarkCatalogDiagnostics diagnostics) {
-    }
+            boolean applied, LandmarkCatalogSnapshot activeSnapshot, LandmarkCatalogDiagnostics diagnostics) {}
 }

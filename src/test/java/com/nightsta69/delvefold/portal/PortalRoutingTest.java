@@ -33,23 +33,26 @@ class PortalRoutingTest {
 
     @Test
     void centralHubOnlyOverridesIncomingRoutes() {
-        PortalSettings central = new PortalSettings(true, true, 5, 1.0D,
-                PortalRoutingMode.CENTRAL_HUB, new PortalHubSettings(120, -240, 32));
+        PortalSettings central = new PortalSettings(
+                true, true, 5, 1.0D, PortalRoutingMode.CENTRAL_HUB, new PortalHubSettings(120, -240, 32));
 
         assertTrue(PortalRoutePolicy.usesCentralHub(central, false));
         assertFalse(PortalRoutePolicy.usesCentralHub(central, true));
-        assertEquals(PortalRoutingMode.COORDINATE_LINKED,
-                PortalRoutePolicy.effectiveMode(PortalSettings.defaults(), false));
+        assertEquals(
+                PortalRoutingMode.COORDINATE_LINKED, PortalRoutePolicy.effectiveMode(PortalSettings.defaults(), false));
     }
 
     @Test
     void hubSettingsRejectUnsafeCoordinatesAndProtectionRadii() {
         assertEquals(16, PortalHubSettings.defaults().protectionRadius());
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new PortalHubSettings(PortalHubSettings.MAX_ABSOLUTE_COORDINATE + 1, 0, 16));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new PortalHubSettings(0, 0, PortalHubSettings.MIN_PROTECTION_RADIUS - 1));
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(
+                IllegalArgumentException.class,
                 () -> new PortalHubSettings(0, 0, PortalHubSettings.MAX_PROTECTION_RADIUS + 1));
     }
 
@@ -66,8 +69,7 @@ class PortalRoutingTest {
                 PortalHubSettings.MAX_ABSOLUTE_COORDINATE,
                 PortalHubSettings.MAX_PROTECTION_RADIUS);
         assertFalse(CentralHubProtectionService.isInsideRadius(
-                -PortalHubSettings.MAX_ABSOLUTE_COORDINATE,
-                -PortalHubSettings.MAX_ABSOLUTE_COORDINATE, edge));
+                -PortalHubSettings.MAX_ABSOLUTE_COORDINATE, -PortalHubSettings.MAX_ABSOLUTE_COORDINATE, edge));
     }
 
     @Test

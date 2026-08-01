@@ -7,8 +7,7 @@ public record GameplaySettings(
         boolean ambient,
         boolean waterCreatures,
         boolean patrols,
-        boolean phantoms
-) {
+        boolean phantoms) {
     public GameplaySettings {
         preset = preset == null ? GameplayPreset.SAFE : preset;
     }

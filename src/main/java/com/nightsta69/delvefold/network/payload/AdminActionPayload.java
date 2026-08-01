@@ -10,8 +10,8 @@ import net.minecraft.resources.ResourceLocation;
 
 public record AdminActionPayload(long expectedRevision, AdminOperation operation, String confirmation)
         implements CustomPacketPayload {
-    public static final Type<AdminActionPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath("delvefold", "admin_action"));
+    public static final Type<AdminActionPayload> TYPE =
+            new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "admin_action"));
     public static final StreamCodec<RegistryFriendlyByteBuf, AdminActionPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeLong(payload.expectedRevision());

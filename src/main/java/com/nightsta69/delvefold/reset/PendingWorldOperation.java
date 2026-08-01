@@ -19,8 +19,7 @@ public record PendingWorldOperation(
         BackupMode backupMode,
         boolean resetOreConfiguration,
         long createdAtEpochMillis,
-        String requestedBy
-) {
+        String requestedBy) {
     public static final int CURRENT_SCHEMA_VERSION = 1;
 
     public PendingWorldOperation {
@@ -51,10 +50,20 @@ public record PendingWorldOperation(
             BackupMode backupMode,
             boolean resetOreConfiguration,
             long createdAtEpochMillis,
-            String requestedBy
-    ) {
-        this(schemaVersion, operationId, type, sourceTerrain, targetTerrain, targetVariant,
-                GeologyTheme.CLASSIC, targetOrePreset, targetGameplayPreset, backupMode,
-                resetOreConfiguration, createdAtEpochMillis, requestedBy);
+            String requestedBy) {
+        this(
+                schemaVersion,
+                operationId,
+                type,
+                sourceTerrain,
+                targetTerrain,
+                targetVariant,
+                GeologyTheme.CLASSIC,
+                targetOrePreset,
+                targetGameplayPreset,
+                backupMode,
+                resetOreConfiguration,
+                createdAtEpochMillis,
+                requestedBy);
     }
 }
