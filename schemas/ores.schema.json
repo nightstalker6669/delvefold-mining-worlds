@@ -71,7 +71,13 @@
           "type": "object",
           "additionalProperties": { "type": "string", "maxLength": 128 }
         },
-        "replace_tag": { "$ref": "#/$defs/resource_location" }
+        "replace_tag": { "$ref": "#/$defs/resource_location" },
+        "weight": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 1
+        }
       },
       "oneOf": [
         { "required": ["block"], "not": { "required": ["block_tag"] } },

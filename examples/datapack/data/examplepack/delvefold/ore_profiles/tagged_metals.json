@@ -11,6 +11,7 @@
       "targets": [
         {
           "block_tag": "c:ores/tin",
+          "weight": 3,
           "state": {},
           "replace_tag": "minecraft:stone_ore_replaceables"
         }

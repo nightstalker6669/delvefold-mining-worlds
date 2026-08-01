@@ -12,7 +12,6 @@ import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,7 +104,7 @@ final class RuntimeOreProfile {
     }
 
     private static List<CompiledTargetGroup> compileTargetGroups(OreRule rule) {
-        Map<TagKey<Block>, LinkedHashSet<BlockState>> grouped = new LinkedHashMap<>();
+        Map<TagKey<Block>, MutableTargetGroup> grouped = new LinkedHashMap<>();
         for (OreTarget target : rule.targets()) {
             ResourceLocation tagId = ResourceLocation.tryParse(stripHash(target.replaceTag()));
             if (tagId == null) {
@@ -114,6 +113,17 @@ final class RuntimeOreProfile {
                         "Skipping ore rule {} target {} because its replacement tag ID is unavailable",
                         rule.id(),
                         target.sourceId());
+                continue;
+            }
+            if (target.weight() < OreTarget.MIN_WEIGHT || target.weight() > OreTarget.MAX_WEIGHT) {
+                warnOnce(
+                        rule.id() + '|' + target.sourceId() + "|weight=" + target.weight(),
+                        "Skipping ore rule {} target {} because its weight {} is outside {}..{}",
+                        rule.id(),
+                        target.sourceId(),
+                        target.weight(),
+                        OreTarget.MIN_WEIGHT,
+                        OreTarget.MAX_WEIGHT);
                 continue;
             }
             TagKey<Block> replaceable = TagKey.create(Registries.BLOCK, tagId);
@@ -126,23 +136,37 @@ final class RuntimeOreProfile {
                         target.sourceId());
                 continue;
             }
-            LinkedHashSet<BlockState> candidates = grouped.computeIfAbsent(replaceable, ignored -> new LinkedHashSet<>());
+            MutableTargetGroup group = grouped.computeIfAbsent(replaceable, ignored -> new MutableTargetGroup());
+            double memberWeight = target.tagDriven()
+                    ? (double) target.weight() / outputs.size()
+                    : target.weight();
+            int distinctOutputs = 0;
             for (Map.Entry<ResourceLocation, Block> output : outputs) {
                 BlockState state = applyProperties(
                         rule.id(), output.getKey(), output.getValue().defaultBlockState(), target.state());
-                if (!candidates.add(state)) {
+                if (group.add(state, memberWeight, target.weight() == OreTarget.DEFAULT_WEIGHT)) {
+                    distinctOutputs++;
+                } else {
                     warnOnce(
                             rule.id() + '|' + replaceable.location() + '|' + state,
-                            "Deduplicating repeated output {} for host tag {} in ore rule {}",
+                            "Deduplicating overlapping output {} for host tag {} in ore rule {}",
                             output.getKey(),
                             replaceable.location(),
                             rule.id());
                 }
             }
+            if (distinctOutputs == 0) {
+                warnOnce(
+                        rule.id() + '|' + replaceable.location() + '|' + target.sourceId() + "|shadowed",
+                        "Ore rule {} target {} is ineffective because every resolved state overlaps an earlier target for host tag {}",
+                        rule.id(),
+                        target.sourceId(),
+                        replaceable.location());
+            }
         }
         return grouped.entrySet().stream()
-                .filter(entry -> !entry.getValue().isEmpty())
-                .map(entry -> new CompiledTargetGroup(entry.getKey(), List.copyOf(entry.getValue())))
+                .filter(entry -> !entry.getValue().candidates.isEmpty())
+                .map(entry -> entry.getValue().compile(entry.getKey()))
                 .toList();
     }
 
@@ -309,18 +333,72 @@ final class RuntimeOreProfile {
         OreConfiguration ore(RandomSource random) {
             List<OreConfiguration.TargetBlockState> targets = new ArrayList<>(targetGroups.size());
             for (CompiledTargetGroup group : targetGroups) {
-                BlockState selected = group.outputs().size() == 1
-                        ? group.outputs().getFirst()
-                        : group.outputs().get(random.nextInt(group.outputs().size()));
+                BlockState selected = group.select(random);
                 targets.add(OreConfiguration.target(new TagMatchTest(group.replaceable()), selected));
             }
             return new OreConfiguration(targets, veinSize, discardOnAirExposure);
         }
     }
 
-    record CompiledTargetGroup(TagKey<Block> replaceable, List<BlockState> outputs) {
+    record CompiledTargetGroup(
+            TagKey<Block> replaceable,
+            List<CompiledOutput> outputs,
+            boolean legacyUniform,
+            double totalWeight) {
         CompiledTargetGroup {
             outputs = List.copyOf(outputs);
+            if (outputs.isEmpty() || !(totalWeight > 0.0D) || !Double.isFinite(totalWeight)) {
+                throw new IllegalArgumentException("Compiled ore target group requires finite positive output weight");
+            }
+        }
+
+        BlockState select(RandomSource random) {
+            if (outputs.size() == 1) {
+                return outputs.getFirst().state();
+            }
+            if (legacyUniform) {
+                // Compatibility path: this is the exact pre-weight random call and candidate ordering.
+                return outputs.get(random.nextInt(outputs.size())).state();
+            }
+            double selected = random.nextDouble() * totalWeight;
+            int low = 0;
+            int high = outputs.size() - 1;
+            while (low < high) {
+                int middle = (low + high) >>> 1;
+                if (selected < outputs.get(middle).cumulativeWeight()) {
+                    high = middle;
+                } else {
+                    low = middle + 1;
+                }
+            }
+            return outputs.get(low).state();
+        }
+    }
+
+    record CompiledOutput(BlockState state, double selectionWeight, double cumulativeWeight) {
+    }
+
+    private static final class MutableTargetGroup {
+        private final LinkedHashMap<BlockState, Double> candidates = new LinkedHashMap<>();
+        private boolean legacyUniform = true;
+
+        boolean add(BlockState state, double selectionWeight, boolean defaultWeight) {
+            if (candidates.containsKey(state)) {
+                return false;
+            }
+            candidates.put(state, selectionWeight);
+            legacyUniform &= defaultWeight;
+            return true;
+        }
+
+        CompiledTargetGroup compile(TagKey<Block> replaceable) {
+            List<CompiledOutput> outputs = new ArrayList<>(candidates.size());
+            double cumulative = 0.0D;
+            for (Map.Entry<BlockState, Double> candidate : candidates.entrySet()) {
+                cumulative += candidate.getValue();
+                outputs.add(new CompiledOutput(candidate.getKey(), candidate.getValue(), cumulative));
+            }
+            return new CompiledTargetGroup(replaceable, outputs, legacyUniform, cumulative);
         }
     }
 

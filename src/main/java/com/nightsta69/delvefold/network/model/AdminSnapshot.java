@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
@@ -225,7 +226,14 @@ public record AdminSnapshot(
     }
 
     public record OreVariantDraft(
-            String blockId, String blockTag, String replaceTag, java.util.Map<String, String> state) {
+            String blockId,
+            String blockTag,
+            String replaceTag,
+            java.util.Map<String, String> state,
+            int weight) {
+        public static final int MIN_WEIGHT = OreTarget.MIN_WEIGHT;
+        public static final int MAX_WEIGHT = OreTarget.MAX_WEIGHT;
+
         public OreVariantDraft {
             blockId = blockId == null ? "" : blockId.trim();
             blockTag = blockTag == null ? "" : stripHash(blockTag.trim());
@@ -241,6 +249,16 @@ public record AdminSnapshot(
                         .forEach(entry -> sanitized.put(entry.getKey(), entry.getValue()));
                 state = java.util.Collections.unmodifiableMap(sanitized);
             }
+            if (weight < MIN_WEIGHT || weight > MAX_WEIGHT) {
+                throw new IllegalArgumentException(
+                        "Ore target weight must be between " + MIN_WEIGHT + " and " + MAX_WEIGHT);
+            }
+        }
+
+        /** Source-compatible constructor for clients written before weighted targets. */
+        public OreVariantDraft(
+                String blockId, String blockTag, String replaceTag, java.util.Map<String, String> state) {
+            this(blockId, blockTag, replaceTag, state, MIN_WEIGHT);
         }
 
         public String sourceId() {

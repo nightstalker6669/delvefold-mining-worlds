@@ -43,24 +43,30 @@ Top-level fields:
 ```json
 {
   "block": "examplemod:tin_ore",
+  "weight": 2,
   "state": {},
   "replace_tag": "minecraft:stone_ore_replaceables"
 }
 ```
 
-`state` may set valid properties exposed by the selected block. The GUI normally leaves it empty, which uses the block's default state.
+`state` may set valid properties exposed by the selected block. The GUI normally leaves it empty, which uses the block's default state. The optional `weight` is an integer from 1 through 1000 and defaults to `1`. It controls the relative chance of this output when several targets share the same `replace_tag`; it does not change vein count, vein size, height distribution, or the generation-work safety budget.
 
 An output can instead resolve every installed block in a conventional tag. Set exactly one of `block` and `block_tag`:
 
 ```json
 {
   "block_tag": "c:ores/tin",
+  "weight": 3,
   "state": {},
   "replace_tag": "minecraft:stone_ore_replaceables"
 }
 ```
 
-Tag members are expanded in registry-ID order for deterministic generation. A missing optional output tag warns and skips; a missing required output tag rejects the profile.
+Tag members are expanded in registry-ID order for deterministic generation. A tag target's configured total weight is divided equally among its installed members; for example, weight `3` across three members gives each member weight `1`, while two members receive `1.5` each internally. Exact-block targets use their configured weights directly. Selection occurs independently inside each host-tag group, so targets with different `replace_tag` values do not compete with one another. One compatibility exception applies when every configured target in a host group has weight `1`: Delvefold preserves the pre-weight member-uniform selection and its exact random sequence, so each expanded member remains equally likely. Tag-total weighting takes effect as soon as that group contains a non-default weight.
+
+If exact targets, tag targets, or repeated tag membership resolve to the same block state in one host group, Delvefold keeps the first deterministically ordered candidate. Later overlaps are ineffective, do not add their weight to the first candidate, and produce a warning so the profile can be cleaned up.
+
+Profiles written before 1.1.0 have no `weight` field and continue to behave as weight `1`. Profiles whose configured weights are all `1` retain the existing member-uniform deterministic per-vein output-selection sequence. Weighted targets are an additive schema-2 feature and require no schema migration. A missing optional output tag warns and skips; a missing required output tag rejects the profile.
 
 Common host tags are:
 

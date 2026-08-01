@@ -17,7 +17,8 @@ class OreRuleDraftConversionTest {
                 false,
                 "example:tin_ore",
                 List.of(new AdminSnapshot.OreVariantDraft(
-                        "example:tin_ore", "", "minecraft:stone_ore_replaceables", Map.of("lit", "true"))),
+                        "example:tin_ore", "", "minecraft:stone_ore_replaceables",
+                        Map.of("lit", "true"), 37)),
                 List.of(TerrainMode.CAVERN),
                 List.of("#delvefold:mining_biomes", "example:deep_caves"),
                 List.of("minecraft:plains"),
@@ -26,8 +27,12 @@ class OreRuleDraftConversionTest {
         var rule = DefaultDelvefoldAdminService.fromDraft(draft);
 
         assertEquals(Map.of("lit", "true"), rule.targets().getFirst().state());
+        assertEquals(37, rule.targets().getFirst().weight());
         assertEquals(List.of("#delvefold:mining_biomes", "example:deep_caves"), rule.biomes().include());
         assertEquals(List.of("minecraft:plains"), rule.biomes().exclude());
         assertEquals(java.util.Set.of(TerrainMode.CAVERN), rule.terrainModes());
+
+        AdminSnapshot.OreRuleDraft encodedForGui = DefaultDelvefoldAdminService.toDraft(rule);
+        assertEquals(37, encodedForGui.variants().getFirst().weight());
     }
 }

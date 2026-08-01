@@ -113,4 +113,32 @@ class OreConfigValidatorTest {
         assertFalse(invalid.valid());
         assertTrue(invalid.issues().stream().anyMatch(issue -> "target.source".equals(issue.code())));
     }
+
+    @Test
+    void validatesTargetWeightBoundsAndWarnsAboutWeightedOverlaps() {
+        var original = OrePresets.balanced().rules().getFirst();
+        String host = "minecraft:stone_ore_replaceables";
+        var invalidWeights = new com.nightsta69.delvefold.config.model.OreRule(
+                "invalid_weights", true, false, original.terrainModes(),
+                List.of(
+                        new OreTarget("minecraft:diamond_ore", "", java.util.Map.of(), host, 0),
+                        new OreTarget("minecraft:emerald_ore", "", java.util.Map.of(), host, 1001)),
+                original.biomes(), original.bands());
+        var invalid = OreConfigValidator.validate(
+                new OreProfileDocument(2, 0, "invalid_weights", List.of(invalidWeights)), RegistryLookup.SKIP);
+        assertFalse(invalid.valid());
+        assertTrue(invalid.issues().stream().filter(issue -> "target.invalid_weight".equals(issue.code())).count() == 2,
+                () -> invalid.issues().toString());
+
+        var overlapping = new com.nightsta69.delvefold.config.model.OreRule(
+                "weighted_overlap", true, false, original.terrainModes(),
+                List.of(
+                        OreTarget.of("minecraft:diamond_ore", host, 2),
+                        OreTarget.of("minecraft:diamond_ore", host, 9)),
+                original.biomes(), original.bands());
+        var warned = OreConfigValidator.validate(
+                new OreProfileDocument(2, 0, "weighted_overlap", List.of(overlapping)), RegistryLookup.SKIP);
+        assertTrue(warned.valid(), () -> warned.issues().toString());
+        assertTrue(warned.issues().stream().anyMatch(issue -> "target.duplicate".equals(issue.code())));
+    }
 }

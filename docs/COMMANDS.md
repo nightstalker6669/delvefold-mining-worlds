@@ -88,14 +88,18 @@ Local profiles are stored per save. Datapack and scripted profiles appear as nam
 Targets and bands:
 
 ```text
-/delvefold ore target add <rule> <block_id> <replace_tag>
+/delvefold ore target add <rule> <block_id> <replace_tag> [weight]
 /delvefold ore target remove <rule> <block_id>
-/delvefold ore target add-tag <rule> <block_tag> <replace_tag>
+/delvefold ore target add-tag <rule> <block_tag> <replace_tag> [weight]
+/delvefold ore target set-weight <rule> <block_id> <weight>
+/delvefold ore target set-tag-weight <rule> <block_tag> <weight>
 /delvefold ore target remove-tag <rule> <block_tag>
 /delvefold ore band add <rule> <band_id> <common|uncommon|rare|very_rare>
 /delvefold ore band remove <rule> <band_id>
 /delvefold ore band set <rule> <band_id> <field> <value>
 ```
+
+Omitting `[weight]` from `add` or `add-tag` uses the compatibility default of `1`. Weights accept integers from 1 through 1000 and can also be changed with the setter commands, ore-rule GUI, or canonical JSON. The weight changes only the relative output selected among targets that share a replacement-host tag. An output tag's total weight is divided equally among its installed members once the group contains a non-default weight; an all-1 group preserves the earlier member-uniform random sequence. Identical block states are deduplicated first-wins; later overlaps are ineffective and warned rather than increasing the retained candidate's weight. If a rule contains the same source more than once with different hosts or states, the setter command rejects that ambiguous edit; change the specific target in canonical JSON.
 
 Band fields are `vein_size`, `attempts`, `min_y`, `max_y`, `peak_y`, `plateau_min_y`, `plateau_max_y`, and `discard`.
 
