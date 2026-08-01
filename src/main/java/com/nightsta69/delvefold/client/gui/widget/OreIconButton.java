@@ -44,7 +44,9 @@ public final class OreIconButton extends AbstractButton {
                 entry == null
                         ? Component.empty()
                         : Component.translatable(
-                                "screen.delvefold.ore_picker.entry", entry.translatedName(), entry.id()));
+                                "screen.delvefold.ore_picker.entry",
+                                entry.translatedName(),
+                                entry.id().toString()));
         this.setTooltip(
                 entry == null
                         ? null
@@ -53,7 +55,7 @@ public final class OreIconButton extends AbstractButton {
                                         ? "screen.delvefold.ore_picker.entry.tooltip.common"
                                         : "screen.delvefold.ore_picker.entry.tooltip",
                                 entry.translatedName(),
-                                entry.id())));
+                                entry.id().toString())));
         this.setTooltipDelay(Duration.ofMillis(250));
     }
 

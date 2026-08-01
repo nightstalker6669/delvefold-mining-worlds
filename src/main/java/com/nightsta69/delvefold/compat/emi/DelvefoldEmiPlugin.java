@@ -38,7 +38,7 @@ public final class DelvefoldEmiPlugin implements EmiPlugin {
                             Component.translatable("compat.delvefold.recipe_viewer.portal.1"),
                             Component.translatable("compat.delvefold.recipe_viewer.portal.2"),
                             Component.translatable("compat.delvefold.recipe_viewer.portal.3")),
-                    ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "info/portal_activation")));
+                    DelvefoldEmiIds.syntheticRecipe(Delvefold.MOD_ID, "info/portal_activation")));
         }
     }
 }

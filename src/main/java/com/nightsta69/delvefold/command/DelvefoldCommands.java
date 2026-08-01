@@ -1053,7 +1053,8 @@ public final class DelvefoldCommands {
             context.getSource()
                     .sendSuccess(
                             () -> Component.translatable(
-                                    "message.delvefold.command.profile_exported", exported.getFileName()),
+                                    "message.delvefold.command.profile_exported",
+                                    exported.getFileName().toString()),
                             false);
             return 1;
         } catch (IOException | IllegalArgumentException exception) {
@@ -1727,7 +1728,8 @@ public final class DelvefoldCommands {
                         false);
         for (ResourceLocation match : matches) {
             context.getSource()
-                    .sendSystemMessage(Component.translatable("message.delvefold.command.ore_scan_row", match));
+                    .sendSystemMessage(
+                            Component.translatable("message.delvefold.command.ore_scan_row", match.toString()));
         }
         return matches.size();
     }

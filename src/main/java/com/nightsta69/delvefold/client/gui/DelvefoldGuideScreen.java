@@ -89,11 +89,7 @@ public final class DelvefoldGuideScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(graphics, mouseX, mouseY, partialTick);
-        drawPanel(graphics);
-        drawOverview(graphics);
         this.hoveredTooltip = null;
-        drawOreRows(graphics, mouseX, mouseY);
         super.render(graphics, mouseX, mouseY, partialTick);
         List<FormattedCharSequence> tooltip = this.hoveredTooltip;
         if (tooltip != null) {
@@ -105,6 +101,9 @@ public final class DelvefoldGuideScreen extends Screen {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.renderBackground(graphics, mouseX, mouseY, partialTick);
         graphics.fillGradient(0, 0, this.width, this.height, 0xB00B1116, 0xE005080B);
+        drawPanel(graphics);
+        drawOverview(graphics);
+        drawOreRows(graphics, mouseX, mouseY);
     }
 
     private void drawPanel(GuiGraphics graphics) {
