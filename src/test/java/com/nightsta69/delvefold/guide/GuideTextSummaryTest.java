@@ -13,6 +13,7 @@ import com.nightsta69.delvefold.guide.GuideSnapshot.PortalStatus;
 import com.nightsta69.delvefold.guide.GuideSnapshot.RelativeFrequency;
 import com.nightsta69.delvefold.guide.GuideSnapshot.Renewal;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 class GuideTextSummaryTest {
@@ -48,9 +49,10 @@ class GuideTextSummaryTest {
         assertTrue(text.contains("Y 12"));
         assertTrue(text.contains("message.delvefold.guide.console.identity"));
         assertTrue(text.contains("screen.delvefold.guide.frequency.uncommon"));
-        assertFalse(text.toLowerCase().contains("seed"));
-        assertFalse(text.toLowerCase().contains("token"));
-        assertFalse(text.toLowerCase().contains("path"));
+        String lowercaseText = text.toLowerCase(Locale.ROOT);
+        assertFalse(lowercaseText.contains("seed"));
+        assertFalse(lowercaseText.contains("token"));
+        assertFalse(lowercaseText.contains("path"));
     }
 
     private static String decodedTree(String encoded) {

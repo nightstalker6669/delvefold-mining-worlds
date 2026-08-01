@@ -3,11 +3,23 @@ package com.nightsta69.delvefold.config.validation;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
+/** Validates schema-2 world settings, lifecycle invariants, units, bounds, and additive compatibility fields. */
 public final class WorldSettingsValidator {
     private WorldSettingsValidator() {}
 
-    public static ValidationReport validate(WorldSettingsDocument settings) {
+    /**
+     * Validates a complete settings snapshot without mutating it or writing compatibility defaults.
+     *
+     * <p>The report covers schema and revision values, generation epoch/salt lifecycle consistency, terrain state, IDs,
+     * display-name length, renewal timing, portal bounds, and backup-retention limits. Cross-file active-profile
+     * matching and live-versus-recreation transition locks are enforced by the configuration service.
+     *
+     * @param settings candidate settings snapshot, or {@code null} to report a missing document
+     * @return immutable report containing all detected errors in deterministic field order
+     */
+    public static ValidationReport validate(@Nullable WorldSettingsDocument settings) {
         List<ConfigIssue> issues = new ArrayList<>();
         if (settings == null) {
             return new ValidationReport(

@@ -19,11 +19,22 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration;
+import org.jspecify.annotations.Nullable;
 
-/** Small, bounded mining landmarks selected from the active world identity settings. */
+/**
+ * Legacy bounded single-chunk landmarks selected from active world identity settings.
+ *
+ * <p>The reloadable structure catalog supersedes this adapter for multi-chunk templates. Legacy mutations remain
+ * bounded around the currently generating feature origin.
+ */
 public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguration> {
     private static final int UPDATE_NONE = 2;
 
+    /**
+     * Creates the legacy feature with Minecraft's no-configuration codec.
+     *
+     * @param codec platform codec for {@link NoneFeatureConfiguration}
+     */
     public MiningLandmarkFeature(Codec<NoneFeatureConfiguration> codec) {
         super(codec);
     }
@@ -55,7 +66,7 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
         if (choices.isEmpty()) {
             return false;
         }
-        TerrainMode terrain =
+        @Nullable TerrainMode terrain =
                 DelvefoldWorldgen.terrainFor(context.level().getLevel().dimension());
         if (terrain == null) {
             return false;
@@ -112,7 +123,7 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
         return true;
     }
 
-    private static BlockPos cavernFloor(WorldGenLevel level, BlockPos origin) {
+    private static @Nullable BlockPos cavernFloor(WorldGenLevel level, BlockPos origin) {
         int top = Math.min(level.getMaxBuildHeight() - 5, 120);
         int bottom = Math.max(level.getMinBuildHeight() + 3, -48);
         for (int y = top; y >= bottom; y--) {

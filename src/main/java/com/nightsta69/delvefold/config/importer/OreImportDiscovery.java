@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Deterministic discovery and conservative stone/deepslate family grouping. */
 public final class OreImportDiscovery {
@@ -39,7 +40,19 @@ public final class OreImportDiscovery {
 
     private OreImportDiscovery() {}
 
-    public static DiscoveryResult discover(OreImportRegistry registry, DiscoveryOptions options) {
+    /**
+     * Discovers conventional and ore-like blocks, then groups probable host variants by namespace and material.
+     *
+     * <p>Duplicate registry entries are merged, candidates and groups are returned in lexical ID order, and every
+     * public discovery bound is applied deterministically. Unsupported IDs or omitted entries set the result's
+     * truncation flag. Host inference is conservative: ambiguous Nether, End, decorative, or nonstandard variants are
+     * marked for explicit review and receive no guessed replacement tag.
+     *
+     * @param registry deterministic installed-block and tag snapshot
+     * @param options discovery options, or {@code null} for modded namespaces only
+     * @return immutable, bounded discovery result suitable for server-side preview paging
+     */
+    public static DiscoveryResult discover(OreImportRegistry registry, @Nullable DiscoveryOptions options) {
         if (registry == null) {
             throw new IllegalArgumentException("Ore import registry is required");
         }

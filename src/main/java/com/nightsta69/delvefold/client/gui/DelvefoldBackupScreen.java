@@ -14,15 +14,23 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 
+/** Permission-aware, paged backup management screen backed by an immutable server snapshot. */
 public final class DelvefoldBackupScreen extends DelvefoldScreen {
     private static final DateTimeFormatter DATE =
             DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm", Locale.ROOT).withZone(ZoneId.systemDefault());
     private final Screen parent;
     private final int page;
     private String armedId = "";
-    private BackupOperation armedOperation;
+    private @Nullable BackupOperation armedOperation;
 
+    /**
+     * Creates the first page of the backup manager.
+     *
+     * @param parent screen restored when this manager closes
+     * @param snapshot bounded backup metadata and capabilities supplied by the server
+     */
     public DelvefoldBackupScreen(Screen parent, AdminSnapshot snapshot) {
         this(parent, snapshot, 0);
     }
@@ -33,6 +41,12 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
         this.page = Math.max(0, page);
     }
 
+    /**
+     * Creates a replacement screen retaining the current page against a newer server snapshot.
+     *
+     * @param updated newer immutable administration snapshot
+     * @return a new screen instance; this instance is not mutated
+     */
     public DelvefoldBackupScreen refreshed(AdminSnapshot updated) {
         Screen refreshedParent =
                 this.parent instanceof DelvefoldDashboardScreen dashboard ? dashboard.refreshed(updated) : this.parent;
@@ -149,31 +163,34 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
                 Style.GHOST,
                 button -> minecraft.setScreen(parent));
         if (pageCount > 1) {
+            BackupScreenLayout.Bounds previousBounds = java.util.Objects.requireNonNull(footer.previous());
+            BackupScreenLayout.Bounds nextBounds = java.util.Objects.requireNonNull(footer.next());
             Button previous = addButton(
-                    footer.previous().x(),
-                    footer.previous().y(),
-                    footer.previous().width(),
-                    footer.previous().height(),
+                    previousBounds.x(),
+                    previousBounds.y(),
+                    previousBounds.width(),
+                    previousBounds.height(),
                     Component.translatable("screen.delvefold.previous"),
                     Style.GHOST,
                     button -> setPage(safePage - 1));
             previous.active = safePage > 0;
             Button next = addButton(
-                    footer.next().x(),
-                    footer.next().y(),
-                    footer.next().width(),
-                    footer.next().height(),
+                    nextBounds.x(),
+                    nextBounds.y(),
+                    nextBounds.width(),
+                    nextBounds.height(),
                     Component.translatable("screen.delvefold.next"),
                     Style.GHOST,
                     button -> setPage(safePage + 1));
             next.active = safePage + 1 < pageCount;
         }
         if (snapshot.restorePending()) {
+            BackupScreenLayout.Bounds cancelBounds = java.util.Objects.requireNonNull(footer.cancel());
             Button cancelRestore = addButton(
-                    footer.cancel().x(),
-                    footer.cancel().y(),
-                    footer.cancel().width(),
-                    footer.cancel().height(),
+                    cancelBounds.x(),
+                    cancelBounds.y(),
+                    cancelBounds.width(),
+                    cancelBounds.height(),
                     Component.translatable("screen.delvefold.backup.cancel_pending"),
                     Style.DANGER,
                     button -> perform(BackupOperation.CANCEL_RESTORE, ""));
@@ -240,11 +257,12 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
         int pageSize = layout().pageSize();
         int pageCount = Math.max(1, (this.snapshot.backups().size() + pageSize - 1) / pageSize);
         int safePage = Math.min(this.page, pageCount - 1);
-        Component armed = this.armedOperation == null
+        BackupOperation operation = this.armedOperation;
+        Component armed = operation == null
                 ? Component.translatable("screen.delvefold.backup.armed.none")
                 : Component.translatable(
                         "screen.delvefold.backup.armed.operation",
-                        operationLabel(this.armedOperation.name().toLowerCase(Locale.ROOT)),
+                        operationLabel(operation.name().toLowerCase(Locale.ROOT)),
                         this.armedId);
         return Component.translatable(
                 "screen.delvefold.backup.narration", this.snapshot.backups().size(), safePage + 1, pageCount, armed);

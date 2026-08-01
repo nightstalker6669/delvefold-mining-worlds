@@ -14,10 +14,20 @@ public final class BackupRetentionRunState {
 
     private BackupRetentionRunState() {}
 
+    /**
+     * Returns the process-wide holder updated by ordered server lifecycle retention work.
+     *
+     * @return singleton run-state holder
+     */
     public static BackupRetentionRunState get() {
         return INSTANCE;
     }
 
+    /**
+     * Publishes a bounded, path-free projection of the latest retention preview.
+     *
+     * @param preview immutable evaluated plan, or {@code null} to clear current diagnostics
+     */
     public void recordPreview(BackupRetentionService.Preview preview) {
         if (preview == null) {
             reset();
@@ -52,6 +62,11 @@ public final class BackupRetentionRunState {
                 false));
     }
 
+    /**
+     * Adds the bounded application outcome to the currently published preview.
+     *
+     * @param result immutable deletion result; {@code null} leaves the current snapshot unchanged
+     */
     public void recordResult(BackupRetentionService.ApplyResult result) {
         if (result == null) {
             return;
@@ -83,21 +98,60 @@ public final class BackupRetentionRunState {
         });
     }
 
+    /**
+     * Returns the latest immutable retention diagnostic without exposing save paths.
+     *
+     * @return optional snapshot, empty before a preview or after {@link #reset()}
+     */
     public Optional<Snapshot> current() {
         return Optional.ofNullable(current.get());
     }
 
+    /** Clears published retention diagnostics during server-session shutdown or failed preview initialization. */
     public void reset() {
         current.set(null);
     }
 
+    /**
+     * Bounded path-free deletion proposal retained for Doctor diagnostics.
+     *
+     * @param backupId normalized backup directory identifier
+     * @param reasons immutable retention constraints selecting the backup
+     */
     public record Proposal(String backupId, List<BackupRetentionPlanner.Reason> reasons) {
+        /**
+         * Normalizes the identifier and defensively copies proposal reasons.
+         *
+         * @param backupId normalized backup identifier
+         * @param reasons retention constraints selecting the backup
+         */
         public Proposal {
             backupId = backupId == null ? "" : backupId;
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
         }
     }
 
+    /**
+     * Immutable bounded record of one automatic-retention preview and its optional application result.
+     *
+     * @param evaluatedAtEpochMillis preview evaluation time in epoch milliseconds
+     * @param enabled whether automatic retention was enabled
+     * @param beforeCount eligible catalog count before planned pruning
+     * @param afterCount projected retained count
+     * @param beforeBytes normalized measured bytes before pruning
+     * @param afterBytes projected measured bytes after pruning
+     * @param constraintsSatisfied whether protected backups still allow every enabled limit to be met
+     * @param proposals at most 128 path-free proposed deletions
+     * @param omittedProposalCount additional proposals omitted from diagnostics
+     * @param protectedBackupIds at most 128 normalized protected identifiers
+     * @param omittedProtectedCount additional protected identifiers omitted from diagnostics
+     * @param warnings at most 32 bounded unsatisfied-policy warnings
+     * @param prunedBackupIds at most 128 identifiers actually deleted
+     * @param omittedPrunedCount additional successful deletions omitted from diagnostics
+     * @param failedBackupIds at most 128 identifiers whose deletion failed
+     * @param omittedFailureCount additional failures omitted from diagnostics
+     * @param applyRecorded whether an apply result has been merged into this preview
+     */
     public record Snapshot(
             long evaluatedAtEpochMillis,
             boolean enabled,
@@ -116,6 +170,27 @@ public final class BackupRetentionRunState {
             List<String> failedBackupIds,
             int omittedFailureCount,
             boolean applyRecorded) {
+        /**
+         * Defensively copies every collection while preserving planner order.
+         *
+         * @param evaluatedAtEpochMillis preview evaluation time in epoch milliseconds
+         * @param enabled whether retention was enabled
+         * @param beforeCount pre-prune count
+         * @param afterCount projected retained count
+         * @param beforeBytes pre-prune measured bytes
+         * @param afterBytes projected retained bytes
+         * @param constraintsSatisfied whether every enabled constraint can be met
+         * @param proposals bounded proposed deletions
+         * @param omittedProposalCount omitted proposal count
+         * @param protectedBackupIds bounded protected identifiers
+         * @param omittedProtectedCount omitted protected-identifier count
+         * @param warnings bounded planner warnings
+         * @param prunedBackupIds bounded successful deletion identifiers
+         * @param omittedPrunedCount omitted successful deletion count
+         * @param failedBackupIds bounded failed deletion identifiers
+         * @param omittedFailureCount omitted failed deletion count
+         * @param applyRecorded whether an application outcome is present
+         */
         public Snapshot {
             proposals = proposals == null ? List.of() : List.copyOf(proposals);
             protectedBackupIds = protectedBackupIds == null ? List.of() : List.copyOf(protectedBackupIds);

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -60,7 +61,7 @@ class NetworkSurfaceCompatibilityTest {
         actual.put("Client", new TreeSet<>());
         var matcher = REGISTRATION.matcher(source);
         while (matcher.find()) {
-            actual.get(matcher.group(1)).add(matcher.group(2));
+            Objects.requireNonNull(actual.get(matcher.group(1))).add(matcher.group(2));
         }
 
         assertEquals(new TreeSet<>(TO_SERVER), actual.get("Server"), "Client-to-server payload inventory changed");
@@ -97,6 +98,7 @@ class NetworkSurfaceCompatibilityTest {
         try (var files = Files.list(NETWORK.resolve("codec"))) {
             Set<String> actual = files.filter(
                             path -> path.getFileName().toString().endsWith(".java"))
+                    .filter(path -> !path.getFileName().toString().equals("package-info.java"))
                     .map(path -> path.getFileName().toString().replaceFirst("\\.java$", ""))
                     .collect(Collectors.toCollection(TreeSet::new));
             assertEquals(new TreeSet<>(CODEC_FILES), actual, "Protocol codec source inventory changed");

@@ -49,10 +49,14 @@ import java.util.List;
 import java.util.Set;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
+import org.jspecify.annotations.Nullable;
 
 /** Connects the bounded GUI protocol to the same config/reset services used by commands. */
 public final class DefaultDelvefoldAdminService implements DelvefoldAdminService {
     private static final System.Logger LOGGER = System.getLogger(DefaultDelvefoldAdminService.class.getName());
+
+    /** Creates the stateless default adapter over Delvefold's process-wide server services. */
+    public DefaultDelvefoldAdminService() {}
 
     @Override
     public AdminSnapshot snapshot(ServerPlayer player, int requestedOrePage, int requestedOrePageSize) {
@@ -117,20 +121,23 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                             == com.nightsta69.delvefold.config.model.PortalRoutingMode.CENTRAL_HUB
                     ? message(
                             "message.delvefold.admin.portal.ready.central_hub",
-                            settings.terrainMode().serializedName(),
+                            java.util.Objects.requireNonNull(settings.terrainMode(), "initialized terrain")
+                                    .serializedName(),
                             settings.portal().hub().x(),
                             settings.portal().hub().z(),
                             settings.portal().hub().protectionRadius(),
                             settings.portal().cooldownSeconds())
                     : message(
                             "message.delvefold.admin.portal.ready.coordinate_linked",
-                            settings.terrainMode().serializedName(),
+                            java.util.Objects.requireNonNull(settings.terrainMode(), "initialized terrain")
+                                    .serializedName(),
                             settings.portal().cooldownSeconds());
         }
         String worldStatus = settings.initialized()
                 ? message(
                         "message.delvefold.admin.world.ready",
-                        settings.terrainMode().serializedName(),
+                        java.util.Objects.requireNonNull(settings.terrainMode(), "initialized terrain")
+                                .serializedName(),
                         settings.generationEpoch())
                 : message("message.delvefold.admin.world.uninitialized");
         int pageSize = Math.max(1, Math.min(requestedOrePageSize, ProtocolLimits.MAX_ORE_RULES_PER_PAGE));
@@ -179,7 +186,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 settings.revision(),
                 compatible,
                 settings.initialized(),
-                settings.terrainMode(),
+                java.util.Objects.requireNonNullElse(settings.terrainMode(), TerrainMode.FLAT),
                 settings.orePreset(),
                 settings.gameplay(),
                 settings.portal(),
@@ -413,7 +420,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                             backupId,
                             -1L,
                             -1L);
-                    backupCache.invalidateAndRefresh(saveRoot);
+                    var unusedRefreshAfterRestore = backupCache.invalidateAndRefresh(saveRoot);
                 }
                 return new ServiceResult(
                         confirmed.success() ? ActionStatus.ACCEPTED : ActionStatus.ERROR,
@@ -425,7 +432,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 String selectedBackupId = WorldRestoreService.get().selectedBackupId(server);
                 WorldOperationResult cancelled = WorldRestoreService.get().cancel(server);
                 if (cancelled.success()) {
-                    backupCache.invalidateAndRefresh(saveRoot);
+                    var unusedRefreshAfterCancellation = backupCache.invalidateAndRefresh(saveRoot);
                     audit(
                             player,
                             AuditMutation.Operation.BACKUP_RESTORE_CANCELLED,
@@ -480,8 +487,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                                             }
                                         })
                         : verification.verifyAsync(backupId);
-                future.whenComplete((result, failure) -> server.execute(() -> {
-                    backupCache.invalidateAndRefresh(saveRoot);
+                var unusedVerificationCompletion = future.whenComplete((result, failure) -> server.execute(() -> {
+                    var unusedRefreshAfterVerification = backupCache.invalidateAndRefresh(saveRoot);
                     if (failure != null) {
                         LOGGER.log(
                                 System.Logger.Level.ERROR,
@@ -538,7 +545,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                                                 -1L);
                                     }
                                 });
-                deletion.whenComplete((deleted, failure) -> server.execute(() -> {
+                var unusedDeletionCompletion = deletion.whenComplete((deleted, failure) -> server.execute(() -> {
                     boolean success = failure == null && Boolean.TRUE.equals(deleted);
                     if (failure != null) {
                         LOGGER.log(System.Logger.Level.ERROR, "Could not delete Delvefold backup " + backupId, failure);
@@ -564,7 +571,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return switch (operation) {
                 case PIN -> {
                     boolean changed = catalog.setPinned(backupId, true);
-                    backupCache.invalidateAndRefresh(saveRoot);
+                    var unusedRefreshAfterPin = backupCache.invalidateAndRefresh(saveRoot);
                     if (changed) {
                         audit(
                                 player,
@@ -579,7 +586,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 }
                 case UNPIN -> {
                     boolean changed = catalog.setPinned(backupId, false);
-                    backupCache.invalidateAndRefresh(saveRoot);
+                    var unusedRefreshAfterUnpin = backupCache.invalidateAndRefresh(saveRoot);
                     if (changed) {
                         audit(
                                 player,
@@ -729,7 +736,9 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         return message(key, backupId);
     }
 
-    private static BackupDeletionGuard.DeletionRejectedException deletionRejection(Throwable failure) {
+    // Throwable cause cycles are identity cycles; value equality may recurse or conflate distinct causes.
+    @SuppressWarnings("ReferenceEquality")
+    private static BackupDeletionGuard.@Nullable DeletionRejectedException deletionRejection(Throwable failure) {
         Throwable current = failure;
         while (current != null) {
             if (current instanceof BackupDeletionGuard.DeletionRejectedException rejection) {
@@ -743,7 +752,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         return null;
     }
 
-    private static TerrainMode recreateTerrain(String confirmation, TerrainMode fallback) {
+    private static @Nullable TerrainMode recreateTerrain(
+            @Nullable String confirmation, @Nullable TerrainMode fallback) {
         if (confirmation == null) {
             return fallback;
         }
@@ -760,11 +770,11 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
     }
 
     private static com.nightsta69.delvefold.config.model.TerrainVariant recreateVariant(
-            String confirmation, com.nightsta69.delvefold.config.model.TerrainVariant fallback) {
+            @Nullable String confirmation, com.nightsta69.delvefold.config.model.TerrainVariant fallback) {
         if (confirmation == null) {
             return fallback;
         }
-        String[] parts = confirmation.split(":");
+        String[] parts = confirmation.split(":", -1);
         if (parts.length < 3) {
             return fallback;
         }
@@ -776,11 +786,11 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         }
     }
 
-    private static GeologyTheme recreateGeologyTheme(String confirmation, GeologyTheme fallback) {
+    private static GeologyTheme recreateGeologyTheme(@Nullable String confirmation, GeologyTheme fallback) {
         if (confirmation == null) {
             return fallback;
         }
-        String[] parts = confirmation.split(":");
+        String[] parts = confirmation.split(":", -1);
         if (parts.length < 4) {
             return fallback;
         }
@@ -895,6 +905,9 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
     }
 
     private static AdminSnapshot.OreBandDraft toDraft(SpawnBand band) {
+        Integer peak = band.peakY();
+        Integer plateauMin = band.plateauMinY();
+        Integer plateauMax = band.plateauMaxY();
         return new AdminSnapshot.OreBandDraft(
                 band.id(),
                 band.veinSize(),
@@ -902,9 +915,9 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 band.distribution(),
                 band.minY(),
                 band.maxY(),
-                band.peakY() == null ? 0 : band.peakY(),
-                band.plateauMinY() == null ? band.minY() : band.plateauMinY(),
-                band.plateauMaxY() == null ? band.maxY() : band.plateauMaxY(),
+                peak == null ? 0 : peak,
+                plateauMin == null ? band.minY() : plateauMin,
+                plateauMax == null ? band.maxY() : plateauMax,
                 band.discardOnAirExposure(),
                 band.placement(),
                 band.province());
@@ -912,19 +925,15 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
 
     private static ServiceResult fromWrite(ConfigWriteResult result, String successMessage) {
         if (result.saved()) {
-            return accepted(
-                    Math.max(
-                            result.snapshot().ores().revision(),
-                            result.snapshot().settings().revision()),
-                    successMessage,
-                    true);
+            ConfigSnapshot saved = java.util.Objects.requireNonNull(result.snapshot(), "saved configuration");
+            return accepted(Math.max(saved.ores().revision(), saved.settings().revision()), successMessage, true);
         }
         boolean stale = result.issues().stream().anyMatch(issue -> "revision.stale".equals(issue.code()));
         String message = result.issues().isEmpty()
                 ? message("message.delvefold.admin.change_rejected")
                 : ConfigIssueMessages.encode(result.issues().getFirst());
-        long revision =
-                result.snapshot() == null ? 0L : result.snapshot().settings().revision();
+        ConfigSnapshot rejected = result.snapshot();
+        long revision = rejected == null ? 0L : rejected.settings().revision();
         return new ServiceResult(stale ? ActionStatus.STALE : ActionStatus.REJECTED, revision, message, stale);
     }
 
@@ -945,12 +954,12 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         return new ServiceResult(ActionStatus.STALE, currentRevision, message("message.delvefold.admin.stale"), true);
     }
 
-    private static String message(String translationKey, Object... arguments) {
+    private static String message(String translationKey, @Nullable Object... arguments) {
         return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 
-    private static String stripHash(String value) {
-        return value != null && value.startsWith("#") ? value.substring(1) : value;
+    private static String stripHash(@Nullable String value) {
+        return value == null ? "" : value.startsWith("#") ? value.substring(1) : value;
     }
 
     private static void requireConfigure(ServerPlayer player) {

@@ -9,6 +9,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 
 /** Focused editor for the bounded regional controls of one province spawn band. */
 public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
@@ -21,8 +22,19 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
     private String workCap;
     private Component error = Component.empty();
 
+    /**
+     * Creates an editor for bounded regional province settings.
+     *
+     * @param parent ore-rule editor restored after save or cancellation
+     * @param snapshot immutable administration context
+     * @param initial settings copied into editable text fields; defaults are used if absent
+     * @param onSave client-thread callback receiving a newly validated immutable value
+     */
     public DelvefoldProvinceSettingsScreen(
-            Screen parent, AdminSnapshot snapshot, ProvinceSettings initial, Consumer<ProvinceSettings> onSave) {
+            Screen parent,
+            AdminSnapshot snapshot,
+            @Nullable ProvinceSettings initial,
+            Consumer<ProvinceSettings> onSave) {
         super(Component.translatable("screen.delvefold.province.title"), snapshot);
         this.parent = parent;
         this.onSave = onSave;
@@ -191,88 +203,5 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
         return this.error.getString().isEmpty()
                 ? Component.translatable("screen.delvefold.province.narration")
                 : Component.translatable("screen.delvefold.province.narration.error", this.error);
-    }
-}
-
-/** Pure responsive geometry kept in this source so it can be verified without loading Minecraft. */
-record ProvinceSettingsLayout(
-        boolean compact,
-        int contentLeft,
-        int contentTop,
-        int contentWidth,
-        int contentBottom,
-        int sectionTitleY,
-        Field region,
-        Field radius,
-        Field verticalThickness,
-        Field density,
-        Field workCap,
-        boolean showHelp,
-        int helpY,
-        int errorY) {
-    private static final int NORMAL_BODY_HEIGHT = 214;
-
-    static ProvinceSettingsLayout calculate(int contentLeft, int contentTop, int contentWidth, int contentBottom) {
-        int innerX = contentLeft + 12;
-        int innerWidth = Math.max(1, contentWidth - 24);
-        boolean compact = contentBottom - contentTop < NORMAL_BODY_HEIGHT;
-        int gap = compact ? 6 : 8;
-        int half = Math.max(1, (innerWidth - gap) / 2);
-        int rightWidth = Math.max(1, innerWidth - half - gap);
-        int fieldHeight = compact ? 18 : 20;
-        int firstY = contentTop + (compact ? 26 : 37);
-        int rowStep = compact ? 29 : 43;
-        Field region = new Field(innerX, firstY, half, fieldHeight);
-        Field radius = new Field(innerX + half + gap, firstY, rightWidth, fieldHeight);
-        Field thickness = new Field(innerX, firstY + rowStep, half, fieldHeight);
-        Field density = new Field(innerX + half + gap, firstY + rowStep, rightWidth, fieldHeight);
-        Field workCap = new Field(innerX, firstY + rowStep * 2, innerWidth, fieldHeight);
-        return new ProvinceSettingsLayout(
-                compact,
-                contentLeft,
-                contentTop,
-                contentWidth,
-                contentBottom,
-                contentTop + (compact ? 4 : 7),
-                region,
-                radius,
-                thickness,
-                density,
-                workCap,
-                !compact,
-                compact ? contentBottom : firstY + 113,
-                compact ? workCap.bottom() + 2 : firstY + 150);
-    }
-
-    static ProvinceSettingsLayout forScreen(int screenWidth, int screenHeight) {
-        int horizontalMargin = screenWidth < 500 ? 10 : 20;
-        int verticalMargin = screenHeight < 360 ? 8 : 14;
-        int panelWidth = Math.min(600, Math.max(1, screenWidth - horizontalMargin * 2));
-        int panelHeight = Math.min(330, Math.max(1, screenHeight - verticalMargin * 2));
-        int panelLeft = (screenWidth - panelWidth) / 2;
-        int panelTop = (screenHeight - panelHeight) / 2;
-        int contentLeft = panelLeft + 16;
-        int contentTop = panelTop + 56;
-        int contentWidth = panelWidth - 32;
-        int contentBottom = panelTop + panelHeight - 46;
-        return calculate(contentLeft, contentTop, contentWidth, contentBottom);
-    }
-
-    int contentRight() {
-        return contentLeft + contentWidth;
-    }
-
-    record Field(int x, int y, int width, int height) {
-        int right() {
-            return x + width;
-        }
-
-        int bottom() {
-            return y + height;
-        }
-
-        int labelY() {
-            return y - (height == 18 ? 11 : 12);
-        }
     }
 }

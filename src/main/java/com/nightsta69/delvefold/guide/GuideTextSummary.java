@@ -12,6 +12,12 @@ public final class GuideTextSummary {
 
     private GuideTextSummary() {}
 
+    /**
+     * Renders a bounded console-oriented summary from the redacted public guide contract.
+     *
+     * @param snapshot immutable guide snapshot
+     * @return immutable localized-message representations with at most 24 detailed ore lines
+     */
     public static List<String> lines(GuideSnapshot snapshot) {
         List<String> lines = new ArrayList<>();
         lines.add(localized("message.delvefold.guide.console.title", snapshot.worldName()));

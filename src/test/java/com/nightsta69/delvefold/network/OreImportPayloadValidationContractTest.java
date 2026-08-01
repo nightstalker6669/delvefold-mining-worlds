@@ -33,7 +33,9 @@ class OreImportPayloadValidationContractTest {
     @Test
     void previewSelectionNormalizesBeforeDuplicateDetectionAndBoundsDecodeAllocation() throws Exception {
         String preview = read("OreImportPreviewRequestPayload.java");
-        String constructor = preview.substring(preview.indexOf("public OreImportPreviewRequestPayload {"));
+        int constructorStart = preview.indexOf("public OreImportPreviewRequestPayload(");
+        assertTrue(constructorStart >= 0, "The payload must retain its public canonical constructor");
+        String constructor = preview.substring(constructorStart);
 
         int nullHandling = constructor.indexOf("id == null");
         int idTrimming = constructor.indexOf("id.trim()");

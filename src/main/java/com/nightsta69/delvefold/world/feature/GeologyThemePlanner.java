@@ -1,24 +1,47 @@
 package com.nightsta69.delvefold.world.feature;
 
 import com.nightsta69.delvefold.config.model.GeologyTheme;
+import com.nightsta69.delvefold.world.feature.GeologyThemeConfiguration.Phase;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Pure, bounded planner. Minecraft state checks are deliberately deferred to the feature adapter. */
 public final class GeologyThemePlanner {
+    /** Maximum number of strata replacement candidates returned for one chunk and phase. */
     public static final int MAX_STRATA_PLACEMENTS = 384;
+    /** Maximum combined solid-decoration and fluid candidates returned for one chunk and phase. */
     public static final int MAX_DECORATION_PLACEMENTS = 12;
+    /** Maximum fluid candidates within the decoration budget for one chunk. */
     public static final int MAX_FLUID_PLACEMENTS = 3;
 
     private static final int STRATA_NODES = 8;
 
     private GeologyThemePlanner() {}
 
+    /**
+     * Builds a deterministic, bounded geology plan whose horizontal positions stay in the requested chunk.
+     *
+     * <p>Seed inputs are mixed in the stable order world seed, packed chunk coordinates, persisted generation salt,
+     * theme name, then phase domain. Heights are block coordinates sampled from the inclusive supplied bounds. This
+     * method is pure and performs no world access; the feature adapter revalidates every write against the currently
+     * generating chunk.
+     *
+     * @param theme recreation-locked geology theme; classic produces an empty plan
+     * @param phase independent strata or decoration stream; null defaults to strata
+     * @param worldSeed server world's 64-bit generation seed
+     * @param chunkX target chunk X coordinate
+     * @param chunkZ target chunk Z coordinate
+     * @param generationSalt persisted mining-world generation salt
+     * @param minimumY inclusive minimum block Y
+     * @param maximumY inclusive maximum block Y
+     * @return immutable bounded placement plan
+     */
     public static Plan plan(
-            GeologyTheme theme,
-            GeologyThemeConfiguration.Phase phase,
+            @Nullable GeologyTheme theme,
+            @Nullable Phase phase,
             long worldSeed,
             int chunkX,
             int chunkZ,
@@ -28,15 +51,11 @@ public final class GeologyThemePlanner {
         if (theme == null || theme == GeologyTheme.CLASSIC || maximumY < minimumY) {
             return Plan.EMPTY;
         }
-        GeologyThemeConfiguration.Phase selectedPhase = phase == null ? GeologyThemeConfiguration.Phase.STRATA : phase;
+        Phase selectedPhase = phase == null ? Phase.STRATA : phase;
         long chunkPosition = ((long) chunkZ << 32) ^ (chunkX & 0xFFFFFFFFL);
         Random random = new Random(GenerationSeedMixer.geologySeed(
-                worldSeed,
-                chunkPosition,
-                generationSalt,
-                theme.serializedName(),
-                selectedPhase == GeologyThemeConfiguration.Phase.STRATA));
-        return selectedPhase == GeologyThemeConfiguration.Phase.STRATA
+                worldSeed, chunkPosition, generationSalt, theme.serializedName(), selectedPhase == Phase.STRATA));
+        return selectedPhase == Phase.STRATA
                 ? strata(theme, random, chunkX, chunkZ, minimumY, maximumY)
                 : decorations(theme, random, chunkX, chunkZ, minimumY, maximumY);
     }
@@ -135,9 +154,20 @@ public final class GeologyThemePlanner {
         return value * value;
     }
 
+    /**
+     * Immutable per-chunk geology work plan.
+     *
+     * @param placements ordered candidates bounded by the public per-chunk safety constants
+     */
     public record Plan(List<Placement> placements) {
         private static final Plan EMPTY = new Plan(List.of());
 
+        /**
+         * Copies placements and enforces per-role work budgets.
+         *
+         * @param placements ordered placement candidates
+         * @throws IllegalArgumentException when the per-chunk strata, decoration, or fluid budget is exceeded
+         */
         public Plan {
             placements = placements == null ? List.of() : List.copyOf(placements);
             long strata = placements.stream()
@@ -157,7 +187,22 @@ public final class GeologyThemePlanner {
         }
     }
 
+    /**
+     * One planned block mutation before live-state validation.
+     *
+     * @param position absolute block position inside the target chunk
+     * @param material bounded vanilla material to place
+     * @param role validation and placement behavior
+     */
     public record Placement(Position position, Material material, Role role) {
+        /**
+         * Validates required placement fields.
+         *
+         * @param position absolute block position
+         * @param material planned vanilla material
+         * @param role placement role
+         * @throws IllegalArgumentException when any field is null
+         */
         public Placement {
             if (position == null || material == null || role == null) {
                 throw new IllegalArgumentException("Geology placements require position, material, and role");
@@ -165,28 +210,54 @@ public final class GeologyThemePlanner {
         }
     }
 
+    /**
+     * Absolute block coordinates for one planned mutation.
+     *
+     * @param x block X inside the target chunk
+     * @param y block Y inside the requested inclusive height range
+     * @param z block Z inside the target chunk
+     */
     public record Position(int x, int y, int z) {}
 
+    /** Live-state validation strategy for a planned geology mutation. */
     public enum Role {
+        /** Replaces an existing natural stone block. */
         STRATA,
+        /** Searches for and replaces a valid exposed floor. */
         DECORATION,
+        /** Replaces a natural block only when every neighbor is sealed within the current chunk. */
         FLUID
     }
 
+    /** Closed vanilla-block palette available to geology themes. */
     public enum Material {
+        /** Tuff strata. */
         TUFF,
+        /** Basalt strata. */
         BASALT,
+        /** Blackstone strata. */
         BLACKSTONE,
+        /** Magma decoration. */
         MAGMA_BLOCK,
+        /** Dripstone strata or decoration. */
         DRIPSTONE_BLOCK,
+        /** Calcite strata. */
         CALCITE,
+        /** Clay strata. */
         CLAY,
+        /** Mud strata. */
         MUD,
+        /** Rooted-dirt strata. */
         ROOTED_DIRT,
+        /** Moss strata or decoration. */
         MOSS_BLOCK,
+        /** Smooth-basalt strata. */
         SMOOTH_BASALT,
+        /** Amethyst strata or decoration. */
         AMETHYST_BLOCK,
+        /** Sealed water pocket. */
         WATER,
+        /** Sealed lava pocket. */
         LAVA
     }
 

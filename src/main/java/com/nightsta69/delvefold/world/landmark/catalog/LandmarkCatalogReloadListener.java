@@ -36,10 +36,18 @@ import org.slf4j.Logger;
 /** Reloads {@code data/<namespace>/delvefold/landmarks/*.json} as one atomic catalog. */
 public final class LandmarkCatalogReloadListener
         extends SimplePreparableReloadListener<LandmarkCatalogReloadListener.LoadResult> {
+    /** Creates the reload listener registered for the current server resource manager. */
+    public LandmarkCatalogReloadListener() {}
+
+    /** Datapack directory, relative to {@code data/<namespace>/}, containing landmark JSON definitions. */
     public static final String DIRECTORY = "delvefold/landmarks";
+    /** Maximum number of definition resources decoded in one reload. */
     public static final int MAX_DEFINITIONS = 256;
+    /** Maximum UTF-8 size of one landmark JSON resource in bytes. */
     public static final int MAX_DEFINITION_BYTES = 65_536;
+    /** Maximum decompressed template NBT allocation accepted during dependency validation, in bytes. */
     public static final long MAX_TEMPLATE_NBT_BYTES = 8L * 1024L * 1024L;
+
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final AtomicReference<AuditMutation> PENDING_STARTUP_AUDIT = new AtomicReference<>();
 

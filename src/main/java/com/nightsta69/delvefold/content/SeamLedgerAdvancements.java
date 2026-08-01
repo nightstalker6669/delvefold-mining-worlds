@@ -8,8 +8,11 @@ import net.minecraft.server.level.ServerPlayer;
 
 /** Server-side advancement hooks for interactions with the Seam Ledger. */
 public final class SeamLedgerAdvancements {
+    /** Identifier of the advancement awarded after the server authorizes a guide consultation. */
     public static final ResourceLocation CONSULT_LEDGER_ADVANCEMENT =
             ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "consult_seam_ledger");
+
+    /** Criterion name within {@link #CONSULT_LEDGER_ADVANCEMENT}. */
     public static final String CONSULT_CRITERION = "consult";
 
     private SeamLedgerAdvancements() {}
@@ -20,6 +23,7 @@ public final class SeamLedgerAdvancements {
      * <p>This must be called on the logical server only after the player-bound client-open acknowledgement has been
      * validated and the current guide visibility has been rechecked.
      *
+     * @param player the server player whose authorized consultation was acknowledged
      * @return {@code true} when the criterion was newly awarded; {@code false} if the advancement is unavailable or was
      *     already complete
      */

@@ -182,6 +182,7 @@ class DelvefoldDoctorServiceTest {
             Files.createSymbolicLink(dimensions.resolve("unsafe"), target);
             assertEquals(-1L, DelvefoldDoctorService.estimateTreeBytes(dimensions, 20));
         } catch (UnsupportedOperationException | IOException ignored) {
+            // The link-rejection assertion is not applicable on filesystems that cannot create symlinks.
         }
     }
 

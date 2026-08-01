@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.world.landmark;
 
 import com.mojang.serialization.MapCodec;
+import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
@@ -25,12 +26,26 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureType;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import org.jspecify.annotations.Nullable;
 
-/** One structure-system entry that selects a reloadable landmark definition per deterministic candidate. */
+/**
+ * Structure-system entry that selects one reloadable landmark definition per deterministic candidate.
+ *
+ * <p>Each generation attempt captures exactly one immutable catalog snapshot. Definition filtering, weighted selection,
+ * placement probing, and piece construction all use that same revision even if a datapack reload publishes
+ * concurrently. Minecraft's structure pipeline owns multi-chunk clipping and only writes the chunk currently being
+ * generated.
+ */
 public final class DelvefoldLandmarkStructure extends Structure {
+    /** Platform structure codec used during registry and datapack decoding. */
     public static final MapCodec<DelvefoldLandmarkStructure> CODEC =
             Structure.simpleCodec(DelvefoldLandmarkStructure::new);
 
+    /**
+     * Creates the structure from Minecraft's decoded structure settings.
+     *
+     * @param settings biome, spawn-override, generation-step, and terrain-adjustment settings supplied by the platform
+     */
     public DelvefoldLandmarkStructure(StructureSettings settings) {
         super(settings);
     }
@@ -38,12 +53,17 @@ public final class DelvefoldLandmarkStructure extends Structure {
     @Override
     protected Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
         var snapshot = currentConfig();
-        if (snapshot == null
-                || !snapshot.settings().initialized()
-                || snapshot.settings().terrainMode() == null) {
+        if (snapshot == null) {
             return Optional.empty();
         }
-        TerrainMode terrain = snapshot.settings().terrainMode();
+        var settings = snapshot.settings();
+        if (!settings.initialized()) {
+            return Optional.empty();
+        }
+        @Nullable TerrainMode terrain = settings.terrainMode();
+        if (terrain == null) {
+            return Optional.empty();
+        }
         ChunkPos chunk = context.chunkPos();
         Holder<Biome> generatorBiome = context.biomeSource()
                 .getNoiseBiome(
@@ -51,12 +71,12 @@ public final class DelvefoldLandmarkStructure extends Structure {
                         0,
                         QuartPos.fromBlock(chunk.getMiddleBlockZ()),
                         context.randomState().sampler());
-        TerrainMode generatedTerrain = DelvefoldWorldgen.terrainFor(generatorBiome);
+        @Nullable TerrainMode generatedTerrain = DelvefoldWorldgen.terrainFor(generatorBiome);
         if (generatedTerrain == null || generatedTerrain != terrain) {
             return Optional.empty();
         }
-        WorldIdentitySettings identity = snapshot.settings().identity();
-        long generationSalt = snapshot.settings().generationSalt();
+        WorldIdentitySettings identity = settings.identity();
+        long generationSalt = settings.generationSalt();
         if (!LandmarkSelector.accepts(
                 identity.landmarkPreset(), LandmarkSeeds.acceptanceSeed(context.seed(), chunk, generationSalt))) {
             return Optional.empty();
@@ -167,7 +187,7 @@ public final class DelvefoldLandmarkStructure extends Structure {
         return Integer.MIN_VALUE;
     }
 
-    private static com.nightsta69.delvefold.config.ConfigSnapshot currentConfig() {
+    private static @Nullable ConfigSnapshot currentConfig() {
         try {
             return DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {

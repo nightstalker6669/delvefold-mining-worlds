@@ -22,10 +22,29 @@ import java.util.List;
 public final class OreImportNetworkViews {
     private OreImportNetworkViews() {}
 
+    /**
+     * Projects an issued server scan session into one bounded client page.
+     *
+     * @param issued immutable issued scan and opaque session token
+     * @param revision non-negative ore revision against which the scan was created
+     * @param baseProfileId profile used as the import base
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only scan view
+     */
     public static ScanView scan(IssuedScan issued, long revision, String baseProfileId, int requestedPage) {
         return scan(issued.scanToken(), issued.discovery(), revision, baseProfileId, requestedPage);
     }
 
+    /**
+     * Projects discovery output and its server-owned token into one bounded client page.
+     *
+     * @param token opaque scan token; never a filesystem path or confirmation secret
+     * @param discovery immutable server discovery result
+     * @param revision non-negative source ore revision
+     * @param baseProfileId profile used as the import base
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only scan view
+     */
     public static ScanView scan(
             String token, DiscoveryResult discovery, long revision, String baseProfileId, int requestedPage) {
         int total = discovery.groups().size();
@@ -48,10 +67,27 @@ public final class OreImportNetworkViews {
                 groups);
     }
 
+    /**
+     * Projects an issued non-mutating preview session into one bounded client page.
+     *
+     * @param issued immutable plan and opaque commit token
+     * @param revision non-negative source ore revision
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only preview view
+     */
     public static PreviewView preview(IssuedPreview issued, long revision, int requestedPage) {
         return preview(issued.commitToken(), issued.plan(), revision, requestedPage);
     }
 
+    /**
+     * Projects a validated plan into a bounded diff, workload, and issue page without activating a profile.
+     *
+     * @param token opaque server commit token binding a later create request to this plan
+     * @param plan immutable import plan
+     * @param revision non-negative source ore revision
+     * @param requestedPage requested zero-based page, clamped to the available range
+     * @return immutable display-only preview view
+     */
     public static PreviewView preview(String token, Plan plan, long revision, int requestedPage) {
         int total = plan.diff().size();
         int pages = pageCount(total, ProtocolLimits.MAX_IMPORT_DIFF_PER_PAGE);

@@ -17,12 +17,20 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
+import org.jspecify.annotations.Nullable;
 
-/** Applies the pure geology plan after re-checking every target against live world-generation state. */
+/**
+ * Applies the pure geology plan after re-checking every target against live world-generation state.
+ *
+ * <p>Every mutation is constrained to the currently generating chunk, the configured block-Y bounds, and
+ * {@link WorldGenLevel#ensureCanWrite(BlockPos)}. Neighbor-sensitive fluid placement also rejects any neighbor outside
+ * that chunk.
+ */
 public final class GeologyThemeFeature extends Feature<GeologyThemeConfiguration> {
     private static final int UPDATE_NONE = 2;
     private static final int SURFACE_SEARCH_RADIUS = 48;
 
+    /** Creates the feature with the shared phase-selecting datapack codec. */
     public GeologyThemeFeature() {
         super(GeologyThemeConfiguration.CODEC);
     }
@@ -37,14 +45,15 @@ public final class GeologyThemeFeature extends Feature<GeologyThemeConfiguration
         }
         var settings = snapshot.settings();
         GeologyTheme theme = settings.identity().geologyTheme();
+        @Nullable TerrainMode terrainMode = settings.terrainMode();
         if (!settings.initialized()
-                || settings.terrainMode() == null
+                || terrainMode == null
                 || theme == GeologyTheme.CLASSIC
                 || !context.level()
                         .getLevel()
                         .dimension()
                         .equals(DelvefoldWorldgen.levelFor(
-                                settings.terrainMode(), settings.identity().terrainVariant()))) {
+                                terrainMode, settings.identity().terrainVariant()))) {
             return false;
         }
 
@@ -56,7 +65,7 @@ public final class GeologyThemeFeature extends Feature<GeologyThemeConfiguration
                         chunk,
                         theme,
                         context.config().phase(),
-                        settings.terrainMode(),
+                        terrainMode,
                         context.level().getSeed(),
                         settings.generationSalt(),
                         minimumY,

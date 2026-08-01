@@ -25,7 +25,6 @@ import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -34,7 +33,9 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import org.jspecify.annotations.Nullable;
 
+/** Main administration dashboard for revision-guarded configuration and lifecycle operations. */
 public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private static final int BODY_SCROLL_STEP = 24;
     private final Tab selectedTab;
@@ -70,7 +71,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private RenewalSeedMode renewalSeedMode;
     private Component identityError = Component.empty();
     private final List<AbstractWidget> bodyWidgets = new ArrayList<>();
-    private final Map<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
+    private final IdentityHashMap<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
     private int bodyScrollOffset;
     private int bodyVirtualBottom;
     private int portalStatusVirtualY;
@@ -82,15 +83,26 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private boolean worldContentStacked;
     private String deleteArmedProfile = "";
     private boolean profileOverwrite;
-    private AdminOperation armedOperation;
-    private Button destructiveButton;
-    private Button secondaryDestructiveButton;
-    private Button cancelPendingButton;
+    private @Nullable AdminOperation armedOperation;
+    private @Nullable Button destructiveButton;
+    private @Nullable Button secondaryDestructiveButton;
+    private @Nullable Button cancelPendingButton;
 
+    /**
+     * Creates the default ore-tab dashboard.
+     *
+     * @param snapshot immutable server-authoritative administration state
+     */
     public DelvefoldDashboardScreen(AdminSnapshot snapshot) {
         this(snapshot, Tab.ORES, snapshot.orePage(), 0);
     }
 
+    /**
+     * Creates a replacement dashboard retaining local tab and profile-page navigation.
+     *
+     * @param updatedSnapshot newer immutable server snapshot
+     * @return a new dashboard instance
+     */
     public DelvefoldDashboardScreen refreshed(AdminSnapshot updatedSnapshot) {
         return new DelvefoldDashboardScreen(
                 updatedSnapshot, this.selectedTab, updatedSnapshot.orePage(), this.profilePage);
@@ -121,7 +133,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int x = this.contentLeft();
         int y = this.contentTop();
         for (Tab tab : Tab.values()) {
-            Button button = this.addButton(
+            this.addButton(
                     x,
                     y,
                     tabWidth,
@@ -527,7 +539,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
     private void cycleGameplayPreset() {
         GameplayPreset[] values = GameplayPreset.values();
-        GameplayPreset next = values[(this.gameplayPreset.ordinal() + 1) % values.length];
+        GameplayPreset next = values[(GuiEnumOrder.index(this.gameplayPreset) + 1) % values.length];
         setGameplay(GameplaySettings.fromPreset(next));
         if (this.minecraft != null) {
             this.minecraft.setScreen(new DelvefoldDashboardScreen(
@@ -597,7 +609,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int routingY = y + (compactHeight() ? 27 : 31);
         this.addBodyButton(x, routingY, innerWidth, 22, portalRoutingLabel(), Style.SECONDARY, button -> {
             PortalRoutingMode[] modes = PortalRoutingMode.values();
-            this.portalRoutingMode = modes[(this.portalRoutingMode.ordinal() + 1) % modes.length];
+            this.portalRoutingMode = modes[(GuiEnumOrder.index(this.portalRoutingMode) + 1) % modes.length];
             button.setMessage(portalRoutingLabel());
         });
 
@@ -797,7 +809,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
         this.addBodyButton(x, y + 68, half, 22, landmarkLabel(), Style.SECONDARY, button -> {
             LandmarkPreset[] values = LandmarkPreset.values();
-            this.landmarkPreset = values[(this.landmarkPreset.ordinal() + 1) % values.length];
+            this.landmarkPreset = values[(GuiEnumOrder.index(this.landmarkPreset) + 1) % values.length];
             button.setMessage(landmarkLabel());
         });
         Button renewalToggle = this.addBodyButton(
@@ -837,7 +849,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
         Button seedMode = this.addBodyButton(x, y + 136, width, 22, renewalSeedModeLabel(), Style.SECONDARY, button -> {
             RenewalSeedMode[] values = RenewalSeedMode.values();
-            this.renewalSeedMode = values[(this.renewalSeedMode.ordinal() + 1) % values.length];
+            this.renewalSeedMode = values[(GuiEnumOrder.index(this.renewalSeedMode) + 1) % values.length];
             button.setMessage(renewalSeedModeLabel());
         });
         seedMode.active = this.snapshot.capabilities().canManageWorld();
@@ -878,7 +890,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                     ? Integer.parseInt(this.renewalWarning.trim())
                     : current.renewal().warningMinutes();
             if (this.identityName.isBlank()
-                    || canManageRenewal && (days < 1 || days > 3650 || warning < 1 || warning > 10080)) {
+                    || (canManageRenewal && (days < 1 || days > 3650 || warning < 1 || warning > 10080))) {
                 throw new NumberFormatException();
             }
             boolean landmarks = this.landmarkPreset != LandmarkPreset.PURE_MINING;
@@ -910,7 +922,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int choiceWidth = Math.max(1, (innerWidth - choiceGap) / 2);
         this.addBodyButton(x, y, choiceWidth, 22, recreateTerrainLabel(), Style.SECONDARY, button -> {
             TerrainMode[] modes = TerrainMode.values();
-            this.recreateTerrain = modes[(this.recreateTerrain.ordinal() + 1) % modes.length];
+            this.recreateTerrain = modes[(GuiEnumOrder.index(this.recreateTerrain) + 1) % modes.length];
             button.setMessage(recreateTerrainLabel());
         });
         this.addBodyButton(
@@ -922,20 +934,20 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 Style.SECONDARY,
                 button -> {
                     TerrainVariant[] variants = TerrainVariant.values();
-                    this.recreateVariant = variants[(this.recreateVariant.ordinal() + 1) % variants.length];
+                    this.recreateVariant = variants[(GuiEnumOrder.index(this.recreateVariant) + 1) % variants.length];
                     button.setMessage(recreateVariantLabel());
                 });
         y += compactHeight() ? 26 : 32;
         this.addBodyButton(x, y, innerWidth, 22, recreateGeologyThemeLabel(), Style.SECONDARY, button -> {
             GeologyTheme[] themes = GeologyTheme.values();
-            this.recreateGeologyTheme = themes[(this.recreateGeologyTheme.ordinal() + 1) % themes.length];
+            this.recreateGeologyTheme = themes[(GuiEnumOrder.index(this.recreateGeologyTheme) + 1) % themes.length];
             button.setMessage(recreateGeologyThemeLabel());
         });
         y += compactHeight() ? 26 : 32;
         int actionGap = Math.min(6, Math.max(0, innerWidth - 2));
         int actionWidth = Math.max(1, (innerWidth - actionGap) / 2);
         int secondaryActionWidth = Math.max(1, innerWidth - actionWidth - actionGap);
-        this.destructiveButton = this.addBodyButton(
+        Button deleteWorld = this.addBodyButton(
                 x,
                 y,
                 actionWidth,
@@ -943,7 +955,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 Component.translatable("screen.delvefold.world.delete"),
                 Style.DANGER,
                 button -> armOrPerform(AdminOperation.DELETE_WORLD));
-        this.secondaryDestructiveButton = this.addBodyButton(
+        this.destructiveButton = deleteWorld;
+        Button recreateWorld = this.addBodyButton(
                 x + actionWidth + actionGap,
                 y,
                 secondaryActionWidth,
@@ -951,10 +964,11 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 Component.translatable("screen.delvefold.world.recreate"),
                 Style.DANGER,
                 button -> armOrPerform(AdminOperation.RECREATE_WORLD));
-        this.destructiveButton.active = this.snapshot.capabilities().canManageWorld();
-        this.secondaryDestructiveButton.active = this.snapshot.capabilities().canManageWorld();
+        this.secondaryDestructiveButton = recreateWorld;
+        deleteWorld.active = this.snapshot.capabilities().canManageWorld();
+        recreateWorld.active = this.snapshot.capabilities().canManageWorld();
         if (this.snapshot.worldOperationPending()) {
-            this.cancelPendingButton = this.addBodyButton(
+            Button cancelPending = this.addBodyButton(
                     x,
                     y + (compactHeight() ? 24 : 30),
                     innerWidth,
@@ -962,7 +976,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                     Component.translatable("screen.delvefold.world.cancel_reset"),
                     Style.GHOST,
                     button -> armOrPerform(AdminOperation.CANCEL_PENDING_RESET));
-            this.cancelPendingButton.active = this.snapshot.capabilities().canManageWorld();
+            this.cancelPendingButton = cancelPending;
+            cancelPending.active = this.snapshot.capabilities().canManageWorld();
         }
         y += compactHeight() ? 55 : 65;
         int backupY = y;
@@ -1018,25 +1033,28 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     }
 
     private void updateDestructiveLabels() {
-        if (this.destructiveButton != null) {
+        Button deleteWorld = this.destructiveButton;
+        if (deleteWorld != null) {
             Component label = this.armedOperation == AdminOperation.DELETE_WORLD
                     ? Component.translatable("screen.delvefold.world.confirm_delete")
                     : Component.translatable("screen.delvefold.world.delete");
-            this.destructiveButton.setMessage(label);
+            deleteWorld.setMessage(label);
         }
-        if (this.secondaryDestructiveButton != null) {
-            this.secondaryDestructiveButton.setMessage(
+        Button recreateWorld = this.secondaryDestructiveButton;
+        if (recreateWorld != null) {
+            recreateWorld.setMessage(
                     this.armedOperation == AdminOperation.RECREATE_WORLD
                             ? Component.translatable("screen.delvefold.world.confirm_recreate")
                             : Component.translatable("screen.delvefold.world.recreate"));
         }
-        if (this.cancelPendingButton != null) {
+        Button cancelPending = this.cancelPendingButton;
+        if (cancelPending != null) {
             boolean armed = this.armedOperation == AdminOperation.CANCEL_PENDING_RESET;
-            this.cancelPendingButton.setMessage(
+            cancelPending.setMessage(
                     armed
                             ? Component.translatable("screen.delvefold.world.confirm_cancel")
                             : Component.translatable("screen.delvefold.world.cancel_reset"));
-            setButtonStyle(this.cancelPendingButton, armed ? Style.DANGER : Style.GHOST);
+            setButtonStyle(cancelPending, armed ? Style.DANGER : Style.GHOST);
         }
     }
 
@@ -1147,11 +1165,6 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private int footerPagerButtonWidth() {
         int spaceBeforeDone = Math.max(2, this.contentWidth() - footerDoneWidth() - 8);
         return Math.min(64, Math.max(1, (spaceBeforeDone - 6) / 2));
-    }
-
-    private static String pretty(String name) {
-        String text = name.toLowerCase().replace('_', ' ');
-        return Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     @Override

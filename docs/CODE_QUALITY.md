@@ -212,6 +212,29 @@ suppressions and rejects suppression categories outside an explicit allowlist.
 and disabling Error Prone or NullAway for a package are prohibited. Any new
 allowlisted category requires review and an update to this document.
 
+### Reviewed 1.3.1 exceptions
+
+The contract pass leaves only the following narrowly scoped categories. Every
+site has an adjacent source comment describing its concrete external or
+identity-based invariant; the source-hygiene test requires the allowlist to
+match the production tree exactly, so both new and stale entries fail the build.
+Each occurrence is keyed to its owning declaration signature instead of a line
+number, and repeated uses of one category in the same file remain distinct.
+Both shorthand and named-`value` annotation syntax pass through the same parser.
+
+| Category | Reviewed use |
+| --- | --- |
+| `ReferenceEquality` | Minecraft registry singletons, exact lifecycle/server ownership, throwable cause-cycle traversal, and last-known-good immutable snapshot identity. Value equality would weaken the contract being implemented or tested. |
+| `EnumOrdinal` | Protocol 12 enum encoding, declaration-ordered GUI choices, and a guide compatibility assertion. Changing these sites to another order would change wire or visible compatibility. |
+| `try` | Actor scopes whose required effect is their LIFO `close()` behavior; the resource binding is intentionally otherwise unused. |
+| `ThreadLocalUsage` | The bounded audit-actor scope owned by a command/network caller thread and explicitly transferred as a captured string before asynchronous work. |
+| `unchecked` | NeoForge's permission-node factory exposes a generic boundary that cannot be expressed without the external API's unchecked conversion. |
+| `deprecation` / `removal` | Minecraft 1.21.1 structure-placement and connected-player GameTest seams, plus the retained JEI 19.x compatibility method, where no supported replacement exists for the targeted versions. |
+| `UnusedVariable` | A source/binary-compatible guide constructor parameter retained for released callers even though the newer bounded model no longer stores it. |
+| `NullableOptional` | The released lifecycle-event constructor intentionally normalizes both a null `Optional` container and `Optional.empty()`; the narrow suppression keeps that tolerant public contract explicit without changing its JVM descriptor or behavior. |
+
+There are no `NullAway`, `all`, package-level, or multi-category suppressions.
+
 ## Cleanup controls
 
 The refactor is divided into auditable stages to make semantic drift visible:
@@ -280,15 +303,15 @@ subjective statements such as “looks faster” are not sufficient.
 
 | Measure | v1.3.0 before | 1.3.1 after | Evidence |
 | --- | ---: | ---: | --- |
-| Compiler warnings | 2 deprecation/removal | _pending_ | _pending_ |
-| Javadoc warnings | at least 100 (output capped) | _pending_ | _pending_ |
-| Production packages with `@NullMarked` | 0 | _pending_ | _pending_ |
-| Test-only packages with `@NullMarked` | 0 | _pending_ | _pending_ |
-| Explicit nullable boundaries | 10 legacy annotations | _pending_ | _pending_ |
-| Suppression sites/categories | 2 sites | _pending_ | _pending_ |
-| Error Prone findings | not enforced | _pending_ | _pending_ |
-| NullAway findings | not enforced | _pending_ | _pending_ |
-| Checkstyle findings | not enforced | _pending_ | _pending_ |
+| Compiler warnings | 2 deprecation/removal | 0 | `compileJava` and `compileTestJava` with complete applicable lint and `-Werror` in `./gradlew check --rerun-tasks`. |
+| Javadoc warnings | at least 100 (output capped) | 0 | `javadoc` with full doclint and `-Werror` in `check`. |
+| Production packages with `@NullMarked` | 0 | 33 of 33 | `PackageContractCoverageTest` plus the production `package-info.java` inventory. |
+| Test-only packages with `@NullMarked` | 0 | 22 of 22 | `PackageContractCoverageTest` plus the test `package-info.java` inventory. |
+| Explicit nullable boundaries | 10 legacy annotations | 374 JSpecify type uses | NullAway, explicit-null-marking enforcement, and the production source inventory. |
+| Suppression sites/categories | 2 sites | 32 sites in 9 reviewed categories | `SourceHygieneCharacterizationTest` verifies each declaration-owned site and rejects new, stale, broad, or multi-category suppressions. |
+| Error Prone findings | not enforced | 0 | Error Prone 2.50.0 runs at error severity during both Java compile tasks. |
+| NullAway findings | not enforced | 0 | NullAway 0.13.8 and `RequireExplicitNullMarking` run at error severity during both Java compile tasks. |
+| Checkstyle findings | not enforced | 0 | Checkstyle 13.4.2 runs with a zero-warning threshold in `checkstyleMain`. |
 
 ### Structure
 

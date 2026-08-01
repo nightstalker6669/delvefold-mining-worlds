@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.client.gui;
 
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -69,7 +70,7 @@ class BackupScreenLayoutTest {
         assertTrue(footer.wrapped());
         assertFooterContainedAndSeparated(layout, footer);
         assertTrue(layout.actionBounds(layout.pageSize() - 1, 3).bottom()
-                < footer.cancel().y());
+                < requireNonNull(footer.cancel(), "cancel button").y());
     }
 
     @Test
@@ -117,7 +118,12 @@ class BackupScreenLayoutTest {
     private static void assertFooterContainedAndSeparated(BackupScreenLayout layout, BackupScreenLayout.Footer footer) {
         int left = layout.listX() - 10;
         int right = layout.listX() + layout.listWidth() + 10;
-        BackupScreenLayout.Bounds[] bounds = {footer.back(), footer.previous(), footer.next(), footer.cancel()};
+        BackupScreenLayout.Bounds[] bounds = {
+            footer.back(),
+            requireNonNull(footer.previous(), "previous button"),
+            requireNonNull(footer.next(), "next button"),
+            requireNonNull(footer.cancel(), "cancel button")
+        };
         for (BackupScreenLayout.Bounds button : bounds) {
             assertTrue(button.x() >= left);
             assertTrue(button.right() <= right);

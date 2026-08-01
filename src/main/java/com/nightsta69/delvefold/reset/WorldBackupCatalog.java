@@ -20,11 +20,25 @@ public final class WorldBackupCatalog {
     private final Path backupRoot;
     private final BackupManifestService manifests = new BackupManifestService();
 
+    /**
+     * Creates a catalog rooted at {@code delvefold_backups} beneath an absolute normalized save path.
+     *
+     * @param saveRoot server save root; construction normalizes the path but performs no filesystem I/O
+     */
     public WorldBackupCatalog(Path saveRoot) {
         this.saveRoot = saveRoot.toAbsolutePath().normalize();
         this.backupRoot = this.saveRoot.resolve("delvefold_backups").normalize();
     }
 
+    /**
+     * Lists backup directories newest first without throwing for an individually corrupt entry.
+     *
+     * <p>The backup root itself must be a non-symbolic-link directory. Unsafe or invalid children remain represented by
+     * non-restorable summaries so administrators can diagnose or remove them explicitly.
+     *
+     * @return immutable newest-first summaries, or an empty list when the backup root does not exist
+     * @throws IOException if the backup root fails path or directory safety checks
+     */
     public List<BackupSummary> list() throws IOException {
         if (Files.notExists(backupRoot)) {
             return List.of();
@@ -64,6 +78,13 @@ public final class WorldBackupCatalog {
                 .toList();
     }
 
+    /**
+     * Resolves one identifier to an existing contained, non-symbolic-link backup directory.
+     *
+     * @param id one-to-200-character identifier containing only letters, digits, underscore, dot, or hyphen
+     * @return absolute normalized backup directory beneath this catalog root
+     * @throws IOException if the ID is invalid, unknown, escapes containment, or resolves to an unsafe entry
+     */
     public Path resolve(String id) throws IOException {
         if (id == null || !id.matches("[a-zA-Z0-9_.-]{1,200}")) {
             throw new IOException("Invalid backup ID");
@@ -81,6 +102,14 @@ public final class WorldBackupCatalog {
         return result;
     }
 
+    /**
+     * Atomically creates or removes the small pin marker controlling retention and interactive deletion.
+     *
+     * @param id normalized existing backup identifier
+     * @param pinned {@code true} to create the marker, {@code false} to remove it
+     * @return {@code true} when the marker state changed
+     * @throws IOException if the backup or marker path is unsafe or marker I/O fails
+     */
     public boolean setPinned(String id, boolean pinned) throws IOException {
         Path root = resolve(id);
         Path marker = root.resolve(".pinned");
@@ -106,6 +135,16 @@ public final class WorldBackupCatalog {
         return Files.deleteIfExists(marker);
     }
 
+    /**
+     * Deletes one unpinned backup after preflighting the complete tree for symbolic links.
+     *
+     * <p>No entry is deleted until every walked path passes the symbolic-link check. Callers must separately hold a
+     * {@link BackupDeletionGuard.Reservation} when deletion can race a restore request.
+     *
+     * @param id normalized existing backup identifier
+     * @return {@code true} when the backup directory no longer exists
+     * @throws IOException if the backup is pinned, contains a symbolic link, fails containment, or cannot be deleted
+     */
     public boolean delete(String id) throws IOException {
         Path root = resolve(id);
         if (Files.exists(root.resolve(".pinned"))) {
@@ -180,6 +219,21 @@ public final class WorldBackupCatalog {
                 !manifestPresent);
     }
 
+    /**
+     * Immutable bounded catalog projection safe to publish to diagnostics and administration screens.
+     *
+     * @param id normalized backup directory identifier
+     * @param createdAtEpochMillis operation creation time in epoch milliseconds, or zero when unreadable
+     * @param operation serialized lifecycle operation name, or {@code unknown}
+     * @param terrain serialized source terrain name, or {@code unknown}
+     * @param sizeBytes manifest-declared total bytes, or {@code -1} when unknown
+     * @param pinned whether the pin marker currently exists
+     * @param restorable whether layout, manifest, and current verification allow restoration
+     * @param valid whether required operation, configuration, and dimension data are structurally valid
+     * @param manifestPresent whether a manifest path is present
+     * @param verified whether a current receipt still matches the manifest
+     * @param legacy whether explicit legacy validation is required before restoration
+     */
     public record BackupSummary(
             String id,
             long createdAtEpochMillis,
@@ -192,7 +246,18 @@ public final class WorldBackupCatalog {
             boolean manifestPresent,
             boolean verified,
             boolean legacy) {
-        /** Source-compatible constructor for pre-manifest callers. */
+        /**
+         * Creates a source-compatible summary for pre-manifest callers.
+         *
+         * @param id normalized backup identifier
+         * @param createdAtEpochMillis creation time in epoch milliseconds
+         * @param operation serialized lifecycle operation
+         * @param terrain serialized source terrain
+         * @param sizeBytes measured bytes, or {@code -1} when unknown
+         * @param pinned whether the backup is pinned
+         * @param restorable whether the legacy caller considered it restorable
+         * @param valid whether required legacy data is structurally valid
+         */
         public BackupSummary(
                 String id,
                 long createdAtEpochMillis,
@@ -216,6 +281,11 @@ public final class WorldBackupCatalog {
                     true);
         }
 
+        /**
+         * Converts the stored epoch-millisecond creation value to an instant.
+         *
+         * @return creation instant; zero maps to the Unix epoch
+         */
         public Instant createdAt() {
             return Instant.ofEpochMilli(createdAtEpochMillis);
         }

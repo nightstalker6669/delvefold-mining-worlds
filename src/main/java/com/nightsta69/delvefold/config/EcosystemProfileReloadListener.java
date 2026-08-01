@@ -21,16 +21,38 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import org.slf4j.Logger;
 
-/** Minecraft-facing adapter kept separate from the scripting-safe profile registry. */
+/**
+ * Server-resource-reload adapter for bounded datapack ore profiles.
+ *
+ * <p>Preparation reads matching JSON resources in registry-ID order, rejects any individual resource larger than
+ * {@link EcosystemProfileRegistry#MAX_PROFILE_BYTES}, and records failures without aborting the entire resource reload.
+ * Apply publishes an immutable datapack-profile snapshot and invalidates generation/import caches and session-bound
+ * import tokens so no preview can outlive the registry state on which it was based.
+ */
 public final class EcosystemProfileReloadListener
         extends SimplePreparableReloadListener<EcosystemProfileReloadListener.LoadResult> {
+    /** Creates the reload listener registered for the current server resource manager. */
+    public EcosystemProfileReloadListener() {}
+
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final String DIRECTORY = "delvefold/ore_profiles";
 
+    /**
+     * Registers one profile listener with the current server reload pipeline.
+     *
+     * @param event NeoForge reload-listener registration event
+     */
     public static void register(AddReloadListenerEvent event) {
         event.addListener(new EcosystemProfileReloadListener());
     }
 
+    /**
+     * Reads and parses bounded profile resources on the reload preparation executor.
+     *
+     * @param resources reload resource snapshot
+     * @param profiler reload profiler
+     * @return immutable successful-profile map and immutable human-readable rejection list
+     */
     @Override
     protected LoadResult prepare(ResourceManager resources, ProfilerFiller profiler) {
         Map<String, EcosystemProfileRegistry.RegisteredProfile> loaded = new LinkedHashMap<>();
@@ -64,6 +86,13 @@ public final class EcosystemProfileReloadListener
         }
     }
 
+    /**
+     * Publishes prepared datapack profiles and invalidates registry-dependent caches on the reload apply executor.
+     *
+     * @param result prepared immutable reload result
+     * @param resources reload resource snapshot
+     * @param profiler reload profiler
+     */
     @Override
     protected void apply(LoadResult result, ResourceManager resources, ProfilerFiller profiler) {
         EcosystemProfileRegistry.replaceDatapackProfiles(result.profiles());

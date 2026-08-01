@@ -22,6 +22,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.portal.DimensionTransition;
 import net.minecraft.world.level.portal.PortalShape;
 import net.minecraft.world.phys.Vec3;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Finds or builds a bounded, safe partner portal and creates the 1.21.1 {@link DimensionTransition}. No region ticket
@@ -37,7 +38,7 @@ final class PortalDestinationService {
 
     private PortalDestinationService() {}
 
-    static DimensionTransition createTransition(
+    static @Nullable DimensionTransition createTransition(
             ServerLevel source, ServerPlayer player, BlockPos entryPosition, PortalAccess.Result access) {
         ServerLevel target = access.destination();
         if (target == null) {

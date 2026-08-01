@@ -17,12 +17,19 @@ import net.minecraft.world.level.levelgen.placement.PlacementModifierType;
  * landmark contents.
  */
 public final class GenerationSaltedLandmarkPlacement extends PlacementModifier {
+    /** Datapack codec requiring a positive one-in-N chunk placement chance. */
     public static final MapCodec<GenerationSaltedLandmarkPlacement> CODEC = ExtraCodecs.POSITIVE_INT
             .fieldOf("chance")
             .xmap(GenerationSaltedLandmarkPlacement::new, GenerationSaltedLandmarkPlacement::chance);
 
     private final int chance;
 
+    /**
+     * Creates the landmark placement modifier.
+     *
+     * @param chance positive one-in-N candidate probability per chunk
+     * @throws IllegalArgumentException when chance is zero or negative
+     */
     public GenerationSaltedLandmarkPlacement(int chance) {
         if (chance <= 0) {
             throw new IllegalArgumentException("Landmark placement chance must be positive");
@@ -30,6 +37,11 @@ public final class GenerationSaltedLandmarkPlacement extends PlacementModifier {
         this.chance = chance;
     }
 
+    /**
+     * Returns the configured rarity denominator.
+     *
+     * @return positive one-in-N chunk chance
+     */
     public int chance() {
         return chance;
     }

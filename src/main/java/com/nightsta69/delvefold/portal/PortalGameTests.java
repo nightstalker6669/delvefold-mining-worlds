@@ -23,6 +23,7 @@ import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+/** Server-side compatibility tests for portal construction, routing, and central-hub protection. */
 @GameTestHolder(Delvefold.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class PortalGameTests {
@@ -30,6 +31,11 @@ public final class PortalGameTests {
 
     private PortalGameTests() {}
 
+    /**
+     * Verifies that complete frames fill and immediately become invalid when a frame block breaks.
+     *
+     * @param helper isolated server GameTest world
+     */
     @GameTest(templateNamespace = "minecraft", template = "bastion/mobs/empty")
     public static void completeFramesFillAndBrokenFramesInvalidate(GameTestHelper helper) {
         PortalFrameShape shape =
@@ -50,6 +56,11 @@ public final class PortalGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies deterministic hub construction, safety checks, marker recovery, and portal repair.
+     *
+     * @param helper isolated reserved GameTest area
+     */
     @GameTest(templateNamespace = Delvefold.MOD_ID, template = HUB_RESERVATION)
     public static void centralHubBuildsAStablePlatformAndReturnPortal(GameTestHelper helper) {
         BlockPos floorCenter = helper.absolutePos(new BlockPos(17, 1, 17));
@@ -91,6 +102,11 @@ public final class PortalGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that non-player entities never receive a Delvefold dimension transition.
+     *
+     * @param helper isolated server GameTest world
+     */
     @GameTest(templateNamespace = "minecraft", template = "bastion/mobs/empty")
     public static void portalRoutingRemainsPlayerOnly(GameTestHelper helper) {
         var pig = helper.spawn(EntityType.PIG, new BlockPos(1, 1, 1));
@@ -102,6 +118,14 @@ public final class PortalGameTests {
         helper.succeed();
     }
 
+    // Minecraft 1.21.1 exposes no supported ServerPlayer GameTest replacement for this
+    // removal-marked helper; this permission test requires an actually connected server player.
+    /**
+     * Verifies that the central-hub radius denies ordinary players and permits world managers.
+     *
+     * @param helper isolated server GameTest world with a connected mock player
+     */
+    @SuppressWarnings("removal")
     @GameTest(templateNamespace = "minecraft", template = "bastion/mobs/empty")
     public static void centralHubEventsDenyOrdinaryPlayersAndAllowWorldManagers(GameTestHelper helper) {
         BlockPos protectedPosition = helper.absolutePos(new BlockPos(2, 2, 2));

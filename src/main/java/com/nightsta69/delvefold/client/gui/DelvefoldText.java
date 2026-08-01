@@ -21,7 +21,12 @@ public final class DelvefoldText {
                 : Component.translatable("screen.delvefold.choice.available", label);
     }
 
-    /** Resolves the bounded translation representation sent by the server, retaining legacy text. */
+    /**
+     * Resolves the bounded translation representation sent by the server, retaining legacy text.
+     *
+     * @param message encoded translation representation or legacy literal text
+     * @return a client-localized component safe for rendering
+     */
     public static Component serverMessage(String message) {
         return AdminLocalizedComponents.resolve(message);
     }

@@ -23,6 +23,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -45,6 +46,10 @@ import net.minecraft.world.level.storage.loot.LootTable;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+/**
+ * GameTest coverage for reloadable landmark catalogs, deterministic structure placement, loot, generation-salt domains,
+ * and server-authorized discovery.
+ */
 @GameTestHolder(Delvefold.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class LandmarkGameTests {
@@ -59,6 +64,13 @@ public final class LandmarkGameTests {
 
     private LandmarkGameTests() {}
 
+    /**
+     * Verifies that every bundled landmark definition decodes through the production codec and collectively covers the
+     * expected terrain modes, placement styles, and catalog categories.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     * @throws Exception if a bundled definition cannot be read from the test classpath
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void catalogCodecLoadsEveryBundledDefinition(GameTestHelper helper) throws Exception {
         EnumMap<TerrainMode, Integer> terrainCoverage = new EnumMap<>(TerrainMode.class);
@@ -92,7 +104,7 @@ public final class LandmarkGameTests {
         HashSet<ResourceLocation> dimensionIds = new HashSet<>();
         for (TerrainMode terrain : TerrainMode.values()) {
             helper.assertTrue(
-                    terrainCoverage.get(terrain) > 0,
+                    terrainCoverage.getOrDefault(terrain, 0) > 0,
                     "Bundled catalog has no definition for " + terrain.serializedName());
             for (TerrainVariant variant : TerrainVariant.values()) {
                 var levelKey = com.nightsta69.delvefold.world.DelvefoldWorldgen.levelFor(terrain, variant);
@@ -118,6 +130,13 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that an invalid reload retains the exact immutable last-known-good catalog snapshot so generation
+     * attempts that captured it before reload continue observing one publication.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void invalidCatalogReloadRetainsTheExactLastKnownGoodSnapshot(GameTestHelper helper) {
         LandmarkCatalogService service = LandmarkCatalogService.get();
@@ -139,6 +158,13 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies deterministic 25-percent balanced and 75-percent abundant acceptance, weighted selection from
+     * registry-ID-ordered candidates, and narrowing by category toggles.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void landmarkPresetAcceptanceAndSelectionAreDeterministic(GameTestHelper helper) {
         long[] seedForBucket = {0L, 1L, 2L, 9L};
@@ -174,6 +200,12 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that the landmark structure, bundled catalog, and structure templates load through vanilla registries
+     * and that at least one template spans more than one chunk.
+     *
+     * @param helper NeoForge GameTest context used for registry and template-manager access
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void structureCatalogAndTemplatesLoadThroughVanillaRegistries(GameTestHelper helper) {
         Structure structure = helper.getLevel()
@@ -231,6 +263,12 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that every bundled template remains centered on its candidate block position for each quarter-turn
+     * rotation, including templates that cross chunk boundaries.
+     *
+     * @param helper NeoForge GameTest context used for template-manager access and assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void rotationsKeepEveryBundledTemplateCenteredOnItsCandidate(GameTestHelper helper) {
         int centerX = helper.absolutePos(new BlockPos(8, 1, 8)).getX();
@@ -255,6 +293,11 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that each fixed mining biome resolves back to its corresponding terrain mode.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void fixedMiningBiomesResolveToTheirOwnTerrain(GameTestHelper helper) {
         var biomes = helper.getLevel().registryAccess().registryOrThrow(Registries.BIOME);
@@ -267,6 +310,14 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that a structure start uses one captured catalog revision and that template-bound placement probes are
+     * cached coherently for the lifetime of that generation attempt. The identity assertions distinguish the captured
+     * definition from a newly published snapshot.
+     *
+     * @param helper NeoForge GameTest context used for structure generation and assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void capturedCatalogRevisionAndPlacementProbeCacheRemainCoherent(GameTestHelper helper) {
         LandmarkDefinition revisionOne = definition("shared", "template_v1", LandmarkPlacementStyle.SURFACE, -32, 96);
@@ -277,7 +328,7 @@ public final class LandmarkGameTests {
                 new LandmarkCatalogSnapshot(2L, Map.of(revisionTwo.id(), revisionTwo), Instant.EPOCH.plusSeconds(1));
         AtomicReference<LandmarkCatalogSnapshot> published = new AtomicReference<>(first);
 
-        LandmarkCatalogSnapshot captured = published.get();
+        LandmarkCatalogSnapshot captured = Objects.requireNonNull(published.get(), "published catalog snapshot");
         var selected = LandmarkGenerationPlanner.select(
                         captured,
                         TerrainMode.FLAT,
@@ -323,6 +374,12 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that a template data marker installs its landmark loot table once and cannot restore loot after the
+     * generated container has been opened and emptied.
+     *
+     * @param helper NeoForge GameTest context providing the test world and assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void lootMarkersInstallTheirTableOnlyOnce(GameTestHelper helper) {
         BlockPos position = helper.absolutePos(new BlockPos(3, 2, 3));
@@ -354,6 +411,12 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that persisted generation salt independently rotates placement acceptance, definition selection, and
+     * landmark-content seeds while each domain remains deterministic.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void persistedGenerationSaltRotatesIndependentLandmarkDomains(GameTestHelper helper) {
         long worldSeed = 0x1234_5678_9ABCDEFL;
@@ -362,9 +425,9 @@ public final class LandmarkGameTests {
         helper.assertTrue(
                 LandmarkSeeds.placementWorldSeed(worldSeed, 0L) == worldSeed,
                 "Stable mode changed the compatible placement seed");
-        helper.assertTrue(
-                LandmarkSeeds.selectionSeed(worldSeed, chunk, 0L) == LandmarkSeeds.selectionSeed(worldSeed, chunk, 0L),
-                "Stable selection did not repeat");
+        long stableSelection = LandmarkSeeds.selectionSeed(worldSeed, chunk, 0L);
+        long repeatedStableSelection = LandmarkSeeds.selectionSeed(worldSeed, chunk, 0L);
+        helper.assertTrue(stableSelection == repeatedStableSelection, "Stable selection did not repeat");
         helper.assertTrue(
                 LandmarkSeeds.placementWorldSeed(worldSeed, 0L) != LandmarkSeeds.placementWorldSeed(worldSeed, 99L),
                 "Generation salt did not rotate placement");
@@ -378,6 +441,12 @@ public final class LandmarkGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that landmark visits transition only once per player and landmark, deduplicate repeated observations,
+     * and award discovery only through the server-authorized criterion.
+     *
+     * @param helper NeoForge GameTest context providing the server world and assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void discoveryVisitTransitionsDeduplicateAndAdvancementIsServerAuthorized(GameTestHelper helper) {
         LandmarkDiscoveryService.Visit camp = new LandmarkDiscoveryService.Visit(

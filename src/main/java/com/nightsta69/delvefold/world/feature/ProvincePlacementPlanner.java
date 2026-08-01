@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Pure deterministic planner for regional ore provinces.
@@ -20,16 +21,34 @@ import java.util.Set;
 public final class ProvincePlacementPlanner {
     private ProvincePlacementPlanner() {}
 
+    /**
+     * Plans all regional province slices intersecting one currently generating chunk.
+     *
+     * <p>Region centers are derived in the stable order world seed, region X/Z, band salt, and generation salt.
+     * Candidate count and positions additionally include the target chunk coordinates. Returned block X/Z coordinates
+     * are always inside that chunk, block Y is clipped to the half-open build range, and total candidates never exceed
+     * the configured per-chunk work cap.
+     *
+     * @param worldSeed server world's 64-bit generation seed
+     * @param generationSalt persisted mining-world generation salt
+     * @param bandSalt stable rule/band identifier
+     * @param band province band to plan, or null for an empty plan
+     * @param chunkX target chunk X coordinate
+     * @param chunkZ target chunk Z coordinate
+     * @param minBuildHeight inclusive minimum block Y
+     * @param maxBuildHeightExclusive exclusive maximum block Y
+     * @return immutable per-chunk plan, empty when settings or bounds are ineffective
+     */
     public static Plan plan(
             long worldSeed,
             long generationSalt,
             String bandSalt,
-            SpawnBand band,
+            @Nullable SpawnBand band,
             int chunkX,
             int chunkZ,
             int minBuildHeight,
             int maxBuildHeightExclusive) {
-        ProvinceSettings settings = band == null ? null : band.province();
+        @Nullable ProvinceSettings settings = band == null ? null : band.province();
         if (band == null
                 || band.placement() != OreBandPlacement.PROVINCE
                 || settings == null
@@ -299,9 +318,22 @@ public final class ProvincePlacementPlanner {
         return Integer.toUnsignedLong(chunkX) | (Integer.toUnsignedLong(chunkZ) << 32);
     }
 
+    /**
+     * Complete bounded province work for one chunk.
+     *
+     * @param provinces deterministic region slices in stable region-coordinate order
+     * @param workUnits number of candidate block checks allocated across all slices
+     */
     public record Plan(List<ProvinceSlice> provinces, int workUnits) {
         private static final Plan EMPTY = new Plan(List.of(), 0);
 
+        /**
+         * Copies slice data and validates the aggregate work count.
+         *
+         * @param provinces planned region slices
+         * @param workUnits aggregate candidate count
+         * @throws IllegalArgumentException when workUnits is negative
+         */
         public Plan {
             provinces = provinces == null ? List.of() : List.copyOf(provinces);
             if (workUnits < 0) {
@@ -310,6 +342,17 @@ public final class ProvincePlacementPlanner {
         }
     }
 
+    /**
+     * Portion of one deterministic regional province intersecting the target chunk.
+     *
+     * @param regionX regional grid X coordinate
+     * @param regionZ regional grid Z coordinate
+     * @param centerX province center block X, which may lie outside the target chunk
+     * @param centerY province center block Y
+     * @param centerZ province center block Z, which may lie outside the target chunk
+     * @param outputSeed deterministic seed for choosing the slice's ore output
+     * @param candidates candidate writes restricted to the target chunk
+     */
     public record ProvinceSlice(
             long regionX,
             long regionZ,
@@ -318,11 +361,30 @@ public final class ProvincePlacementPlanner {
             int centerZ,
             long outputSeed,
             List<Candidate> candidates) {
+        /**
+         * Defensively copies candidate ordering.
+         *
+         * @param regionX regional grid X coordinate
+         * @param regionZ regional grid Z coordinate
+         * @param centerX province center block X
+         * @param centerY province center block Y
+         * @param centerZ province center block Z
+         * @param outputSeed output-selection seed
+         * @param candidates ordered candidates in the target chunk
+         */
         public ProvinceSlice {
             candidates = candidates == null ? List.of() : List.copyOf(candidates);
         }
     }
 
+    /**
+     * One possible ore-block write in the currently generating chunk.
+     *
+     * @param x absolute block X inside the target chunk
+     * @param y block Y inside the world build range
+     * @param z absolute block Z inside the target chunk
+     * @param placementSeed deterministic ore-host and air-exposure random seed
+     */
     public record Candidate(int x, int y, int z, long placementSeed) {}
 
     private record Slice(

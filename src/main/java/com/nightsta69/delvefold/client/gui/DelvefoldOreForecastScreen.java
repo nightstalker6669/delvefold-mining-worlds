@@ -27,12 +27,25 @@ public final class DelvefoldOreForecastScreen extends DelvefoldScreen {
     private int ruleScroll;
     private List<FormattedCharSequence> hoveredTooltip = List.of();
 
+    /**
+     * Creates a read-only forecast view.
+     *
+     * @param parent screen restored on close
+     * @param adminSnapshot immutable administration context used for navigation and requests
+     * @param forecast bounded, redacted server forecast page
+     */
     public DelvefoldOreForecastScreen(Screen parent, AdminSnapshot adminSnapshot, OreProfileForecast forecast) {
         super(Component.translatable("screen.delvefold.forecast.title"), adminSnapshot);
         this.parent = parent;
         this.forecast = forecast;
     }
 
+    /**
+     * Creates a replacement screen for a newly received forecast page.
+     *
+     * @param replacement newer bounded server forecast
+     * @return a new screen retaining the same parent and administration snapshot
+     */
     public DelvefoldOreForecastScreen refreshed(OreProfileForecast replacement) {
         return new DelvefoldOreForecastScreen(this.parent, this.snapshot, replacement);
     }

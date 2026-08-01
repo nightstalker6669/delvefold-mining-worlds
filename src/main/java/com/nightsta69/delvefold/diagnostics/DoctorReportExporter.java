@@ -10,9 +10,19 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
-/** Writes deterministic, field-whitelisted, redacted doctor-report JSON. */
+/**
+ * Writes deterministic, field-whitelisted, redacted doctor-report JSON.
+ *
+ * <p>Only explicitly modeled export fields are serialized. Free-text identifiers pass through a bounded sanitizer that
+ * removes path-like, socket-like, structured, control-character, and likely secret-bearing values. Export never
+ * serializes complete configuration documents, player records, server addresses, confirmation tokens, or source paths.
+ */
 public final class DoctorReportExporter {
+    /** Creates a redacting exporter with no retained filesystem or report state. */
+    public DoctorReportExporter() {}
+
     private static final int MAX_SAFE_TEXT_LENGTH = 192;
     private static final Pattern IPV4_SOCKET =
             Pattern.compile("(?i)(?:^|[^0-9])(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}(?:$|[^0-9])");
@@ -22,8 +32,17 @@ public final class DoctorReportExporter {
     private static final Pattern RESOURCE_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
     /**
-     * Writes into an existing exports directory. The directory is never created implicitly, and symbolic-link
-     * directories or output files are rejected.
+     * Atomically writes a redacted report into an existing exports directory.
+     *
+     * <p>The directory is never created implicitly. It and the final output must pass normalized containment and
+     * symbolic-link checks. The generated filename contains the report timestamp in epoch milliseconds; an existing
+     * file for the same timestamp is replaced only by the completed temporary file.
+     *
+     * @param exportsDirectory existing directory authorized for diagnostic exports
+     * @param report immutable report to sanitize and serialize
+     * @return the normalized absolute path of the completed JSON export
+     * @throws IllegalArgumentException if either argument is {@code null}
+     * @throws IOException if the directory or target fails safety checks, or temporary write or final move fails
      */
     public Path export(Path exportsDirectory, DoctorReport report) throws IOException {
         if (exportsDirectory == null || report == null) {
@@ -35,7 +54,8 @@ public final class DoctorReportExporter {
         }
         String filename = "delvefold-doctor-%019d.json".formatted(report.generatedAtEpochMillis());
         Path target = directory.resolve(filename).normalize();
-        if (!target.getParent().equals(directory) || Files.isSymbolicLink(target)) {
+        @Nullable Path parent = target.getParent();
+        if (parent == null || !parent.equals(directory) || Files.isSymbolicLink(target)) {
             throw new IOException("Doctor export target failed path-containment checks");
         }
 
@@ -49,7 +69,16 @@ public final class DoctorReportExporter {
         }
     }
 
-    /** Produces the exact redacted representation used by {@link #export(Path, DoctorReport)}. */
+    /**
+     * Produces the exact field-whitelisted, redacted JSON used by {@link #export(Path, DoctorReport)}.
+     *
+     * <p>This method performs no filesystem I/O. Byte counts remain byte estimates from the input report; sanitization
+     * does not make them authoritative disk measurements.
+     *
+     * @param report immutable report to sanitize and serialize
+     * @return compact JSON containing only the export model's approved fields
+     * @throws IllegalArgumentException if {@code report} is {@code null}
+     */
     public String toRedactedJson(DoctorReport report) {
         if (report == null) {
             throw new IllegalArgumentException("report is required");
@@ -185,7 +214,7 @@ public final class DoctorReportExporter {
                 run.warnings().stream().map(DoctorReportExporter::safeText).toList());
     }
 
-    static String safeText(String input) {
+    static String safeText(@Nullable String input) {
         if (input == null || input.isBlank()) {
             return "unknown";
         }
@@ -196,7 +225,7 @@ public final class DoctorReportExporter {
                 || value.startsWith("../")
                 || value.contains("/../")
                 || value.matches("(?i)^[a-z]:\\\\.*")
-                || ((!RESOURCE_ID.matcher(value).matches())
+                || (!RESOURCE_ID.matcher(value).matches()
                         && (lower.contains("/home/")
                                 || lower.contains("/users/")
                                 || lower.contains("serverconfig/")

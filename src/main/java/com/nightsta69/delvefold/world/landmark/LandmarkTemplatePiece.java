@@ -32,7 +32,13 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProc
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
 import net.minecraft.world.level.storage.loot.LootTable;
 
-/** Serialized template piece that does not consult the live catalog after its structure start is created. */
+/**
+ * Serialized template piece that does not consult the live catalog after its structure start is created.
+ *
+ * <p>The definition ID, rotation, processor keys, loot table, and content seed are captured from one immutable catalog
+ * snapshot and persisted with the piece. A later datapack reload therefore cannot change an existing start. Template
+ * placement remains owned by Minecraft's structure pipeline, which clips writes to the currently processed chunk.
+ */
 public final class LandmarkTemplatePiece extends TemplateStructurePiece {
     private static final String TAG_LANDMARK = "Landmark";
     private static final String TAG_ROTATION = "Rotation";
@@ -46,6 +52,16 @@ public final class LandmarkTemplatePiece extends TemplateStructurePiece {
     private final ResourceKey<LootTable> lootTable;
     private final long contentSeed;
 
+    /**
+     * Captures a validated landmark definition into a new structure piece.
+     *
+     * @param templates server structure-template manager used by the platform structure pipeline
+     * @param registryAccess active server registry view used to resolve processor lists
+     * @param definition definition selected from one immutable catalog snapshot
+     * @param position minimum template origin in block coordinates
+     * @param rotation deterministic template rotation
+     * @param contentSeed deterministic seed derived from world seed, chunk, generation salt, and definition ID
+     */
     public LandmarkTemplatePiece(
             StructureTemplateManager templates,
             RegistryAccess registryAccess,
@@ -67,6 +83,12 @@ public final class LandmarkTemplatePiece extends TemplateStructurePiece {
         this.contentSeed = contentSeed;
     }
 
+    /**
+     * Rehydrates a structure piece from chunk NBT without consulting the reloadable catalog.
+     *
+     * @param context platform serialization context providing templates and registries
+     * @param tag persisted structure-piece data
+     */
     public LandmarkTemplatePiece(StructurePieceSerializationContext context, CompoundTag tag) {
         super(
                 LandmarkRegistries.LANDMARK_PIECE.get(),
@@ -167,6 +189,11 @@ public final class LandmarkTemplatePiece extends TemplateStructurePiece {
         super.postProcess(level, structureManager, generator, random, box, chunkPos, pos);
     }
 
+    /**
+     * Returns the catalog ID captured when this structure start was created.
+     *
+     * @return immutable landmark definition ID
+     */
     public ResourceLocation landmarkId() {
         return landmarkId;
     }

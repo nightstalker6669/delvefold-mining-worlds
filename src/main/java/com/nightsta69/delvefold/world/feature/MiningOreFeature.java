@@ -28,16 +28,24 @@ import net.minecraft.world.level.levelgen.feature.FeaturePlaceContext;
 import net.minecraft.world.level.levelgen.feature.OreFeature;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/** Places every enabled entry in the mining ore table with an ID-stable random stream. */
+/**
+ * Places every enabled entry in the mining ore table with an ID-stable random stream.
+ *
+ * <p>Vein attempts derive from world seed, chunk coordinates, persisted generation salt, rule/band ID, then attempt
+ * index. Province placement may derive centers from neighboring regions, but applies only candidate positions inside
+ * the currently generating chunk and behind {@link WorldGenLevel#ensureCanWrite(BlockPos)}.
+ */
 public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<ResourceLocation> WARNED_MISSING_BLOCKS = ConcurrentHashMap.newKeySet();
     private static final long COUNT_SALT = 0x94D049BB133111EBL;
     private static final long ATTEMPT_SALT = 0xBF58476D1CE4E5B9L;
-    private volatile RuntimeOreProfile runtimeProfile;
+    private volatile @Nullable RuntimeOreProfile runtimeProfile;
 
+    /** Creates the feature with the optional-mod-safe fallback ore-table codec. */
     public MiningOreFeature() {
         super(MiningOreConfiguration.CODEC);
     }
@@ -190,7 +198,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     }
 
     RuntimeOreProfile profileFor(OreProfileDocument document) {
-        RuntimeOreProfile current = runtimeProfile;
+        @Nullable RuntimeOreProfile current = runtimeProfile;
         if (current != null && current.source().equals(document)) {
             return current;
         }
@@ -215,12 +223,12 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         runtimeProfile = null;
     }
 
-    private static OreProfileDocument currentOreDocument() {
+    private static @Nullable OreProfileDocument currentOreDocument() {
         ConfigSnapshot snapshot = currentSnapshot();
         return snapshot == null ? null : snapshot.ores();
     }
 
-    private static ConfigSnapshot currentSnapshot() {
+    private static @Nullable ConfigSnapshot currentSnapshot() {
         try {
             return DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {
@@ -228,7 +236,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         }
     }
 
-    private static TerrainMode terrainMode(FeaturePlaceContext<MiningOreConfiguration> context) {
+    private static @Nullable TerrainMode terrainMode(FeaturePlaceContext<MiningOreConfiguration> context) {
         return DelvefoldWorldgen.terrainFor(context.level().getLevel().dimension());
     }
 

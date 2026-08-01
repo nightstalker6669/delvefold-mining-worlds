@@ -10,6 +10,20 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
+/**
+ * Serverbound request to initialize the mining world from an explicitly confirmed configuration.
+ *
+ * <p>The handler requires configure permission, rejects requests without lock confirmation, and compares both
+ * authoritative revisions before validating and applying the complete initial configuration.
+ *
+ * @param expectedOreRevision ore-configuration revision on which setup was based
+ * @param expectedSettingsRevision settings revision on which setup was based
+ * @param terrainMode requested terrain mode
+ * @param orePreset requested initial ore preset
+ * @param gameplay requested initial gameplay settings
+ * @param identity requested initial world identity
+ * @param lockConfirmed whether the client explicitly confirmed the irreversible setup lock
+ */
 public record InitializeWorldPayload(
         long expectedOreRevision,
         long expectedSettingsRevision,
@@ -20,8 +34,14 @@ public record InitializeWorldPayload(
         boolean lockConfirmed)
         implements CustomPacketPayload {
 
+    /** NeoForge payload type for the serverbound world-initialization request. */
     public static final Type<InitializeWorldPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath("delvefold", "initialize_world"));
+
+    /**
+     * Wire codec encoding ore revision, settings revision, terrain, preset, gameplay, identity, and confirmation in
+     * that order.
+     */
     public static final StreamCodec<RegistryFriendlyByteBuf, InitializeWorldPayload> STREAM_CODEC = StreamCodec.of(
             (buffer, payload) -> {
                 buffer.writeLong(payload.expectedOreRevision());

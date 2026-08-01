@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.jspecify.annotations.Nullable;
 
 /** Creates and verifies tamper-evident manifests for Delvefold backups. */
 public final class BackupManifestService {
@@ -40,6 +41,7 @@ public final class BackupManifestService {
 
     private final Clock clock;
 
+    /** Creates a manifest service using the UTC system clock for verification receipts. */
     public BackupManifestService() {
         this(Clock.systemUTC());
     }
@@ -51,6 +53,14 @@ public final class BackupManifestService {
     /**
      * Creates a manifest for a legacy or newly completed backup and immediately verifies it. Call only from lifecycle
      * or worker threads, never a server tick.
+     *
+     * <p>The root must be an existing non-symbolic-link directory with a normalized backup ID. Every nested entry is
+     * checked, file paths are normalized and sorted, and file contents are hashed before the manifest and verification
+     * receipt are published.
+     *
+     * @param backupRoot existing backup directory
+     * @return immutable manifest and receipt from the completed verification
+     * @throws IOException if layout, path, schema, size, hashing, or publication checks fail
      */
     public Verification createVerifiedManifest(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
@@ -70,7 +80,16 @@ public final class BackupManifestService {
         return verify(root);
     }
 
-    /** Performs a complete manifest/file comparison and persists a success receipt. */
+    /**
+     * Performs a complete manifest/file comparison and persists a success receipt.
+     *
+     * <p>Any existing receipt is removed before hashing and remains absent after failure, so a stale receipt cannot
+     * make a corrupted backup appear restorable.
+     *
+     * @param backupRoot existing non-symbolic-link backup directory
+     * @return immutable validated manifest and newly written receipt
+     * @throws IOException if metadata, normalized paths, sizes, SHA-256 digests, or receipt publication differ
+     */
     public Verification verify(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
         try {
@@ -114,7 +133,13 @@ public final class BackupManifestService {
         }
     }
 
-    /** Reads and structurally validates a manifest without hashing backup contents. */
+    /**
+     * Reads and structurally validates a manifest without hashing backup contents.
+     *
+     * @param backupRoot existing non-symbolic-link backup directory
+     * @return immutable manifest with sorted, unique, contained relative paths
+     * @throws IOException if the file is absent, unsafe, larger than 64 MiB, malformed, or structurally inconsistent
+     */
     public BackupManifest readManifest(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
         Path path = root.resolve(BackupManifest.FILE_NAME);
@@ -134,6 +159,10 @@ public final class BackupManifestService {
     /**
      * Checks the small verification receipt against the manifest. This is safe for listing screens; restoration still
      * performs a complete verification.
+     *
+     * @param backupRoot existing backup directory to inspect
+     * @return {@code true} only when receipt schema, backup ID, manifest digest, byte metadata, and counts still match;
+     *     invalid or unsafe inputs return {@code false}
      */
     public boolean hasCurrentVerification(Path backupRoot) {
         try {
@@ -167,13 +196,24 @@ public final class BackupManifestService {
         }
     }
 
-    /** Validates the pre-manifest layout used by explicit legacy upgrades. */
+    /**
+     * Validates the pre-manifest layout used by explicit legacy upgrades without writing control files.
+     *
+     * @param backupRoot existing legacy backup directory
+     * @throws IOException if configuration, operation metadata, canonical dimension data, or nested paths are unsafe
+     */
     public void validateLegacyLayout(Path backupRoot) throws IOException {
         Path root = checkedRoot(backupRoot);
         validateRestorableLayout(root);
         scanFiles(root);
     }
 
+    /**
+     * Performs a lightweight existence and final-path safety check without parsing or hashing the manifest.
+     *
+     * @param backupRoot backup directory, or {@code null}
+     * @return {@code true} when a non-symbolic-link regular manifest file exists at the normalized root
+     */
     public static boolean hasManifest(Path backupRoot) {
         if (backupRoot == null) {
             return false;
@@ -277,7 +317,7 @@ public final class BackupManifestService {
         }
     }
 
-    private static String expectedDimensionFolder(WorldSettingsDocument settings) {
+    private static @Nullable String expectedDimensionFolder(WorldSettingsDocument settings) {
         if (settings == null || !settings.initialized() || settings.terrainMode() == null) {
             return null;
         }
@@ -311,7 +351,7 @@ public final class BackupManifestService {
         }
     }
 
-    static <T> T readCurrentSchema(Path path, Class<T> type, int expected) {
+    static <T> @Nullable T readCurrentSchema(Path path, Class<T> type, int expected) {
         try {
             if (Files.isSymbolicLink(path) || !Files.isRegularFile(path) || Files.size(path) > MAX_CONFIG_BYTES) {
                 return null;
@@ -538,5 +578,11 @@ public final class BackupManifestService {
         }
     }
 
+    /**
+     * Immutable pair published only after full content verification succeeds.
+     *
+     * @param manifest structurally validated manifest whose entries matched disk contents
+     * @param receipt newly persisted proof tied to the current manifest bytes and metadata
+     */
     public record Verification(BackupManifest manifest, BackupVerificationReceipt receipt) {}
 }

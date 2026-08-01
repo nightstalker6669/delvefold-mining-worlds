@@ -15,6 +15,9 @@ final class MinecraftGuideIconResolver implements GuideIconResolver {
 
     private MinecraftGuideIconResolver() {}
 
+    // Minecraft items are canonical registry singletons; AIR identity is the platform's
+    // sentinel contract and avoids accepting blocks whose item representation is that sentinel.
+    @SuppressWarnings("ReferenceEquality")
     @Override
     public Optional<String> representativeBlock(GuideSnapshot.OutputKind kind, String sourceId) {
         ResourceLocation id = ResourceLocation.tryParse(sourceId);

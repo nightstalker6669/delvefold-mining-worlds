@@ -26,21 +26,51 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
+/**
+ * Save-local transactional repository for canonical {@code ores.json} and {@code settings.json}.
+ *
+ * <p>The repository enforces strict structure, schema 2, registry and cross-file validation, regular-file/symlink
+ * safety, and bounded UTF-8 payloads. Writes first persist a bounded transaction record, then replace each canonical
+ * file through a forced temporary file and atomic move where supported; an interrupted transaction is validated and
+ * recovered by the next mutating load. The repository is not internally synchronized, so callers must serialize loads
+ * and saves for one path set.
+ */
 public final class FileConfigRepository {
+    /** Maximum UTF-8 or on-disk size of each canonical configuration file: 4 MiB. */
     public static final long MAX_CONFIG_BYTES = 4L * 1024L * 1024L;
+
     private static final long MAX_TRANSACTION_BYTES = 2L * MAX_CONFIG_BYTES + 64L * 1024L;
     private static final int TRANSACTION_SCHEMA_VERSION = 1;
 
     private final ConfigPaths paths;
     private final RegistryLookup registryLookup;
 
+    /**
+     * Creates a repository bound to one save and one registry-validation view.
+     *
+     * @param paths normalized save-local canonical configuration paths
+     * @param registryLookup read-only registry lookup used for ore target validation
+     */
     public FileConfigRepository(ConfigPaths paths, RegistryLookup registryLookup) {
         this.paths = paths;
         this.registryLookup = registryLookup;
     }
 
-    public ConfigLoadResult loadOrCreate(ConfigSnapshot lastGood) throws IOException {
+    /**
+     * Recovers an interrupted transaction, creates missing default files, and loads a validated configuration snapshot.
+     *
+     * <p>Unsupported schema, malformed JSON, unsafe existing files, or validation failure never overwrite the rejected
+     * canonical files. The result instead returns {@code lastGood}, or immutable built-in defaults when none exists,
+     * with {@link ConfigLoadResult#usedFallback()} set. This method mutates disk only for directory/default creation
+     * and validated pending-transaction recovery; it does not publish the returned snapshot itself.
+     *
+     * @param lastGood previously published immutable snapshot, or {@code null} during first startup
+     * @return accepted disk snapshot or an explicitly diagnosed fallback snapshot
+     * @throws IOException if directory/default creation or validated transaction recovery cannot complete safely
+     */
+    public ConfigLoadResult loadOrCreate(@Nullable ConfigSnapshot lastGood) throws IOException {
         Files.createDirectories(paths.directory());
         recoverPendingTransaction();
         if (Files.notExists(paths.ores())) {
@@ -78,6 +108,19 @@ public final class FileConfigRepository {
         }
     }
 
+    /**
+     * Validates and transactionally persists both canonical documents as one logical configuration revision.
+     *
+     * <p>If replacement fails after the transaction record is forced to disk, that record remains for deterministic
+     * recovery on the next mutating load. The returned hash is SHA-256 over the final ore bytes followed by settings
+     * bytes. Each canonical document is limited to {@value #MAX_CONFIG_BYTES} bytes.
+     *
+     * @param ores complete immutable ore-profile candidate
+     * @param settings complete immutable world-settings candidate with a matching active profile ID
+     * @return validated immutable snapshot reflecting the committed disk bytes
+     * @throws IllegalArgumentException if either document or their cross-file profile identity is invalid
+     * @throws IOException if a transaction is already pending or bounded transactional persistence fails
+     */
     public ConfigSnapshot save(OreProfileDocument ores, WorldSettingsDocument settings) throws IOException {
         ValidationReport report = OreConfigValidator.validate(ores, registryLookup);
         ValidationReport settingsReport = WorldSettingsValidator.validate(settings);
@@ -106,8 +149,17 @@ public final class FileConfigRepository {
                 hash(paths.ores(), paths.settings()));
     }
 
-    /** Reads and validates the current files without creating, recovering, replacing, or publishing anything. */
-    public ConfigLoadResult validateDisk(ConfigSnapshot lastGood) throws IOException {
+    /**
+     * Reads and validates the current files without creating, recovering, replacing, or publishing anything.
+     *
+     * <p>A pending transaction is reported rather than recovered. Missing, unsafe, oversized, incompatible, malformed,
+     * or invalid files return {@code lastGood} or built-in defaults as a diagnosed fallback, leaving disk untouched.
+     *
+     * @param lastGood previously published immutable snapshot, or {@code null} when none exists
+     * @return accepted read-only candidate or an explicitly diagnosed fallback snapshot
+     * @throws IOException if an unrecoverable low-level validation read fails outside normal fallback containment
+     */
+    public ConfigLoadResult validateDisk(@Nullable ConfigSnapshot lastGood) throws IOException {
         List<ConfigIssue> issues = new ArrayList<>();
         try {
             if (Files.exists(transactionPath())) {
@@ -150,11 +202,16 @@ public final class FileConfigRepository {
         }
     }
 
+    /**
+     * Returns the immutable normalized paths to which this repository is bound.
+     *
+     * @return canonical save-local path set
+     */
     public ConfigPaths paths() {
         return paths;
     }
 
-    private ConfigLoadResult fallback(ConfigSnapshot lastGood, List<ConfigIssue> issues, String reason)
+    private ConfigLoadResult fallback(@Nullable ConfigSnapshot lastGood, List<ConfigIssue> issues, String reason)
             throws IOException {
         if (lastGood != null) {
             issues.add(ConfigIssue.warning(

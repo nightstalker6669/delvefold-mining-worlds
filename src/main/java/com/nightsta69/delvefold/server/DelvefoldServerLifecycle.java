@@ -36,6 +36,12 @@ public final class DelvefoldServerLifecycle {
 
     private DelvefoldServerLifecycle() {}
 
+    /**
+     * Registers Delvefold's ordered server lifecycle listeners exactly once per process.
+     *
+     * <p>Startup recovery runs before configuration publication; shutdown stops admission, drains accepted audit work,
+     * and then clears server-bound caches and services.
+     */
     public static synchronized void register() {
         if (registered) {
             return;
@@ -137,7 +143,7 @@ public final class DelvefoldServerLifecycle {
         } catch (IOException | RuntimeException exception) {
             LOGGER.warn("Delvefold skipped automatic backup retention: {}", exception.getMessage());
         } finally {
-            BackupCatalogCache.get().refresh(saveRoot);
+            var unusedRefresh = BackupCatalogCache.get().refresh(saveRoot);
         }
     }
 }

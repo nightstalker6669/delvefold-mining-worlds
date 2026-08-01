@@ -16,12 +16,16 @@ class OreRuleDraftCodecTest {
         String network =
                 Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/network/DelvefoldNetwork.java"));
 
-        String writeSequence = "writeResourceId(buffer, variant.replaceTag());\n"
-                + "            buffer.writeVarInt(variant.weight());\n"
-                + "            writeCount(buffer, variant.state().size()";
-        String readSequence = "String replaceTag = readResourceId(buffer);\n"
-                + "            int weight = buffer.readVarInt();\n"
-                + "            int stateCount = readCount(buffer";
+        String writeSequence = """
+                writeResourceId(buffer, variant.replaceTag());
+                            buffer.writeVarInt(variant.weight());
+                            writeCount(buffer, variant.state().size()\
+                """;
+        String readSequence = """
+                String replaceTag = readResourceId(buffer);
+                            int weight = buffer.readVarInt();
+                            int stateCount = readCount(buffer\
+                """;
 
         assertTrue(
                 codec.contains(writeSequence),

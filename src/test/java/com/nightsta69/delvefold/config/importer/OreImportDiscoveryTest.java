@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.config.importer;
 
 import static com.nightsta69.delvefold.config.importer.FakeOreImportRegistry.block;
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -98,17 +99,18 @@ class OreImportDiscoveryTest {
                 .getFirst();
         Map<String, Candidate> candidates =
                 group.candidates().stream().collect(Collectors.toMap(Candidate::blockId, Function.identity()));
+        Candidate tinOre = requireNonNull(candidates.get("example:tin_ore"));
+        Candidate stoneTinOre = requireNonNull(candidates.get("example:stone_tin_ore"));
+        Candidate netherTinOre = requireNonNull(candidates.get("example:nether_tin_ore"));
+        Candidate tinCluster = requireNonNull(candidates.get("example:tin_cluster"));
 
         assertEquals("example:tin", group.id());
         assertTrue(group.reviewRequired());
-        assertEquals(HostKind.STONE, candidates.get("example:tin_ore").hostKind());
-        assertEquals(HostKind.STONE, candidates.get("example:stone_tin_ore").hostKind());
-        assertEquals(
-                HostKind.REVIEW_REQUIRED,
-                candidates.get("example:nether_tin_ore").hostKind());
-        assertEquals(
-                HostKind.REVIEW_REQUIRED, candidates.get("example:tin_cluster").hostKind());
-        assertEquals("", candidates.get("example:tin_cluster").replaceTag());
+        assertEquals(HostKind.STONE, tinOre.hostKind());
+        assertEquals(HostKind.STONE, stoneTinOre.hostKind());
+        assertEquals(HostKind.REVIEW_REQUIRED, netherTinOre.hostKind());
+        assertEquals(HostKind.REVIEW_REQUIRED, tinCluster.hostKind());
+        assertEquals("", tinCluster.replaceTag());
     }
 
     @Test
@@ -119,13 +121,12 @@ class OreImportDiscoveryTest {
         Map<String, Group> groups =
                 OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY).groups().stream()
                         .collect(Collectors.toMap(Group::id, Function.identity()));
+        Group tinCluster = requireNonNull(groups.get("example:tin_cluster"));
+        Group lead = requireNonNull(groups.get("example:lead"));
 
         assertEquals(
-                HostKind.REVIEW_REQUIRED,
-                groups.get("example:tin_cluster").candidates().getFirst().hostKind());
-        assertEquals(
-                HostKind.STONE,
-                groups.get("example:lead").candidates().getFirst().hostKind());
+                HostKind.REVIEW_REQUIRED, tinCluster.candidates().getFirst().hostKind());
+        assertEquals(HostKind.STONE, lead.candidates().getFirst().hostKind());
     }
 
     @Test

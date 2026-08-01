@@ -16,11 +16,21 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.biome.Biome;
+import org.jspecify.annotations.Nullable;
 
 /** Server-registry adapter for the pure ore-profile forecast builder. */
 public final class MinecraftOreProfileForecastBuilder {
     private MinecraftOreProfileForecastBuilder() {}
 
+    /**
+     * Builds one page of a read-only forecast from a complete server configuration snapshot.
+     *
+     * @param source immutable settings and ore-profile snapshot
+     * @param registries active server registries used to resolve biome and block/tag targets
+     * @param page zero-based requested page
+     * @param pageSize positive maximum rules per page
+     * @return bounded forecast using the snapshot's active profile and terrain
+     */
     public static OreProfileForecast build(ConfigSnapshot source, RegistryAccess registries, int page, int pageSize) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(source.settings(), "source.settings");
@@ -34,10 +44,24 @@ public final class MinecraftOreProfileForecastBuilder {
                 pageSize);
     }
 
+    /**
+     * Builds one page of a registry-aware forecast for a named profile.
+     *
+     * <p>This method reads immutable registry views and performs no world mutation. A null active terrain represents an
+     * uninitialized world and causes active-terrain effectiveness to remain unavailable.
+     *
+     * @param profileId profile identifier shown in the forecast
+     * @param profile immutable ore profile to analyze
+     * @param activeTerrain initialized active terrain, or null
+     * @param registries active server registry view
+     * @param page zero-based requested page
+     * @param pageSize positive maximum rules per page
+     * @return bounded forecast with registry-resolved target diagnostics
+     */
     public static OreProfileForecast build(
             String profileId,
             OreProfileDocument profile,
-            TerrainMode activeTerrain,
+            @Nullable TerrainMode activeTerrain,
             RegistryAccess registries,
             int page,
             int pageSize) {
@@ -55,8 +79,22 @@ public final class MinecraftOreProfileForecastBuilder {
                 pageSize);
     }
 
+    /**
+     * Builds one page using the profile document's own ID.
+     *
+     * @param profile immutable ore profile to analyze
+     * @param activeTerrain initialized active terrain, or null
+     * @param registries active server registry view
+     * @param page zero-based requested page
+     * @param pageSize positive maximum rules per page
+     * @return bounded registry-aware forecast
+     */
     public static OreProfileForecast build(
-            OreProfileDocument profile, TerrainMode activeTerrain, RegistryAccess registries, int page, int pageSize) {
+            OreProfileDocument profile,
+            @Nullable TerrainMode activeTerrain,
+            RegistryAccess registries,
+            int page,
+            int pageSize) {
         Objects.requireNonNull(profile, "profile");
         return build(profile.profile(), profile, activeTerrain, registries, page, pageSize);
     }

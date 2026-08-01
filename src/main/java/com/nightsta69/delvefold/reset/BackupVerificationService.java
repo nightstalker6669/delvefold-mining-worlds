@@ -35,11 +35,23 @@ public final class BackupVerificationService {
     private final Map<RequestKey, CompletableFuture<BackupVerificationResult>> inFlight = new HashMap<>();
     private final Map<String, CompletableFuture<BackupVerificationResult>> tails = new HashMap<>();
 
+    /**
+     * Creates a service for one normalized save root using the shared two-thread daemon executor.
+     *
+     * @param saveRoot save root that owns the backup catalog; it is stored as an absolute normalized path
+     */
     public BackupVerificationService(Path saveRoot) {
         this(saveRoot, EXECUTOR, Clock.systemUTC());
     }
 
-    /** Shared per-save instance used by command and GUI handlers. */
+    /**
+     * Returns the bounded shared per-save instance used by command and GUI handlers.
+     *
+     * <p>At most 16 idle save services are retained. A busy service is never evicted while verification work remains.
+     *
+     * @param saveRoot save root normalized to the cache key
+     * @return shared service for that normalized save, or an uncached service if every bounded slot is busy
+     */
     public static BackupVerificationService forSave(Path saveRoot) {
         Path normalized =
                 Objects.requireNonNull(saveRoot, "saveRoot").toAbsolutePath().normalize();
@@ -77,7 +89,15 @@ public final class BackupVerificationService {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
-    /** Verifies a manifest backup. Legacy backups are never upgraded implicitly. */
+    /**
+     * Verifies every normalized path, size, and SHA-256 digest in an existing manifest.
+     *
+     * <p>Submission returns without hashing on the caller thread. Duplicate requests share one future, and different
+     * actions for the same backup run serially. Legacy backups are never upgraded implicitly.
+     *
+     * @param backupId normalized backup directory identifier
+     * @return future completed on the verification worker with a contained terminal result
+     */
     public CompletableFuture<BackupVerificationResult> verifyAsync(String backupId) {
         return submit(backupId, Action.VERIFY);
     }
@@ -85,11 +105,20 @@ public final class BackupVerificationService {
     /**
      * Explicitly validates a legacy backup, creates its manifest, and verifies all hashes. No manifest is written
      * unless the legacy layout is valid.
+     *
+     * @param backupId normalized backup directory identifier
+     * @return future completed on the verification worker after upgrade and full verification
      */
     public CompletableFuture<BackupVerificationResult> validateLegacyAndCreateManifestAsync(String backupId) {
         return submit(backupId, Action.UPGRADE_LEGACY);
     }
 
+    /**
+     * Reports whether any verification or explicit legacy-upgrade action is queued or running for an identifier.
+     *
+     * @param backupId normalized backup directory identifier
+     * @return {@code true} while at least one matching future is incomplete
+     */
     public boolean isInFlight(String backupId) {
         synchronized (schedulingLock) {
             return inFlight.keySet().stream().anyMatch(key -> key.backupId().equals(backupId));
@@ -115,7 +144,7 @@ public final class BackupVerificationService {
         if (predecessor == null) {
             schedule.run();
         } else {
-            predecessor.whenComplete((ignored, failure) -> schedule.run());
+            var unusedContinuation = predecessor.whenComplete((ignored, failure) -> schedule.run());
         }
         return created;
     }

@@ -12,6 +12,7 @@ import com.nightsta69.delvefold.world.feature.GeologyThemePlanner.Role;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.IntStream;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 class GeologyThemePlannerTest {
@@ -103,7 +104,7 @@ class GeologyThemePlannerTest {
         assertThrows(IllegalArgumentException.class, () -> new GeologyThemePlanner.Plan(excessive));
     }
 
-    private static GeologyThemePlanner.Plan plan(GeologyTheme theme, Phase phase, long generationSalt) {
+    private static GeologyThemePlanner.Plan plan(GeologyTheme theme, @Nullable Phase phase, long generationSalt) {
         return GeologyThemePlanner.plan(theme, phase, 0x123456789ABCDEFL, -7, 11, generationSalt, MINIMUM_Y, MAXIMUM_Y);
     }
 }

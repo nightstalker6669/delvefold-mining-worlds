@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test;
 
 class AuditActorContextTest {
     @Test
+    // Both resources intentionally exist only for their LIFO close behavior, which is the scope
+    // restoration contract exercised after each try block.
+    @SuppressWarnings("try")
     void nestedScopesCaptureTheInnermostActorBeforeAsyncHandoff() {
         AuditActorContext context = new AuditActorContext();
         AuditMutation original = mutation("server");

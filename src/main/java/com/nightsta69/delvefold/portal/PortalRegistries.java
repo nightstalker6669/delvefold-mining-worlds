@@ -30,9 +30,11 @@ public final class PortalRegistries {
     private static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
             DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Delvefold.MOD_ID);
 
+    /** Point-of-interest registry key used to discover active portal blocks. */
     public static final ResourceKey<PoiType> PORTAL_POI_KEY = ResourceKey.create(
             Registries.POINT_OF_INTEREST_TYPE, ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "portal"));
 
+    /** Deferred holder for the player-placeable deepslate portal frame. */
     public static final DeferredHolder<Block, PortalFrameBlock> PORTAL_FRAME = BLOCKS.register(
             "portal_frame",
             () -> new PortalFrameBlock(BlockBehaviour.Properties.of()
@@ -41,6 +43,7 @@ public final class PortalRegistries {
                     .strength(5.0F, 1200.0F)
                     .sound(SoundType.DEEPSLATE_BRICKS)));
 
+    /** Deferred holder for the generated, non-dropping portal interior. */
     public static final DeferredHolder<Block, MiningPortalBlock> PORTAL = BLOCKS.register(
             "portal",
             () -> new MiningPortalBlock(BlockBehaviour.Properties.of()
@@ -52,12 +55,15 @@ public final class PortalRegistries {
                     .pushReaction(PushReaction.BLOCK)
                     .noLootTable()));
 
+    /** Deferred inventory item for the portal frame block. */
     public static final DeferredHolder<Item, BlockItem> PORTAL_FRAME_ITEM =
             ITEMS.register("portal_frame", () -> new BlockItem(PORTAL_FRAME.get(), new Item.Properties()));
 
+    /** Deferred singleton-stack guide item. */
     public static final DeferredHolder<Item, SeamLedgerItem> SEAM_LEDGER =
             ITEMS.register("seam_ledger", () -> new SeamLedgerItem(new Item.Properties().stacksTo(1)));
 
+    /** Creative tab containing Delvefold's player-facing blocks and items. */
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> DELVEFOLD_TAB = CREATIVE_TABS.register(
             "mining_worlds",
             () -> CreativeModeTab.builder()
@@ -69,12 +75,18 @@ public final class PortalRegistries {
                     })
                     .build());
 
+    /** Deferred POI type containing every possible portal-axis block state. */
     public static final DeferredHolder<PoiType, PoiType> PORTAL_POI = POI_TYPES.register(
             "portal",
             () -> new PoiType(Set.copyOf(PORTAL.get().getStateDefinition().getPossibleStates()), 0, 1));
 
     private PortalRegistries() {}
 
+    /**
+     * Attaches every deferred registry to the mod event bus during mod construction.
+     *
+     * @param modEventBus the Delvefold mod bus; registration must occur before registry events fire
+     */
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);
         ITEMS.register(modEventBus);

@@ -32,6 +32,11 @@ public final class DelvefoldJeiPortalCategory implements IRecipeCategory<PortalC
     private final IDrawable background;
     private final IDrawable icon;
 
+    /**
+     * Creates the JEI category and its immutable background and icon drawables.
+     *
+     * @param guiHelper JEI helper used during plugin registration
+     */
     public DelvefoldJeiPortalCategory(IGuiHelper guiHelper) {
         this.background = guiHelper.createBlankDrawable(WIDTH, HEIGHT);
         this.icon = guiHelper.createDrawableItemLike(PortalRegistries.PORTAL_FRAME_ITEM.get());

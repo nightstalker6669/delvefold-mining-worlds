@@ -2,7 +2,6 @@ package com.nightsta69.delvefold.portal;
 
 import com.mojang.serialization.MapCodec;
 import com.nightsta69.delvefold.api.event.DelvefoldPortalTravelEvent;
-import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
@@ -27,14 +26,24 @@ import net.minecraft.world.level.portal.DimensionTransition;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import net.neoforged.neoforge.common.NeoForge;
+import org.jspecify.annotations.Nullable;
 
 /** Player-only Delvefold portal using the 1.21.1 Portal/DimensionTransition pipeline. */
 public final class MiningPortalBlock extends Block implements Portal {
+    /** Codec used by Minecraft to serialize the registered portal interior block type. */
     public static final MapCodec<MiningPortalBlock> CODEC = simpleCodec(MiningPortalBlock::new);
+
+    /** Horizontal frame axis persisted in each portal-interior block state. */
     public static final EnumProperty<Direction.Axis> AXIS = BlockStateProperties.HORIZONTAL_AXIS;
+
     private static final VoxelShape X_SHAPE = Block.box(0.0D, 0.0D, 6.0D, 16.0D, 16.0D, 10.0D);
     private static final VoxelShape Z_SHAPE = Block.box(6.0D, 0.0D, 0.0D, 10.0D, 16.0D, 16.0D);
 
+    /**
+     * Creates a portal interior with an X-axis default state.
+     *
+     * @param properties immutable Minecraft block behavior settings
+     */
     public MiningPortalBlock(BlockBehaviour.Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(AXIS, Direction.Axis.X));
@@ -88,19 +97,21 @@ public final class MiningPortalBlock extends Block implements Portal {
         return 0;
     }
 
-    @Nullable @Override
-    public DimensionTransition getPortalDestination(ServerLevel source, Entity entity, BlockPos entryPosition) {
+    @Override
+    public @Nullable DimensionTransition getPortalDestination(
+            ServerLevel source, Entity entity, BlockPos entryPosition) {
         if (!(entity instanceof ServerPlayer player)) {
             return null;
         }
         PortalAccess.Result access = PortalAccess.forTransition(source, player);
-        if (!access.allowed()) {
+        ServerLevel destination = access.destination();
+        if (!access.allowed() || destination == null) {
             PortalAccess.notifyDenied(player, access);
             player.setPortalCooldown(PortalAccess.cooldownTicks(access.settings()));
             return null;
         }
-        DelvefoldPortalTravelEvent event = NeoForge.EVENT_BUS.post(new DelvefoldPortalTravelEvent(
-                player, source.dimension(), access.destination().dimension()));
+        DelvefoldPortalTravelEvent event = NeoForge.EVENT_BUS.post(
+                new DelvefoldPortalTravelEvent(player, source.dimension(), destination.dimension()));
         if (event.isCanceled()) {
             player.setPortalCooldown(PortalAccess.cooldownTicks(access.settings()));
             return null;

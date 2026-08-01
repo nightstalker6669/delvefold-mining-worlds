@@ -37,13 +37,15 @@ class ServerOperationsIntegrationContractTest {
     @Test
     void acceptedConfigurationMutationsAndProfileActivationReachTheAuditFacade() throws IOException {
         String config = source("config/DelvefoldConfigService.java");
+        String planner = source("config/ConfigAuditPlanner.java");
 
         assertTrue(config.contains("auditSavedConfiguration(before, saved)"));
-        assertTrue(config.contains("AuditMutation.Operation.CONFIGURATION_ACCEPTED"));
-        assertTrue(config.contains("AuditMutation.Operation.PROFILE_ACTIVATED"));
-        assertTrue(
-                config.contains("before.settings().revision(),\n" + "                    saved.settings().revision()"));
-        assertTrue(config.contains("before.ores().revision(),\n" + "                    saved.ores().revision()"));
+        assertTrue(config.contains("ConfigAuditPlanner.plan(before, saved, actor)"));
+        assertTrue(planner.contains("AuditMutation.Operation.CONFIGURATION_ACCEPTED"));
+        assertTrue(planner.contains("AuditMutation.Operation.PROFILE_ACTIVATED"));
+        assertTrue(planner.contains(
+                "before.settings().revision(),\n" + "                    saved.settings().revision()"));
+        assertTrue(planner.contains("before.ores().revision(),\n" + "                    saved.ores().revision()"));
     }
 
     @Test

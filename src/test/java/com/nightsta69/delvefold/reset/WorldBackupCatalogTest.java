@@ -15,6 +15,7 @@ import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -113,14 +114,21 @@ class WorldBackupCatalogTest {
                         .collect(java.util.stream.Collectors.toMap(
                                 WorldBackupCatalog.BackupSummary::id, java.util.function.Function.identity()));
 
-        assertFalse(summaries.get("empty").valid());
-        assertFalse(summaries.get("unknown").valid());
-        assertFalse(summaries.get("wrong-active").valid());
-        assertTrue(summaries.get("valid-active").valid());
-        assertTrue(summaries.get("valid-active").legacy());
-        assertFalse(summaries.get("valid-active").restorable());
-        assertTrue(summaries.get("valid-legacy-expansive").valid());
-        assertTrue(summaries.get("valid-legacy-expansive").legacy());
+        WorldBackupCatalog.BackupSummary empty = Objects.requireNonNull(summaries.get("empty"));
+        WorldBackupCatalog.BackupSummary unknown = Objects.requireNonNull(summaries.get("unknown"));
+        WorldBackupCatalog.BackupSummary wrongActive = Objects.requireNonNull(summaries.get("wrong-active"));
+        WorldBackupCatalog.BackupSummary validActive = Objects.requireNonNull(summaries.get("valid-active"));
+        WorldBackupCatalog.BackupSummary validLegacyExpansive =
+                Objects.requireNonNull(summaries.get("valid-legacy-expansive"));
+
+        assertFalse(empty.valid());
+        assertFalse(unknown.valid());
+        assertFalse(wrongActive.valid());
+        assertTrue(validActive.valid());
+        assertTrue(validActive.legacy());
+        assertFalse(validActive.restorable());
+        assertTrue(validLegacyExpansive.valid());
+        assertTrue(validLegacyExpansive.legacy());
     }
 
     @Test

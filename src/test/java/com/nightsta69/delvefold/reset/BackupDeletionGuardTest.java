@@ -17,6 +17,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,7 +35,7 @@ class BackupDeletionGuardTest {
     @TempDir
     Path saveRoot;
 
-    private BackupDeletionGuard.Reservation openReservation;
+    private BackupDeletionGuard.@Nullable Reservation openReservation;
 
     @AfterEach
     void releaseReservation() {
@@ -96,13 +97,14 @@ class BackupDeletionGuardTest {
     void unreferencedReservationPermitsDeletionAndBlocksRestoreUntilReleased() throws Exception {
         BackupDeletionGuard guard = BackupDeletionGuard.get();
         AtomicInteger coordinatedActions = new AtomicInteger();
-        openReservation = guard.reserveForTest(saveRoot, "ordinary-backup", Set.of());
+        BackupDeletionGuard.Reservation reservation = guard.reserveForTest(saveRoot, "ordinary-backup", Set.of());
+        openReservation = reservation;
 
-        assertTrue(openReservation.permitImmediatelyBeforeDelete());
+        assertTrue(reservation.permitImmediatelyBeforeDelete());
         assertFalse(guard.coordinateReferenceForTest(saveRoot, "ordinary-backup", coordinatedActions::incrementAndGet));
         assertEquals(0, coordinatedActions.get());
 
-        openReservation.close();
+        reservation.close();
         openReservation = null;
         assertTrue(guard.coordinateReferenceForTest(saveRoot, "ordinary-backup", coordinatedActions::incrementAndGet));
         assertEquals(1, coordinatedActions.get());

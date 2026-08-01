@@ -24,10 +24,19 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 
+/** NeoForge entry point that wires Delvefold registries, network handlers, reloaders, and lifecycle services. */
 @Mod(Delvefold.MOD_ID)
 public final class Delvefold {
+    /** Stable namespace used by every Delvefold registry entry, resource, payload, and saved identifier. */
     public static final String MOD_ID = "delvefold";
 
+    /**
+     * Installs process-level integration during NeoForge mod construction.
+     *
+     * @param modEventBus Delvefold's mod lifecycle event bus
+     * @param modContainer NeoForge container for this mod instance
+     * @param dist physical distribution used to avoid loading client classes on dedicated servers
+     */
     public Delvefold(IEventBus modEventBus, ModContainer modContainer, Dist dist) {
         DelvefoldWorldgen.register(modEventBus);
         LandmarkRegistries.register(modEventBus);

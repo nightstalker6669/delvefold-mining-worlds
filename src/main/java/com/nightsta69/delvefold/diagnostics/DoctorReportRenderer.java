@@ -13,11 +13,31 @@ import java.util.Locale;
  * and at most 24 KiB of UTF-8 text across the complete result.
  */
 public final class DoctorReportRenderer {
+    /** Creates a stateless renderer for bounded Doctor report snapshots. */
+    public DoctorReportRenderer() {}
+
+    /** Maximum number of rendered lines, including a truncation summary when present. */
     public static final int MAX_LINES = 64;
+
+    /** Maximum intended character count for each transport-neutral line. */
     public static final int MAX_LINE_CHARACTERS = 1024;
+
+    /** Maximum aggregate UTF-8 payload size in bytes. */
     public static final int MAX_TOTAL_UTF8_BYTES = 24 * 1024;
+
     private static final int SUMMARY_RESERVE_BYTES = 128;
 
+    /**
+     * Renders a report as immutable localized-message envelopes in deterministic section order.
+     *
+     * <p>Free text is sanitized through the export redactor before transport. When line-count or aggregate UTF-8 byte
+     * limits would be exceeded, details are omitted and one bounded truncation summary is appended. Rendering performs
+     * no filesystem access and does not expose paths or unredacted configuration values.
+     *
+     * @param report immutable report to render
+     * @return immutable lines bounded by {@link #MAX_LINES} and {@link #MAX_TOTAL_UTF8_BYTES}
+     * @throws IllegalArgumentException if {@code report} is {@code null}
+     */
     public List<String> render(DoctorReport report) {
         if (report == null) {
             throw new IllegalArgumentException("report is required");

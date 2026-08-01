@@ -23,6 +23,15 @@ public final class RenewalScheduler {
 
     private RenewalScheduler() {}
 
+    /**
+     * Polls the opt-in renewal schedule every 400 server ticks and stages due recreation through the normal confirmed
+     * restart journal.
+     *
+     * <p>The handler performs only bounded configuration and player-notification work. Dimension filesystem mutation
+     * remains deferred to ordered restart processing.
+     *
+     * @param event post-tick event for the active server
+     */
     public static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         long tick = server.getTickCount();
@@ -135,6 +144,7 @@ public final class RenewalScheduler {
                         settingsRevision));
     }
 
+    /** Clears tick timing and warning deduplication state during server-session shutdown. */
     public static void reset() {
         ANNOUNCED.clear();
         lastCheckTick = 0L;

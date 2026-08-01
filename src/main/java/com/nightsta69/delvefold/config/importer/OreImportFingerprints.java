@@ -15,7 +15,15 @@ import java.util.TreeSet;
 public final class OreImportFingerprints {
     private OreImportFingerprints() {}
 
-    /** Hashes the sorted block IDs and each block's sorted tag IDs. */
+    /**
+     * Hashes sorted block IDs and each block's sorted, deduplicated tag IDs.
+     *
+     * <p>Duplicate block entries are merged before hashing, null entries are ignored, and every string is UTF-8
+     * length-prefixed. Therefore registry iteration order does not affect the lowercase 64-character SHA-256 result.
+     *
+     * @param registry registry snapshot whose blocks and tag membership should be bound to an import session
+     * @return deterministic lowercase hexadecimal SHA-256 fingerprint
+     */
     public static String registry(OreImportRegistry registry) {
         Objects.requireNonNull(registry, "registry");
         TreeMap<String, TreeSet<String>> tagsByBlock = new TreeMap<>();
@@ -42,7 +50,12 @@ public final class OreImportFingerprints {
         return HexFormat.of().formatHex(digest.digest());
     }
 
-    /** Hashes the canonical Delvefold JSON form, conservatively including order and byte-level changes. */
+    /**
+     * Hashes the canonical Delvefold JSON form, conservatively including order and byte-level changes.
+     *
+     * @param profile immutable base profile to bind to an import preview
+     * @return lowercase hexadecimal SHA-256 fingerprint of the UTF-8 canonical JSON bytes
+     */
     public static String profile(OreProfileDocument profile) {
         Objects.requireNonNull(profile, "profile");
         byte[] json = ConfigJson.GSON.toJson(profile).getBytes(StandardCharsets.UTF_8);

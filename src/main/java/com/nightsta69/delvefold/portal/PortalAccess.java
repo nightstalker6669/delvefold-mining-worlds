@@ -10,13 +10,13 @@ import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.Nullable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
+import org.jspecify.annotations.Nullable;
 
 /** Resolves portal policy without ever opening initialization UI or mutating configuration. */
 final class PortalAccess {
@@ -46,9 +46,13 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
+        @Nullable TerrainMode terrain = snapshot.settings().terrainMode();
+        if (terrain == null) {
+            return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
+        }
         return resolveDestination(
                 source,
-                snapshot.settings().terrainMode(),
+                terrain,
                 snapshot.settings().identity().terrainVariant(),
                 snapshot.settings().portal(),
                 true);
@@ -77,9 +81,13 @@ final class PortalAccess {
         if (!snapshot.settings().portal().enabled()) {
             return Result.denied(Component.translatable("message.delvefold.portal.disabled"));
         }
+        @Nullable TerrainMode terrain = snapshot.settings().terrainMode();
+        if (terrain == null) {
+            return Result.denied(Component.translatable("message.delvefold.portal.config_unavailable"));
+        }
         return resolveDestination(
                 source,
-                snapshot.settings().terrainMode(),
+                terrain,
                 snapshot.settings().identity().terrainVariant(),
                 snapshot.settings().portal(),
                 true);
@@ -139,7 +147,7 @@ final class PortalAccess {
         return Result.allowed(target, settings, false);
     }
 
-    @Nullable private static ConfigSnapshot snapshot() {
+    private static @Nullable ConfigSnapshot snapshot() {
         try {
             return DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {

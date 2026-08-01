@@ -9,10 +9,28 @@ import com.nightsta69.delvefold.network.ProtocolLimits;
 import java.util.List;
 import java.util.Objects;
 
-/** Bounded, display-only views for the server-authoritative ore importer. */
+/**
+ * Bounded, display-only views for the server-authoritative ore importer.
+ *
+ * <p>Every list container is defensively copied into an unmodifiable view. Session tokens remain player-bound server
+ * capabilities: displaying or returning one never replaces permission, expiry, binding, or revision checks.
+ */
 public final class OreImportViews {
     private OreImportViews() {}
 
+    /**
+     * Immutable page of ore groups discovered by an authoritative scan.
+     *
+     * @param scanToken bounded server-issued token for the player-owned scan session
+     * @param expectedOreRevision non-negative ore revision captured when the scan began
+     * @param baseProfileId profile against which imports will be compared
+     * @param page zero-based page represented by {@code groups}
+     * @param pageCount positive total page count derived from {@code totalGroups}
+     * @param totalGroups bounded number of groups across all pages
+     * @param scannedBlocks bounded number of registry blocks examined
+     * @param truncated whether discovery omitted entries because of a server-side bound
+     * @param groups bounded, immutable group page with distinct identifiers
+     */
     public record ScanView(
             String scanToken,
             long expectedOreRevision,
@@ -23,6 +41,22 @@ public final class OreImportViews {
             int scannedBlocks,
             boolean truncated,
             List<GroupView> groups) {
+        /**
+         * Validates token, revision, paging metadata, counts, and group uniqueness and takes ownership of a list copy.
+         *
+         * @param scanToken server-issued scan token
+         * @param expectedOreRevision ore revision captured when scanning began
+         * @param baseProfileId comparison profile identifier
+         * @param page zero-based page index
+         * @param pageCount declared total page count
+         * @param totalGroups declared total group count
+         * @param scannedBlocks number of blocks examined
+         * @param truncated whether discovery was truncated
+         * @param groups group page to copy
+         * @throws IllegalArgumentException if text, counts, page relationships, page size, or identifiers violate
+         *     protocol invariants
+         * @throws NullPointerException if the group list contains a null element
+         */
         public ScanView {
             scanToken = OreImportViews.token(scanToken);
             expectedOreRevision = OreImportViews.nonNegative(expectedOreRevision, "ore revision");
@@ -51,6 +85,16 @@ public final class OreImportViews {
         }
     }
 
+    /**
+     * Immutable scan grouping of related registry blocks and server-produced classification evidence.
+     *
+     * @param id bounded scan-session group identifier
+     * @param namespace bounded source namespace
+     * @param material bounded inferred material name
+     * @param evidence non-null evidence supporting the grouping
+     * @param reviewRequired whether server heuristics require explicit user review
+     * @param candidates bounded, immutable, non-empty candidates with distinct block identifiers
+     */
     public record GroupView(
             String id,
             String namespace,
@@ -58,11 +102,23 @@ public final class OreImportViews {
             Evidence evidence,
             boolean reviewRequired,
             List<CandidateView> candidates) {
+        /**
+         * Validates identifiers and evidence and takes an immutable, bounded copy of the candidates.
+         *
+         * @param id group identifier
+         * @param namespace source namespace
+         * @param material inferred material name
+         * @param evidence grouping evidence
+         * @param reviewRequired whether explicit review is required
+         * @param candidates candidate list to copy
+         * @throws IllegalArgumentException if an identifier is invalid or candidates are empty or duplicate a block
+         * @throws NullPointerException if evidence is null or the candidate list contains a null element
+         */
         public GroupView {
             id = OreImportViews.id(id, "group ID");
             namespace = OreImportViews.id(namespace, "group namespace");
             material = OreImportViews.id(material, "group material");
-            evidence = Objects.requireNonNull(evidence, "evidence");
+            Objects.requireNonNull(evidence, "evidence");
             candidates = OreImportViews.limited(candidates, ProtocolLimits.MAX_VARIANTS, "group candidates");
             if (candidates.isEmpty()
                     || candidates.stream()
@@ -75,15 +131,49 @@ public final class OreImportViews {
         }
     }
 
+    /**
+     * Immutable candidate block within a discovered ore group.
+     *
+     * @param blockId bounded nonblank block identifier
+     * @param replaceTag optional bounded replacement-target tag
+     * @param hostKind non-null inferred host classification
+     * @param evidence non-null evidence supporting the candidate
+     */
     public record CandidateView(String blockId, String replaceTag, HostKind hostKind, Evidence evidence) {
+        /**
+         * Validates candidate identifiers and requires classification and evidence values.
+         *
+         * @param blockId candidate block identifier
+         * @param replaceTag optional replacement-target tag; null becomes empty text
+         * @param hostKind inferred host classification
+         * @param evidence candidate evidence
+         * @throws IllegalArgumentException if an identifier violates protocol bounds
+         * @throws NullPointerException if host kind or evidence is null
+         */
         public CandidateView {
             blockId = OreImportViews.id(blockId, "candidate block ID");
             replaceTag = OreImportViews.optionalId(replaceTag, "replacement tag");
-            hostKind = Objects.requireNonNull(hostKind, "hostKind");
-            evidence = Objects.requireNonNull(evidence, "evidence");
+            Objects.requireNonNull(hostKind, "hostKind");
+            Objects.requireNonNull(evidence, "evidence");
         }
     }
 
+    /**
+     * Immutable page of a server-validated ore-import preview.
+     *
+     * @param commitToken bounded server-issued token for the player-owned preview session
+     * @param expectedOreRevision non-negative ore revision captured when the preview was computed
+     * @param baseProfileId profile against which the import was compared
+     * @param page zero-based page represented by {@code diff}
+     * @param pageCount positive total page count derived from {@code totalDiffEntries}
+     * @param totalDiffEntries bounded number of diff entries across all pages
+     * @param valid whether authoritative validation permits committing the preview
+     * @param addedRuleCount non-negative number of rules the plan would add
+     * @param diff bounded, immutable diff page with distinct group identifiers
+     * @param workloads bounded, immutable per-terrain workload deltas
+     * @param issues bounded, immutable validation issue summaries
+     * @param truncated whether server-side bounds omitted display detail
+     */
     public record PreviewView(
             String commitToken,
             long expectedOreRevision,
@@ -97,6 +187,25 @@ public final class OreImportViews {
             List<TerrainDeltaView> workloads,
             List<ValidationIssueView> issues,
             boolean truncated) {
+        /**
+         * Validates token, revision, paging metadata, counts, and uniqueness and takes immutable list copies.
+         *
+         * @param commitToken server-issued preview token
+         * @param expectedOreRevision ore revision captured when previewing began
+         * @param baseProfileId comparison profile identifier
+         * @param page zero-based page index
+         * @param pageCount declared total page count
+         * @param totalDiffEntries declared total diff-entry count
+         * @param valid whether the import plan passed validation
+         * @param addedRuleCount number of rules the plan would add
+         * @param diff diff page to copy
+         * @param workloads workload deltas to copy
+         * @param issues validation issues to copy
+         * @param truncated whether display detail was truncated
+         * @throws IllegalArgumentException if text, counts, metrics, paging relationships, page size, or identifiers
+         *     violate protocol invariants
+         * @throws NullPointerException if any copied list contains a null element
+         */
         public PreviewView {
             commitToken = OreImportViews.token(commitToken);
             expectedOreRevision = OreImportViews.nonNegative(expectedOreRevision, "ore revision");
@@ -128,6 +237,16 @@ public final class OreImportViews {
         }
     }
 
+    /**
+     * Immutable per-group difference produced by an ore-import preview.
+     *
+     * @param groupId bounded nonblank scan group identifier
+     * @param status non-null disposition of the group
+     * @param ruleId optional bounded target rule identifier
+     * @param addedBlocks bounded, immutable block identifiers that would be added
+     * @param skippedBlocks bounded, immutable block identifiers omitted from the plan
+     * @param message bounded display explanation
+     */
     public record DiffView(
             String groupId,
             DiffStatus status,
@@ -135,9 +254,21 @@ public final class OreImportViews {
             List<String> addedBlocks,
             List<String> skippedBlocks,
             String message) {
+        /**
+         * Validates identifiers and status and takes immutable copies of bounded block lists.
+         *
+         * @param groupId scan group identifier
+         * @param status group disposition
+         * @param ruleId optional target rule identifier; null becomes empty text
+         * @param addedBlocks block identifiers to copy; null becomes empty
+         * @param skippedBlocks skipped block identifiers to copy; null becomes empty
+         * @param message display explanation; null becomes empty text
+         * @throws IllegalArgumentException if text or identifier bounds are violated
+         * @throws NullPointerException if status is null or a copied block list contains a null element
+         */
         public DiffView {
             groupId = OreImportViews.id(groupId, "diff group ID");
-            status = Objects.requireNonNull(status, "status");
+            Objects.requireNonNull(status, "status");
             ruleId = OreImportViews.optionalId(ruleId, "diff rule ID");
             addedBlocks = OreImportViews.ids(addedBlocks, ProtocolLimits.MAX_VARIANTS, "added blocks");
             skippedBlocks = OreImportViews.ids(skippedBlocks, ProtocolLimits.MAX_VARIANTS, "skipped blocks");
@@ -145,32 +276,80 @@ public final class OreImportViews {
         }
     }
 
+    /**
+     * Immutable before-and-after workload metrics for one terrain mode.
+     *
+     * @param terrain non-null terrain mode
+     * @param beforeAttempts finite, non-negative placement attempts per chunk before import
+     * @param beforeWorkUnits finite, non-negative estimated work units per chunk before import
+     * @param afterAttempts finite, non-negative placement attempts per chunk after import
+     * @param afterWorkUnits finite, non-negative estimated work units per chunk after import
+     */
     public record TerrainDeltaView(
             TerrainMode terrain,
             double beforeAttempts,
             double beforeWorkUnits,
             double afterAttempts,
             double afterWorkUnits) {
+        /**
+         * Requires a terrain mode and validates every metric as finite and non-negative.
+         *
+         * @param terrain terrain mode
+         * @param beforeAttempts placement attempts per chunk before import
+         * @param beforeWorkUnits estimated work units per chunk before import
+         * @param afterAttempts placement attempts per chunk after import
+         * @param afterWorkUnits estimated work units per chunk after import
+         * @throws IllegalArgumentException if any metric is negative or non-finite
+         * @throws NullPointerException if terrain is null
+         */
         public TerrainDeltaView {
-            terrain = Objects.requireNonNull(terrain, "terrain");
+            Objects.requireNonNull(terrain, "terrain");
             beforeAttempts = OreImportViews.metric(beforeAttempts);
             beforeWorkUnits = OreImportViews.metric(beforeWorkUnits);
             afterAttempts = OreImportViews.metric(afterAttempts);
             afterWorkUnits = OreImportViews.metric(afterWorkUnits);
         }
 
+        /**
+         * Returns the non-negative increase in placement attempts.
+         *
+         * @return {@code max(0, afterAttempts - beforeAttempts)} attempts per chunk
+         */
         public double addedAttempts() {
             return Math.max(0.0D, afterAttempts - beforeAttempts);
         }
 
+        /**
+         * Returns the non-negative increase in estimated work units.
+         *
+         * @return {@code max(0, afterWorkUnits - beforeWorkUnits)} estimated work units per chunk
+         */
         public double addedWorkUnits() {
             return Math.max(0.0D, afterWorkUnits - beforeWorkUnits);
         }
     }
 
+    /**
+     * Immutable, bounded validation issue suitable for preview display.
+     *
+     * @param severity non-null issue severity
+     * @param code bounded nonblank validation code
+     * @param path bounded issue location, or empty text
+     * @param message bounded display message, or empty text
+     */
     public record ValidationIssueView(IssueSeverity severity, String code, String path, String message) {
+        /**
+         * Requires severity and validates all textual fields against their protocol bounds.
+         *
+         * @param severity issue severity
+         * @param code validation code
+         * @param path issue location; null becomes empty text
+         * @param message display message; null becomes empty text
+         * @throws IllegalArgumentException if textual bounds are violated or the code is blank
+         * @throws NullPointerException if severity is null
+         */
         public ValidationIssueView {
-            severity = Objects.requireNonNull(severity, "severity");
+            Objects.requireNonNull(severity, "severity");
             code = OreImportViews.id(code, "validation code");
             path = OreImportViews.text(path, ProtocolLimits.SHORT_TEXT_LENGTH);
             message = OreImportViews.text(message, ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH);

@@ -7,6 +7,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Keeps administration payloads protocol-compatible while allowing the client to localize server-authorized result and
@@ -20,7 +21,18 @@ public final class AdminLocalizedMessage {
 
     private AdminLocalizedMessage() {}
 
-    public static String encode(String translationKey, Object... arguments) {
+    /**
+     * Encodes a translation key and display-only arguments into a bounded protocol-safe envelope.
+     *
+     * <p>Arguments are converted with {@link String#valueOf(Object)} and the longest arguments are truncated as needed
+     * so the returned value never exceeds {@link ProtocolLimits#MESSAGE_LENGTH} UTF-16 code units.
+     *
+     * @param translationKey lowercase resource-style translation key
+     * @param arguments nullable array whose nullable elements are display-only values
+     * @return a versioned URL-safe Base64 envelope
+     * @throws IllegalArgumentException if the key is invalid or fixed envelope data cannot fit the protocol limit
+     */
+    public static String encode(String translationKey, @Nullable Object @Nullable ... arguments) {
         if (translationKey == null
                 || translationKey.length() > 256
                 || !KEY.matcher(translationKey).matches()) {
@@ -28,7 +40,7 @@ public final class AdminLocalizedMessage {
         }
         List<String> safeArguments = new ArrayList<>();
         if (arguments != null) {
-            for (Object argument : arguments) {
+            for (@Nullable Object argument : arguments) {
                 safeArguments.add(String.valueOf(argument));
             }
         }
@@ -54,7 +66,13 @@ public final class AdminLocalizedMessage {
         return encoded;
     }
 
-    public static Optional<Decoded> decode(String encoded) {
+    /**
+     * Decodes a well-formed v1 envelope without trusting it as authorization or configuration input.
+     *
+     * @param encoded candidate envelope, or {@code null}
+     * @return immutable decoded display data, or empty for foreign, malformed, or unsupported input
+     */
+    public static Optional<Decoded> decode(@Nullable String encoded) {
         if (encoded == null || !encoded.startsWith(PREFIX)) {
             return Optional.empty();
         }
@@ -93,7 +111,19 @@ public final class AdminLocalizedMessage {
         return new String(DECODER.decode(value), StandardCharsets.UTF_8);
     }
 
+    /**
+     * Immutable display-only contents of a localized-message envelope.
+     *
+     * @param translationKey validated translation key
+     * @param arguments immutable ordered argument strings
+     */
     public record Decoded(String translationKey, List<String> arguments) {
+        /**
+         * Defensively snapshots decoded arguments.
+         *
+         * @param translationKey validated translation key
+         * @param arguments ordered argument strings to snapshot
+         */
         public Decoded {
             arguments = List.copyOf(arguments);
         }

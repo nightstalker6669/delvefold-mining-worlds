@@ -18,6 +18,13 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 public final class GuideStreamCodecs {
     private GuideStreamCodecs() {}
 
+    /**
+     * Writes a current-format public guide in protocol 12 field order.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param snapshot immutable redacted guide snapshot
+     * @throws IllegalArgumentException if the format or estimated payload size violates guide bounds
+     */
     public static void write(RegistryFriendlyByteBuf buffer, GuideSnapshot snapshot) {
         if (snapshot.formatVersion() != GuideSnapshot.CURRENT_FORMAT_VERSION) {
             throw new IllegalArgumentException(
@@ -41,6 +48,13 @@ public final class GuideStreamCodecs {
         buffer.writeBoolean(snapshot.truncated());
     }
 
+    /**
+     * Reads a current-format guide while checking the aggregate decode budget after each variable section.
+     *
+     * @param buffer source registry-aware network buffer positioned at the guide's first byte
+     * @return immutable validated and redacted guide snapshot
+     * @throws IllegalArgumentException if format, lengths, counts, ordinals, or aggregate bytes are invalid
+     */
     public static GuideSnapshot read(RegistryFriendlyByteBuf buffer) {
         int startIndex = buffer.readerIndex();
         int format = buffer.readVarInt();
@@ -219,6 +233,8 @@ public final class GuideStreamCodecs {
         return count;
     }
 
+    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());
     }

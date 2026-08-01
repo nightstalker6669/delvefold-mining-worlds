@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.config.importer;
 
 import static com.nightsta69.delvefold.config.importer.FakeOreImportRegistry.block;
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -94,22 +95,17 @@ class OreImportPlannerTest {
         var plan = OreImportPlanner.plan(base, List.of(tin, copper), registry, RegistryLookup.SKIP);
         Map<String, DiffEntry> diff =
                 plan.diff().stream().collect(Collectors.toMap(DiffEntry::groupId, Function.identity()));
+        DiffEntry copperDiff = requireNonNull(diff.get("example:copper"));
+        DiffEntry tinDiff = requireNonNull(diff.get("example:tin"));
 
         assertEquals(3, plan.proposedProfile().rules().size());
-        assertEquals(DiffStatus.SKIPPED_COVERED, diff.get("example:copper").status());
-        assertEquals(
-                "message.delvefold.import.diff_message.covered",
-                translationKey(diff.get("example:copper").message()));
-        assertEquals(
-                List.of("example:copper_ore", "example:deepslate_copper_ore"),
-                diff.get("example:copper").skippedBlocks());
-        assertEquals(DiffStatus.PARTIALLY_ADDED, diff.get("example:tin").status());
-        assertEquals(
-                "message.delvefold.import.diff_message.partially_added",
-                translationKey(diff.get("example:tin").message()));
-        assertEquals(
-                List.of("example:deepslate_tin_ore"), diff.get("example:tin").addedBlocks());
-        assertEquals(List.of("example:tin_ore"), diff.get("example:tin").skippedBlocks());
+        assertEquals(DiffStatus.SKIPPED_COVERED, copperDiff.status());
+        assertEquals("message.delvefold.import.diff_message.covered", translationKey(copperDiff.message()));
+        assertEquals(List.of("example:copper_ore", "example:deepslate_copper_ore"), copperDiff.skippedBlocks());
+        assertEquals(DiffStatus.PARTIALLY_ADDED, tinDiff.status());
+        assertEquals("message.delvefold.import.diff_message.partially_added", translationKey(tinDiff.message()));
+        assertEquals(List.of("example:deepslate_tin_ore"), tinDiff.addedBlocks());
+        assertEquals(List.of("example:tin_ore"), tinDiff.skippedBlocks());
         OreRule imported = plan.proposedProfile().rules().getLast();
         assertEquals(
                 List.of("example:deepslate_tin_ore"),
@@ -130,16 +126,15 @@ class OreImportPlannerTest {
         var plan = OreImportPlanner.plan(OrePresets.empty(), List.of(reviewOnly, mixed), registry, RegistryLookup.SKIP);
         Map<String, DiffEntry> diff =
                 plan.diff().stream().collect(Collectors.toMap(DiffEntry::groupId, Function.identity()));
+        DiffEntry leadDiff = requireNonNull(diff.get("example:lead"));
+        DiffEntry tinDiff = requireNonNull(diff.get("example:tin"));
 
         assertEquals(1, plan.proposedProfile().rules().size());
-        assertEquals(
-                DiffStatus.SKIPPED_REVIEW_REQUIRED, diff.get("example:lead").status());
-        assertEquals(
-                "message.delvefold.import.diff_message.review_required",
-                translationKey(diff.get("example:lead").message()));
-        assertEquals(DiffStatus.PARTIALLY_ADDED, diff.get("example:tin").status());
-        assertEquals(List.of("example:tin_ore"), diff.get("example:tin").addedBlocks());
-        assertEquals(List.of("example:nether_tin_ore"), diff.get("example:tin").skippedBlocks());
+        assertEquals(DiffStatus.SKIPPED_REVIEW_REQUIRED, leadDiff.status());
+        assertEquals("message.delvefold.import.diff_message.review_required", translationKey(leadDiff.message()));
+        assertEquals(DiffStatus.PARTIALLY_ADDED, tinDiff.status());
+        assertEquals(List.of("example:tin_ore"), tinDiff.addedBlocks());
+        assertEquals(List.of("example:nether_tin_ore"), tinDiff.skippedBlocks());
     }
 
     private static String translationKey(String message) {

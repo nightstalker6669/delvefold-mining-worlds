@@ -27,6 +27,11 @@ public final class BackupDeletionGuard {
 
     private BackupDeletionGuard() {}
 
+    /**
+     * Returns the process-wide coordinator shared by command, GUI, restore, and catalog services.
+     *
+     * @return singleton deletion guard
+     */
     public static BackupDeletionGuard get() {
         return INSTANCE;
     }
@@ -57,6 +62,13 @@ public final class BackupDeletionGuard {
     /**
      * Serializes restore draft creation with deletion reservation for the selected ID. Both suppliers execute on the
      * caller (server) thread.
+     *
+     * @param <T> result type produced by either branch
+     * @param server server whose normalized save root owns the backup
+     * @param backupId normalized backup identifier being referenced
+     * @param allowed action executed while holding the guard when no deletion is reserved
+     * @param rejected action executed while holding the guard when deletion is already reserved
+     * @return result of exactly one supplied action
      */
     public <T> T coordinateRestoreRequest(
             MinecraftServer server, String backupId, Supplier<T> allowed, Supplier<T> rejected) {
@@ -82,7 +94,13 @@ public final class BackupDeletionGuard {
         }
     }
 
-    /** Revokes outstanding reservations for one server session before worker/cache shutdown. */
+    /**
+     * Revokes outstanding reservations for one server session before worker/cache shutdown.
+     *
+     * <p>Queued workers subsequently fail their immediate pre-delete check and cannot begin a filesystem walk.
+     *
+     * @param server server session whose normalized save-root reservations are revoked
+     */
     public void clear(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
         Path saveRoot = normalize(server.getWorldPath(LevelResource.ROOT));
@@ -138,31 +156,64 @@ public final class BackupDeletionGuard {
 
     private record Key(Path saveRoot, String backupId) {}
 
+    /** Stable rejection reason exposed to asynchronous deletion callers. */
     public enum Reason {
+        /** An in-memory draft or persisted lifecycle journal references the backup. */
         REFERENCED,
+
+        /** Another deletion already holds a reservation for the same save and backup identifier. */
         IN_PROGRESS,
+
+        /** Server-session shutdown revoked the reservation before the worker began deletion. */
         SESSION_CLOSED
     }
 
+    /** Checked failure raised when a backup cannot safely acquire or retain a deletion reservation. */
     public static final class DeletionRejectedException extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        /** Normalized logical backup identifier rejected by the guard. */
         private final String backupId;
+        /** Stable reason the deletion reservation was rejected. */
         private final Reason reason;
 
+        /**
+         * Creates a rejection carrying a bounded backup identifier and stable machine-readable reason.
+         *
+         * @param backupId normalized requested backup identifier
+         * @param reason condition that prevented deletion
+         */
         public DeletionRejectedException(String backupId, Reason reason) {
             super("Backup deletion rejected (" + reason + "): " + backupId);
             this.backupId = backupId;
             this.reason = Objects.requireNonNull(reason, "reason");
         }
 
+        /**
+         * Returns the backup identifier associated with the rejected request.
+         *
+         * @return normalized identifier, or the original empty fallback used by invalid callers
+         */
         public String backupId() {
             return backupId;
         }
 
+        /**
+         * Returns the stable rejection category.
+         *
+         * @return non-null rejection reason
+         */
         public Reason reason() {
             return reason;
         }
     }
 
+    /**
+     * Exclusive, save-scoped deletion capability retained until asynchronous deletion and refresh complete.
+     *
+     * <p>Reservations are idempotently closeable. Holding one does not itself authorize filesystem deletion; the worker
+     * must call {@link #permitImmediatelyBeforeDelete()} immediately before walking the backup.
+     */
     public static final class Reservation implements AutoCloseable {
         private final BackupDeletionGuard owner;
         private final Key key;
@@ -174,7 +225,11 @@ public final class BackupDeletionGuard {
             this.key = key;
         }
 
-        /** Worker-thread check performed directly before entering the filesystem deletion walk. */
+        /**
+         * Performs the worker-thread check immediately before entering the filesystem deletion walk.
+         *
+         * @return {@code true} only while this exact reservation remains current, open, and unrevoked
+         */
         public boolean permitImmediatelyBeforeDelete() {
             return owner.permitLocked(this);
         }
@@ -187,6 +242,7 @@ public final class BackupDeletionGuard {
             revoked = true;
         }
 
+        /** Releases this capability; repeated calls are harmless. */
         @Override
         public void close() {
             owner.release(this);

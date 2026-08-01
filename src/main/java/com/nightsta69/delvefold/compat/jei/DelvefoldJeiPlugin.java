@@ -18,6 +18,9 @@ import net.minecraft.world.item.Items;
 public final class DelvefoldJeiPlugin implements IModPlugin {
     private static final ResourceLocation UID = ResourceLocation.fromNamespaceAndPath(Delvefold.MOD_ID, "jei_plugin");
 
+    /** Creates the JEI entry point discovered through JEI's client plugin annotation. */
+    public DelvefoldJeiPlugin() {}
+
     @Override
     public ResourceLocation getPluginUid() {
         return UID;

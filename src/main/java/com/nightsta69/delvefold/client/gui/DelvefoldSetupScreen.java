@@ -19,13 +19,14 @@ import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 
+/** Three-step first-time mining-world setup screen with explicit recreation-locked confirmation. */
 public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private static final int BODY_SCROLL_STEP = 24;
     private static final int RESOURCE_OPTIONS_TOP = 39;
@@ -44,12 +45,12 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private RenewalSeedMode renewalSeedMode;
     private Step step = Step.TERRAIN;
     private boolean lockConfirmed;
-    private Button confirmationButton;
-    private Button initializeButton;
+    private @Nullable Button confirmationButton;
+    private @Nullable Button initializeButton;
     private Component localStatus = Component.empty();
     private int localStatusColor = ACCENT;
     private final List<AbstractWidget> bodyWidgets = new ArrayList<>();
-    private final Map<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
+    private final IdentityHashMap<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
     private int bodyScrollOffset;
     private int bodyVirtualBottom;
     private int terrainModeOptionsTop;
@@ -69,6 +70,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private int resourceLandmarkOptionsTop;
     private int resourceLandmarkHelpTop;
 
+    /**
+     * Creates setup controls initialized from the server's proposed settings.
+     *
+     * @param snapshot immutable uninitialized administration snapshot and capability set
+     */
     public DelvefoldSetupScreen(AdminSnapshot snapshot) {
         super(Component.translatable("screen.delvefold.setup.title"), snapshot);
         this.terrainMode = snapshot.terrainMode();
@@ -89,7 +95,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int gap = 6;
         int tabWidth = (width - gap * 2) / 3;
         for (Step value : Step.values()) {
-            int tabX = x + value.ordinal() * (tabWidth + gap);
+            int tabX = x + GuiEnumOrder.index(value) * (tabWidth + gap);
             this.addButton(
                     tabX,
                     this.contentTop(),
@@ -97,7 +103,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     22,
                     Component.translatable(
                             "screen.delvefold.setup.step",
-                            value.ordinal() + 1,
+                            GuiEnumOrder.index(value) + 1,
                             Component.translatable(value.translationKey)),
                     this.step == value ? Style.TAB_SELECTED : Style.GHOST,
                     button -> moveTo(value));
@@ -122,7 +128,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     22,
                     Component.translatable("screen.delvefold.back"),
                     Style.GHOST,
-                    button -> moveTo(Step.values()[this.step.ordinal() - 1]));
+                    button -> moveTo(Step.values()[GuiEnumOrder.index(this.step) - 1]));
         }
 
         if (this.step != Step.REVIEW) {
@@ -133,9 +139,9 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     22,
                     Component.translatable("screen.delvefold.continue"),
                     Style.PRIMARY,
-                    button -> moveTo(Step.values()[this.step.ordinal() + 1]));
+                    button -> moveTo(Step.values()[GuiEnumOrder.index(this.step) + 1]));
         } else {
-            this.initializeButton = this.addButton(
+            Button initialize = this.addButton(
                     this.contentRight() - 172,
                     footerY,
                     172,
@@ -143,7 +149,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     Component.translatable("screen.delvefold.setup.initialize"),
                     Style.PRIMARY,
                     button -> initialize());
-            this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
+            this.initializeButton = initialize;
+            initialize.active = this.snapshot.backendReady() && this.lockConfirmed;
         }
     }
 
@@ -171,7 +178,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int y = bodyTop + this.terrainModeOptionsTop;
         int optionWidth = (width - gap * 2) / 3;
         for (TerrainMode mode : TerrainMode.values()) {
-            int optionX = x + mode.ordinal() * (optionWidth + gap);
+            int optionX = x + GuiEnumOrder.index(mode) * (optionWidth + gap);
             this.addBodyButton(
                     optionX,
                     y,
@@ -189,7 +196,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int variantY = bodyTop + this.terrainVariantOptionsTop;
         int variantWidth = (width - gap) / 2;
         for (TerrainVariant variant : TerrainVariant.values()) {
-            int optionX = x + variant.ordinal() * (variantWidth + gap);
+            int optionX = x + GuiEnumOrder.index(variant) * (variantWidth + gap);
             this.addBodyButton(
                     optionX,
                     variantY,
@@ -210,7 +217,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int geologyWidth =
                 Math.max(1, (width - geologyGap * (GeologyTheme.values().length - 1)) / GeologyTheme.values().length);
         for (GeologyTheme theme : GeologyTheme.values()) {
-            int optionX = x + theme.ordinal() * (geologyWidth + geologyGap);
+            int optionX = x + GuiEnumOrder.index(theme) * (geologyWidth + geologyGap);
             this.addBodyButton(
                     optionX,
                     geologyY,
@@ -228,7 +235,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int seedModeY = bodyTop + this.terrainSeedOptionsTop;
         int seedModeWidth = (width - gap) / 2;
         for (RenewalSeedMode mode : RenewalSeedMode.values()) {
-            int optionX = x + mode.ordinal() * (seedModeWidth + gap);
+            int optionX = x + GuiEnumOrder.index(mode) * (seedModeWidth + gap);
             this.addBodyButton(
                     optionX,
                     seedModeY,
@@ -272,7 +279,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
 
         int optionWidth = (width - gap * 2) / 3;
         for (OrePreset preset : OrePreset.values()) {
-            int optionX = x + preset.ordinal() * (optionWidth + gap);
+            int optionX = x + GuiEnumOrder.index(preset) * (optionWidth + gap);
             this.addBodyButton(
                     optionX,
                     y + RESOURCE_OPTIONS_TOP,
@@ -289,7 +296,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         }
         int gameplayY = y + this.resourceGameplayOptionsTop;
         for (GameplayPreset preset : GameplayPreset.values()) {
-            int optionX = x + preset.ordinal() * (optionWidth + gap);
+            int optionX = x + GuiEnumOrder.index(preset) * (optionWidth + gap);
             this.addBodyButton(
                     optionX,
                     gameplayY,
@@ -306,7 +313,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         }
         int landmarkY = y + this.resourceLandmarkOptionsTop;
         for (LandmarkPreset preset : LandmarkPreset.values()) {
-            int optionX = x + preset.ordinal() * (optionWidth + gap);
+            int optionX = x + GuiEnumOrder.index(preset) * (optionWidth + gap);
             this.addBodyButton(
                     optionX,
                     landmarkY,
@@ -345,10 +352,15 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private void toggleConfirmation() {
+        Button confirmation = this.confirmationButton;
+        Button initialize = this.initializeButton;
+        if (confirmation == null || initialize == null) {
+            return;
+        }
         this.lockConfirmed = !this.lockConfirmed;
-        this.confirmationButton.setMessage(confirmationLabel());
-        setButtonStyle(this.confirmationButton, this.lockConfirmed ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
-        this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
+        confirmation.setMessage(confirmationLabel());
+        setButtonStyle(confirmation, this.lockConfirmed ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+        initialize.active = this.snapshot.backendReady() && this.lockConfirmed;
     }
 
     private void resetConfirmation() {
@@ -356,10 +368,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private void initialize() {
-        if (!this.lockConfirmed || !this.snapshot.backendReady()) {
+        Button initialize = this.initializeButton;
+        if (initialize == null || !this.lockConfirmed || !this.snapshot.backendReady()) {
             return;
         }
-        this.initializeButton.active = false;
+        initialize.active = false;
         this.localStatus = Component.translatable("screen.delvefold.setup.initializing");
         this.localStatusColor = ACCENT;
         this.bodyVirtualBottom = reviewVirtualBottom();
@@ -740,8 +753,9 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
             this.bodyVirtualBottom = reviewVirtualBottom();
             setBodyScrollOffset(this.bodyScrollOffset);
         }
-        if (payload.status() != ActionStatus.ACCEPTED && this.initializeButton != null) {
-            this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
+        Button initialize = this.initializeButton;
+        if (payload.status() != ActionStatus.ACCEPTED && initialize != null) {
+            initialize.active = this.snapshot.backendReady() && this.lockConfirmed;
         }
     }
 

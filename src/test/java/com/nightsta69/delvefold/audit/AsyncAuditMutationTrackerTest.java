@@ -26,7 +26,8 @@ class AsyncAuditMutationTrackerTest {
         AtomicBoolean oldAudited = new AtomicBoolean();
         tracker.beginSession(SAVE_ROOT);
         tracker.openSession(SAVE_ROOT);
-        tracker.startTracked(SAVE_ROOT, () -> oldSource, (result, failure) -> oldAudited.set(failure == null));
+        var unusedOldTracking =
+                tracker.startTracked(SAVE_ROOT, () -> oldSource, (result, failure) -> oldAudited.set(failure == null));
 
         tracker.stopAccepting(SAVE_ROOT);
         AtomicBoolean lateFactoryInvoked = new AtomicBoolean();
@@ -57,7 +58,7 @@ class AsyncAuditMutationTrackerTest {
         AtomicBoolean newAudited = new AtomicBoolean();
         tracker.beginSession(SAVE_ROOT);
         tracker.openSession(SAVE_ROOT);
-        tracker.startTracked(
+        var unusedNewTracking = tracker.startTracked(
                 SAVE_ROOT,
                 () -> CompletableFuture.completedFuture("new mutation"),
                 (result, failure) -> newAudited.set(failure == null));
@@ -77,7 +78,7 @@ class AsyncAuditMutationTrackerTest {
         ExecutorService workers = Executors.newFixedThreadPool(2);
         tracker.beginSession(SAVE_ROOT);
         tracker.openSession(SAVE_ROOT);
-        tracker.startTracked(SAVE_ROOT, () -> source, (result, failure) -> {
+        var unusedTracking = tracker.startTracked(SAVE_ROOT, () -> source, (result, failure) -> {
             auditEntered.countDown();
             try {
                 releaseAudit.await();

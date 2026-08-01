@@ -6,6 +6,7 @@ import mezz.jei.api.recipe.RecipeType;
 
 /** JEI recipe types owned by Delvefold. */
 public final class DelvefoldJeiRecipeTypes {
+    /** Synthetic JEI recipe type for Delvefold's in-world portal construction guide. */
     public static final RecipeType<PortalConstructionGuide> PORTAL_CONSTRUCTION =
             RecipeType.create(Delvefold.MOD_ID, "portal_construction", PortalConstructionGuide.class);
 

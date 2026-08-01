@@ -8,6 +8,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Bounded, ordered handoff from gameplay callers to the audit filesystem writer.
@@ -117,18 +118,17 @@ final class AuditWriteQueue implements AutoCloseable {
         };
     }
 
-    interface Sink extends AutoCloseable {
+    interface Sink {
         void append(AuditMutation mutation) throws Exception;
 
         void flush() throws Exception;
 
-        @Override
         void close() throws Exception;
     }
 
     @FunctionalInterface
     interface FailureHandler {
-        void onFailure(String reason, Throwable failure);
+        void onFailure(String reason, @Nullable Throwable failure);
     }
 
     private static final class RotatingLogSink implements Sink {

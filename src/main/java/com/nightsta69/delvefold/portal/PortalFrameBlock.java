@@ -25,10 +25,17 @@ import net.minecraft.world.phys.BlockHitResult;
 
 /** A Delvefold frame block ignited with vanilla Flint and Steel. */
 public final class PortalFrameBlock extends Block {
+    /** Codec used by Minecraft to serialize the registered portal-frame block type. */
     public static final MapCodec<PortalFrameBlock> CODEC = simpleCodec(PortalFrameBlock::new);
+
     private static final ResourceLocation ACTIVATE_PORTAL_ADVANCEMENT =
             ResourceLocation.fromNamespaceAndPath("delvefold", "activate_portal");
 
+    /**
+     * Creates a frame block with registry-supplied behavior properties.
+     *
+     * @param properties immutable Minecraft block behavior settings
+     */
     public PortalFrameBlock(BlockBehaviour.Properties properties) {
         super(properties);
     }

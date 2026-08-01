@@ -30,6 +30,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 /** Guided, server-authoritative importer for conventional and ore-like registered blocks. */
@@ -40,8 +41,8 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     private final Screen parent;
     private final Set<String> selectedGroupIds = new LinkedHashSet<>();
     private final List<RenderedGroup> renderedGroups = new ArrayList<>();
-    private ScanView scan;
-    private PreviewView preview;
+    private @Nullable ScanView scan;
+    private @Nullable PreviewView preview;
     private boolean includeVanilla;
     private boolean initialScanRequested;
     private boolean loading;
@@ -49,15 +50,27 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     private int visibleRows = 1;
     private String targetProfileId = "modded_ores";
     private Component statusMessage = Component.empty();
-    private Button createButton;
+    private @Nullable Button createButton;
 
+    /**
+     * Creates the importer before any server scan has arrived.
+     *
+     * @param parent screen restored when the importer closes
+     * @param snapshot immutable administration capabilities and profile inventory
+     */
     public DelvefoldOreImportScreen(Screen parent, AdminSnapshot snapshot) {
         super(Component.translatable("screen.delvefold.import.title"), snapshot);
         this.parent = parent;
     }
 
+    /**
+     * Accepts a bounded scan page on the client thread and rebuilds visible widgets when initialized.
+     *
+     * @param replacement immutable server-owned scan view
+     */
     public void acceptScan(ScanView replacement) {
-        boolean newSession = this.scan == null || !this.scan.scanToken().equals(replacement.scanToken());
+        ScanView currentScan = this.scan;
+        boolean newSession = currentScan == null || !currentScan.scanToken().equals(replacement.scanToken());
         this.scan = replacement;
         this.preview = null;
         this.loading = false;
@@ -71,6 +84,11 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         }
     }
 
+    /**
+     * Accepts a non-mutating import preview on the client thread.
+     *
+     * @param replacement immutable validation, diff, and workload preview
+     */
     public void acceptPreview(PreviewView replacement) {
         this.preview = replacement;
         this.loading = false;
@@ -169,7 +187,8 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
                 Style.SECONDARY,
                 button -> requestScan());
 
-        if (this.scan == null) {
+        ScanView activeScan = this.scan;
+        if (activeScan == null) {
             previous.active = false;
             next.active = false;
             previewButton.active = false;
@@ -180,14 +199,14 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
             return;
         }
 
-        int groupTop = controlsY + (this.scan.truncated() ? 54 : 39);
+        int groupTop = controlsY + (activeScan.truncated() ? 54 : 39);
         int available = Math.max(ROW_HEIGHT, this.contentBottom() - groupTop - 14);
-        this.visibleRows = Math.max(1, Math.min(this.scan.groups().size(), available / ROW_HEIGHT));
+        this.visibleRows = Math.max(1, Math.min(activeScan.groups().size(), available / ROW_HEIGHT));
         this.localOffset =
-                Math.clamp(this.localOffset, 0, Math.max(0, this.scan.groups().size() - this.visibleRows));
-        int end = Math.min(this.scan.groups().size(), this.localOffset + this.visibleRows);
+                Math.clamp(this.localOffset, 0, Math.max(0, activeScan.groups().size() - this.visibleRows));
+        int end = Math.min(activeScan.groups().size(), this.localOffset + this.visibleRows);
         for (int index = this.localOffset; index < end; index++) {
-            GroupView group = this.scan.groups().get(index);
+            GroupView group = activeScan.groups().get(index);
             int rowY = groupTop + (index - this.localOffset) * ROW_HEIGHT;
             boolean selected = this.selectedGroupIds.contains(group.id());
             int importable = importableCandidateCount(group);
@@ -214,13 +233,17 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
             this.renderedGroups.add(new RenderedGroup(group, this.contentLeft() + 5, rowY + 4));
         }
 
-        previous.active = this.localOffset > 0 || this.scan.page() > 0;
-        next.active = this.localOffset + this.visibleRows < this.scan.groups().size()
-                || this.scan.page() + 1 < this.scan.pageCount();
+        previous.active = this.localOffset > 0 || activeScan.page() > 0;
+        next.active = this.localOffset + this.visibleRows < activeScan.groups().size()
+                || activeScan.page() + 1 < activeScan.pageCount();
         previewButton.active = !this.loading && !this.selectedGroupIds.isEmpty();
     }
 
     private void initPreviewPanel() {
+        PreviewView activePreview = this.preview;
+        if (activePreview == null) {
+            return;
+        }
         int footerY = this.panelTop + this.panelHeight - 29;
         int slot = Math.max(1, (this.contentWidth() - 12) / 4);
         this.addButton(
@@ -247,7 +270,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
                 Component.translatable("screen.delvefold.next"),
                 Style.GHOST,
                 button -> nextPreviewPage());
-        this.createButton = this.addButton(
+        Button create = this.addButton(
                 this.contentLeft() + (slot + 4) * 3,
                 footerY,
                 this.contentWidth() - slot * 3 - 12,
@@ -255,6 +278,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
                 Component.translatable("screen.delvefold.import.create"),
                 Style.PRIMARY,
                 button -> createProfile());
+        this.createButton = create;
 
         int fieldY = this.contentTop() + 23;
         EditBox profile = this.addRenderableWidget(new EditBox(
@@ -273,14 +297,14 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
             updateCreateButton();
         });
 
-        int diffTop = fieldY + (this.preview.truncated() ? 70 : 58);
+        int diffTop = fieldY + (activePreview.truncated() ? 70 : 58);
         int available = Math.max(24, this.contentBottom() - diffTop - 14);
-        this.visibleRows = Math.max(1, Math.min(this.preview.diff().size(), available / 24));
+        this.visibleRows = Math.max(1, Math.min(activePreview.diff().size(), available / 24));
         this.localOffset =
-                Math.clamp(this.localOffset, 0, Math.max(0, this.preview.diff().size() - this.visibleRows));
-        int end = Math.min(this.preview.diff().size(), this.localOffset + this.visibleRows);
+                Math.clamp(this.localOffset, 0, Math.max(0, activePreview.diff().size() - this.visibleRows));
+        int end = Math.min(activePreview.diff().size(), this.localOffset + this.visibleRows);
         for (int index = this.localOffset; index < end; index++) {
-            DiffView entry = this.preview.diff().get(index);
+            DiffView entry = activePreview.diff().get(index);
             int rowY = diffTop + (index - this.localOffset) * 24;
             String rule = entry.ruleId().isBlank() ? entry.groupId() : entry.ruleId();
             Component label = Component.translatable(
@@ -295,18 +319,18 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
             diff.setTooltipDelay(Duration.ofMillis(250));
         }
 
-        previous.active = this.localOffset > 0 || this.preview.page() > 0;
-        next.active = this.localOffset + this.visibleRows < this.preview.diff().size()
-                || this.preview.page() + 1 < this.preview.pageCount();
-        if (!this.preview.issues().isEmpty()) {
+        previous.active = this.localOffset > 0 || activePreview.page() > 0;
+        next.active = this.localOffset + this.visibleRows < activePreview.diff().size()
+                || activePreview.page() + 1 < activePreview.pageCount();
+        if (!activePreview.issues().isEmpty()) {
             var issueText = Component.empty();
-            this.preview.issues().stream().limit(6).forEach(issue -> {
+            activePreview.issues().stream().limit(6).forEach(issue -> {
                 if (!issueText.getString().isEmpty()) {
                     issueText.append("\n");
                 }
                 issueText.append(issueLine(issue));
             });
-            this.createButton.setTooltip(Tooltip.create(issueText));
+            create.setTooltip(Tooltip.create(issueText));
         }
         updateCreateButton();
     }
@@ -318,12 +342,13 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     }
 
     private void requestPreview() {
-        if (this.scan == null || this.selectedGroupIds.isEmpty()) {
+        ScanView activeScan = this.scan;
+        if (activeScan == null || this.selectedGroupIds.isEmpty()) {
             return;
         }
         this.loading = true;
         List<String> selected = this.selectedGroupIds.stream().sorted().toList();
-        DelvefoldClientRequests.requestOreImportPreview(this.scan.scanToken(), selected);
+        DelvefoldClientRequests.requestOreImportPreview(activeScan.scanToken(), selected);
     }
 
     private void toggleGroup(GroupView group) {
@@ -337,46 +362,50 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     }
 
     private void previousScanPage() {
-        if (this.scan == null) return;
+        ScanView activeScan = this.scan;
+        if (activeScan == null) return;
         if (this.localOffset > 0) {
             this.localOffset = Math.max(0, this.localOffset - this.visibleRows);
             this.rebuildWidgets();
-        } else if (this.scan.page() > 0) {
+        } else if (activeScan.page() > 0) {
             this.loading = true;
-            DelvefoldClientRequests.requestOreImportScanPage(this.scan.scanToken(), this.scan.page() - 1);
+            DelvefoldClientRequests.requestOreImportScanPage(activeScan.scanToken(), activeScan.page() - 1);
         }
     }
 
     private void nextScanPage() {
-        if (this.scan == null) return;
-        if (this.localOffset + this.visibleRows < this.scan.groups().size()) {
+        ScanView activeScan = this.scan;
+        if (activeScan == null) return;
+        if (this.localOffset + this.visibleRows < activeScan.groups().size()) {
             this.localOffset += this.visibleRows;
             this.rebuildWidgets();
-        } else if (this.scan.page() + 1 < this.scan.pageCount()) {
+        } else if (activeScan.page() + 1 < activeScan.pageCount()) {
             this.loading = true;
-            DelvefoldClientRequests.requestOreImportScanPage(this.scan.scanToken(), this.scan.page() + 1);
+            DelvefoldClientRequests.requestOreImportScanPage(activeScan.scanToken(), activeScan.page() + 1);
         }
     }
 
     private void previousPreviewPage() {
-        if (this.preview == null) return;
+        PreviewView activePreview = this.preview;
+        if (activePreview == null) return;
         if (this.localOffset > 0) {
             this.localOffset = Math.max(0, this.localOffset - this.visibleRows);
             this.rebuildWidgets();
-        } else if (this.preview.page() > 0) {
+        } else if (activePreview.page() > 0) {
             this.loading = true;
-            DelvefoldClientRequests.requestOreImportPreviewPage(this.preview.commitToken(), this.preview.page() - 1);
+            DelvefoldClientRequests.requestOreImportPreviewPage(activePreview.commitToken(), activePreview.page() - 1);
         }
     }
 
     private void nextPreviewPage() {
-        if (this.preview == null) return;
-        if (this.localOffset + this.visibleRows < this.preview.diff().size()) {
+        PreviewView activePreview = this.preview;
+        if (activePreview == null) return;
+        if (this.localOffset + this.visibleRows < activePreview.diff().size()) {
             this.localOffset += this.visibleRows;
             this.rebuildWidgets();
-        } else if (this.preview.page() + 1 < this.preview.pageCount()) {
+        } else if (activePreview.page() + 1 < activePreview.pageCount()) {
             this.loading = true;
-            DelvefoldClientRequests.requestOreImportPreviewPage(this.preview.commitToken(), this.preview.page() + 1);
+            DelvefoldClientRequests.requestOreImportPreviewPage(activePreview.commitToken(), activePreview.page() + 1);
         }
     }
 
@@ -389,28 +418,31 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     }
 
     private void createProfile() {
-        if (this.preview == null || !canCreate()) {
+        PreviewView activePreview = this.preview;
+        if (activePreview == null || !canCreate()) {
             return;
         }
         this.loading = true;
         updateCreateButton();
-        DelvefoldClientRequests.createImportedOreProfile(this.preview.commitToken(), this.targetProfileId.trim());
+        DelvefoldClientRequests.createImportedOreProfile(activePreview.commitToken(), this.targetProfileId.trim());
     }
 
     private void updateCreateButton() {
-        if (this.createButton != null) {
-            this.createButton.active = !this.loading && canCreate();
+        Button create = this.createButton;
+        if (create != null) {
+            create.active = !this.loading && canCreate();
         }
     }
 
     private boolean canCreate() {
-        return this.preview != null
-                && this.preview.valid()
-                && this.preview.addedRuleCount() > 0
+        PreviewView activePreview = this.preview;
+        return activePreview != null
+                && activePreview.valid()
+                && activePreview.addedRuleCount() > 0
                 && profileIdIssue() == null;
     }
 
-    private Component profileIdIssue() {
+    private @Nullable Component profileIdIssue() {
         String id = this.targetProfileId.trim();
         if (id.isEmpty()) {
             return Component.translatable("screen.delvefold.import.profile_error.empty");
@@ -457,7 +489,8 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
 
     private void renderScan(GuiGraphics graphics, int x, int y) {
         this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.import.discovery"), x + 9, y + 7);
-        if (this.scan == null) {
+        ScanView activeScan = this.scan;
+        if (activeScan == null) {
             graphics.drawWordWrap(
                     this.font,
                     Component.translatable("screen.delvefold.import.scanning"),
@@ -469,9 +502,9 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         }
         Component summary = Component.translatable(
                 "screen.delvefold.import.scan_summary",
-                this.scan.totalGroups(),
-                this.scan.scannedBlocks(),
-                this.scan.baseProfileId());
+                activeScan.totalGroups(),
+                activeScan.scannedBlocks(),
+                activeScan.baseProfileId());
         graphics.drawString(
                 this.font,
                 this.font.plainSubstrByWidth(summary.getString(), this.contentWidth() - 20),
@@ -482,7 +515,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         Component selected = Component.translatable("screen.delvefold.import.selected", this.selectedGroupIds.size());
         graphics.drawString(
                 this.font, selected, x + this.contentWidth() - this.font.width(selected) - 10, y + 8, ACCENT, false);
-        if (this.scan.groups().isEmpty()) {
+        if (activeScan.groups().isEmpty()) {
             graphics.drawWordWrap(
                     this.font,
                     Component.translatable("screen.delvefold.import.no_groups"),
@@ -491,7 +524,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
                     this.contentWidth() - 20,
                     MUTED_TEXT);
         }
-        if (this.scan.truncated()) {
+        if (activeScan.truncated()) {
             Component warning = Component.translatable("screen.delvefold.import.scan_truncated");
             graphics.drawString(
                     this.font,
@@ -505,19 +538,23 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     }
 
     private void renderPreview(GuiGraphics graphics, int x, int y) {
+        PreviewView activePreview = this.preview;
+        if (activePreview == null) {
+            return;
+        }
         this.drawSectionTitle(graphics, Component.translatable("screen.delvefold.import.preview_title"), x + 9, y + 7);
         Component page = Component.translatable(
-                "screen.delvefold.import.page", this.preview.page() + 1, this.preview.pageCount());
+                "screen.delvefold.import.page", activePreview.page() + 1, activePreview.pageCount());
         graphics.drawString(
                 this.font, page, x + this.contentWidth() - this.font.width(page) - 9, y + 8, DIM_TEXT, false);
 
         Component profileIssue = profileIdIssue();
         Component validity = profileIssue != null
                 ? profileIssue
-                : this.preview.valid()
-                        ? Component.translatable("screen.delvefold.import.valid", this.preview.addedRuleCount())
+                : activePreview.valid()
+                        ? Component.translatable("screen.delvefold.import.valid", activePreview.addedRuleCount())
                         : Component.translatable("screen.delvefold.import.invalid");
-        int validityColor = profileIssue == null && this.preview.valid() ? SUCCESS : DANGER;
+        int validityColor = profileIssue == null && activePreview.valid() ? SUCCESS : DANGER;
         graphics.drawString(
                 this.font,
                 this.font.plainSubstrByWidth(validity.getString(), Math.max(1, this.contentWidth() / 2 - 16)),
@@ -531,9 +568,9 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
         int column = Math.max(
                 1,
                 (this.contentWidth() - 16)
-                        / Math.max(1, this.preview.workloads().size()));
-        for (int index = 0; index < this.preview.workloads().size(); index++) {
-            TerrainDeltaView workload = this.preview.workloads().get(index);
+                        / Math.max(1, activePreview.workloads().size()));
+        for (int index = 0; index < activePreview.workloads().size(); index++) {
+            TerrainDeltaView workload = activePreview.workloads().get(index);
             String terrain = Component.translatable(
                             "option.delvefold.terrain." + workload.terrain().serializedName())
                     .getString();
@@ -558,7 +595,7 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
                 y + 62,
                 MUTED_TEXT,
                 false);
-        if (this.preview.truncated()) {
+        if (activePreview.truncated()) {
             Component warning = Component.translatable("screen.delvefold.import.preview_truncated");
             graphics.drawString(
                     this.font,
@@ -568,14 +605,14 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
                     WARNING,
                     false);
         }
-        if (!this.preview.issues().isEmpty()) {
-            Component issue = issueLine(this.preview.issues().getFirst());
+        if (!activePreview.issues().isEmpty()) {
+            Component issue = issueLine(activePreview.issues().getFirst());
             graphics.drawString(
                     this.font,
                     this.font.plainSubstrByWidth(issue.getString(), this.contentWidth() - 16),
                     x + 8,
                     this.contentBottom() - 11,
-                    this.preview.valid() ? WARNING : DANGER,
+                    activePreview.valid() ? WARNING : DANGER,
                     false);
         }
         renderStatus(graphics);
@@ -740,9 +777,11 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
     }
 
     private int maximumLocalOffset() {
-        int size = this.preview == null
-                ? this.scan == null ? 0 : this.scan.groups().size()
-                : this.preview.diff().size();
+        PreviewView activePreview = this.preview;
+        ScanView activeScan = this.scan;
+        int size = activePreview == null
+                ? activeScan == null ? 0 : activeScan.groups().size()
+                : activePreview.diff().size();
         return Math.max(0, size - this.visibleRows);
     }
 
@@ -756,17 +795,19 @@ public final class DelvefoldOreImportScreen extends DelvefoldScreen {
 
     @Override
     public Component getNarrationMessage() {
-        if (this.preview != null) {
+        PreviewView activePreview = this.preview;
+        if (activePreview != null) {
             Component state = profileIdIssue();
             if (state == null) {
-                state = this.preview.valid()
-                        ? Component.translatable("screen.delvefold.import.valid", this.preview.addedRuleCount())
+                state = activePreview.valid()
+                        ? Component.translatable("screen.delvefold.import.valid", activePreview.addedRuleCount())
                         : Component.translatable("screen.delvefold.import.invalid");
             }
             return Component.translatable(
-                    "screen.delvefold.import.narration.preview", this.preview.totalDiffEntries(), state);
+                    "screen.delvefold.import.narration.preview", activePreview.totalDiffEntries(), state);
         }
-        int total = this.scan == null ? 0 : this.scan.totalGroups();
+        ScanView activeScan = this.scan;
+        int total = activeScan == null ? 0 : activeScan.totalGroups();
         return Component.translatable("screen.delvefold.import.narration.scan", total, this.selectedGroupIds.size());
     }
 

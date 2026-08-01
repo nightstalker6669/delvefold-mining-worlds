@@ -19,6 +19,15 @@ public final class DelvefoldGuideService {
 
     private DelvefoldGuideService() {}
 
+    /**
+     * Authorizes and sends one read-only guide snapshot to a player on the server thread.
+     *
+     * <p>The method checks current visibility, issues a short-lived opaque acknowledgement identifier, and discards
+     * that identifier if packet delivery fails.
+     *
+     * @param player requesting server player
+     * @return success when a payload was sent, otherwise a localized denial result
+     */
     public static OpenResult openFor(ServerPlayer player) {
         ConfigSnapshot config;
         try {
@@ -59,7 +68,13 @@ public final class DelvefoldGuideService {
         }
     }
 
-    /** Awards consultation only for the one client opening that the server just authorized. */
+    /**
+     * Awards consultation only for the one client opening that the server just authorized.
+     *
+     * @param player server player acknowledging the opened screen
+     * @param authorizationId opaque, short-lived identifier issued by {@link #openFor(ServerPlayer)}
+     * @return {@code true} only when authorization, current visibility, and advancement triggering all succeed
+     */
     public static boolean confirmOpened(ServerPlayer player, long authorizationId) {
         if (!OPEN_AUTHORIZATIONS.confirm(
                 player.getUUID(), authorizationId, player.getServer().getTickCount())) {
@@ -76,6 +91,12 @@ public final class DelvefoldGuideService {
         return SeamLedgerAdvancements.triggerConsulted(player);
     }
 
+    /**
+     * Immutable outcome of a server-side guide-open attempt.
+     *
+     * @param opened whether a payload was successfully authorized and sent
+     * @param message localized denial component, or an empty component on success
+     */
     public record OpenResult(boolean opened, Component message) {
         private static OpenResult success() {
             return new OpenResult(true, Component.empty());

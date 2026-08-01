@@ -18,6 +18,9 @@ import net.neoforged.fml.ModList;
 /** Optional EMI information page; this class is discovered only when EMI is installed. */
 @EmiEntrypoint
 public final class DelvefoldEmiPlugin implements EmiPlugin {
+    /** Creates the EMI entry point discovered through EMI's client plugin metadata. */
+    public DelvefoldEmiPlugin() {}
+
     @Override
     public void register(EmiRegistry registry) {
         EmiRecipeCategory portalConstruction = new EmiRecipeCategory(

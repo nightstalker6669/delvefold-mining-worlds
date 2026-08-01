@@ -32,7 +32,9 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import org.jspecify.annotations.Nullable;
 
+/** Multi-page ore-rule editor that sends one validated, revision-guarded server mutation. */
 public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private static final int BODY_SCROLL_STEP = 22;
 
@@ -50,7 +52,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private final List<AdminSnapshot.OreBandDraft> bands;
     private final boolean unsupportedDuplicateSources;
     private final List<AbstractWidget> bodyWidgets = new ArrayList<>();
-    private final Map<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
+    private final IdentityHashMap<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
     private final Page page;
     private int bandIndex;
     private int variantPage;
@@ -65,38 +67,45 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private int bodyScrollOffset;
     private int bodyVirtualBottom;
 
-    private EditBox ruleIdBox;
-    private EditBox hostTagBox;
-    private EditBox weightBox;
-    private EditBox statePropertiesBox;
-    private EditBox biomeIncludesBox;
-    private EditBox biomeExcludesBox;
-    private EditBox bandIdBox;
-    private EditBox veinSizeBox;
-    private EditBox attemptsBox;
-    private EditBox minYBox;
-    private EditBox maxYBox;
-    private EditBox peakYBox;
-    private EditBox plateauMinBox;
-    private EditBox plateauMaxBox;
-    private EditBox airDiscardBox;
-    private Button saveButton;
-    private Button deleteButton;
+    private @Nullable EditBox ruleIdBox;
+    private @Nullable EditBox hostTagBox;
+    private @Nullable EditBox weightBox;
+    private @Nullable EditBox statePropertiesBox;
+    private @Nullable EditBox biomeIncludesBox;
+    private @Nullable EditBox biomeExcludesBox;
+    private @Nullable EditBox bandIdBox;
+    private @Nullable EditBox veinSizeBox;
+    private @Nullable EditBox attemptsBox;
+    private @Nullable EditBox minYBox;
+    private @Nullable EditBox maxYBox;
+    private @Nullable EditBox peakYBox;
+    private @Nullable EditBox plateauMinBox;
+    private @Nullable EditBox plateauMaxBox;
+    private @Nullable EditBox airDiscardBox;
+    private @Nullable Button saveButton;
+    private @Nullable Button deleteButton;
     private int rawBandIndex = -1;
-    private String rawBandId;
-    private String rawVeinSize;
-    private String rawAttempts;
-    private String rawMinY;
-    private String rawMaxY;
-    private String rawPeakY;
-    private String rawPlateauMin;
-    private String rawPlateauMax;
-    private String rawAirDiscard;
+    private String rawBandId = "";
+    private String rawVeinSize = "";
+    private String rawAttempts = "";
+    private String rawMinY = "";
+    private String rawMaxY = "";
+    private String rawPeakY = "";
+    private String rawPlateauMin = "";
+    private String rawPlateauMax = "";
+    private String rawAirDiscard = "";
     private String rawStateProperties;
     private String rawWeight;
     private String rawBiomeIncludes;
     private String rawBiomeExcludes;
 
+    /**
+     * Creates an editor from a copied rule draft without mutating the supplied snapshot.
+     *
+     * @param parent screen restored on cancellation or completion
+     * @param snapshot immutable administration state and revision
+     * @param draft bounded rule draft to create or edit
+     */
     public DelvefoldOreRuleWizardScreen(Screen parent, AdminSnapshot snapshot, AdminSnapshot.OreRuleDraft draft) {
         this(
                 parent,
@@ -123,8 +132,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             int bandIndex,
             boolean existingRule,
             String originalRuleId,
-            String focusedVariant,
-            List<String> inheritedCandidates,
+            @Nullable String focusedVariant,
+            @Nullable List<String> inheritedCandidates,
             int variantPage,
             int bodyScrollOffset,
             boolean unsupportedDuplicateSources) {
@@ -426,7 +435,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int terrainGap = 6;
         int terrainWidth = (innerWidth - terrainGap * 2) / 3;
         for (TerrainMode mode : TerrainMode.values()) {
-            int modeX = x + mode.ordinal() * (terrainWidth + terrainGap);
+            int modeX = x + GuiEnumOrder.index(mode) * (terrainWidth + terrainGap);
             boolean selected = this.terrainModes.contains(mode);
             this.addBodyButton(
                     modeX,
@@ -498,7 +507,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int thirdWidth = (innerWidth - rowTwoGap * 2) / 3;
         int finalThirdWidth = innerWidth - thirdWidth * 2 - rowTwoGap * 2;
         if (band.placement() == OreBandPlacement.PROVINCE) {
-            ProvinceSettings province = band.province() == null ? ProvinceSettings.defaults() : band.province();
+            ProvinceSettings province = provinceOrDefault(band.province());
             this.addBodyButton(
                     x,
                     rowTwoY,
@@ -545,40 +554,45 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int rowThreeY = y + (compact ? 62 : 84);
         int heightGap = 6;
         int heightWidth = (innerWidth - heightGap * 4) / 5;
-        this.minYBox = registerBodyWidget(addEditBox(
+        EditBox minY = registerBodyWidget(addEditBox(
                 x,
                 rowThreeY,
                 heightWidth,
                 this.rawMinY,
                 Component.translatable("screen.delvefold.ore_wizard.hint.min_y")));
-        this.maxYBox = registerBodyWidget(addEditBox(
+        this.minYBox = minY;
+        EditBox maxY = registerBodyWidget(addEditBox(
                 x + (heightWidth + heightGap),
                 rowThreeY,
                 heightWidth,
                 this.rawMaxY,
                 Component.translatable("screen.delvefold.ore_wizard.hint.max_y")));
-        this.peakYBox = registerBodyWidget(addEditBox(
+        this.maxYBox = maxY;
+        EditBox peakY = registerBodyWidget(addEditBox(
                 x + (heightWidth + heightGap) * 2,
                 rowThreeY,
                 heightWidth,
                 this.rawPeakY,
                 Component.translatable("screen.delvefold.ore_wizard.hint.peak_y")));
-        this.plateauMinBox = registerBodyWidget(addEditBox(
+        this.peakYBox = peakY;
+        EditBox plateauMin = registerBodyWidget(addEditBox(
                 x + (heightWidth + heightGap) * 3,
                 rowThreeY,
                 heightWidth,
                 this.rawPlateauMin,
                 Component.translatable("screen.delvefold.ore_wizard.hint.plateau_min")));
-        this.plateauMaxBox = registerBodyWidget(addEditBox(
+        this.plateauMinBox = plateauMin;
+        EditBox plateauMax = registerBodyWidget(addEditBox(
                 x + (heightWidth + heightGap) * 4,
                 rowThreeY,
                 innerWidth - (heightWidth + heightGap) * 4,
                 this.rawPlateauMax,
                 Component.translatable("screen.delvefold.ore_wizard.hint.plateau_max")));
+        this.plateauMaxBox = plateauMax;
         bindRawBandResponders();
-        this.peakYBox.active = band.distribution() == HeightDistribution.TRIANGLE;
-        this.plateauMinBox.active = band.distribution() == HeightDistribution.TRAPEZOID;
-        this.plateauMaxBox.active = band.distribution() == HeightDistribution.TRAPEZOID;
+        peakY.active = band.distribution() == HeightDistribution.TRIANGLE;
+        plateauMin.active = band.distribution() == HeightDistribution.TRAPEZOID;
+        plateauMax.active = band.distribution() == HeightDistribution.TRAPEZOID;
 
         int controlsY = y + (compact ? 95 : 156);
         int controlGap = 6;
@@ -673,18 +687,34 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     private void bindRawBandResponders() {
-        if (this.veinSizeBox != null) {
-            this.veinSizeBox.setResponder(value -> this.rawVeinSize = value);
+        EditBox veinSize = this.veinSizeBox;
+        EditBox attempts = this.attemptsBox;
+        EditBox minY = this.minYBox;
+        EditBox maxY = this.maxYBox;
+        EditBox peakY = this.peakYBox;
+        EditBox plateauMin = this.plateauMinBox;
+        EditBox plateauMax = this.plateauMaxBox;
+        EditBox airDiscard = this.airDiscardBox;
+        if (minY == null
+                || maxY == null
+                || peakY == null
+                || plateauMin == null
+                || plateauMax == null
+                || airDiscard == null) {
+            return;
         }
-        if (this.attemptsBox != null) {
-            this.attemptsBox.setResponder(value -> this.rawAttempts = value);
+        if (veinSize != null) {
+            veinSize.setResponder(value -> this.rawVeinSize = value);
         }
-        this.minYBox.setResponder(value -> this.rawMinY = value);
-        this.maxYBox.setResponder(value -> this.rawMaxY = value);
-        this.peakYBox.setResponder(value -> this.rawPeakY = value);
-        this.plateauMinBox.setResponder(value -> this.rawPlateauMin = value);
-        this.plateauMaxBox.setResponder(value -> this.rawPlateauMax = value);
-        this.airDiscardBox.setResponder(value -> this.rawAirDiscard = value);
+        if (attempts != null) {
+            attempts.setResponder(value -> this.rawAttempts = value);
+        }
+        minY.setResponder(value -> this.rawMinY = value);
+        maxY.setResponder(value -> this.rawMaxY = value);
+        peakY.setResponder(value -> this.rawPeakY = value);
+        plateauMin.setResponder(value -> this.rawPlateauMin = value);
+        plateauMax.setResponder(value -> this.rawPlateauMax = value);
+        airDiscard.setResponder(value -> this.rawAirDiscard = value);
     }
 
     private void toggleVariant(String blockId) {
@@ -746,7 +776,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         }
         AdminSnapshot.OreBandDraft current = this.bands.get(this.bandIndex);
         HeightDistribution[] values = HeightDistribution.values();
-        HeightDistribution next = values[(current.distribution().ordinal() + 1) % values.length];
+        HeightDistribution next = values[(GuiEnumOrder.index(current.distribution()) + 1) % values.length];
         this.bands.set(
                 this.bandIndex,
                 new AdminSnapshot.OreBandDraft(
@@ -795,7 +825,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             return;
         }
         AdminSnapshot.OreBandDraft current = this.bands.get(this.bandIndex);
-        ProvinceSettings province = current.province() == null ? ProvinceSettings.defaults() : current.province();
+        ProvinceSettings province = provinceOrDefault(current.province());
         this.minecraft.setScreen(
                 new DelvefoldProvinceSettingsScreen(this, this.snapshot, province, this::applyProvinceSettings));
     }
@@ -882,11 +912,11 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                     };
 
             boolean veinValuesValid = placement == OreBandPlacement.PROVINCE
-                    || veinSize >= 1
+                    || (veinSize >= 1
                             && veinSize <= 64
                             && Double.isFinite(attempts)
                             && attempts >= 0.0D
-                            && attempts <= 256.0D;
+                            && attempts <= 256.0D);
             if (!id.matches("[a-z0-9_.-]{1,128}")
                     || !veinValuesValid
                     || minY < -64
@@ -915,9 +945,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                             plateauMax,
                             airDiscard,
                             placement,
-                            placement == OreBandPlacement.PROVINCE
-                                    ? (current.province() == null ? ProvinceSettings.defaults() : current.province())
-                                    : null));
+                            placement == OreBandPlacement.PROVINCE ? provinceOrDefault(current.province()) : null));
             resetValidationMessage();
             return true;
         } catch (NumberFormatException exception) {
@@ -987,7 +1015,11 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         if (!commitFocusedWeight() || !commitBand() || !commitAdvanced() || !validateRule()) {
             return;
         }
-        this.saveButton.active = false;
+        Button save = this.saveButton;
+        if (save == null) {
+            return;
+        }
+        save.active = false;
         this.validationMessage = Component.translatable("screen.delvefold.ore_wizard.saving");
         this.validationColor = ACCENT;
         DelvefoldClientRequests.send(
@@ -1104,7 +1136,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         if (text == null || text.isBlank()) {
             return result;
         }
-        for (String pair : text.split(",")) {
+        for (String pair : text.split(",", 0)) {
             String[] parts = pair.trim().split("=", 2);
             if (parts.length != 2
                     || !parts[0].matches("[a-z0-9_]+")
@@ -1124,7 +1156,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             return List.of();
         }
         List<String> result = new ArrayList<>();
-        for (String value : text.split("[,\\s]+")) {
+        for (String value : text.split("[,\\s]+", 0)) {
             if (value.isBlank()) {
                 continue;
             }
@@ -1144,7 +1176,9 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     private static final class LocalizedValidationException extends IllegalArgumentException {
-        private final Component displayMessage;
+        private static final long serialVersionUID = 1L;
+
+        private final transient Component displayMessage;
 
         private LocalizedValidationException(Component displayMessage) {
             this.displayMessage = displayMessage;
@@ -1162,12 +1196,16 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     private void delete() {
-        if (!this.deleteArmed) {
-            this.deleteArmed = true;
-            this.deleteButton.setMessage(Component.translatable("screen.delvefold.ore_wizard.confirm_delete"));
+        Button delete = this.deleteButton;
+        if (delete == null) {
             return;
         }
-        this.deleteButton.active = false;
+        if (!this.deleteArmed) {
+            this.deleteArmed = true;
+            delete.setMessage(Component.translatable("screen.delvefold.ore_wizard.confirm_delete"));
+            return;
+        }
+        delete.active = false;
         DelvefoldClientRequests.send(new DeleteOreRulePayload(this.snapshot.oreRevision(), this.originalRuleId));
     }
 
@@ -1369,7 +1407,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private void drawBandPreview(
             GuiGraphics graphics, AdminSnapshot.OreBandDraft draft, int x, int y, int width, int height) {
         if (draft.placement() == OreBandPlacement.PROVINCE) {
-            ProvinceSettings province = draft.province() == null ? ProvinceSettings.defaults() : draft.province();
+            ProvinceSettings province = provinceOrDefault(draft.province());
             graphics.fill(x, y, x + width, y + height, 0xCC142127);
             graphics.renderOutline(x, y, width, height, CARD_BORDER);
             Component lineOne = Component.translatable(
@@ -1460,21 +1498,34 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             case REJECTED, ERROR -> DANGER;
         };
         if (payload.status() != ActionStatus.ACCEPTED) {
-            if (this.saveButton != null) {
-                this.saveButton.active = this.snapshot.backendReady() && !this.unsupportedDuplicateSources;
+            Button save = this.saveButton;
+            if (save != null) {
+                save.active = this.snapshot.backendReady() && !this.unsupportedDuplicateSources;
             }
-            if (this.deleteButton != null) {
-                this.deleteButton.active = true;
+            Button delete = this.deleteButton;
+            if (delete != null) {
+                delete.active = true;
                 this.deleteArmed = false;
-                this.deleteButton.setMessage(Component.translatable("screen.delvefold.ore_wizard.delete"));
+                delete.setMessage(Component.translatable("screen.delvefold.ore_wizard.delete"));
             }
         }
     }
 
+    /**
+     * Indicates whether an accepted save should return to the refreshed dashboard.
+     *
+     * @return {@code true} after the server accepts the pending mutation
+     */
     public boolean closeOnNextSnapshot() {
         return this.closeOnNextSnapshot;
     }
 
+    /**
+     * Creates a replacement editor retaining unsaved local page and field state.
+     *
+     * @param updatedSnapshot newer immutable server snapshot
+     * @return a new editor instance with preserved local draft state
+     */
     public DelvefoldOreRuleWizardScreen refreshed(AdminSnapshot updatedSnapshot) {
         Screen refreshedParent = this.parent instanceof DelvefoldDashboardScreen dashboard
                 ? dashboard.refreshed(updatedSnapshot)
@@ -1527,7 +1578,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             ResourceLocation candidate = BuiltInRegistries.BLOCK.getKey(block);
             if (candidate == null
                     || !candidate.getNamespace().equals(primary.getNamespace())
-                    || block.asItem() == Items.AIR
+                    || Items.AIR.equals(block.asItem())
                     || !family(candidate.getPath()).equals(family)) {
                 continue;
             }
@@ -1556,6 +1607,10 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         return id != null && id.getPath().startsWith("deepslate_")
                 ? "minecraft:deepslate_ore_replaceables"
                 : "minecraft:stone_ore_replaceables";
+    }
+
+    private static ProvinceSettings provinceOrDefault(@Nullable ProvinceSettings province) {
+        return province == null ? ProvinceSettings.defaults() : province;
     }
 
     private static Component toggleLabel(Component label, boolean value) {
@@ -1628,12 +1683,13 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     private void focusWeightField() {
-        if (this.weightBox == null || !this.weightBox.active) {
+        EditBox weight = this.weightBox;
+        if (weight == null || !weight.active) {
             return;
         }
-        scrollBodyWidgetIntoView(this.weightBox);
-        if (this.weightBox.visible) {
-            this.setInitialFocus(this.weightBox);
+        scrollBodyWidgetIntoView(weight);
+        if (weight.visible) {
+            this.setInitialFocus(weight);
         }
     }
 

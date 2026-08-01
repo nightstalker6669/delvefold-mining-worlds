@@ -71,6 +71,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /** Brigadier and console parity for every administration path exposed by the GUI. */
@@ -79,10 +80,20 @@ public final class DelvefoldCommands {
 
     private DelvefoldCommands() {}
 
+    /**
+     * Registers command roots during NeoForge's server command-registration event.
+     *
+     * @param event event containing the active server dispatcher
+     */
     public static void onRegisterCommands(RegisterCommandsEvent event) {
         register(event.getDispatcher());
     }
 
+    /**
+     * Adds every documented Delvefold root and alias to a Brigadier dispatcher.
+     *
+     * @param dispatcher target dispatcher; existing unrelated commands are untouched
+     */
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         for (String name : DelvefoldCommandNames.REGISTERED_ROOTS) {
             dispatcher.register(root(name));
@@ -533,7 +544,7 @@ public final class DelvefoldCommands {
     private static int doctor(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         var server = source.getServer();
-        DelvefoldDoctorService.get()
+        var unusedDoctorCompletion = DelvefoldDoctorService.get()
                 .renderedLinesAsync(server)
                 .whenComplete((lines, failure) -> server.execute(() -> {
                     if (!sourceStillAvailable(source)) {
@@ -555,7 +566,7 @@ public final class DelvefoldCommands {
     private static int exportDoctorReport(CommandContext<CommandSourceStack> context) {
         CommandSourceStack source = context.getSource();
         var server = source.getServer();
-        DelvefoldDoctorService.get()
+        var unusedExportCompletion = DelvefoldDoctorService.get()
                 .exportAsync(server)
                 .whenComplete((path, failure) -> server.execute(() -> {
                     if (!sourceStillAvailable(source)) {
@@ -688,7 +699,8 @@ public final class DelvefoldCommands {
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
             var settings = snapshot.settings();
             Component terrain = settings.initialized()
-                    ? Component.literal(settings.terrainMode().serializedName())
+                    ? Component.literal(java.util.Objects.requireNonNull(settings.terrainMode(), "initialized terrain")
+                            .serializedName())
                     : Component.translatable("message.delvefold.command.status_uninitialized");
             Component pending = WorldOperationService.get().isEntryBlocked()
                     ? Component.translatable("message.delvefold.command.status_pending")
@@ -1171,8 +1183,8 @@ public final class DelvefoldCommands {
                                     }
                                 })
                 : verification.verifyAsync(id);
-        future.whenComplete((result, failure) -> server.execute(() -> {
-            BackupCatalogCache.get().invalidateAndRefresh(saveRoot);
+        var unusedVerificationCompletion = future.whenComplete((result, failure) -> server.execute(() -> {
+            var unusedRefreshAfterVerification = BackupCatalogCache.get().invalidateAndRefresh(saveRoot);
             if (source.getEntity() instanceof ServerPlayer requestedBy
                     && server.getPlayerList().getPlayer(requestedBy.getUUID()) == null) {
                 return;
@@ -1235,7 +1247,7 @@ public final class DelvefoldCommands {
             String id = StringArgumentType.getString(context, "backup");
             WorldBackupCatalog catalog = backupCatalog(context);
             boolean changed = catalog.setPinned(id, pinned);
-            BackupCatalogCache.get().invalidateAndRefresh(saveRoot(context));
+            var unusedRefreshAfterPinChange = BackupCatalogCache.get().invalidateAndRefresh(saveRoot(context));
             if (changed) {
                 audit(
                         context.getSource(),
@@ -1284,7 +1296,7 @@ public final class DelvefoldCommands {
                                         -1L);
                             }
                         });
-        deletion.whenComplete((deleted, failure) -> server.execute(() -> {
+        var unusedDeletionCompletion = deletion.whenComplete((deleted, failure) -> server.execute(() -> {
             if (requestedBy != null && server.getPlayerList().getPlayer(requestedBy) == null) {
                 return;
             }
@@ -1479,8 +1491,8 @@ public final class DelvefoldCommands {
         }
         for (SpawnBand band : rule.bands()) {
             Component details;
-            if (band.placement() == OreBandPlacement.PROVINCE && band.province() != null) {
-                ProvinceSettings province = band.province();
+            ProvinceSettings province = band.province();
+            if (band.placement() == OreBandPlacement.PROVINCE && province != null) {
                 details = Component.translatable(
                         "message.delvefold.command.ore_province_details",
                         province.regionSize(),
@@ -1778,6 +1790,7 @@ public final class DelvefoldCommands {
 
     private static SpawnBand withBandPlacement(SpawnBand band, OreBandPlacement placement) {
         if (placement == OreBandPlacement.PROVINCE) {
+            ProvinceSettings configuredProvince = band.province();
             return new SpawnBand(
                     band.id(),
                     1,
@@ -1790,7 +1803,7 @@ public final class DelvefoldCommands {
                     band.plateauMaxY(),
                     band.discardOnAirExposure(),
                     OreBandPlacement.PROVINCE,
-                    band.province() == null ? ProvinceSettings.defaults() : band.province());
+                    configuredProvince == null ? ProvinceSettings.defaults() : configuredProvince);
         }
         int veinSize = band.placement() == OreBandPlacement.VEIN ? band.veinSize() : 8;
         double attempts = band.placement() == OreBandPlacement.VEIN ? band.attemptsPerChunk() : 8.0D;
@@ -1828,7 +1841,8 @@ public final class DelvefoldCommands {
             throw new IllegalArgumentException(
                     "Band " + band.id() + " is not a province; set its placement to province first");
         }
-        ProvinceSettings current = band.province() == null ? ProvinceSettings.defaults() : band.province();
+        ProvinceSettings configuredProvince = band.province();
+        ProvinceSettings current = configuredProvince == null ? ProvinceSettings.defaults() : configuredProvince;
         int regionSize = current.regionSize();
         int radius = current.radius();
         int thickness = current.verticalThickness();
@@ -1899,7 +1913,7 @@ public final class DelvefoldCommands {
         return (int) value;
     }
 
-    private static int scanOres(CommandContext<CommandSourceStack> context, String namespace) {
+    private static int scanOres(CommandContext<CommandSourceStack> context, @Nullable String namespace) {
         List<ResourceLocation> matches = BuiltInRegistries.BLOCK.keySet().stream()
                 .filter(id -> namespace == null || namespace.equals(id.getNamespace()))
                 .filter(id -> id.getPath().endsWith("_ore") || id.getPath().startsWith("ore_"))
@@ -1918,14 +1932,14 @@ public final class DelvefoldCommands {
     }
 
     private static int requestRecreate(
-            CommandContext<CommandSourceStack> context, TerrainMode selected, BackupMode backup) {
+            CommandContext<CommandSourceStack> context, @Nullable TerrainMode selected, BackupMode backup) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         return requestRecreate(context, selected, snapshot.settings().identity().terrainVariant(), backup);
     }
 
     private static int requestRecreate(
             CommandContext<CommandSourceStack> context,
-            TerrainMode selected,
+            @Nullable TerrainMode selected,
             TerrainVariant variant,
             BackupMode backup) {
         return requestRecreate(context, selected, variant, null, backup);
@@ -1933,12 +1947,12 @@ public final class DelvefoldCommands {
 
     private static int requestRecreate(
             CommandContext<CommandSourceStack> context,
-            TerrainMode selected,
+            @Nullable TerrainMode selected,
             TerrainVariant variant,
-            GeologyTheme theme,
+            @Nullable GeologyTheme theme,
             BackupMode backup) {
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
-        TerrainMode target = selected == null ? snapshot.settings().terrainMode() : selected;
+        @Nullable TerrainMode target = selected == null ? snapshot.settings().terrainMode() : selected;
         GeologyTheme targetTheme =
                 theme == null ? snapshot.settings().identity().geologyTheme() : theme;
         WorldOperationRequest base = WorldOperationRequest.recreate(target, variant, targetTheme);
@@ -2063,7 +2077,7 @@ public final class DelvefoldCommands {
         }
     }
 
-    private static OreRule findRule(String id) {
+    private static @Nullable OreRule findRule(String id) {
         return DelvefoldConfigService.get().snapshot().ores().rules().stream()
                 .filter(rule -> rule.id().equals(id))
                 .findFirst()
@@ -2112,6 +2126,8 @@ public final class DelvefoldCommands {
                 : "console";
     }
 
+    // Closing the intentionally unused scope restores the thread-local audit actor.
+    @SuppressWarnings("try")
     private static <T> T asAuditActor(
             CommandContext<CommandSourceStack> context, java.util.function.Supplier<T> action) {
         try (DelvefoldAuditService.ActorScope ignored =
@@ -2120,6 +2136,8 @@ public final class DelvefoldCommands {
         }
     }
 
+    // Closing the intentionally unused scope restores the thread-local audit actor.
+    @SuppressWarnings("try")
     private static <T> T asAuditActorIo(CommandContext<CommandSourceStack> context, IoAuditCall<T> action)
             throws IOException {
         try (DelvefoldAuditService.ActorScope ignored =
@@ -2152,7 +2170,9 @@ public final class DelvefoldCommands {
         return Component.translatable(key, backupId);
     }
 
-    private static BackupDeletionGuard.DeletionRejectedException deletionRejection(Throwable failure) {
+    // Throwable cause cycles are identity cycles; value equality may recurse or conflate distinct causes.
+    @SuppressWarnings("ReferenceEquality")
+    private static BackupDeletionGuard.@Nullable DeletionRejectedException deletionRejection(Throwable failure) {
         Throwable current = failure;
         while (current != null) {
             if (current instanceof BackupDeletionGuard.DeletionRejectedException rejection) {

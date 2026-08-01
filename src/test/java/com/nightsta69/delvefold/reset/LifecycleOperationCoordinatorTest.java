@@ -74,8 +74,8 @@ class LifecycleOperationCoordinatorTest {
         assertTrue(restore.contains("() -> LifecycleOperationCoordinator.coordinate("));
         assertTrue(restore.contains("return LifecycleOperationCoordinator.coordinate(() -> confirmCoordinated"));
         assertTrue(restore.contains("LifecycleOperationCoordinator.Kind.RESTORE"));
-        assertTrue(
-                restore.indexOf("LifecycleOperationCoordinator.Kind.RESTORE") < restore.indexOf("draft = new Draft"));
+        assertTrue(restore.indexOf("LifecycleOperationCoordinator.Kind.RESTORE")
+                < restore.indexOf("Draft createdDraft = new Draft"));
     }
 
     @Test

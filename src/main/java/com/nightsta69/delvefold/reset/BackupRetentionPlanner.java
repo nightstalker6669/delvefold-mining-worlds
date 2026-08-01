@@ -11,7 +11,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Pure, deterministic planner for previewing automatic backup pruning. */
 public final class BackupRetentionPlanner {
@@ -23,11 +25,24 @@ public final class BackupRetentionPlanner {
 
     private BackupRetentionPlanner() {}
 
+    /**
+     * Computes a deterministic prune preview without reading or changing the filesystem.
+     *
+     * <p>Pinned, pending, invalid, unverified, non-restorable, and the newest two backups are never selected. Unknown
+     * sizes contribute zero bytes but protect their candidate. Equal timestamps are ordered by identifier.
+     *
+     * @param settings retention limits, or {@code null} to produce a disabled plan
+     * @param suppliedCandidates candidate snapshots; {@code null} entries and blank identifiers are ignored
+     * @param pendingBackupIds backup identifiers referenced by accepted or persisted operations, or {@code null}
+     * @param now age-cutoff reference instant, or {@code null} to use the epoch
+     * @return immutable preview with oldest-first prunes, remaining totals, warnings, and protection reasons
+     * @throws IllegalArgumentException if one identifier has conflicting candidate snapshots
+     */
     public static Plan plan(
-            BackupRetentionSettings settings,
-            List<Candidate> suppliedCandidates,
-            Set<String> pendingBackupIds,
-            Instant now) {
+            @Nullable BackupRetentionSettings settings,
+            @Nullable List<@Nullable Candidate> suppliedCandidates,
+            @Nullable Set<String> pendingBackupIds,
+            @Nullable Instant now) {
         List<Candidate> candidates = normalize(suppliedCandidates);
         long beforeBytes = totalBytes(candidates);
         if (settings == null || !settings.enabled()) {
@@ -44,7 +59,7 @@ public final class BackupRetentionPlanner {
         }
 
         Set<String> pending = pendingBackupIds == null ? Set.of() : Set.copyOf(pendingBackupIds);
-        Map<String, LinkedHashSet<ProtectionReason>> protectionReasons = protections(candidates, pending);
+        Map<String, Set<ProtectionReason>> protectionReasons = protections(candidates, pending);
         candidates.stream()
                 .sorted(NEWEST_FIRST)
                 .limit(MINIMUM_NEWEST_BACKUPS)
@@ -95,11 +110,12 @@ public final class BackupRetentionPlanner {
         Map<String, Candidate> byId = new HashMap<>();
         candidates.forEach(candidate -> byId.put(candidate.id(), candidate));
         List<Prune> prunes = removals.entrySet().stream()
-                .map(entry -> new Prune(
-                        entry.getKey(),
-                        byId.get(entry.getKey()).createdAtEpochMillis(),
-                        byId.get(entry.getKey()).sizeBytes(),
-                        entry.getValue()))
+                .map(entry -> {
+                    Candidate candidate = Objects.requireNonNull(
+                            byId.get(entry.getKey()), "removal must reference a normalized backup candidate");
+                    return new Prune(
+                            entry.getKey(), candidate.createdAtEpochMillis(), candidate.sizeBytes(), entry.getValue());
+                })
                 .sorted(Comparator.comparingLong(Prune::createdAtEpochMillis).thenComparing(Prune::id))
                 .toList();
         long afterBytes = retainedBytes(candidates, kept);
@@ -116,6 +132,12 @@ public final class BackupRetentionPlanner {
                 immutableProtections(protectionReasons));
     }
 
+    /**
+     * Converts a catalog summary into the immutable planner input without filesystem access.
+     *
+     * @param summary current catalog snapshot
+     * @return planner candidate preserving all protection-relevant flags and measured bytes
+     */
     public static Candidate fromSummary(WorldBackupCatalog.BackupSummary summary) {
         return new Candidate(
                 summary.id(),
@@ -128,10 +150,10 @@ public final class BackupRetentionPlanner {
                 summary.restorable());
     }
 
-    private static Map<String, LinkedHashSet<ProtectionReason>> protections(
-            List<Candidate> candidates, Set<String> pendingBackupIds) {
+    private static Map<String, Set<ProtectionReason>> protections(
+            List<Candidate> candidates, @Nullable Set<String> pendingBackupIds) {
         Set<String> pending = pendingBackupIds == null ? Set.of() : pendingBackupIds;
-        Map<String, LinkedHashSet<ProtectionReason>> result = new LinkedHashMap<>();
+        Map<String, Set<ProtectionReason>> result = new LinkedHashMap<>();
         for (Candidate candidate : candidates) {
             result.put(candidate.id(), new LinkedHashSet<>());
             if (candidate.pinned()) {
@@ -162,13 +184,12 @@ public final class BackupRetentionPlanner {
         return result;
     }
 
-    private static void protect(
-            Map<String, LinkedHashSet<ProtectionReason>> protections, String id, ProtectionReason reason) {
+    private static void protect(Map<String, Set<ProtectionReason>> protections, String id, ProtectionReason reason) {
         protections.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(reason);
     }
 
     private static Map<String, List<ProtectionReason>> immutableProtections(
-            Map<String, LinkedHashSet<ProtectionReason>> supplied) {
+            Map<String, Set<ProtectionReason>> supplied) {
         Map<String, List<ProtectionReason>> result = new LinkedHashMap<>();
         supplied.forEach((id, reasons) -> {
             if (!reasons.isEmpty()) {
@@ -178,7 +199,7 @@ public final class BackupRetentionPlanner {
         return java.util.Collections.unmodifiableMap(result);
     }
 
-    private static List<Candidate> normalize(List<Candidate> supplied) {
+    private static List<Candidate> normalize(@Nullable List<@Nullable Candidate> supplied) {
         if (supplied == null || supplied.isEmpty()) {
             return List.of();
         }
@@ -203,7 +224,7 @@ public final class BackupRetentionPlanner {
         removals.computeIfAbsent(candidate.id(), ignored -> new ArrayList<>()).add(reason);
     }
 
-    private static long ageCutoff(Instant now, long days) {
+    private static long ageCutoff(@Nullable Instant now, long days) {
         Instant reference = now == null ? Instant.EPOCH : now;
         try {
             return reference.minus(Duration.ofDays(days)).toEpochMilli();
@@ -242,7 +263,11 @@ public final class BackupRetentionPlanner {
     }
 
     private static List<String> unmetConstraints(
-            BackupRetentionSettings settings, List<Candidate> candidates, Set<String> kept, Instant now, long bytes) {
+            BackupRetentionSettings settings,
+            List<Candidate> candidates,
+            Set<String> kept,
+            @Nullable Instant now,
+            long bytes) {
         List<String> result = new ArrayList<>();
         if (settings.maxAgeDays() > 0) {
             long cutoff = ageCutoff(now, settings.maxAgeDays());
@@ -261,6 +286,18 @@ public final class BackupRetentionPlanner {
         return List.copyOf(result);
     }
 
+    /**
+     * One normalized backup snapshot considered by the pure retention planner.
+     *
+     * @param id unique normalized backup identifier
+     * @param createdAtEpochMillis creation time in epoch milliseconds; nonpositive values are protected as unknown
+     * @param sizeBytes measured recursive size in bytes; negative values are protected as unknown
+     * @param pinned whether an administrator pinned the backup
+     * @param valid whether catalog safety and metadata checks passed
+     * @param manifestPresent whether a manifest exists
+     * @param verified whether the current manifest has a valid verification receipt
+     * @param restorable whether lifecycle policy currently permits restoration
+     */
     public record Candidate(
             String id,
             long createdAtEpochMillis,
@@ -270,22 +307,70 @@ public final class BackupRetentionPlanner {
             boolean manifestPresent,
             boolean verified,
             boolean restorable) {
+        /**
+         * Normalizes a nullable persisted identifier to an empty, subsequently ignored identifier.
+         *
+         * @param id unique normalized backup identifier
+         * @param createdAtEpochMillis creation time in epoch milliseconds
+         * @param sizeBytes measured recursive size in bytes
+         * @param pinned whether an administrator pinned the backup
+         * @param valid whether catalog validation passed
+         * @param manifestPresent whether a manifest exists
+         * @param verified whether verification is current
+         * @param restorable whether restoration is currently permitted
+         */
         public Candidate {
             id = id == null ? "" : id;
         }
 
-        /** Source-compatible constructor for callers supplying known-good candidates. */
+        /**
+         * Creates a source-compatible known-good candidate used by pre-1.3 callers and tests.
+         *
+         * @param id unique normalized backup identifier
+         * @param createdAtEpochMillis creation time in epoch milliseconds
+         * @param sizeBytes measured recursive size in bytes
+         * @param pinned whether an administrator pinned the backup
+         */
         public Candidate(String id, long createdAtEpochMillis, long sizeBytes, boolean pinned) {
             this(id, createdAtEpochMillis, sizeBytes, pinned, true, true, true, true);
         }
     }
 
+    /**
+     * One backup selected for deletion by one or more configured constraints.
+     *
+     * @param id normalized backup identifier
+     * @param createdAtEpochMillis creation time in epoch milliseconds
+     * @param sizeBytes measured recursive size in bytes
+     * @param reasons immutable ordered constraints requiring removal
+     */
     public record Prune(String id, long createdAtEpochMillis, long sizeBytes, List<Reason> reasons) {
+        /**
+         * Defensively snapshots prune reasons.
+         *
+         * @param id normalized backup identifier
+         * @param createdAtEpochMillis creation time in epoch milliseconds
+         * @param sizeBytes measured recursive size in bytes
+         * @param reasons constraints requiring removal
+         */
         public Prune {
             reasons = reasons == null ? List.of() : List.copyOf(reasons);
         }
     }
 
+    /**
+     * Complete immutable retention preview consumed by diagnostics, audit, and the pruning service.
+     *
+     * @param enabled whether automatic retention is enabled
+     * @param prunes immutable oldest-first proposed deletions
+     * @param beforeCount candidate count before pruning
+     * @param afterCount retained count after proposed pruning
+     * @param beforeBytes normalized total bytes before pruning
+     * @param afterBytes normalized retained bytes after proposed pruning
+     * @param constraintsSatisfied whether protected backups still fit every configured limit
+     * @param warnings immutable explanations for unsatisfied limits
+     * @param protections immutable nonempty protection-reason lists keyed by backup identifier
+     */
     public record Plan(
             boolean enabled,
             List<Prune> prunes,
@@ -296,6 +381,19 @@ public final class BackupRetentionPlanner {
             boolean constraintsSatisfied,
             List<String> warnings,
             Map<String, List<ProtectionReason>> protections) {
+        /**
+         * Defensively snapshots every collection and nested protection list.
+         *
+         * @param enabled whether automatic retention is enabled
+         * @param prunes proposed deletions
+         * @param beforeCount candidate count before pruning
+         * @param afterCount retained count after proposed pruning
+         * @param beforeBytes normalized total bytes before pruning
+         * @param afterBytes normalized retained bytes after pruning
+         * @param constraintsSatisfied whether all limits can be met
+         * @param warnings unsatisfied-limit explanations
+         * @param protections protection reasons keyed by backup identifier
+         */
         public Plan {
             prunes = prunes == null ? List.of() : List.copyOf(prunes);
             warnings = warnings == null ? List.of() : List.copyOf(warnings);
@@ -309,21 +407,45 @@ public final class BackupRetentionPlanner {
         }
     }
 
+    /** Retention constraint that selected an unprotected backup for pruning. */
     public enum Reason {
+        /** Backup creation time is older than the configured maximum age. */
         AGE,
+
+        /** Retained backup count exceeds the configured maximum. */
         COUNT,
+
+        /** Retained measured bytes exceed the configured maximum. */
         TOTAL_BYTES
     }
 
+    /** Reason a candidate must remain regardless of configured retention limits. */
     public enum ProtectionReason {
+        /** Administrator explicitly pinned the backup. */
         PINNED,
+
+        /** An accepted or persisted lifecycle operation references the backup. */
         PENDING_OPERATION,
+
+        /** The backup is one of the two newest normalized candidates. */
         NEWEST_TWO,
+
+        /** Catalog validation did not establish a safe backup. */
         INVALID,
+
+        /** The backup has no integrity manifest. */
         MANIFEST_MISSING,
+
+        /** The manifest has no current successful verification receipt. */
         VERIFICATION_NOT_CURRENT,
+
+        /** Lifecycle policy does not currently permit restoration. */
         NOT_RESTORABLE,
+
+        /** Recursive byte measurement was unavailable. */
         SIZE_UNKNOWN,
+
+        /** Creation time was absent or invalid. */
         TIMESTAMP_UNKNOWN
     }
 }

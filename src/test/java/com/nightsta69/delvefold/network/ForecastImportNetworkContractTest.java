@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /** Source-contract checks for NeoForge-only forecast and ore-import network wiring. */
@@ -109,7 +110,10 @@ class ForecastImportNetworkContractTest {
         String lifecycle = read("server/DelvefoldServerLifecycle.java");
         String reload = read("config/EcosystemProfileReloadListener.java");
 
-        assertTrue(registry.contains("private static volatile CachedSnapshot cachedSnapshot"));
+        assertTrue(
+                Pattern.compile("private\\s+static\\s+volatile(?:\\s+@Nullable)?\\s+CachedSnapshot\\s+cachedSnapshot")
+                        .matcher(registry)
+                        .find());
         assertTrue(
                 registry.contains("OreImportFingerprints.registry(registry)"),
                 "The expensive registry fingerprint must be captured with the cached snapshot");

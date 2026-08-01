@@ -1,5 +1,8 @@
 package com.nightsta69.delvefold.client.gui;
 
+import java.util.Objects;
+import org.jspecify.annotations.Nullable;
+
 /** Pure responsive geometry for the paged backup-management screen. */
 record BackupScreenLayout(
         int listX,
@@ -91,8 +94,8 @@ record BackupScreenLayout(
         }
         return switch (this.actionMode) {
             case INLINE -> inlineActionBounds(row, action);
-            case STACKED -> distributedActionBounds(row, action, 4, rowY(row) + 23);
-            case GRID -> distributedActionBounds(row, action % 2, 2, rowY(row) + 23 + (action / 2) * 24);
+            case STACKED -> distributedActionBounds(action, 4, rowY(row) + 23);
+            case GRID -> distributedActionBounds(action % 2, 2, rowY(row) + 23 + (action / 2) * 24);
         };
     }
 
@@ -119,7 +122,7 @@ record BackupScreenLayout(
                         right - FOOTER_NATURAL_WIDTHS[3], this.footerY, FOOTER_NATURAL_WIDTHS[3], FOOTER_BUTTON_HEIGHT)
                 : null;
 
-        Bounds lastNavigation = showPagination ? next : back;
+        Bounds lastNavigation = showPagination ? Objects.requireNonNull(next) : back;
         boolean naturalFits =
                 lastNavigation.right() <= right && (cancel == null || lastNavigation.right() + 6 <= cancel.x());
         if (naturalFits) {
@@ -168,7 +171,7 @@ record BackupScreenLayout(
         return new Bounds(x, rowY(row), INLINE_ACTION_WIDTHS[action], BUTTON_HEIGHT);
     }
 
-    private Bounds distributedActionBounds(int row, int column, int columns, int y) {
+    private Bounds distributedActionBounds(int column, int columns, int y) {
         return distributedBounds(this.listX, this.listWidth, y, columns, GAP, BUTTON_HEIGHT)[column];
     }
 
@@ -208,7 +211,7 @@ record BackupScreenLayout(
         for (int index = 0; index < actions.length; index++) {
             byAction[actions[index]] = bounds[index];
         }
-        return new Footer(byAction[0], byAction[1], byAction[2], byAction[3], wrapped, compact);
+        return new Footer(Objects.requireNonNull(byAction[0]), byAction[1], byAction[2], byAction[3], wrapped, compact);
     }
 
     private static Bounds[] distributedBounds(int left, int width, int y, int columns, int gap, int height) {
@@ -238,7 +241,13 @@ record BackupScreenLayout(
         GRID
     }
 
-    record Footer(Bounds back, Bounds previous, Bounds next, Bounds cancel, boolean wrapped, boolean compact) {}
+    record Footer(
+            Bounds back,
+            @Nullable Bounds previous,
+            @Nullable Bounds next,
+            @Nullable Bounds cancel,
+            boolean wrapped,
+            boolean compact) {}
 
     record Bounds(int x, int y, int width, int height) {
         int right() {

@@ -9,15 +9,36 @@ import net.minecraft.network.chat.Component;
 public final class DelvefoldButton extends Button {
     private Style style;
 
+    /**
+     * Creates a themed button whose label and focus state remain available to vanilla narration.
+     *
+     * @param x left coordinate in GUI pixels
+     * @param y top coordinate in GUI pixels
+     * @param width button width in GUI pixels
+     * @param height button height in GUI pixels
+     * @param message localized, color-independent action label
+     * @param onPress client-thread activation callback
+     * @param style semantic visual style
+     */
     public DelvefoldButton(int x, int y, int width, int height, Component message, OnPress onPress, Style style) {
         super(x, y, width, height, message, onPress, DEFAULT_NARRATION);
         this.style = style;
     }
 
+    /**
+     * Changes visual emphasis without changing the narrated action label.
+     *
+     * @param style replacement semantic style
+     */
     public void setStyle(Style style) {
         this.style = style;
     }
 
+    /**
+     * Returns the current semantic style.
+     *
+     * @return current non-null style
+     */
     public Style style() {
         return this.style;
     }
@@ -93,13 +114,21 @@ public final class DelvefoldButton extends Button {
         };
     }
 
+    /** Color-independent semantic roles used by themed administration buttons. */
     public enum Style {
+        /** Standard non-destructive action. */
         SECONDARY,
+        /** Primary forward or save action. */
         PRIMARY,
+        /** Destructive or high-risk action whose label also conveys danger. */
         DANGER,
+        /** Low-emphasis navigation action. */
         GHOST,
+        /** Currently selected navigation tab. */
         TAB_SELECTED,
+        /** Enabled state of a binary option. */
         TOGGLE_ON,
+        /** Disabled state of a binary option. */
         TOGGLE_OFF
     }
 

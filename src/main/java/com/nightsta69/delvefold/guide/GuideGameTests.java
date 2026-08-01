@@ -19,6 +19,7 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 
+/** NeoForge GameTests that lock the guide codec's public fields, ordering, and aggregate decode budget. */
 @GameTestHolder(Delvefold.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class GuideGameTests {
@@ -26,6 +27,11 @@ public final class GuideGameTests {
 
     private GuideGameTests() {}
 
+    /**
+     * Verifies round-trip equality, full buffer consumption, and payload-size compliance.
+     *
+     * @param helper NeoForge GameTest controller
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void guideCodecRoundTripsEveryPublicField(GameTestHelper helper) {
         GuideSnapshot expected = sample();
@@ -45,6 +51,11 @@ public final class GuideGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that an unsupported format is rejected before entry allocation.
+     *
+     * @param helper NeoForge GameTest controller
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void guideCodecRejectsUnknownFormatBeforeAllocatingEntries(GameTestHelper helper) {
         RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(
@@ -64,6 +75,11 @@ public final class GuideGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that individually legal fields cannot exceed the aggregate decode budget.
+     *
+     * @param helper NeoForge GameTest controller
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void guideCodecRejectsAggregatePayloadBeyondBudget(GameTestHelper helper) {
         RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(
@@ -74,7 +90,8 @@ public final class GuideGameTests {
             try {
                 GuideStreamCodecs.read(buffer);
             } catch (IllegalArgumentException expected) {
-                rejected = expected.getMessage().contains("decode budget");
+                String message = expected.getMessage();
+                rejected = message != null && message.contains("decode budget");
             }
             helper.assertTrue(rejected, "Aggregate guide decode budget was not enforced");
         } finally {
@@ -83,6 +100,9 @@ public final class GuideGameTests {
         helper.succeed();
     }
 
+    // This malformed-payload fixture must write the exact ordinal-based protocol order used by
+    // GuideStreamCodecs so its aggregate decode-budget check reaches the intended boundary.
+    @SuppressWarnings("EnumOrdinal")
     private static void writeOversizedWireSnapshot(RegistryFriendlyByteBuf buffer) {
         buffer.writeVarInt(GuideSnapshot.CURRENT_FORMAT_VERSION);
         buffer.writeUtf("mine", GuideLimits.MAX_WORLD_NAME_CHARACTERS);

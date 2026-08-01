@@ -27,7 +27,8 @@ final class RestoreConfigSnapshot {
         Path root = checkedDirectoryOrCreate(preRestoreRoot, "pre-restore backup");
         Path marker = root.resolve(COMPLETE_MARKER);
         Path destination = root.resolve("config/serverconfig/delvefold");
-        ensureSafeAncestors(root, destination.getParent());
+        Path destinationParent = requiredParent(destination, "configuration snapshot destination");
+        ensureSafeAncestors(root, destinationParent);
         if (Files.exists(marker) || Files.isSymbolicLink(marker)) {
             if (Files.isSymbolicLink(marker)
                     || !Files.isRegularFile(marker)
@@ -42,7 +43,7 @@ final class RestoreConfigSnapshot {
         deleteTree(staging);
         deleteTree(destination);
         copyTree(source, staging);
-        Files.createDirectories(destination.getParent());
+        Files.createDirectories(destinationParent);
         move(staging, destination);
         Files.writeString(
                 marker, "complete\n", StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
@@ -84,7 +85,8 @@ final class RestoreConfigSnapshot {
                 if (!destination.startsWith(destinationRoot.normalize())) {
                     throw new IOException("Configuration snapshot path escaped its staging directory");
                 }
-                ensureSafeAncestors(destinationRoot, destination.getParent());
+                Path destinationParent = requiredParent(destination, "configuration snapshot destination");
+                ensureSafeAncestors(destinationRoot, destinationParent);
                 if (Files.isSymbolicLink(destination)) {
                     throw new IOException("Configuration snapshot destination contains a symbolic link");
                 }
@@ -97,7 +99,7 @@ final class RestoreConfigSnapshot {
                     if (Files.exists(destination) && !Files.isRegularFile(destination)) {
                         throw new IOException("Configuration snapshot destination contains a non-regular file");
                     }
-                    Files.createDirectories(destination.getParent());
+                    Files.createDirectories(destinationParent);
                     Files.copy(
                             source,
                             destination,
@@ -140,6 +142,14 @@ final class RestoreConfigSnapshot {
             throw new IOException(description + " failed safety checks");
         }
         return path;
+    }
+
+    private static Path requiredParent(Path path, String description) throws IOException {
+        Path parent = path.getParent();
+        if (parent == null) {
+            throw new IOException(description + " has no parent directory");
+        }
+        return parent;
     }
 
     private static void ensureSafeAncestors(Path root, Path target) throws IOException {

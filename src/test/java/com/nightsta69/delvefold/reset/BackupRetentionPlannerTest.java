@@ -9,6 +9,7 @@ import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -98,15 +99,15 @@ class BackupRetentionPlannerTest {
         assertEquals(
                 List.of("eligible-old"),
                 plan.prunes().stream().map(BackupRetentionPlanner.Prune::id).toList());
-        assertTrue(plan.protections().get("legacy").contains(BackupRetentionPlanner.ProtectionReason.MANIFEST_MISSING));
-        assertTrue(plan.protections()
-                .get("unverified")
+        assertTrue(Objects.requireNonNull(plan.protections().get("legacy"))
+                .contains(BackupRetentionPlanner.ProtectionReason.MANIFEST_MISSING));
+        assertTrue(Objects.requireNonNull(plan.protections().get("unverified"))
                 .contains(BackupRetentionPlanner.ProtectionReason.VERIFICATION_NOT_CURRENT));
-        assertTrue(plan.protections().get("invalid").contains(BackupRetentionPlanner.ProtectionReason.INVALID));
-        assertTrue(
-                plan.protections().get("unknown-size").contains(BackupRetentionPlanner.ProtectionReason.SIZE_UNKNOWN));
-        assertTrue(plan.protections()
-                .get("unknown-time")
+        assertTrue(Objects.requireNonNull(plan.protections().get("invalid"))
+                .contains(BackupRetentionPlanner.ProtectionReason.INVALID));
+        assertTrue(Objects.requireNonNull(plan.protections().get("unknown-size"))
+                .contains(BackupRetentionPlanner.ProtectionReason.SIZE_UNKNOWN));
+        assertTrue(Objects.requireNonNull(plan.protections().get("unknown-time"))
                 .contains(BackupRetentionPlanner.ProtectionReason.TIMESTAMP_UNKNOWN));
     }
 

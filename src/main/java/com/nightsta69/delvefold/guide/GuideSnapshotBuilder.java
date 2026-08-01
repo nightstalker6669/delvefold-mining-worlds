@@ -22,15 +22,34 @@ import com.nightsta69.delvefold.guide.GuideSnapshot.Renewal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Converts the immutable configuration snapshot into the deliberately narrow guide contract. */
 public final class GuideSnapshotBuilder {
     private GuideSnapshotBuilder() {}
 
+    /**
+     * Builds a bounded guide using the Minecraft registry-backed icon resolver.
+     *
+     * @param source coherent immutable configuration snapshot
+     * @param nowEpochMillis current Unix epoch time in milliseconds for renewal countdown calculation
+     * @param portalEntryBlocked whether a lifecycle operation currently blocks new portal entries
+     * @return immutable, redacted guide snapshot
+     */
     public static GuideSnapshot build(ConfigSnapshot source, long nowEpochMillis, boolean portalEntryBlocked) {
         return build(source, nowEpochMillis, portalEntryBlocked, MinecraftGuideIconResolver.INSTANCE);
     }
 
+    /**
+     * Builds a bounded guide using an explicitly supplied representative-icon policy.
+     *
+     * @param source coherent immutable configuration snapshot
+     * @param nowEpochMillis current Unix epoch time in milliseconds for renewal countdown calculation
+     * @param portalEntryBlocked whether a lifecycle operation currently blocks new portal entries
+     * @param iconResolver resolver for optional public representative block identifiers
+     * @return immutable, redacted guide snapshot within {@link GuideLimits#MAX_ESTIMATED_NETWORK_BYTES}
+     * @throws NullPointerException if required source documents or the resolver are absent
+     */
     public static GuideSnapshot build(
             ConfigSnapshot source, long nowEpochMillis, boolean portalEntryBlocked, GuideIconResolver iconResolver) {
         Objects.requireNonNull(source, "source");
@@ -39,11 +58,10 @@ public final class GuideSnapshotBuilder {
         Objects.requireNonNull(iconResolver, "iconResolver");
 
         WorldSettingsDocument settings = source.settings();
+        @Nullable TerrainMode activeTerrain = settings.terrainMode();
         String worldName =
                 GuideLimits.boundedText(settings.identity().displayName(), GuideLimits.MAX_WORLD_NAME_CHARACTERS);
-        String terrain = settings.terrainMode() == null
-                ? "uninitialized"
-                : settings.terrainMode().serializedName();
+        String terrain = activeTerrain == null ? "uninitialized" : activeTerrain.serializedName();
         String terrainVariant = settings.identity().terrainVariant().serializedName();
         String geologyTheme = settings.identity().geologyTheme().serializedName();
         String activeProfile =
@@ -54,7 +72,7 @@ public final class GuideSnapshotBuilder {
         List<OreRule> enabledRules =
                 source.ores().rules().stream().filter(OreRule::enabled).toList();
         double maximumWork = enabledRules.stream()
-                .mapToDouble(rule -> activeWork(rule, settings.terrainMode()))
+                .mapToDouble(rule -> activeWork(rule, activeTerrain))
                 .max()
                 .orElse(0.0D);
         int estimatedBytes = GuideSnapshot.estimatedBaseNetworkBytes(
@@ -67,7 +85,7 @@ public final class GuideSnapshotBuilder {
                 truncated = true;
                 break;
             }
-            OreEntry entry = oreEntry(rule, settings.terrainMode(), maximumWork, iconResolver);
+            OreEntry entry = oreEntry(rule, activeTerrain, maximumWork, iconResolver);
             if (estimatedBytes + entry.estimatedNetworkBytes() > GuideLimits.MAX_ESTIMATED_NETWORK_BYTES) {
                 truncated = true;
                 break;
@@ -117,7 +135,7 @@ public final class GuideSnapshotBuilder {
     }
 
     private static OreEntry oreEntry(
-            OreRule rule, TerrainMode activeTerrain, double maximumWork, GuideIconResolver iconResolver) {
+            OreRule rule, @Nullable TerrainMode activeTerrain, double maximumWork, GuideIconResolver iconResolver) {
         boolean truncated = rule.targets().size() > GuideLimits.MAX_OUTPUTS_PER_ENTRY
                 || rule.bands().size() > GuideLimits.MAX_HEIGHT_BANDS_PER_ENTRY
                 || rule.biomes().include().size() > GuideLimits.MAX_BIOME_SELECTORS_PER_LIST
@@ -163,7 +181,7 @@ public final class GuideSnapshotBuilder {
     }
 
     private static boolean customBiomeFilter(BiomeFilter filter) {
-        if (filter == null || filter.include().isEmpty() && filter.exclude().isEmpty()) {
+        if (filter == null || (filter.include().isEmpty() && filter.exclude().isEmpty())) {
             return false;
         }
         return !BiomeFilter.ALL_MINING_BIOMES.equals(filter);
@@ -171,7 +189,7 @@ public final class GuideSnapshotBuilder {
 
     private static boolean validBand(SpawnBand band) {
         return band.minY() <= band.maxY()
-                && (band.placement() == OreBandPlacement.PROVINCE || band.veinSize() >= 1 && band.veinSize() <= 64);
+                && (band.placement() == OreBandPlacement.PROVINCE || (band.veinSize() >= 1 && band.veinSize() <= 64));
     }
 
     private static HeightBand heightBand(SpawnBand band) {
@@ -201,7 +219,7 @@ public final class GuideSnapshotBuilder {
                 band.placement() == OreBandPlacement.PROVINCE ? 1 : band.veinSize());
     }
 
-    private static double activeWork(OreRule rule, TerrainMode activeTerrain) {
+    private static double activeWork(OreRule rule, @Nullable TerrainMode activeTerrain) {
         if (activeTerrain == null || !rule.terrainModes().contains(activeTerrain)) {
             return 0.0D;
         }

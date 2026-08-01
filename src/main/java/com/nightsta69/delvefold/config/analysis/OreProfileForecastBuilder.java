@@ -23,16 +23,35 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Pure builder for bounded forecast pages from immutable profile and registry-analysis inputs. */
 public final class OreProfileForecastBuilder {
     private OreProfileForecastBuilder() {}
 
-    /** Pure entry point used by the Minecraft adapter and deterministic unit tests. */
+    /**
+     * Builds one server-authoritative, network-bounded forecast page.
+     *
+     * <p>Rules retain profile order, terrain totals retain {@link TerrainMode#values()} order, and height samples
+     * retain ascending block-Y order. Floating-point totals are accumulated sequentially in rule, band, and height
+     * order. Page inputs are clamped to the public forecast limits. Network fitting first reserves one diagnostic per
+     * visible rule, then admits whole-profile reference details, then admits remaining diagnostics rule by rule; each
+     * source retains its original order. Omitted data is reported through truncation flags. The supplied callbacks must
+     * themselves be deterministic for identical registry and biome inputs.
+     *
+     * @param profileId profile identifier to expose, or {@code null}/blank to use the document identifier
+     * @param profile immutable profile to analyze
+     * @param activeTerrain initialized terrain, or {@code null} when no mining world has been initialized
+     * @param biomeApplicability callback that determines whether a biome filter can match each terrain
+     * @param targetAnalyzer callback that resolves output targets and reference issues for each rule
+     * @param requestedPage zero-based requested page, clamped to the available page range
+     * @param requestedPageSize requested rules per page, clamped to the supported network range
+     * @return immutable forecast containing configured and effective attempts/work units per eligible chunk
+     */
     public static OreProfileForecast build(
-            String profileId,
+            @Nullable String profileId,
             OreProfileDocument profile,
-            TerrainMode activeTerrain,
+            @Nullable TerrainMode activeTerrain,
             BiomeApplicability biomeApplicability,
             TargetAnalyzer targetAnalyzer,
             int requestedPage,
@@ -99,7 +118,7 @@ public final class OreProfileForecastBuilder {
     private static OreProfileForecast fitNetworkBudget(
             String profileId,
             long profileRevision,
-            TerrainMode activeTerrain,
+            @Nullable TerrainMode activeTerrain,
             List<TerrainTotals> terrainTotals,
             List<HeightSample> overlay,
             int totalRuleCount,
@@ -342,7 +361,7 @@ public final class OreProfileForecastBuilder {
     }
 
     private static RuleForecast ruleForecast(
-            AnalyzedRule analyzed, TerrainMode activeTerrain, BiomeApplicability biomes) {
+            AnalyzedRule analyzed, @Nullable TerrainMode activeTerrain, BiomeApplicability biomes) {
         OreRule rule = analyzed.rule();
         TargetAnalysis targets = analyzed.targets();
         OreWorkBudgetAnalysis.Budget configured = activeTerrain == null
@@ -522,14 +541,17 @@ public final class OreProfileForecastBuilder {
             }
         }
         if (band.distribution() == HeightDistribution.TRIANGLE) {
-            return band.peakY() != null && band.peakY() >= band.minY() && band.peakY() <= band.maxY();
+            Integer peak = band.peakY();
+            return peak != null && peak >= band.minY() && peak <= band.maxY();
         }
         if (band.distribution() == HeightDistribution.TRAPEZOID) {
-            return band.plateauMinY() != null
-                    && band.plateauMaxY() != null
-                    && band.plateauMinY() >= band.minY()
-                    && band.plateauMaxY() <= band.maxY()
-                    && band.plateauMinY() <= band.plateauMaxY();
+            Integer plateauMin = band.plateauMinY();
+            Integer plateauMax = band.plateauMaxY();
+            return plateauMin != null
+                    && plateauMax != null
+                    && plateauMin >= band.minY()
+                    && plateauMax <= band.maxY()
+                    && plateauMin <= plateauMax;
         }
         return true;
     }
@@ -555,18 +577,49 @@ public final class OreProfileForecastBuilder {
         return safe.substring(0, end);
     }
 
+    /** Determines whether a biome filter is effective for a terrain without exposing registry state in the result. */
     @FunctionalInterface
     public interface BiomeApplicability {
+        /**
+         * Tests whether the filter can match at least one biome relevant to the terrain.
+         *
+         * @param terrain terrain being forecast
+         * @param filter rule biome filter to test
+         * @return {@code true} when the rule may run in the terrain
+         */
         boolean matches(TerrainMode terrain, BiomeFilter filter);
     }
 
+    /** Resolves one ore rule's effective outputs and ordered registry-reference findings. */
     @FunctionalInterface
     public interface TargetAnalyzer {
+        /**
+         * Analyzes output targets without mutating the rule or registry.
+         *
+         * @param rule rule whose exact blocks, tags, host tags, and state constraints should be resolved
+         * @return non-null bounded analysis for the rule
+         */
         TargetAnalysis analyze(OreRule rule);
     }
 
+    /**
+     * Bounded target-resolution result supplied to the pure forecast builder.
+     *
+     * @param effectiveOutputCount resolved output block states that can participate in placement
+     * @param shadowedOutputCount resolved outputs made ineffective by earlier target precedence
+     * @param issues ordered target/reference findings; the constructor defensively copies and bounds this list
+     * @param issuesTruncated whether upstream analysis already omitted findings
+     */
     public record TargetAnalysis(
             int effectiveOutputCount, int shadowedOutputCount, List<TargetIssue> issues, boolean issuesTruncated) {
+        /**
+         * Creates a finite analysis and limits retained issues to four times the public summary-detail bound.
+         *
+         * @param effectiveOutputCount non-negative effective output count
+         * @param shadowedOutputCount non-negative shadowed output count
+         * @param issues ordered findings, or {@code null} for none
+         * @param issuesTruncated whether findings were already omitted upstream
+         */
         public TargetAnalysis {
             if (effectiveOutputCount < 0 || shadowedOutputCount < 0) {
                 throw new IllegalArgumentException("Target analysis counts cannot be negative");
@@ -578,11 +631,26 @@ public final class OreProfileForecastBuilder {
             }
         }
 
+        /**
+         * Returns an analysis with no effective outputs, shadowing, or findings.
+         *
+         * @return reusable semantic empty value
+         */
         public static TargetAnalysis empty() {
             return new TargetAnalysis(0, 0, List.of(), false);
         }
     }
 
+    /**
+     * One registry or target-precedence finding before it is converted to the bounded network model.
+     *
+     * @param kind finding category
+     * @param severity warning or error severity
+     * @param targetIndex zero-based target index, or a negative value for a rule-level finding
+     * @param sourceId exact block or block-tag source associated with the target
+     * @param referenceId missing, invalid, or shadowed registry reference
+     * @param affectedOutputs number of resolved outputs affected by the finding
+     */
     public record TargetIssue(
             IssueKind kind,
             IssueSeverity severity,
@@ -590,6 +658,16 @@ public final class OreProfileForecastBuilder {
             String sourceId,
             String referenceId,
             int affectedOutputs) {
+        /**
+         * Normalizes nullable identifiers to empty strings and clamps affected outputs to a non-negative value.
+         *
+         * @param kind finding category
+         * @param severity warning or error severity
+         * @param targetIndex zero-based target index, or a negative rule-level marker
+         * @param sourceId associated block or tag identifier, or {@code null}
+         * @param referenceId affected registry reference, or {@code null}
+         * @param affectedOutputs number of outputs affected by the finding
+         */
         public TargetIssue {
             Objects.requireNonNull(kind, "kind");
             Objects.requireNonNull(severity, "severity");

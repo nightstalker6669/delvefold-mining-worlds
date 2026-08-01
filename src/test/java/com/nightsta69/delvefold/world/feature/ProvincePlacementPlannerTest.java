@@ -9,6 +9,7 @@ import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
 
 class ProvincePlacementPlannerTest {
@@ -62,8 +63,8 @@ class ProvincePlacementPlannerTest {
         westByRegion.keySet().retainAll(eastByRegion.keySet());
         assertFalse(westByRegion.isEmpty(), "Expected at least one province to cross the chunk border");
         for (String region : westByRegion.keySet()) {
-            var left = westByRegion.get(region);
-            var right = eastByRegion.get(region);
+            var left = Objects.requireNonNull(westByRegion.get(region));
+            var right = Objects.requireNonNull(eastByRegion.get(region));
             assertEquals(left.centerX(), right.centerX());
             assertEquals(left.centerY(), right.centerY());
             assertEquals(left.centerZ(), right.centerZ());

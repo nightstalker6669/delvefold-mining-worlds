@@ -12,7 +12,7 @@ class RestartBoundLifecycleCharacterizationTest {
         String worldOperations = ProductionSources.read("reset/WorldOperationService.java");
         String worldConfirmation =
                 ProductionSources.block(worldOperations, "private WorldOperationResult confirmCoordinated(");
-        assertTrue(worldConfirmation.contains("writeJsonAtomically(pendingPath(server), draft.operation())"));
+        assertTrue(worldConfirmation.contains("writeJsonAtomically(pendingPath(server), currentDraft.operation())"));
         assertTrue(worldConfirmation.contains("entryBlocked.set(true)"));
         assertTrue(worldConfirmation.contains("evacuateMiningPlayersForOperation(server)"));
         assertFalse(worldConfirmation.contains("moveIntoHolding("));
@@ -21,7 +21,7 @@ class RestartBoundLifecycleCharacterizationTest {
         String restores = ProductionSources.read("reset/WorldRestoreService.java");
         String restoreConfirmation =
                 ProductionSources.block(restores, "private WorldOperationResult confirmCoordinated(");
-        assertTrue(restoreConfirmation.contains("writePending(pendingPath(server), draft.operation())"));
+        assertTrue(restoreConfirmation.contains("writePending(pendingPath(server), currentDraft.operation())"));
         assertTrue(restoreConfirmation.contains("entryBlocked.set(true)"));
         assertTrue(restoreConfirmation.contains("evacuateMiningPlayersForOperation(server)"));
         assertFalse(restoreConfirmation.contains("stageSelectedBackup("));

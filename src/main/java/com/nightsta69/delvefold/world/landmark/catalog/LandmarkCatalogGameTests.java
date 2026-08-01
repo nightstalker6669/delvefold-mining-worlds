@@ -45,6 +45,13 @@ public final class LandmarkCatalogGameTests {
 
     private LandmarkCatalogGameTests() {}
 
+    /**
+     * Verifies that malformed and oversized reload inputs are rejected before publication while preserving the exact
+     * immutable last-known-good catalog snapshot instance.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void malformedListenerInputRetainsTheExactLastKnownGoodCatalog(GameTestHelper helper) {
         LandmarkCatalogService service = new LandmarkCatalogService();
@@ -76,6 +83,12 @@ public final class LandmarkCatalogGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that reload validation caches repeated template bounds and rejects an adversarial maximum-size catalog
+     * whose placement scan would exceed the bounded work budget.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void catalogWorkBudgetCachesBoundsAndRejectsAdversarialScans(GameTestHelper helper) {
         List<LandmarkDefinition> repeatedBounds = new ArrayList<>();
@@ -107,6 +120,12 @@ public final class LandmarkCatalogGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that template dependencies exceeding horizontal span, vertical span, or serialized NBT byte limits are
+     * rejected before they can invalidate the published catalog.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void templateDependencyBoundsRejectCatalogBreakingResources(GameTestHelper helper) {
         ResourceLocation template = ResourceLocation.fromNamespaceAndPath("test", "landmarks/oversized");

@@ -29,6 +29,18 @@ public final class BackupRetentionService {
 
     private BackupRetentionService() {}
 
+    /**
+     * Builds a read-only retention plan after conservatively collecting every protected backup reference.
+     *
+     * <p>This method performs catalog and journal filesystem I/O and must not run on the server tick thread for a large
+     * backup tree.
+     *
+     * @param saveRoot existing save directory; it is normalized absolutely and must not be a symbolic link
+     * @param settings retention limits, or {@code null} for disabled defaults
+     * @param now evaluation instant, or {@code null} for the current wall clock
+     * @return immutable preview containing normalized paths, protected IDs, and a deterministic plan
+     * @throws IOException if save, catalog, or pending-journal safety validation fails
+     */
     public static Preview preview(Path saveRoot, BackupRetentionSettings settings, Instant now) throws IOException {
         Path root = checkedSaveRoot(saveRoot);
         BackupRetentionSettings policy = settings == null ? BackupRetentionSettings.defaults() : settings;
@@ -44,6 +56,13 @@ public final class BackupRetentionService {
     /**
      * Applies only IDs present in both the audited preview and a fresh safety preview. New pins, pending references, or
      * newest-two protection win.
+     *
+     * <p>Each candidate is re-evaluated immediately before deletion. Individual deletion failures are contained in the
+     * returned result; failures that prevent the fresh safety preview propagate and stop the run.
+     *
+     * @param preview previously audited immutable preview
+     * @return immutable sorted lists of deleted identifiers and per-identifier failure messages
+     * @throws IOException if the preview or save root is invalid or a fresh safety preview cannot be established
      */
     public static ApplyResult apply(Preview preview) throws IOException {
         if (preview == null) {
@@ -87,6 +106,10 @@ public final class BackupRetentionService {
     /**
      * Reads persisted operation journals conservatively. If a journal exists but is malformed, preview fails and
      * automatic pruning must be skipped.
+     *
+     * @param saveRoot existing save directory; its configuration path is checked for symbolic-link traversal
+     * @return immutable lexicographically ordered IDs referenced by pending restore and keep-backup operations
+     * @throws IOException if either journal is malformed, unsafe, oversized, incomplete, or references invalid IDs
      */
     public static Set<String> protectedBackupIds(Path saveRoot) throws IOException {
         Path root = checkedSaveRoot(saveRoot);
@@ -241,12 +264,30 @@ public final class BackupRetentionService {
         return message == null || message.isBlank() ? "Backup deletion failed" : message;
     }
 
+    /**
+     * Immutable retention evaluation passed from audit/diagnostic preview to guarded application.
+     *
+     * @param saveRoot absolute normalized save root
+     * @param settings effective retention policy
+     * @param evaluatedAt evaluation instant used for age calculations
+     * @param protectedBackupIds immutable lexicographically ordered referenced backup IDs
+     * @param plan deterministic retention plan for the captured catalog
+     */
     public record Preview(
             Path saveRoot,
             BackupRetentionSettings settings,
             Instant evaluatedAt,
             Set<String> protectedBackupIds,
             BackupRetentionPlanner.Plan plan) {
+        /**
+         * Normalizes the save path and defensively copies protected identifiers.
+         *
+         * @param saveRoot save root to normalize absolutely
+         * @param settings effective retention policy, or {@code null} for disabled defaults
+         * @param evaluatedAt evaluation instant, or {@code null} for the epoch sentinel
+         * @param protectedBackupIds referenced IDs to sort and snapshot
+         * @param plan deterministic retention plan
+         */
         public Preview {
             saveRoot = saveRoot.toAbsolutePath().normalize();
             settings = settings == null ? BackupRetentionSettings.defaults() : settings;
@@ -260,7 +301,19 @@ public final class BackupRetentionService {
         }
     }
 
+    /**
+     * Immutable outcome of applying an automatic-retention preview.
+     *
+     * @param prunedIds identifiers deleted successfully
+     * @param failures lexicographically ordered bounded messages keyed by identifier
+     */
     public record ApplyResult(List<String> prunedIds, Map<String, String> failures) {
+        /**
+         * Defensively copies successes and publishes failures in deterministic key order.
+         *
+         * @param prunedIds successful deletion identifiers
+         * @param failures per-identifier failure messages
+         */
         public ApplyResult {
             prunedIds = prunedIds == null ? List.of() : List.copyOf(prunedIds);
             if (failures == null || failures.isEmpty()) {
@@ -275,6 +328,11 @@ public final class BackupRetentionService {
             }
         }
 
+        /**
+         * Reports whether every still-eligible deletion completed.
+         *
+         * @return {@code true} when the failure map is empty
+         */
         public boolean successful() {
             return failures.isEmpty();
         }

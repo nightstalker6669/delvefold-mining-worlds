@@ -4,7 +4,6 @@ import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -17,6 +16,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ExplosionEvent;
 import net.neoforged.neoforge.event.level.PistonEvent;
+import org.jspecify.annotations.Nullable;
 
 /** NeoForge adapter that applies central-hub protection to player and environmental mutations. */
 public final class CentralHubProtectionEvents {
@@ -86,7 +86,7 @@ public final class CentralHubProtectionEvents {
     }
 
     private static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-        if (!(event.getLevel() instanceof ServerLevel level) || !(event.getEntity() instanceof ServerPlayer player)) {
+        if (!(event.getLevel() instanceof ServerLevel level) || !(event.getEntity() instanceof ServerPlayer)) {
             return;
         }
         PortalSettings settings = settings();
@@ -188,7 +188,7 @@ public final class CentralHubProtectionEvents {
         return settings != null && CentralHubProtectionService.isProtected(level, position, settings);
     }
 
-    @Nullable private static PortalSettings settings() {
+    private static @Nullable PortalSettings settings() {
         try {
             return DelvefoldConfigService.get().snapshot().settings().portal();
         } catch (IllegalStateException ignored) {

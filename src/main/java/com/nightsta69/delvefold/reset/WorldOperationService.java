@@ -43,6 +43,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.common.NeoForge;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -62,15 +63,33 @@ public final class WorldOperationService {
 
     private final Object lock = new Object();
     private final AtomicBoolean entryBlocked = new AtomicBoolean(false);
-    private Draft draft;
-    private Applied applied;
+    private @Nullable Draft draft;
+    private @Nullable Applied applied;
 
     private WorldOperationService() {}
 
+    /**
+     * Returns the process-wide world-operation coordinator.
+     *
+     * @return the singleton service
+     */
     public static WorldOperationService get() {
         return INSTANCE;
     }
 
+    /**
+     * Creates a time-limited preview for deleting or recreating the active mining world.
+     *
+     * <p>This method does not modify dimension data. A successful preview contains a one-use confirmation token that
+     * remains valid for five minutes in this JVM. Callers are responsible for enforcing the world-management permission
+     * before requesting a preview. The returned size is an estimate in bytes and may be {@code -1} when the dimension
+     * folders cannot be completely inspected.
+     *
+     * @param server the server whose normalized save root owns the mining world
+     * @param request the requested operation and its replacement settings
+     * @param requestedBy the actor name stored in the restart journal and audit trail
+     * @return an accepted preview with confirmation details, or a localized rejection without a token
+     */
     public WorldOperationPreview request(MinecraftServer server, WorldOperationRequest request, String requestedBy) {
         return LifecycleOperationCoordinator.coordinate(() -> requestCoordinated(server, request, requestedBy));
     }
@@ -121,7 +140,7 @@ public final class WorldOperationService {
                     request.resetOreConfiguration(),
                     System.currentTimeMillis(),
                     requestedBy);
-            List<Path> targets = resolveTargets(server, operation);
+            List<Path> targets = resolveTargets(server);
             long bytes = estimateSize(targets);
             int players = countMiningPlayersForOperation(server);
             draft = new Draft(saveRoot(server), token, expires, operation, bytes, players);
@@ -132,24 +151,37 @@ public final class WorldOperationService {
         }
     }
 
+    /**
+     * Confirms the current preview and persists its restart journal.
+     *
+     * <p>Successful confirmation blocks new portal entry and evacuates players from managed mining dimensions, but it
+     * does not move or delete loaded dimension folders. Filesystem mutation is deferred to the next startup. The token
+     * is compared without early-exit timing and is never persisted.
+     *
+     * @param server the server for which the preview was created
+     * @param token the confirmation token supplied by the authorized caller
+     * @return a successful scheduling result, or a localized failure when the preview is absent, expired, belongs to
+     *     another save, conflicts with another lifecycle operation, or cannot be journaled
+     */
     public WorldOperationResult confirm(MinecraftServer server, String token) {
         return LifecycleOperationCoordinator.coordinate(() -> confirmCoordinated(server, token));
     }
 
     private WorldOperationResult confirmCoordinated(MinecraftServer server, String token) {
         synchronized (lock) {
-            if (draft == null) {
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft == null) {
                 return WorldOperationResult.failure(localized("message.delvefold.world_operation.confirm.none"));
             }
-            if (!draft.saveRoot().equals(saveRoot(server))) {
+            if (!currentDraft.saveRoot().equals(saveRoot(server))) {
                 draft = null;
                 return WorldOperationResult.failure(localized("message.delvefold.world_operation.save_mismatch"));
             }
-            if (System.currentTimeMillis() > draft.expiresAtEpochMillis()) {
+            if (System.currentTimeMillis() > currentDraft.expiresAtEpochMillis()) {
                 draft = null;
                 return WorldOperationResult.failure(localized("message.delvefold.world_operation.confirm.expired"));
             }
-            if (!constantTimeEquals(draft.token(), token)) {
+            if (!constantTimeEquals(currentDraft.token(), token)) {
                 return WorldOperationResult.failure(localized("message.delvefold.world_operation.confirm.invalid"));
             }
             if (LifecycleOperationCoordinator.conflictingOperationExists(
@@ -158,7 +190,7 @@ public final class WorldOperationService {
                         localized("message.delvefold.world_operation.conflicting_operation"));
             }
             try {
-                writeJsonAtomically(pendingPath(server), draft.operation());
+                writeJsonAtomically(pendingPath(server), currentDraft.operation());
                 entryBlocked.set(true);
                 evacuateMiningPlayersForOperation(server);
                 String instruction = server.isDedicatedServer()
@@ -174,6 +206,15 @@ public final class WorldOperationService {
         }
     }
 
+    /**
+     * Cancels the current unconfirmed preview.
+     *
+     * <p>A preview cannot be cancelled through this method after its journal has been confirmed; use
+     * {@link #cancelConfirmed(MinecraftServer)} while the current world remains loaded.
+     *
+     * @param server the server whose save root must match the preview
+     * @return the cancellation result, including a localized reason when no cancellable preview exists
+     */
     public WorldOperationResult cancel(MinecraftServer server) {
         return LifecycleOperationCoordinator.coordinate(() -> cancelCoordinated(server));
     }
@@ -184,11 +225,12 @@ public final class WorldOperationService {
                 return WorldOperationResult.failure(
                         localized("message.delvefold.world_operation.cancel.already_confirmed"));
             }
-            if (draft == null) {
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft == null) {
                 return WorldOperationResult.failure(
                         localized("message.delvefold.world_operation.cancel.none_unconfirmed"));
             }
-            if (!draft.saveRoot().equals(saveRoot(server))) {
+            if (!currentDraft.saveRoot().equals(saveRoot(server))) {
                 draft = null;
                 return WorldOperationResult.failure(localized("message.delvefold.world_operation.save_mismatch"));
             }
@@ -198,7 +240,15 @@ public final class WorldOperationService {
         }
     }
 
-    /** Cancel a confirmed operation while the current world is still loaded. */
+    /**
+     * Cancels a confirmed operation while the current world is still loaded.
+     *
+     * <p>This removes only the pending journal and releases the entry block. It is not a recovery mechanism after
+     * {@link #prepareStartup(MinecraftServer)} has begun moving dimension data.
+     *
+     * @param server the server that owns the pending journal
+     * @return the cancellation result, or a localized failure if the journal is absent or cannot be deleted
+     */
     public WorldOperationResult cancelConfirmed(MinecraftServer server) {
         return LifecycleOperationCoordinator.coordinate(() -> cancelConfirmedCoordinated(server));
     }
@@ -222,15 +272,30 @@ public final class WorldOperationService {
         }
     }
 
+    /**
+     * Reports whether any destructive lifecycle operation currently blocks mining-world entry.
+     *
+     * @return {@code true} for this service's confirmed operation or a restore service entry block
+     */
     public boolean isEntryBlocked() {
         return entryBlocked.get() || WorldRestoreService.get().isEntryBlocked();
     }
 
-    /** True only for a confirmed delete/recreate operation, excluding pending restores. */
+    /**
+     * Reports whether a confirmed delete or recreate operation is pending in this service.
+     *
+     * @return {@code true} only for this service's entry block; pending restores are excluded
+     */
     public boolean isWorldOperationPending() {
         return entryBlocked.get();
     }
 
+    /**
+     * Tests whether the active save contains a persisted delete or recreate journal.
+     *
+     * @param server the server whose configuration directory is inspected
+     * @return {@code true} when the pending-operation path exists
+     */
     public boolean hasPending(MinecraftServer server) {
         return Files.exists(pendingPath(server));
     }
@@ -241,11 +306,12 @@ public final class WorldOperationService {
             if (Files.exists(pendingPath(server))) {
                 return true;
             }
-            if (draft == null) {
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft == null) {
                 return false;
             }
-            if (!draft.saveRoot().equals(saveRoot(server))
-                    || System.currentTimeMillis() > draft.expiresAtEpochMillis()) {
+            if (!currentDraft.saveRoot().equals(saveRoot(server))
+                    || System.currentTimeMillis() > currentDraft.expiresAtEpochMillis()) {
                 draft = null;
                 return false;
             }
@@ -253,15 +319,27 @@ public final class WorldOperationService {
         }
     }
 
-    /** Backup IDs that retention must protect while a world operation is in flight. */
+    /**
+     * Returns backup IDs that retention must protect while a world operation is in flight.
+     *
+     * <p>The immutable result may include IDs derived from an unexpired in-memory draft, its persisted restart journal,
+     * and a startup operation awaiting finalization. Permanent-delete staging is deliberately excluded.
+     *
+     * @param server the server whose save and journal are inspected
+     * @return an immutable set of logical backup IDs; never absolute filesystem paths
+     * @throws IOException if an existing pending journal cannot be safely read or validated
+     */
     public Set<String> referencedBackupIds(MinecraftServer server) throws IOException {
         synchronized (lock) {
             Set<String> result = new HashSet<>();
             Path root = saveRoot(server);
-            if (draft != null
-                    && draft.saveRoot().equals(root)
-                    && draft.operation().backupMode() == BackupMode.KEEP_BACKUP) {
-                result.add(holdingRoot(server, draft.operation()).getFileName().toString());
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft != null
+                    && currentDraft.saveRoot().equals(root)
+                    && currentDraft.operation().backupMode() == BackupMode.KEEP_BACKUP) {
+                result.add(holdingRoot(server, currentDraft.operation())
+                        .getFileName()
+                        .toString());
             }
             Path pending = pendingPath(server);
             if (Files.exists(pending)) {
@@ -270,14 +348,21 @@ public final class WorldOperationService {
                     result.add(holdingRoot(server, operation).getFileName().toString());
                 }
             }
-            if (applied != null && applied.operation().backupMode() == BackupMode.KEEP_BACKUP) {
-                result.add(applied.holdingRoot().getFileName().toString());
+            @Nullable Applied currentApplied = applied;
+            if (currentApplied != null && currentApplied.operation().backupMode() == BackupMode.KEEP_BACKUP) {
+                result.add(currentApplied.holdingRoot().getFileName().toString());
             }
             return Set.copyOf(result);
         }
     }
 
-    /** Clears JVM-local state when an integrated or dedicated server stops. */
+    /**
+     * Clears JVM-local state when an integrated or dedicated server stops.
+     *
+     * <p>Persisted journals and staged data are intentionally retained for restart recovery.
+     *
+     * @param server the stopping server; used to associate this reset with the lifecycle callback
+     */
     public void stop(MinecraftServer server) {
         LifecycleOperationCoordinator.coordinate(() -> {
             synchronized (lock) {
@@ -288,7 +373,19 @@ public final class WorldOperationService {
         });
     }
 
-    /** Must run at highest priority in ServerAboutToStartEvent. */
+    /**
+     * Applies the filesystem preparation phase of a confirmed operation before dimensions load.
+     *
+     * <p>This method must run at highest priority in the server-about-to-start event. It validates normalized paths,
+     * rejects symbolic-link dimension targets, moves managed dimension folders into an operation-specific holding
+     * directory, and creates a verified manifest when a backup was requested. A committed journal is resumed at its
+     * finalization phase. Any unsafe or incomplete preparation stops startup so recoverable data is not silently
+     * replaced.
+     *
+     * @param server the starting server whose save root contains the pending journal
+     * @throws IllegalStateException if the journal, paths, storage, move, rollback, configuration snapshot, or backup
+     *     manifest cannot be handled safely
+     */
     public void prepareStartup(MinecraftServer server) {
         synchronized (lock) {
             Path pending = pendingPath(server);
@@ -300,7 +397,7 @@ public final class WorldOperationService {
             entryBlocked.set(true);
             try {
                 PendingWorldOperation operation = readPending(pending);
-                List<Path> targets = resolveTargets(server, operation);
+                List<Path> targets = resolveTargets(server);
                 Path holdingRoot = holdingRoot(server, operation);
                 validateTargets(server, targets, holdingRoot);
                 if (isOperationCommitted(server, operation)) {
@@ -366,30 +463,30 @@ public final class WorldOperationService {
         }
     }
 
-    /** Runs after DelvefoldConfigService has loaded during the same startup event. */
+    /**
+     * Commits settings and finalizes a prepared operation after configuration has loaded.
+     *
+     * <p>The operation ID makes settings finalization restart-safe. Recreation settings and an optional ore-profile
+     * reset are committed before permanent staging is deleted or a retained backup is archived. Entry remains blocked
+     * and the journal remains recoverable when finalization fails.
+     *
+     * @param server the server used during the matching preparation phase
+     * @throws IllegalStateException if settings, profile activation, cleanup, archival, or lifecycle publication cannot
+     *     complete safely
+     */
     public void finishStartup(MinecraftServer server) {
         synchronized (lock) {
-            if (applied == null) {
+            @Nullable Applied currentApplied = applied;
+            if (currentApplied == null) {
                 return;
             }
-            Applied currentApplied = applied;
             PendingWorldOperation operation = currentApplied.operation();
             try {
                 DelvefoldConfigService configs = DelvefoldConfigService.get();
                 ConfigSnapshot before = configs.snapshot();
                 if (!operation.operationId().equals(before.settings().lastWorldOperationId())) {
-                    ConfigWriteResult settingsResult =
-                            configs.updateSettings(before.settings().revision(), settings -> switch (operation.type()) {
-                                case DELETE -> settings.markDeleted(operation.operationId());
-                                case RECREATE ->
-                                    settings.recreate(
-                                            operation.targetTerrain(),
-                                            operation.targetVariant(),
-                                            operation.targetGeologyTheme(),
-                                            operation.targetOrePreset(),
-                                            operation.targetGameplayPreset(),
-                                            operation.operationId());
-                            });
+                    ConfigWriteResult settingsResult = configs.updateSettings(
+                            before.settings().revision(), settings -> applyOperationToSettings(settings, operation));
                     if (!settingsResult.saved()) {
                         throw new IOException("Settings update was rejected: " + settingsResult.issues());
                     }
@@ -465,7 +562,7 @@ public final class WorldOperationService {
         }
     }
 
-    private static List<Path> resolveTargets(MinecraftServer server, PendingWorldOperation operation) {
+    private static List<Path> resolveTargets(MinecraftServer server) {
         Path root = dimensionsRoot(server);
         return DelvefoldDimensionFolders.ALL.stream()
                 .map(path -> root.resolve(path).normalize())
@@ -555,7 +652,7 @@ public final class WorldOperationService {
             }
             try {
                 Files.createDirectories(move.source().getParent());
-                moveDirectory(move.destination(), move.source());
+                moveDirectory(/* source= */ move.destination(), /* destination= */ move.source());
             } catch (IOException rollbackException) {
                 if (failure == null) {
                     failure = new IOException("World-operation rollback was incomplete");
@@ -677,8 +774,33 @@ public final class WorldOperationService {
         return server.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
     }
 
-    private static String localized(String translationKey, Object... arguments) {
+    private static String localized(String translationKey, @Nullable Object @Nullable ... arguments) {
         return AdminLocalizedMessage.encode(translationKey, arguments);
+    }
+
+    private static WorldSettingsDocument applyOperationToSettings(
+            WorldSettingsDocument settings, PendingWorldOperation operation) {
+        if (operation.type() == WorldOperationType.DELETE) {
+            return settings.markDeleted(operation.operationId());
+        }
+        var targetTerrain = operation.targetTerrain();
+        var targetVariant = operation.targetVariant();
+        var targetGeologyTheme = operation.targetGeologyTheme();
+        if (targetTerrain == null || targetVariant == null || targetGeologyTheme == null) {
+            throw new IllegalStateException("Pending recreation is missing required world identity settings");
+        }
+        var configuredOrePreset = operation.targetOrePreset();
+        var targetOrePreset = configuredOrePreset == null ? settings.orePreset() : configuredOrePreset;
+        var configuredGameplayPreset = operation.targetGameplayPreset();
+        var targetGameplayPreset =
+                configuredGameplayPreset == null ? settings.gameplay().preset() : configuredGameplayPreset;
+        return settings.recreate(
+                targetTerrain,
+                targetVariant,
+                targetGeologyTheme,
+                targetOrePreset,
+                targetGameplayPreset,
+                operation.operationId());
     }
 
     private static String randomToken() {

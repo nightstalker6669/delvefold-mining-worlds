@@ -20,6 +20,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+/** GameTest coverage for ore-target resolution, weighting, placement, and forecast compatibility. */
 @GameTestHolder(Delvefold.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class DelvefoldGameTests {
@@ -27,6 +28,12 @@ public final class DelvefoldGameTests {
 
     private DelvefoldGameTests() {}
 
+    /**
+     * Verifies that outputs with the same replacement-host tag form one group and that one output is selected for an
+     * entire vein rather than independently for every block.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void outputsSharingAHostAreSelectedPerVein(GameTestHelper helper) {
         OreRule rule = new OreRule(
@@ -55,6 +62,13 @@ public final class DelvefoldGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that the default target weight of {@code 1} preserves the legacy random draw order and returns the exact
+     * canonical block-registry entries.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void defaultTargetWeightsPreserveTheLegacyRandomSequence(GameTestHelper helper) {
         RuntimeOreProfile.CompiledBand band = compileBand(
@@ -76,6 +90,13 @@ public final class DelvefoldGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that explicit target weights affect relative selection frequency while identical random seeds still
+     * select the same canonical registry instances in the same order.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void configuredTargetWeightsAreDeterministicAndEffective(GameTestHelper helper) {
         RuntimeOreProfile.CompiledBand band = compileBand(
@@ -101,6 +122,13 @@ public final class DelvefoldGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that tag weight is divided equally among registry-ID-sorted tag members and that later exact targets
+     * overlapping those canonical blocks are deduplicated and diagnosed.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void tagWeightIsSharedAcrossSortedMembersAndOverlapsAreDeduplicated(GameTestHelper helper) {
         List<OreTarget> targets = List.of(
@@ -142,6 +170,12 @@ public final class DelvefoldGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that the read-only forecast uses the same resolved targets, biome applicability, height distribution,
+     * and per-chunk attempt mathematics as runtime generation.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void forecastUsesRuntimeTargetsBiomeAndDistributionMath(GameTestHelper helper) {
         OreRule rule = new OreRule(

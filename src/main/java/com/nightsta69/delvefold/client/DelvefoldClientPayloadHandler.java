@@ -20,9 +20,21 @@ import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
+/**
+ * Client-thread terminal handlers for Delvefold's clientbound payloads.
+ *
+ * <p>NeoForge invokes these handlers after network-thread handoff; they mutate only Minecraft client UI and clipboard
+ * state. Server payloads remain authoritative.
+ */
 public final class DelvefoldClientPayloadHandler {
+    /** Prevents utility-class instantiation. */
     private DelvefoldClientPayloadHandler() {}
 
+    /**
+     * Opens or refreshes the correct administration screen for a server snapshot.
+     *
+     * @param payload immutable bounded administration snapshot
+     */
     public static void open(OpenGuiPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (payload.snapshot().initialized()) {
@@ -41,6 +53,11 @@ public final class DelvefoldClientPayloadHandler {
         }
     }
 
+    /**
+     * Routes an action result to the active Delvefold screen and displays its localized message.
+     *
+     * @param payload server-authoritative status, revision, and encoded translation message
+     */
     public static void showResult(ActionResultPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player == null) {
@@ -53,6 +70,11 @@ public final class DelvefoldClientPayloadHandler {
         minecraft.player.displayClientMessage(message, payload.status() == ActionStatus.ACCEPTED);
     }
 
+    /**
+     * Copies a size-bounded profile export into the local clipboard.
+     *
+     * @param payload profile identifier and server-validated JSON export
+     */
     public static void copyProfileExport(ProfileExportPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.keyboardHandler.setClipboard(payload.json());
@@ -62,6 +84,11 @@ public final class DelvefoldClientPayloadHandler {
         }
     }
 
+    /**
+     * Opens the read-only Seam Ledger and acknowledges success only after the screen is installed.
+     *
+     * @param payload redacted guide snapshot plus opaque authorization identifier
+     */
     public static void openGuide(OpenGuidePayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         minecraft.setScreen(new DelvefoldGuideScreen(payload.snapshot()));
@@ -70,6 +97,11 @@ public final class DelvefoldClientPayloadHandler {
         }
     }
 
+    /**
+     * Opens or refreshes the read-only administrative forecast screen.
+     *
+     * @param payload bounded forecast page containing no seeds or exact coordinates
+     */
     public static void openForecast(OpenForecastPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen instanceof DelvefoldOreForecastScreen forecastScreen) {
@@ -87,6 +119,11 @@ public final class DelvefoldClientPayloadHandler {
                 payload.forecast()));
     }
 
+    /**
+     * Opens or updates the import wizard with a server-owned discovery page.
+     *
+     * @param payload bounded scan view tied to an opaque server token
+     */
     public static void openOreImportScan(OpenOreImportScanPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen instanceof DelvefoldOreImportScreen importer) {
@@ -101,6 +138,11 @@ public final class DelvefoldClientPayloadHandler {
         }
     }
 
+    /**
+     * Updates an already-open import wizard with a non-mutating preview page.
+     *
+     * @param payload bounded validation, diff, and workload preview
+     */
     public static void openOreImportPreview(OpenOreImportPreviewPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen instanceof DelvefoldOreImportScreen importer) {

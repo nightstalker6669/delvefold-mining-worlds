@@ -17,6 +17,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 /** Responsive, scrollable, read-only rendering of the server-authorized Seam Ledger snapshot. */
@@ -44,8 +45,13 @@ public final class DelvefoldGuideScreen extends Screen {
     private int listBottom;
     private int footerTextWidth;
     private int scrollOffset;
-    private OreEntry hoveredOre;
+    private @Nullable OreEntry hoveredOre;
 
+    /**
+     * Creates a read-only Seam Ledger from a server-authorized, redacted snapshot.
+     *
+     * @param snapshot immutable guide content bounded for network and rendering limits
+     */
     public DelvefoldGuideScreen(GuideSnapshot snapshot) {
         super(Component.translatable("screen.delvefold.guide.title"));
         this.snapshot = snapshot;
@@ -78,8 +84,9 @@ public final class DelvefoldGuideScreen extends Screen {
         this.hoveredOre = null;
         drawOreRows(graphics, mouseX, mouseY);
         super.render(graphics, mouseX, mouseY, partialTick);
-        if (this.hoveredOre != null) {
-            graphics.renderTooltip(this.font, wrappedTooltip(this.hoveredOre), mouseX, mouseY);
+        OreEntry hovered = this.hoveredOre;
+        if (hovered != null) {
+            graphics.renderTooltip(this.font, wrappedTooltip(hovered), mouseX, mouseY);
         }
     }
 

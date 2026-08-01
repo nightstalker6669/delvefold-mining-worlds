@@ -46,11 +46,14 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
+    /** Exact client/server payload compatibility version; protocol 12 field order and enum ordinals are immutable. */
     public static final String PROTOCOL_VERSION = "12";
+
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {};
@@ -63,12 +66,27 @@ public final class DelvefoldNetwork {
 
     private DelvefoldNetwork() {}
 
-    /** Call once from the mod constructor with the mod event bus. */
+    /**
+     * Registers common payload declarations during mod construction.
+     *
+     * @param modEventBus Delvefold mod lifecycle event bus
+     */
     public static void register(IEventBus modEventBus) {
         modEventBus.addListener(DelvefoldNetwork::registerPayloadHandlers);
     }
 
-    /** Client bootstrap hook. Kept free of client-only types so this class is safe to load on a dedicated server. */
+    /**
+     * Installs client-thread terminal handlers without introducing client-only types into this dedicated-server-safe
+     * class.
+     *
+     * @param openHandler administration snapshot screen handler
+     * @param resultHandler administration result handler
+     * @param profileExportHandler clipboard-safe profile export handler
+     * @param guideHandler public guide screen handler
+     * @param forecastHandler administrative forecast screen handler
+     * @param importScanHandler ore-import scan page handler
+     * @param importPreviewHandler ore-import preview page handler
+     */
     public static void installClientHandlers(
             Consumer<OpenGuiPayload> openHandler,
             Consumer<ActionResultPayload> resultHandler,
@@ -86,7 +104,12 @@ public final class DelvefoldNetwork {
         clientImportPreviewHandler = Objects.requireNonNull(importPreviewHandler, "importPreviewHandler");
     }
 
-    /** Server/command integration hook for /delvefold gui and config. */
+    /**
+     * Opens the administration GUI for an authorized server player.
+     *
+     * @param player requesting server player
+     * @return {@code true} when configuration permission was granted and a snapshot was sent
+     */
     public static boolean openFor(ServerPlayer player) {
         if (!requirePermission(player, 2)) {
             return false;
@@ -224,7 +247,7 @@ public final class DelvefoldNetwork {
         if (player == null) return;
         var result = OreImportAdminService.get().scan(player, payload.expectedOreRevision(), payload.includeVanilla());
         if (result.accepted()) {
-            PacketDistributor.sendToPlayer(player, new OpenOreImportScanPayload(result.view()));
+            PacketDistributor.sendToPlayer(player, new OpenOreImportScanPayload(acceptedImportView(result)));
         } else {
             finishImportFailure(player, result.status(), result.message());
         }
@@ -235,7 +258,7 @@ public final class DelvefoldNetwork {
         if (player == null) return;
         var result = OreImportAdminService.get().scanPage(player, payload.scanToken(), payload.page());
         if (result.accepted()) {
-            PacketDistributor.sendToPlayer(player, new OpenOreImportScanPayload(result.view()));
+            PacketDistributor.sendToPlayer(player, new OpenOreImportScanPayload(acceptedImportView(result)));
         } else {
             finishImportFailure(player, result.status(), result.message());
         }
@@ -246,7 +269,7 @@ public final class DelvefoldNetwork {
         if (player == null) return;
         var result = OreImportAdminService.get().preview(player, payload.scanToken(), payload.selectedGroupIds());
         if (result.accepted()) {
-            PacketDistributor.sendToPlayer(player, new OpenOreImportPreviewPayload(result.view()));
+            PacketDistributor.sendToPlayer(player, new OpenOreImportPreviewPayload(acceptedImportView(result)));
         } else {
             finishImportFailure(player, result.status(), result.message());
         }
@@ -257,7 +280,7 @@ public final class DelvefoldNetwork {
         if (player == null) return;
         var result = OreImportAdminService.get().previewPage(player, payload.commitToken(), payload.page());
         if (result.accepted()) {
-            PacketDistributor.sendToPlayer(player, new OpenOreImportPreviewPayload(result.view()));
+            PacketDistributor.sendToPlayer(player, new OpenOreImportPreviewPayload(acceptedImportView(result)));
         } else {
             finishImportFailure(player, result.status(), result.message());
         }
@@ -285,6 +308,10 @@ public final class DelvefoldNetwork {
         finish(
                 player,
                 new DelvefoldAdminService.ServiceResult(status, revision, message, status == ActionStatus.STALE));
+    }
+
+    private static <T> T acceptedImportView(OreImportAdminService.ViewResult<T> result) {
+        return Objects.requireNonNull(result.view(), "accepted import result view");
     }
 
     private static void handleOrePageRequest(OrePageRequestPayload payload, IPayloadContext context) {
@@ -463,6 +490,8 @@ public final class DelvefoldNetwork {
                         .perform(player, payload.expectedRevision(), operation, payload.confirmation()));
     }
 
+    // Closing the intentionally unused scope restores the thread-local audit actor.
+    @SuppressWarnings("try")
     private static void invoke(ServerPlayer player, ServiceCall call) {
         try (DelvefoldAuditService.ActorScope ignored =
                 DelvefoldAuditService.get().pushActor(player.getGameProfile().getName())) {
@@ -490,7 +519,15 @@ public final class DelvefoldNetwork {
         }
     }
 
-    /** Completes a previously accepted background administration action on the server thread. */
+    /**
+     * Completes a previously accepted background administration action on the server thread.
+     *
+     * <p>This method sends immediately and does not perform a thread handoff; asynchronous callers must first re-enter
+     * the server game thread, normally with {@code MinecraftServer.execute(...)}.
+     *
+     * @param player player that initiated the asynchronous action
+     * @param result immutable terminal result, including whether a refreshed snapshot is required
+     */
     public static void sendAsyncResult(ServerPlayer player, DelvefoldAdminService.ServiceResult result) {
         finish(Objects.requireNonNull(player, "player"), Objects.requireNonNull(result, "result"));
     }
@@ -515,12 +552,12 @@ public final class DelvefoldNetwork {
         }
     }
 
-    private static ServerPlayer authorizedPlayer(IPayloadContext context, int permissionLevel) {
+    private static @Nullable ServerPlayer authorizedPlayer(IPayloadContext context, int permissionLevel) {
         ServerPlayer player = serverPlayer(context);
         return player != null && requirePermission(player, permissionLevel) ? player : null;
     }
 
-    private static ServerPlayer serverPlayer(IPayloadContext context) {
+    private static @Nullable ServerPlayer serverPlayer(IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
             return player;
         }

@@ -16,6 +16,16 @@ public final class OreBiomeMatcher {
 
     private OreBiomeMatcher() {}
 
+    /**
+     * Evaluates an ore rule's include and exclude selectors against one biome holder.
+     *
+     * <p>An empty include list matches every biome; exclusion always wins. The canonical mining-biomes tag receives a
+     * fallback match for Delvefold's three built-in mining biome keys while registries are being assembled.
+     *
+     * @param filter immutable ore-rule biome filter
+     * @param biome biome holder from the active generation registry
+     * @return {@code true} when included and not excluded
+     */
     public static boolean matches(BiomeFilter filter, Holder<Biome> biome) {
         Objects.requireNonNull(filter, "filter");
         Objects.requireNonNull(biome, "biome");
@@ -25,6 +35,13 @@ public final class OreBiomeMatcher {
         return included && !excluded;
     }
 
+    /**
+     * Evaluates one exact biome ID or {@code #tag} selector.
+     *
+     * @param selector serialized selector; null or invalid values do not match
+     * @param biome biome holder from the active generation registry
+     * @return whether the selector matches the holder
+     */
     public static boolean matches(String selector, Holder<Biome> biome) {
         if (selector == null) {
             return false;

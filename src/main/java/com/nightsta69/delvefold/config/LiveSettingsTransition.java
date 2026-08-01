@@ -4,12 +4,14 @@ import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import java.util.ArrayList;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /** Guards lifecycle-owned settings when canonical JSON is reloaded on a running server. */
 final class LiveSettingsTransition {
     private LiveSettingsTransition() {}
 
-    static List<ConfigIssue> validate(WorldSettingsDocument active, WorldSettingsDocument candidate) {
+    static List<ConfigIssue> validate(
+            @Nullable WorldSettingsDocument active, @Nullable WorldSettingsDocument candidate) {
         if (active == null || candidate == null) {
             return List.of();
         }

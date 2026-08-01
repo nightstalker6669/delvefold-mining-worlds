@@ -26,6 +26,12 @@ public final class DelvefoldEmiPortalRecipe extends BasicEmiRecipe {
     private final EmiStack frame;
     private final EmiStack ignition;
 
+    /**
+     * Creates EMI's immutable synthetic view of the in-world construction process.
+     *
+     * @param category EMI category that owns this recipe
+     * @param guide viewer-independent portal geometry and instruction contract
+     */
     public DelvefoldEmiPortalRecipe(EmiRecipeCategory category, PortalConstructionGuide guide) {
         super(
                 category,

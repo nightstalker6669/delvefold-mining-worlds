@@ -28,9 +28,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
-/** Restart-safe restore journal. The selected restore point is always copied, never consumed. */
+/**
+ * Coordinates confirmation-gated, restart-safe restoration of a mining-world backup.
+ *
+ * <p>The selected restore point is always copied and is never consumed. Confirmation writes a journal, blocks portal
+ * entry, and evacuates players; dimension and configuration files are changed only during the next startup before
+ * levels load. Public request methods coordinate with backup deletion so a selected backup cannot disappear between
+ * selection and reservation.
+ */
 public final class WorldRestoreService {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final WorldRestoreService INSTANCE = new WorldRestoreService();
@@ -41,14 +49,32 @@ public final class WorldRestoreService {
     private static final List<String> DIMENSIONS = DelvefoldDimensionFolders.ALL;
     private final Object lock = new Object();
     private final AtomicBoolean entryBlocked = new AtomicBoolean(false);
-    private Draft draft;
+    private @Nullable Draft draft;
 
     private WorldRestoreService() {}
 
+    /**
+     * Returns the process-wide restore coordinator.
+     *
+     * @return the singleton service
+     */
     public static WorldRestoreService get() {
         return INSTANCE;
     }
 
+    /**
+     * Creates a restore preview after resolving the backup from the on-disk catalog.
+     *
+     * <p>A backup must have a current manifest and successful verification receipt before it is restorable. A
+     * successful preview contains a one-use confirmation token valid for five minutes in this JVM. This method does not
+     * alter the backup or active world. Callers are responsible for enforcing the world-management permission.
+     *
+     * @param server the server whose normalized save root owns the backup catalog
+     * @param backupId the catalog's logical backup ID, not a filesystem path
+     * @param requestedBy the actor name persisted for auditing and restart recovery
+     * @return an accepted preview, or a localized rejection if the backup is unknown, unverified, unsafe, busy, or
+     *     cannot be inspected
+     */
     public WorldOperationPreview request(MinecraftServer server, String backupId, String requestedBy) {
         return BackupDeletionGuard.get()
                 .coordinateRestoreRequest(
@@ -92,20 +118,21 @@ public final class WorldRestoreService {
                         PendingWorldRestore.Phase.REQUESTED,
                         System.currentTimeMillis(),
                         requestedBy);
-                draft = new Draft(
+                Draft createdDraft = new Draft(
                         saveRoot(server),
                         token,
                         expires,
                         operation,
                         summary.sizeBytes(),
                         WorldOperationService.countMiningPlayersForOperation(server));
+                draft = createdDraft;
                 return new WorldOperationPreview(
                         true,
                         localized("message.delvefold.restore.preview"),
                         token,
                         expires,
                         summary.sizeBytes(),
-                        draft.players(),
+                        createdDraft.players(),
                         BackupMode.KEEP_BACKUP);
             } catch (IOException exception) {
                 return WorldOperationPreview.rejected(
@@ -114,9 +141,25 @@ public final class WorldRestoreService {
         }
     }
 
-    /** GUI path using an already cached summary, avoiding catalog parsing on the server thread. */
+    /**
+     * Creates a restore preview from a server-authoritative cached catalog summary.
+     *
+     * <p>This GUI-oriented path avoids parsing the catalog on the server thread. The summary must be non-null, match
+     * {@code backupId}, and report a valid, restorable backup. The same deletion reservation, conflict checks,
+     * confirmation window, and caller-enforced permission requirements as {@link #request(MinecraftServer, String,
+     * String)} apply.
+     *
+     * @param server the server whose normalized save root owns the backup
+     * @param backupId the requested logical backup ID
+     * @param requestedBy the actor name persisted for auditing and restart recovery
+     * @param summary the matching cached summary, or {@code null} if the cache no longer contains the backup
+     * @return an accepted preview, or a localized rejection without a confirmation token
+     */
     public WorldOperationPreview requestCached(
-            MinecraftServer server, String backupId, String requestedBy, WorldBackupCatalog.BackupSummary summary) {
+            MinecraftServer server,
+            String backupId,
+            String requestedBy,
+            WorldBackupCatalog.@Nullable BackupSummary summary) {
         return BackupDeletionGuard.get()
                 .coordinateRestoreRequest(
                         server,
@@ -128,7 +171,10 @@ public final class WorldRestoreService {
     }
 
     private WorldOperationPreview requestCachedUncoordinated(
-            MinecraftServer server, String backupId, String requestedBy, WorldBackupCatalog.BackupSummary summary) {
+            MinecraftServer server,
+            String backupId,
+            String requestedBy,
+            WorldBackupCatalog.@Nullable BackupSummary summary) {
         synchronized (lock) {
             if (LifecycleOperationCoordinator.conflictingOperationExists(
                             server, LifecycleOperationCoordinator.Kind.RESTORE)
@@ -153,38 +199,52 @@ public final class WorldRestoreService {
                     PendingWorldRestore.Phase.REQUESTED,
                     System.currentTimeMillis(),
                     requestedBy);
-            draft = new Draft(
+            Draft createdDraft = new Draft(
                     saveRoot(server),
                     token,
                     expires,
                     operation,
                     summary.sizeBytes(),
                     WorldOperationService.countMiningPlayersForOperation(server));
+            draft = createdDraft;
             return new WorldOperationPreview(
                     true,
                     localized("message.delvefold.restore.preview"),
                     token,
                     expires,
                     summary.sizeBytes(),
-                    draft.players(),
+                    createdDraft.players(),
                     BackupMode.KEEP_BACKUP);
         }
     }
 
+    /**
+     * Confirms the current restore preview and persists its restart journal.
+     *
+     * <p>Successful confirmation blocks portal entry and evacuates players, but does not modify loaded dimension
+     * folders. The token is compared without early-exit timing and is never persisted.
+     *
+     * @param server the server for which the preview was created
+     * @param token the confirmation token supplied by the authorized caller
+     * @return a successful scheduling result, or a localized failure when the draft is absent, expired, mismatched,
+     *     conflicting, or cannot be journaled
+     */
     public WorldOperationResult confirm(MinecraftServer server, String token) {
         return LifecycleOperationCoordinator.coordinate(() -> confirmCoordinated(server, token));
     }
 
     private WorldOperationResult confirmCoordinated(MinecraftServer server, String token) {
         synchronized (lock) {
-            if (draft == null) {
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft == null) {
                 return WorldOperationResult.failure(localized("message.delvefold.restore.confirm.none"));
             }
-            if (!draft.saveRoot().equals(saveRoot(server)) || System.currentTimeMillis() > draft.expiresAt()) {
+            if (!currentDraft.saveRoot().equals(saveRoot(server))
+                    || System.currentTimeMillis() > currentDraft.expiresAt()) {
                 draft = null;
                 return WorldOperationResult.failure(localized("message.delvefold.restore.confirm.expired_or_mismatch"));
             }
-            if (!constantTimeEquals(draft.token(), token)) {
+            if (!constantTimeEquals(currentDraft.token(), token)) {
                 return WorldOperationResult.failure(localized("message.delvefold.restore.confirm.invalid"));
             }
             if (LifecycleOperationCoordinator.conflictingOperationExists(
@@ -192,7 +252,7 @@ public final class WorldRestoreService {
                 return WorldOperationResult.failure(localized("message.delvefold.restore.already_pending"));
             }
             try {
-                writePending(pendingPath(server), draft.operation());
+                writePending(pendingPath(server), currentDraft.operation());
                 entryBlocked.set(true);
                 WorldOperationService.evacuateMiningPlayersForOperation(server);
                 draft = null;
@@ -207,6 +267,15 @@ public final class WorldRestoreService {
         }
     }
 
+    /**
+     * Cancels an unconfirmed restore preview or a confirmed journal before restart processing begins.
+     *
+     * <p>Cancellation never deletes the selected backup. A persisted journal is removed and its entry block is released
+     * only if deletion succeeds.
+     *
+     * @param server the server that owns the draft or pending journal
+     * @return the cancellation result, including a localized failure when nothing is pending or journal deletion fails
+     */
     public WorldOperationResult cancel(MinecraftServer server) {
         return LifecycleOperationCoordinator.coordinate(() -> cancelCoordinated(server));
     }
@@ -232,10 +301,21 @@ public final class WorldRestoreService {
         }
     }
 
+    /**
+     * Reports whether a confirmed or startup-active restore blocks portal entry.
+     *
+     * @return {@code true} while restore entry is blocked
+     */
     public boolean isEntryBlocked() {
         return entryBlocked.get();
     }
 
+    /**
+     * Tests whether the active save contains a persisted restore journal.
+     *
+     * @param server the server whose configuration directory is inspected
+     * @return {@code true} when the pending-restore path exists
+     */
     public boolean hasPending(MinecraftServer server) {
         return Files.exists(pendingPath(server));
     }
@@ -246,10 +326,12 @@ public final class WorldRestoreService {
             if (Files.exists(pendingPath(server))) {
                 return true;
             }
-            if (draft == null) {
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft == null) {
                 return false;
             }
-            if (!draft.saveRoot().equals(saveRoot(server)) || System.currentTimeMillis() > draft.expiresAt()) {
+            if (!currentDraft.saveRoot().equals(saveRoot(server))
+                    || System.currentTimeMillis() > currentDraft.expiresAt()) {
                 draft = null;
                 return false;
             }
@@ -257,12 +339,21 @@ public final class WorldRestoreService {
         }
     }
 
-    /** Logical backup ID selected by the current draft or persisted restore, for redacted auditing. */
+    /**
+     * Returns the logical backup ID selected by the current draft or persisted restore.
+     *
+     * <p>The fallback value {@code pending_restore} is returned when a journal exists but cannot be safely read,
+     * keeping audit output useful without exposing a filesystem path or damaged contents.
+     *
+     * @param server the server whose draft or journal is inspected
+     * @return the selected logical ID, or the redacted fallback value when no readable selection is available
+     */
     public String selectedBackupId(MinecraftServer server) {
         synchronized (lock) {
             Path root = saveRoot(server);
-            if (draft != null && draft.saveRoot().equals(root)) {
-                return draft.operation().backupId();
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft != null && currentDraft.saveRoot().equals(root)) {
+                return currentDraft.operation().backupId();
             }
             Path pending = pendingPath(server);
             if (Files.exists(pending)) {
@@ -276,13 +367,23 @@ public final class WorldRestoreService {
         }
     }
 
-    /** Backup IDs that retention must protect while a restore is drafted or pending. */
+    /**
+     * Returns backup IDs that retention must protect while a restore is drafted or pending.
+     *
+     * <p>The immutable result includes the selected backup and, once journaled, the deterministic pre-restore backup
+     * ID. It never contains absolute filesystem paths.
+     *
+     * @param server the server whose draft and persisted journal are inspected
+     * @return an immutable set of protected logical backup IDs
+     * @throws IOException if an existing pending journal cannot be safely read or validated
+     */
     public Set<String> referencedBackupIds(MinecraftServer server) throws IOException {
         synchronized (lock) {
             Set<String> result = new LinkedHashSet<>();
             Path root = saveRoot(server);
-            if (draft != null && draft.saveRoot().equals(root)) {
-                result.add(draft.operation().backupId());
+            @Nullable Draft currentDraft = draft;
+            if (currentDraft != null && currentDraft.saveRoot().equals(root)) {
+                result.add(currentDraft.operation().backupId());
             }
             Path pending = pendingPath(server);
             if (Files.exists(pending)) {
@@ -294,6 +395,11 @@ public final class WorldRestoreService {
         }
     }
 
+    /**
+     * Clears JVM-local draft and entry-block state when the server stops.
+     *
+     * <p>Persisted journals, staging data, and backups remain intact for restart recovery.
+     */
     public void stop() {
         LifecycleOperationCoordinator.coordinate(() -> {
             synchronized (lock) {
@@ -303,7 +409,18 @@ public final class WorldRestoreService {
         });
     }
 
-    /** Runs before configuration and dimensions are loaded. */
+    /**
+     * Executes or resumes a journaled restore before configuration and dimensions load.
+     *
+     * <p>The method validates the selected backup and its manifest, copies it into operation-specific staging, creates
+     * a verified pre-restore backup of the current managed data, installs staged dimensions and configuration, and
+     * advances the journal after each durable phase. Symbolic links, path escapes, missing managed data, corrupt
+     * manifests, and incomplete filesystem transactions fail closed. The original selected backup is never modified.
+     *
+     * @param server the starting server whose save root owns the restore journal and backup catalog
+     * @throws IllegalStateException if verification, staging, current-world backup, installation, rollback, manifest
+     *     creation, or journal archival cannot complete safely
+     */
     public void prepareStartup(MinecraftServer server) {
         synchronized (lock) {
             Path pendingPath = pendingPath(server);
@@ -312,7 +429,7 @@ public final class WorldRestoreService {
                 return;
             }
             entryBlocked.set(true);
-            PendingWorldRestore pending = null;
+            @Nullable PendingWorldRestore pending = null;
             try {
                 if (WorldOperationService.get().hasPending(server)) {
                     throw new IOException("A delete/recreate operation and restore cannot be pending together");
@@ -555,7 +672,7 @@ public final class WorldRestoreService {
         return server.getWorldPath(LevelResource.ROOT).toAbsolutePath().normalize();
     }
 
-    private static String localized(String translationKey, Object... arguments) {
+    private static String localized(String translationKey, @Nullable Object @Nullable ... arguments) {
         return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 
@@ -582,7 +699,11 @@ public final class WorldRestoreService {
                 .normalize();
     }
 
-    /** Exposed for diagnostics and contract tests; this list controls both backup and restore. */
+    /**
+     * Returns the canonical managed dimension-folder names used by both backup and restore.
+     *
+     * @return an immutable ordered list of save-root-relative folder names, never absolute paths
+     */
     public static List<String> managedDimensionFolders() {
         return DIMENSIONS;
     }

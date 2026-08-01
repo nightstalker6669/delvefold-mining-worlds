@@ -8,6 +8,11 @@ import java.util.Optional;
 public final class GuideSnapshotService {
     private GuideSnapshotService() {}
 
+    /**
+     * Builds the current public guide from a coherent live configuration snapshot.
+     *
+     * @return an immutable redacted snapshot, or an empty optional while server services are unavailable
+     */
     public static Optional<GuideSnapshot> current() {
         return current(System.currentTimeMillis());
     }

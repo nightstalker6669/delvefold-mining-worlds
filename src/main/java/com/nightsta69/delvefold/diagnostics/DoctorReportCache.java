@@ -3,6 +3,7 @@ package com.nightsta69.delvefold.diagnostics;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /** Small access-ordered cache whose keys are normalized save roots. */
 final class DoctorReportCache {
@@ -16,7 +17,7 @@ final class DoctorReportCache {
         this.maximumSaves = maximumSaves;
     }
 
-    synchronized Entry get(Path saveRoot) {
+    synchronized @Nullable Entry get(Path saveRoot) {
         return entries.get(key(saveRoot));
     }
 

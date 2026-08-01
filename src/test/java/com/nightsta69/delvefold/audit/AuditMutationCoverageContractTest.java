@@ -136,6 +136,7 @@ class AuditMutationCoverageContractTest {
     @Test
     void portalSemanticAuditsHaveOneCentralEmitter() throws IOException {
         String config = read("config/DelvefoldConfigService.java");
+        String planner = read("config/ConfigAuditPlanner.java");
         String commands = read("command/DelvefoldCommands.java");
         String routingCommand =
                 between(commands, "private static int setPortalRouting(", "private static int setPortalHub(");
@@ -146,8 +147,9 @@ class AuditMutationCoverageContractTest {
                 "public ServiceResult updatePortal(",
                 "public ServiceResult updateIdentity(");
 
-        assertTrue(containsCode(config, "AuditMutation.Operation.PORTAL_ROUTING_CHANGED"));
-        assertTrue(containsCode(config, "AuditMutation.Operation.HUB_PROTECTION_CHANGED"));
+        assertTrue(containsCode(config, "ConfigAuditPlanner.plan(before, saved, actor)"));
+        assertTrue(containsCode(planner, "AuditMutation.Operation.PORTAL_ROUTING_CHANGED"));
+        assertTrue(containsCode(planner, "AuditMutation.Operation.HUB_PROTECTION_CHANGED"));
         for (String caller : new String[] {routingCommand, hubCommand, adminPortal}) {
             assertFalse(
                     containsCode(caller, "AuditMutation.Operation.PORTAL_ROUTING_CHANGED"),

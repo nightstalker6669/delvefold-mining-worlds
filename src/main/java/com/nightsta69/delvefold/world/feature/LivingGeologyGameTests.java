@@ -45,6 +45,12 @@ public final class LivingGeologyGameTests {
 
     private LivingGeologyGameTests() {}
 
+    /**
+     * Verifies that themed-geology mutations remain inside the currently generating chunk, respect protected template
+     * blocks, and leave the classic theme as a no-op.
+     *
+     * @param helper NeoForge GameTest context providing the reserved test world and assertions
+     */
     @GameTest(templateNamespace = Delvefold.MOD_ID, template = RESERVATION_TEMPLATE)
     public static void geologyAdapterRejectsUnsafeMutationsAndClassicIsANoOp(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -105,6 +111,12 @@ public final class LivingGeologyGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that the compiled ore-profile cache is reused within one registry lifetime and is invalidated when a
+     * datapack registry reload may change tag-derived output membership.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
     @GameTest(templateNamespace = Delvefold.MOD_ID, template = RESERVATION_TEMPLATE)
     public static void runtimeOreProfileCacheInvalidatesAcrossRegistryReloads(GameTestHelper helper) {
         OreProfileDocument document = DelvefoldConfigService.get().snapshot().ores();
@@ -119,6 +131,12 @@ public final class LivingGeologyGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that a geology fluid pocket is placed only when every neighbor forms a complete, natural, in-chunk seal
+     * and is rejected when validation crosses a chunk boundary.
+     *
+     * @param helper NeoForge GameTest context providing the reserved test world and assertions
+     */
     @GameTest(templateNamespace = Delvefold.MOD_ID, template = RESERVATION_TEMPLATE)
     public static void geologyFluidsRequireACompleteInChunkNaturalSeal(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -155,6 +173,12 @@ public final class LivingGeologyGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that province placement replaces eligible host blocks while every write remains clipped to the currently
+     * processed 16-by-16-block chunk.
+     *
+     * @param helper NeoForge GameTest context providing the reserved test world and assertions
+     */
     @GameTest(templateNamespace = Delvefold.MOD_ID, template = RESERVATION_TEMPLATE)
     public static void provinceAdapterReplacesHostsWithoutWritingOutsideItsChunk(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -198,6 +222,13 @@ public final class LivingGeologyGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that adjacent chunks derive the same province and canonical output block from the shared regional seed
+     * while repeated generation of either chunk is deterministic.
+     *
+     * @param helper NeoForge GameTest context providing the reserved test world and assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = Delvefold.MOD_ID, template = RESERVATION_TEMPLATE)
     public static void adjacentChunksUseTheSameDeterministicProvinceOutput(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
@@ -268,6 +299,12 @@ public final class LivingGeologyGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies deterministic air-exposure filtering on both sides of a chunk border without allowing either chunk pass
+     * to write into its neighbor.
+     *
+     * @param helper NeoForge GameTest context providing the reserved test world and assertions
+     */
     @GameTest(templateNamespace = Delvefold.MOD_ID, template = RESERVATION_TEMPLATE)
     public static void adjacentProvinceChunksApplyAirExposureDeterministically(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();

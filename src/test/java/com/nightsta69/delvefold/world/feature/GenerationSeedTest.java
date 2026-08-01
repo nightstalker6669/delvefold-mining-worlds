@@ -82,7 +82,7 @@ class GenerationSeedTest {
     }
 
     private static long chunkPosition(int x, int z) {
-        return (long) x & 0xFFFF_FFFFL | ((long) z & 0xFFFF_FFFFL) << 32;
+        return ((long) x & 0xFFFF_FFFFL) | (((long) z & 0xFFFF_FFFFL) << 32);
     }
 
     private static long legacyOreSeed(long worldSeed, long chunkPosition, String id) {

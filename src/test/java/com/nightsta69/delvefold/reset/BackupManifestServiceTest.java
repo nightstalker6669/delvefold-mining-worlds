@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -76,7 +77,7 @@ class BackupManifestServiceTest {
 
         Files.writeString(backup.resolve("dimensions/delvefold/delve_flat/region/r.0.0.mca"), "corrupt");
         IOException failure = assertThrows(IOException.class, () -> service.verify(backup));
-        assertTrue(failure.getMessage().contains("SHA-256"));
+        assertTrue(Objects.requireNonNull(failure.getMessage()).contains("SHA-256"));
         assertFalse(service.hasCurrentVerification(backup));
         assertFalse(Files.exists(backup.resolve(BackupVerificationReceipt.FILE_NAME)));
     }
@@ -122,7 +123,7 @@ class BackupManifestServiceTest {
         service.createVerifiedManifest(backup);
         Files.writeString(backup.resolve("unexpected.dat"), "not manifested");
         IOException unexpected = assertThrows(IOException.class, () -> service.verify(backup));
-        assertTrue(unexpected.getMessage().contains("not present"));
+        assertTrue(Objects.requireNonNull(unexpected.getMessage()).contains("not present"));
     }
 
     @Test
@@ -178,7 +179,7 @@ class BackupManifestServiceTest {
         Path empty = createLegacyBackup(BACKUP_ID + "-empty");
         Files.delete(empty.resolve("dimensions/delvefold/delve_flat/region/r.0.0.mca"));
         IOException emptyFailure = assertThrows(IOException.class, () -> service.validateLegacyLayout(empty));
-        assertTrue(emptyFailure.getMessage().contains("no canonical Delvefold dimension data"));
+        assertTrue(Objects.requireNonNull(emptyFailure.getMessage()).contains("no canonical Delvefold dimension data"));
         assertFalse(Files.exists(empty.resolve(BackupManifest.FILE_NAME)));
 
         Path unknown = createLegacyBackup(BACKUP_ID + "-unknown");
@@ -186,7 +187,7 @@ class BackupManifestServiceTest {
         Files.createDirectories(unrelated);
         Files.writeString(unrelated.resolve("region.dat"), "unrelated");
         IOException unknownFailure = assertThrows(IOException.class, () -> service.validateLegacyLayout(unknown));
-        assertTrue(unknownFailure.getMessage().contains("unknown top-level dimension entry"));
+        assertTrue(Objects.requireNonNull(unknownFailure.getMessage()).contains("unknown top-level dimension entry"));
         assertFalse(Files.exists(unknown.resolve(BackupManifest.FILE_NAME)));
 
         Path missingActive = createLegacyBackup(BACKUP_ID + "-missing-active");
@@ -200,7 +201,7 @@ class BackupManifestServiceTest {
                 missingActive.resolve("config/serverconfig/delvefold/settings.json"),
                 ConfigJson.GSON.toJson(expansiveWild));
         IOException activeFailure = assertThrows(IOException.class, () -> service.validateLegacyLayout(missingActive));
-        assertTrue(activeFailure.getMessage().contains("delve_wild_expansive"));
+        assertTrue(Objects.requireNonNull(activeFailure.getMessage()).contains("delve_wild_expansive"));
 
         Path activeRegion = missingActive.resolve("dimensions/delvefold/delve_wild_expansive/region/r.0.0.mca");
         Files.createDirectories(activeRegion.getParent());

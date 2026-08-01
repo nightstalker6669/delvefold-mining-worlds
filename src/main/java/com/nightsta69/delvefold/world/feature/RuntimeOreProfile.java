@@ -26,6 +26,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 /** Immutable, worldgen-thread-safe compilation of the editable ore profile. */
@@ -70,7 +71,7 @@ final class RuntimeOreProfile {
                 if (band.minY() > band.maxY()) {
                     continue;
                 }
-                ProvinceSettings province = band.province();
+                @Nullable ProvinceSettings province = band.province();
                 boolean effectiveProvince = band.placement() == OreBandPlacement.PROVINCE
                         && province != null
                         && province.regionSize() > 0
@@ -242,12 +243,12 @@ final class RuntimeOreProfile {
             double attemptsPerChunk,
             HeightSampler height,
             OreBandPlacement placement,
-            ProvinceSettings province,
+            @Nullable ProvinceSettings province,
             SpawnBand sourceBand) {
         CompiledBand {
             targetGroups = List.copyOf(targetGroups);
             placement = placement == null ? OreBandPlacement.VEIN : placement;
-            sourceBand = java.util.Objects.requireNonNull(sourceBand, "sourceBand");
+            java.util.Objects.requireNonNull(sourceBand, "sourceBand");
         }
 
         OreConfiguration ore(RandomSource random) {

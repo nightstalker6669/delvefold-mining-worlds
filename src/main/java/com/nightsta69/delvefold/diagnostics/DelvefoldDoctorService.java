@@ -57,8 +57,16 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.LevelStem;
 import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
+import org.jspecify.annotations.Nullable;
 
-/** Builds the bounded, redacted operational snapshot used by {@code /delvefold doctor}. */
+/**
+ * Builds the bounded, redacted operational snapshot used by {@code /delvefold doctor}.
+ *
+ * <p>Minecraft-owned registries, levels, and configuration snapshots are captured on the caller thread. Asynchronous
+ * entry points move catalog walks, journal reads, retention planning, and disk estimates onto one bounded daemon
+ * worker. Reports use logical IDs and stable reason codes and never intentionally include filesystem paths, server
+ * addresses, confirmation tokens, complete profiles, or player records.
+ */
 public final class DelvefoldDoctorService {
     static final int MAX_PROFILE_FINDINGS = 256;
     static final int MAX_INEFFECTIVE_TARGETS = 256;
@@ -83,10 +91,27 @@ public final class DelvefoldDoctorService {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    /**
+     * Returns the process-wide doctor service and its bounded per-save cache.
+     *
+     * @return the singleton service
+     */
     public static DelvefoldDoctorService get() {
         return INSTANCE;
     }
 
+    /**
+     * Builds a fresh report synchronously.
+     *
+     * <p>The caller should be the server thread while Minecraft-owned state is captured. This convenience method then
+     * performs filesystem and catalog inspection on the calling thread and may block; interactive paths should prefer
+     * {@link #refreshAsync(MinecraftServer)}.
+     *
+     * @param server the server whose normalized save and configuration state are diagnosed
+     * @return a fresh immutable, bounded, redacted report
+     * @throws NullPointerException if {@code server} is {@code null}
+     * @throws IllegalStateException if required live configuration state is unavailable
+     */
     public DoctorReport build(MinecraftServer server) {
         return buildCaptured(capture(Objects.requireNonNull(server, "server")));
     }
@@ -95,6 +120,11 @@ public final class DelvefoldDoctorService {
      * Captures Minecraft-owned state on the caller/server thread, then performs all directory walks, backup inspection,
      * retention planning, hashing metadata reads, and disk estimates on one bounded daemon worker. Concurrent requests
      * for the same save share one future.
+     *
+     * @param server the server whose state is captured before worker dispatch
+     * @return a shared future that completes with a fresh report or exceptionally if capture or worker execution fails
+     * @throws NullPointerException if {@code server} is {@code null}
+     * @throws IllegalStateException if required live configuration state cannot be captured
      */
     public CompletableFuture<DoctorReport> refreshAsync(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
@@ -108,7 +138,7 @@ public final class DelvefoldDoctorService {
             CompletableFuture<DoctorReport> future =
                     CompletableFuture.supplyAsync(() -> buildCaptured(captured), WORKER);
             inFlight.put(key, future);
-            future.whenComplete((report, failure) -> {
+            var unusedCompletion = future.whenComplete((report, failure) -> {
                 synchronized (asyncLock) {
                     boolean currentSession = inFlight.remove(key, future);
                     if (currentSession && failure == null && report != null) {
@@ -120,27 +150,49 @@ public final class DelvefoldDoctorService {
         }
     }
 
-    /** Returns a cached report immediately and starts a deduplicated background refresh if stale. */
+    /**
+     * Returns rendered cached data immediately and starts a deduplicated refresh when missing or stale.
+     *
+     * <p>Cache entries expire after thirty seconds. A missing entry returns a single localized preparing message; the
+     * background future is not joined on this call. Because a refresh may capture Minecraft-owned state, callers should
+     * invoke this method on the server thread.
+     *
+     * @param server the server whose normalized save root keys the cache
+     * @return immutable bounded lines for the cached report, or a preparing line when no report is cached
+     * @throws NullPointerException if {@code server} is {@code null}
+     */
     public List<String> cachedRenderedLines(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
         Path key = saveRoot(server);
         DoctorReportCache.Entry current = cache.get(key);
         long now = clock.millis();
         if (current == null || now - current.cachedAtEpochMillis() > CACHE_TTL_MILLIS) {
-            refreshAsync(server);
+            var unusedRefresh = refreshAsync(server);
         }
         return current == null
                 ? List.of(AdminLocalizedMessage.encode("message.delvefold.doctor.preparing"))
                 : renderer.render(current.report());
     }
 
-    /** Invalidates one save and prevents an older in-flight session scan from repopulating it. */
+    /**
+     * Invalidates one save and prevents an older in-flight scan from repopulating its cache entry.
+     *
+     * <p>Cancellation does not interrupt a worker already performing filesystem I/O; completion is simply prevented
+     * from being accepted into the invalidated cache session.
+     *
+     * @param server the server whose normalized save-root entry is invalidated
+     * @throws NullPointerException if {@code server} is {@code null}
+     */
     public void invalidate(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
         invalidate(saveRoot(server));
     }
 
-    /** Clears every cached save on lifecycle shutdown, including canceled in-flight sessions. */
+    /**
+     * Clears every cached save on lifecycle shutdown and rejects completions from current in-flight sessions.
+     *
+     * <p>Worker tasks are cancelled without thread interruption; no report files or persistent state are deleted.
+     */
     public void clear() {
         List<CompletableFuture<DoctorReport>> pending;
         synchronized (asyncLock) {
@@ -163,10 +215,28 @@ public final class DelvefoldDoctorService {
         }
     }
 
+    /**
+     * Refreshes and renders a report without blocking for filesystem inspection on the caller thread.
+     *
+     * @param server the server whose state is captured before worker dispatch
+     * @return a future completing with immutable, redacted, transport-bounded lines
+     * @throws NullPointerException if {@code server} is {@code null}
+     */
     public CompletableFuture<List<String>> renderedLinesAsync(MinecraftServer server) {
         return refreshAsync(server).thenApply(renderer::render);
     }
 
+    /**
+     * Refreshes and writes a redacted JSON report on the doctor worker.
+     *
+     * <p>The configured exports directory is created with containment and symbolic-link checks before the atomic file
+     * write. I/O failures complete the returned future exceptionally with an {@link IOException} wrapped in a
+     * completion exception.
+     *
+     * @param server the server whose report is exported
+     * @return a future completing with the normalized absolute export path
+     * @throws NullPointerException if {@code server} is {@code null}
+     */
     public CompletableFuture<Path> exportAsync(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
         ConfigPaths paths = ConfigPaths.forServer(server);
@@ -250,15 +320,43 @@ public final class DelvefoldDoctorService {
         return builder.build();
     }
 
+    /**
+     * Builds and renders a fresh report synchronously.
+     *
+     * <p>This method inherits the caller-thread filesystem cost of {@link #build(MinecraftServer)}.
+     *
+     * @param server the server to diagnose
+     * @return immutable, redacted, transport-bounded lines
+     * @throws NullPointerException if {@code server} is {@code null}
+     * @throws IllegalStateException if required live state is unavailable
+     */
     public List<String> renderedLines(MinecraftServer server) {
         return renderer.render(build(server));
     }
 
+    /**
+     * Renders an existing report without inspecting live server or filesystem state.
+     *
+     * @param report immutable report to render
+     * @return immutable, redacted, transport-bounded lines
+     * @throws IllegalArgumentException if {@code report} is {@code null}
+     */
     public List<String> renderedLines(DoctorReport report) {
         return renderer.render(report);
     }
 
-    /** Creates the contained exports directory, then writes one redacted doctor report. */
+    /**
+     * Synchronously creates the contained exports directory and writes one redacted doctor report.
+     *
+     * <p>This convenience path performs report scans and export I/O on the calling thread. It validates existing path
+     * components against symbolic links and confines the export beneath the configured server directory.
+     *
+     * @param server the server whose report is exported
+     * @return the normalized absolute path of the completed JSON export
+     * @throws NullPointerException if {@code server} is {@code null}
+     * @throws IOException if the exports directory or output file cannot be safely created or written
+     * @throws IllegalStateException if required live configuration state is unavailable
+     */
     public Path export(MinecraftServer server) throws IOException {
         ConfigPaths paths = ConfigPaths.forServer(Objects.requireNonNull(server, "server"));
         Path exports = ensureExportsDirectory(paths);
@@ -445,7 +543,7 @@ public final class DelvefoldDoctorService {
                 warningCount);
     }
 
-    static BackupAnalysis analyzeBackups(List<WorldBackupCatalog.BackupSummary> supplied) {
+    static BackupAnalysis analyzeBackups(@Nullable List<WorldBackupCatalog.BackupSummary> supplied) {
         List<WorldBackupCatalog.BackupSummary> summaries = supplied == null ? List.of() : supplied;
         int verified = 0;
         int invalid = 0;
@@ -515,7 +613,7 @@ public final class DelvefoldDoctorService {
     }
 
     static DoctorReport.RetentionPreview retentionPreview(
-            BackupRetentionPlanner.Plan plan, BackupRetentionRunState.Snapshot lastRun) {
+            BackupRetentionPlanner.Plan plan, BackupRetentionRunState.@Nullable Snapshot lastRun) {
         List<DoctorReport.RetentionPrune> prunes = plan.prunes().stream()
                 .limit(MAX_RETENTION_PRUNES)
                 .map(prune -> new DoctorReport.RetentionPrune(
@@ -548,7 +646,7 @@ public final class DelvefoldDoctorService {
                 retentionRun(lastRun));
     }
 
-    static DoctorReport.RetentionRun retentionRun(BackupRetentionRunState.Snapshot snapshot) {
+    static DoctorReport.RetentionRun retentionRun(BackupRetentionRunState.@Nullable Snapshot snapshot) {
         if (snapshot == null) {
             return DoctorReport.RetentionRun.none();
         }
@@ -660,11 +758,12 @@ public final class DelvefoldDoctorService {
         try {
             modified = Math.max(0L, Files.getLastModifiedTime(path).toMillis());
         } catch (IOException ignored) {
+            // Invalid optional metadata retains the documented unknown-time sentinel.
         }
         return new DoctorReport.PendingOperationStatus(id, operation, "invalid", modified);
     }
 
-    private static boolean validOperationId(String value) {
+    private static boolean validOperationId(@Nullable String value) {
         try {
             UUID.fromString(value);
             return true;
@@ -673,11 +772,11 @@ public final class DelvefoldDoctorService {
         }
     }
 
-    private static boolean validBackupId(String value) {
+    private static boolean validBackupId(@Nullable String value) {
         return value != null && value.matches("[a-zA-Z0-9_.-]{1,200}");
     }
 
-    static long estimateTreeBytes(Path root, int maximumEntries) {
+    static long estimateTreeBytes(@Nullable Path root, int maximumEntries) {
         if (root == null || maximumEntries < 1 || Files.notExists(root)) {
             return root == null || maximumEntries < 1 ? -1L : 0L;
         }
@@ -738,6 +837,7 @@ public final class DelvefoldDoctorService {
             FileStore store = Files.getFileStore(saveRoot);
             usable = Math.max(0L, store.getUsableSpace());
         } catch (IOException | RuntimeException ignored) {
+            // Disk-space reporting is advisory; unavailable values retain the -1 sentinel.
         }
         long nextBackup = estimateCurrentBackupBytes(saveRoot, paths);
         long headroom = nextBackup < 0L ? -1L : Math.min(nextBackup, 64L * MEBIBYTE) + 16L * MEBIBYTE;
@@ -747,9 +847,11 @@ public final class DelvefoldDoctorService {
     static Path ensureExportsDirectory(ConfigPaths paths) throws IOException {
         Path directory = paths.directory().toAbsolutePath().normalize();
         Path exports = paths.exports().toAbsolutePath().normalize();
+        @Nullable Path parent = exports.getParent();
         if (!exports.startsWith(directory)
                 || exports.equals(directory)
-                || !exports.getParent().equals(directory)) {
+                || parent == null
+                || !parent.equals(directory)) {
             throw new IOException("Doctor exports directory escaped Delvefold serverconfig");
         }
         if (Files.exists(directory) && (Files.isSymbolicLink(directory) || !Files.isDirectory(directory))) {
@@ -785,7 +887,7 @@ public final class DelvefoldDoctorService {
         return severity == IssueSeverity.ERROR ? DoctorReport.Severity.ERROR : DoctorReport.Severity.WARNING;
     }
 
-    private static String diagnosticObject(String path) {
+    private static String diagnosticObject(@Nullable String path) {
         if (path == null || path.isBlank() || path.equals("$")) {
             return "root";
         }
@@ -825,7 +927,7 @@ public final class DelvefoldDoctorService {
         }
     }
 
-    private static String retentionWarningCode(String warning) {
+    private static String retentionWarningCode(@Nullable String warning) {
         if (warning == null) {
             return "retention_constraint_unmet";
         }
@@ -898,7 +1000,7 @@ public final class DelvefoldDoctorService {
             ConfigPaths paths,
             Path saveRoot,
             DoctorReportBuilder builder,
-            BackupRetentionRunState.Snapshot retentionRun) {}
+            BackupRetentionRunState.@Nullable Snapshot retentionRun) {}
 
     private static final class DoctorThreadFactory implements ThreadFactory {
         @Override

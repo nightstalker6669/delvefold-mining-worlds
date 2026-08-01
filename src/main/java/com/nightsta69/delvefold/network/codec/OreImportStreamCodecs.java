@@ -21,6 +21,13 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 public final class OreImportStreamCodecs {
     private OreImportStreamCodecs() {}
 
+    /**
+     * Writes one bounded scan page in protocol 12 field order.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param view immutable display-only scan page
+     * @throws IllegalArgumentException if a nested value or aggregate payload exceeds import protocol limits
+     */
     public static void writeScan(RegistryFriendlyByteBuf buffer, ScanView view) {
         int start = buffer.writerIndex();
         writeToken(buffer, view.scanToken());
@@ -49,6 +56,13 @@ public final class OreImportStreamCodecs {
         ensureBudget(buffer.writerIndex() - start);
     }
 
+    /**
+     * Reads one scan page without allocating groups or candidates beyond protocol limits.
+     *
+     * @param buffer source registry-aware network buffer positioned at the scan page's first byte
+     * @return immutable validated scan view
+     * @throws IllegalArgumentException if values, counts, ordinals, paging metadata, or aggregate bytes are invalid
+     */
     public static ScanView readScan(RegistryFriendlyByteBuf buffer) {
         int start = buffer.readerIndex();
         String token = readToken(buffer);
@@ -80,6 +94,13 @@ public final class OreImportStreamCodecs {
         return new ScanView(token, revision, base, page, pageCount, total, scanned, truncated, groups);
     }
 
+    /**
+     * Writes one bounded non-mutating preview page in protocol 12 field order.
+     *
+     * @param buffer destination registry-aware network buffer
+     * @param view immutable diff, workload, and validation preview
+     * @throws IllegalArgumentException if a nested value or aggregate payload exceeds import protocol limits
+     */
     public static void writePreview(RegistryFriendlyByteBuf buffer, PreviewView view) {
         int start = buffer.writerIndex();
         writeToken(buffer, view.commitToken());
@@ -118,6 +139,13 @@ public final class OreImportStreamCodecs {
         ensureBudget(buffer.writerIndex() - start);
     }
 
+    /**
+     * Reads one preview page without allocating diff or issue collections beyond protocol limits.
+     *
+     * @param buffer source registry-aware network buffer positioned at the preview's first byte
+     * @return immutable validated preview view
+     * @throws IllegalArgumentException if values, counts, ordinals, paging metadata, or aggregate bytes are invalid
+     */
     public static PreviewView readPreview(RegistryFriendlyByteBuf buffer) {
         int start = buffer.readerIndex();
         String token = readToken(buffer);
@@ -254,6 +282,8 @@ public final class OreImportStreamCodecs {
         return value;
     }
 
+    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());
     }

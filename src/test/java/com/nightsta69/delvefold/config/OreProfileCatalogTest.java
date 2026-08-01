@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.config;
 
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -103,8 +104,9 @@ class OreProfileCatalogTest {
         var result = catalog().createNew("new_profile", source);
 
         assertTrue(result.saved(), result::message);
-        assertEquals("new_profile", result.profile().profile());
-        assertEquals(0L, result.profile().revision());
+        OreProfileDocument saved = requireNonNull(result.profile());
+        assertEquals("new_profile", saved.profile());
+        assertEquals(0L, saved.revision());
         assertEquals("source", source.profile());
         assertEquals(42L, source.revision());
     }
@@ -116,17 +118,17 @@ class OreProfileCatalogTest {
         var created = catalog.saveAs("audited", OrePresets.empty(), false);
         assertTrue(created.saved(), created::message);
         assertEquals(-1L, created.previousRevision());
-        assertEquals(0L, created.profile().revision());
+        assertEquals(0L, requireNonNull(created.profile()).revision());
 
         var firstUpdate = catalog.saveAs("audited", OrePresets.rich(), true);
         assertTrue(firstUpdate.saved(), firstUpdate::message);
         assertEquals(0L, firstUpdate.previousRevision());
-        assertEquals(1L, firstUpdate.profile().revision());
+        assertEquals(1L, requireNonNull(firstUpdate.profile()).revision());
 
         var secondUpdate = catalog.saveAs("audited", OrePresets.empty(), true);
         assertTrue(secondUpdate.saved(), secondUpdate::message);
         assertEquals(1L, secondUpdate.previousRevision());
-        assertEquals(2L, secondUpdate.profile().revision());
+        assertEquals(2L, requireNonNull(secondUpdate.profile()).revision());
 
         var deleted = catalog.deleteLocalWithRevision("audited");
         assertTrue(deleted.deleted());

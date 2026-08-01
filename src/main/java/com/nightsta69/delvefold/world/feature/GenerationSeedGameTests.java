@@ -14,6 +14,7 @@ import net.minecraft.world.level.levelgen.placement.PlacedFeature;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
+/** GameTest coverage for compatibility and domain separation of landmark generation seeds. */
 @GameTestHolder(Delvefold.MOD_ID)
 @PrefixGameTestTemplate(false)
 public final class GenerationSeedGameTests {
@@ -21,6 +22,13 @@ public final class GenerationSeedGameTests {
 
     private GenerationSeedGameTests() {}
 
+    /**
+     * Verifies that zero generation salt reuses the exact supplied random source, retaining the legacy rarity draw,
+     * block-position result, and subsequent draw sequence.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
+    @SuppressWarnings("ReferenceEquality")
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void zeroSaltLandmarksPreserveLegacyDrawOrderAndPosition(GameTestHelper helper) {
         long randomSeed = randomSeedForRarityResult(true);
@@ -29,11 +37,11 @@ public final class GenerationSeedGameTests {
         BlockPos base = new BlockPos(-32, 0, 48);
 
         float rarityDraw = expected.nextFloat();
-        BlockPos expectedCandidate =
-                rarityDraw < 1.0F / 12.0F ? base.offset(expected.nextInt(16), 0, expected.nextInt(16)) : null;
+        helper.assertTrue(rarityDraw < 1.0F / 12.0F, "Accepted rarity fixture unexpectedly rejected");
+        BlockPos expectedCandidate = base.offset(expected.nextInt(16), 0, expected.nextInt(16));
         BlockPos expectedContentOrigin = expectedCandidate.offset(expected.nextInt(16), 0, expected.nextInt(16));
         BlockPos actualCandidate = GenerationSaltedLandmarkPlacement.candidateOrigin(actual, 99L, base, 0L, 12)
-                .orElse(null);
+                .orElseThrow(() -> new AssertionError("Accepted rarity fixture did not produce a candidate"));
         RandomSource selected = MiningLandmarkFeature.randomForContent(actual, 99L, new ChunkPos(base), 0L);
         BlockPos actualContentOrigin = actualCandidate.offset(selected.nextInt(16), 0, selected.nextInt(16));
 
@@ -47,6 +55,12 @@ public final class GenerationSeedGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that a legacy landmark rejected by its rarity check consumes exactly one random draw and does not
+     * advance the stream for unused position or content choices.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void rejectedLegacyLandmarkConsumesOnlyTheRarityDraw(GameTestHelper helper) {
         long randomSeed = randomSeedForRarityResult(false);
@@ -64,6 +78,12 @@ public final class GenerationSeedGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that salted placement and content seeds are restart-stable, rotate when the persisted generation salt
+     * changes, and remain separated into independent seed domains.
+     *
+     * @param helper NeoForge GameTest context used for assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void rotatedLandmarkPlacementAndContentAreRestartStableAndDomainSeparated(GameTestHelper helper) {
         long worldSeed = 0x5EEDL;
@@ -113,6 +133,12 @@ public final class GenerationSeedGameTests {
         helper.succeed();
     }
 
+    /**
+     * Verifies that the generation-salted placement modifier is registered and decoded from the bundled placed-feature
+     * datapack entry through the platform registry.
+     *
+     * @param helper NeoForge GameTest context used for registry access and assertions
+     */
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void saltedLandmarkModifierIsRegisteredAndLoadedFromData(GameTestHelper helper) {
         PlacedFeature placed = helper.getLevel()

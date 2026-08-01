@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
 class CommandSurfaceCompatibilityTest {
     private static final Path COMMANDS =
             Path.of("src/main/java/com/nightsta69/delvefold/command/DelvefoldCommands.java");
-    private static final Path COMMAND_PACKAGE = COMMANDS.getParent();
+    private static final Path COMMAND_PACKAGE = Objects.requireNonNull(COMMANDS.getParent());
     private static final Path COMMAND_NAMES =
             Path.of("src/main/java/com/nightsta69/delvefold/command/DelvefoldCommandNames.java");
     private static final Pattern LITERAL = Pattern.compile("Commands\\.literal\\(\\s*\"([^\"]+)\"\\s*\\)");

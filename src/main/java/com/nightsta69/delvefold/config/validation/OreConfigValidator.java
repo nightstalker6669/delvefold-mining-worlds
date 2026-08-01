@@ -15,28 +15,59 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
+/**
+ * Validates schema-2 ore profiles, registry references, deterministic shapes, and aggregate generation safety bounds.
+ */
 public final class OreConfigValidator {
+    /** Minimum inclusive configured generation height in blocks. */
     public static final int MIN_WORLD_Y = -64;
+    /** Maximum inclusive configured generation height in blocks. */
     public static final int MAX_WORLD_Y = 320;
+    /** Maximum ordered ore rules in one profile. */
     public static final int MAX_RULES = 512;
+    /** Maximum output targets in one ore rule. */
     public static final int MAX_TARGETS_PER_RULE = 16;
+    /** Maximum independently salted placement bands in one ore rule. */
     public static final int MAX_BANDS_PER_RULE = 16;
+    /** Maximum include or exclude biome selectors in one filter list. */
     public static final int MAX_BIOME_SELECTORS = 128;
+    /** Maximum characters in profile, rule, band, resource, property, and state-value identifiers. */
     public static final int MAX_ID_LENGTH = 128;
+    /** Minimum relative output-target weight. */
     public static final int MIN_TARGET_WEIGHT = OreTarget.MIN_WEIGHT;
+    /** Maximum relative output-target weight. */
     public static final int MAX_TARGET_WEIGHT = OreTarget.MAX_WEIGHT;
+    /** Maximum aggregate enabled placement attempts per chunk for each terrain mode. */
     public static final double MAX_ATTEMPTS_PER_CHUNK_PER_TERRAIN = 4096.0D;
+    /** Maximum aggregate enabled attempt-times-vein-size work units per chunk for each terrain mode. */
     public static final double MAX_ORE_WORK_PER_CHUNK_PER_TERRAIN = 65536.0D;
+    /** Minimum province regional-cell size in blocks. */
     public static final int MIN_PROVINCE_REGION_SIZE = 16;
+    /** Maximum province regional-cell size in blocks. */
     public static final int MAX_PROVINCE_REGION_SIZE = 8192;
+    /** Maximum hard province attempt/work cap shared within one generating chunk. */
     public static final int MAX_PROVINCE_WORK_PER_CHUNK = 4096;
+
     private static final Pattern RESOURCE_LOCATION = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
     private static final Pattern RULE_ID = Pattern.compile("[a-z0-9_.-]+");
 
     private OreConfigValidator() {}
 
-    public static ValidationReport validate(OreProfileDocument document, RegistryLookup registries) {
+    /**
+     * Validates a complete candidate profile without mutating it or any registry.
+     *
+     * <p>The deterministic aggregate budget conservatively counts enabled bands independently for each applicable
+     * terrain because biome filters may overlap. Missing required outputs are errors; missing optional outputs are
+     * warnings and will be skipped. Pass {@link RegistryLookup#SKIP} only for contexts that intentionally cannot
+     * inspect a live server registry.
+     *
+     * @param document candidate schema-2 profile, or {@code null} to report a missing document
+     * @param registries read-only block and block-tag existence lookup
+     * @return immutable report containing every detected warning and error in deterministic traversal order
+     */
+    public static ValidationReport validate(@Nullable OreProfileDocument document, RegistryLookup registries) {
         List<ConfigIssue> issues = new ArrayList<>();
         if (document == null) {
             return new ValidationReport(List.of(ConfigIssue.error("document.missing", "$", "Ore document is missing")));
@@ -151,13 +182,14 @@ public final class OreConfigValidator {
                                         + target.blockTag());
                 issues.add(issue);
             }
-            if (stripHash(target.replaceTag()).length() > MAX_ID_LENGTH
-                    || !isResourceLocation(stripHash(target.replaceTag()))) {
+            String replaceTag = target.replaceTag();
+            String normalizedReplaceTag = replaceTag.startsWith("#") ? replaceTag.substring(1) : replaceTag;
+            if (normalizedReplaceTag.length() > MAX_ID_LENGTH || !isResourceLocation(normalizedReplaceTag)) {
                 issues.add(ConfigIssue.error(
                         "target.invalid_replace_tag",
                         targetPath + ".replace_tag",
                         "Invalid host block tag: " + target.replaceTag()));
-            } else if (!registries.blockTagExists(stripHash(target.replaceTag()))) {
+            } else if (!registries.blockTagExists(normalizedReplaceTag)) {
                 issues.add(ConfigIssue.error(
                         "target.missing_replace_tag",
                         targetPath + ".replace_tag",
@@ -239,8 +271,9 @@ public final class OreConfigValidator {
                     path + ".discard_on_air_exposure",
                     "Air-exposure discard must be between 0 and 1"));
         }
+        Integer peak = band.peakY();
         if (band.distribution() == HeightDistribution.TRIANGLE
-                && (band.peakY() == null || band.peakY() < band.minY() || band.peakY() > band.maxY())) {
+                && (peak == null || peak < band.minY() || peak > band.maxY())) {
             issues.add(ConfigIssue.error(
                     "band.invalid_peak", path + ".peak_y", "Triangle peak must be inside the height range"));
         }
@@ -254,7 +287,7 @@ public final class OreConfigValidator {
         }
     }
 
-    private static void validateProvince(ProvinceSettings province, String path, List<ConfigIssue> issues) {
+    private static void validateProvince(@Nullable ProvinceSettings province, String path, List<ConfigIssue> issues) {
         if (province == null) {
             issues.add(ConfigIssue.error("band.missing_province", path, "Province bands require province settings"));
             return;
@@ -338,11 +371,11 @@ public final class OreConfigValidator {
         }
     }
 
-    private static boolean isResourceLocation(String value) {
+    private static boolean isResourceLocation(@Nullable String value) {
         return value != null && RESOURCE_LOCATION.matcher(value).matches();
     }
 
-    private static String stripHash(String value) {
+    private static @Nullable String stripHash(@Nullable String value) {
         return value != null && value.startsWith("#") ? value.substring(1) : value;
     }
 }

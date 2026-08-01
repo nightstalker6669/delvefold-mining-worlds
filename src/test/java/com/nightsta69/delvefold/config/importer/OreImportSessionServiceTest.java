@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.config.importer;
 
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -88,9 +89,9 @@ class OreImportSessionServiceTest {
                         .status());
 
         var freshScan = issueScan(fixture, OWNER);
-        var preview = fixture.service
+        var preview = requireNonNull(fixture.service
                 .issuePreview(OWNER, freshScan.scanToken(), BINDING, REQUEST, validPlan())
-                .preview();
+                .preview());
         fixture.clock.advance(OreImportSessionService.SESSION_TTL);
 
         assertEquals(
@@ -127,9 +128,9 @@ class OreImportSessionServiceTest {
         Fixture fixture = fixture();
         Plan plan = validPlan();
         var scan = issueScan(fixture, OWNER);
-        var preview = fixture.service
+        var preview = requireNonNull(fixture.service
                 .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, plan)
-                .preview();
+                .preview());
 
         assertEquals(
                 OreImportSessionService.Status.NO_ACTIVE_PREVIEW,
@@ -154,12 +155,12 @@ class OreImportSessionServiceTest {
     void replacingPreviewInvalidatesOldCommitTokenWithoutConsumingTheReplacement() {
         Fixture fixture = fixture();
         var scan = issueScan(fixture, OWNER);
-        var first = fixture.service
+        var first = requireNonNull(fixture.service
                 .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, validPlan())
-                .preview();
-        var second = fixture.service
+                .preview());
+        var second = requireNonNull(fixture.service
                 .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, validPlan())
-                .preview();
+                .preview());
 
         assertEquals(
                 OreImportSessionService.Status.INVALID_TOKEN,
@@ -194,9 +195,9 @@ class OreImportSessionServiceTest {
     void invalidPlanCanBePreviewedButNeverCommitted() {
         Fixture fixture = fixture();
         var scan = issueScan(fixture, OWNER);
-        var preview = fixture.service
+        var preview = requireNonNull(fixture.service
                 .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, invalidPlan())
-                .preview();
+                .preview());
 
         assertEquals(
                 OreImportSessionService.Status.PLAN_INVALID,
@@ -221,8 +222,9 @@ class OreImportSessionServiceTest {
         fixture.clock.advance(Duration.ofMinutes(4));
         var accessed = fixture.service.accessScan(OWNER, scan.scanToken(), BINDING);
         assertTrue(accessed.accepted());
-        assertSame(DISCOVERY, accessed.scan().discovery());
-        assertEquals(scan.expiresAtEpochMillis(), accessed.scan().expiresAtEpochMillis());
+        var accessedScan = requireNonNull(accessed.scan());
+        assertSame(DISCOVERY, accessedScan.discovery());
+        assertEquals(scan.expiresAtEpochMillis(), accessedScan.expiresAtEpochMillis());
 
         fixture.clock.advance(Duration.ofMinutes(1));
         assertEquals(
@@ -235,9 +237,9 @@ class OreImportSessionServiceTest {
         Fixture fixture = fixture();
         Plan plan = validPlan();
         var scan = issueScan(fixture, OWNER);
-        var preview = fixture.service
+        var preview = requireNonNull(fixture.service
                 .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, plan)
-                .preview();
+                .preview());
 
         assertEquals(
                 OreImportSessionService.Status.NO_ACTIVE_PREVIEW,
@@ -246,17 +248,18 @@ class OreImportSessionServiceTest {
                         .status());
         var accessed = fixture.service.accessPreview(OWNER, preview.commitToken(), BINDING);
         assertTrue(accessed.accepted());
-        assertSame(plan, accessed.preview().plan());
-        assertEquals(preview.expiresAtEpochMillis(), accessed.preview().expiresAtEpochMillis());
+        var accessedPreview = requireNonNull(accessed.preview());
+        assertSame(plan, accessedPreview.plan());
+        assertEquals(preview.expiresAtEpochMillis(), accessedPreview.expiresAtEpochMillis());
         assertTrue(fixture.service
                 .consumeCommit(OWNER, preview.commitToken(), BINDING, "imported_tin")
                 .accepted());
 
         Fixture expiring = fixture();
         var expiringScan = issueScan(expiring, OWNER);
-        var expiringPreview = expiring.service
+        var expiringPreview = requireNonNull(expiring.service
                 .issuePreview(OWNER, expiringScan.scanToken(), BINDING, REQUEST, validPlan())
-                .preview();
+                .preview());
         expiring.clock.advance(Duration.ofMinutes(4));
         assertTrue(expiring.service
                 .accessPreview(OWNER, expiringPreview.commitToken(), BINDING)
@@ -287,10 +290,10 @@ class OreImportSessionServiceTest {
 
         Fixture previewFixture = fixture();
         var previewScan = issueScan(previewFixture, OWNER);
-        var preview = previewFixture
+        var preview = requireNonNull(previewFixture
                 .service
                 .issuePreview(OWNER, previewScan.scanToken(), BINDING, REQUEST, validPlan())
-                .preview();
+                .preview());
         var changedRegistry = new OreImportSessionService.SnapshotBinding(7L, "registry-b", BINDING.baseContentHash());
         assertEquals(
                 OreImportSessionService.Status.REGISTRY_CHANGED,
@@ -337,9 +340,9 @@ class OreImportSessionServiceTest {
             OreImportSessionService.Status expected) {
         Fixture fixture = fixture();
         var scan = issueScan(fixture, OWNER);
-        var preview = fixture.service
+        var preview = requireNonNull(fixture.service
                 .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, validPlan())
-                .preview();
+                .preview());
 
         assertEquals(
                 expected,

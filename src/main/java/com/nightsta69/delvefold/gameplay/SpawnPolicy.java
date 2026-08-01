@@ -14,6 +14,14 @@ import net.neoforged.neoforge.event.entity.living.MobSpawnEvent;
 public final class SpawnPolicy {
     private SpawnPolicy() {}
 
+    /**
+     * Applies the active live gameplay policy to a natural-spawn position check.
+     *
+     * <p>Only Delvefold dimensions and natural, chunk-generation, or patrol spawns are affected; commands, eggs,
+     * breeding, and spawners retain vanilla behavior.
+     *
+     * @param event synchronous NeoForge spawn check on the logical server
+     */
     public static void onPositionCheck(MobSpawnEvent.PositionCheck event) {
         ResourceKey<Level> dimension = event.getLevel().getLevel().dimension();
         if (!isDelvefold(dimension) || !isNatural(event.getSpawnType())) {
@@ -30,6 +38,8 @@ public final class SpawnPolicy {
         }
     }
 
+    // Minecraft registry entries are canonical singletons; phantom policy is identity-based.
+    @SuppressWarnings("ReferenceEquality")
     private static boolean allowed(GameplaySettings settings, EntityType<?> type, MobSpawnType spawnType) {
         if (spawnType == MobSpawnType.PATROL && !settings.patrols()) {
             return false;

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.nio.file.Path;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
 
 class DoctorReportCacheTest {
@@ -15,7 +16,7 @@ class DoctorReportCacheTest {
         DoctorReport oldSession = new DoctorReportBuilder(1L).build();
 
         cache.put(save, oldSession, 10L);
-        assertSame(oldSession, cache.get(save).report());
+        assertSame(oldSession, Objects.requireNonNull(cache.get(save)).report());
         cache.invalidate(save.toAbsolutePath().normalize());
 
         assertNull(cache.get(save));

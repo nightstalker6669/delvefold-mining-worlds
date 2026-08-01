@@ -4,8 +4,14 @@ import com.nightsta69.delvefold.admin.AdminLocalizedComponents;
 import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import java.util.Set;
 import net.minecraft.network.chat.Component;
+import org.jspecify.annotations.Nullable;
 
-/** Localized display projection that keeps issue codes and JSON paths machine-stable. */
+/**
+ * Localized display projection that keeps issue codes and JSON paths machine-stable.
+ *
+ * <p>Only the small allowlist of explicitly technical issue codes exposes its supplied detail text. Other diagnostics
+ * map to bounded translation keys so arbitrary parser or registry details do not leak into ordinary player-facing UI.
+ */
 public final class ConfigIssueMessages {
     private static final Set<String> TECHNICAL_DETAILS = Set.of(
             "json.invalid",
@@ -17,6 +23,13 @@ public final class ConfigIssueMessages {
 
     private ConfigIssueMessages() {}
 
+    /**
+     * Encodes an issue as Delvefold's locale-independent structured translation string.
+     *
+     * @param issue issue to project; its stable severity, code, and path are retained
+     * @return encoded localized-message representation suitable for network transport
+     * @throws NullPointerException if {@code issue} is {@code null}
+     */
     public static String encode(ConfigIssue issue) {
         ConfigIssue safe = java.util.Objects.requireNonNull(issue, "issue");
         String severity = AdminLocalizedMessage.encode("message.delvefold.config_issue.severity."
@@ -25,6 +38,13 @@ public final class ConfigIssueMessages {
                 "message.delvefold.config_issue.row", severity, safe.code(), safe.path(), detail(safe));
     }
 
+    /**
+     * Resolves an issue directly to a client-displayable Minecraft component.
+     *
+     * @param issue issue to localize
+     * @return component resolved through the same bounded projection as {@link #encode(ConfigIssue)}
+     * @throws NullPointerException if {@code issue} is {@code null}
+     */
     public static Component component(ConfigIssue issue) {
         return AdminLocalizedComponents.resolve(encode(issue));
     }
@@ -101,7 +121,7 @@ public final class ConfigIssueMessages {
         return localized(key);
     }
 
-    private static String localized(String translationKey, Object... arguments) {
+    private static String localized(String translationKey, @Nullable Object... arguments) {
         return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 }

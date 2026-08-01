@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.config;
 
+import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -60,7 +61,8 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
         assertTrue(rejected.usedFallback());
         assertEquals(baseline.snapshot(), rejected.snapshot());
-        assertTrue(rejected.issues().stream().anyMatch(issue -> issue.message().contains("Unknown field")));
+        assertTrue(rejected.issues().stream()
+                .anyMatch(issue -> requireNonNull(issue.message()).contains("Unknown field")));
     }
 
     @Test
@@ -77,7 +79,8 @@ class ConfigRepositorySafetyTest {
 
         ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
         assertTrue(rejected.usedFallback());
-        assertTrue(rejected.issues().stream().anyMatch(issue -> issue.message().contains("JSON boolean")));
+        assertTrue(rejected.issues().stream()
+                .anyMatch(issue -> requireNonNull(issue.message()).contains("JSON boolean")));
     }
 
     @Test
@@ -440,6 +443,7 @@ class ConfigRepositorySafetyTest {
         ConfigLoadResult rejected = repository.loadOrCreate(accepted.snapshot());
         assertTrue(rejected.usedFallback());
         assertEquals(accepted.snapshot(), rejected.snapshot());
-        assertTrue(rejected.issues().stream().anyMatch(issue -> issue.message().contains("guide_visibility")));
+        assertTrue(rejected.issues().stream()
+                .anyMatch(issue -> requireNonNull(issue.message()).contains("guide_visibility")));
     }
 }
