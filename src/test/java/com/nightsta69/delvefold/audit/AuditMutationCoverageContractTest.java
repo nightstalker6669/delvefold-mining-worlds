@@ -27,7 +27,7 @@ class AuditMutationCoverageContractTest {
                 "A stale legacy catalog row must not misreport an ordinary verification as manifest creation");
         assertTrue(
                 containsCode(
-                        read("admin/DefaultDelvefoldAdminService.java"),
+                        read("admin/AdminBackupOperations.java"),
                         "result.status() == BackupVerificationResult.Status.LEGACY_UPGRADED"),
                 "GUI legacy verification must use the worker's actual mutation result too");
 
@@ -44,7 +44,7 @@ class AuditMutationCoverageContractTest {
 
     @Test
     void guiAsyncMutationsUseTheSamePreStartAuditBarrier() throws IOException {
-        String source = read("admin/DefaultDelvefoldAdminService.java");
+        String source = read("admin/AdminBackupOperations.java");
         String verify =
                 between(source, "if (operation == BackupOperation.VERIFY)", "if (operation == BackupOperation.DELETE)");
         String delete = between(
@@ -65,7 +65,7 @@ class AuditMutationCoverageContractTest {
                 "private static int pinBackup(",
                 "private static int deleteBackup(");
         String admin = between(
-                read("admin/DefaultDelvefoldAdminService.java"),
+                read("admin/AdminBackupOperations.java"),
                 "WorldBackupCatalog catalog = new WorldBackupCatalog(saveRoot);",
                 "} catch (IOException | IllegalArgumentException exception)");
 

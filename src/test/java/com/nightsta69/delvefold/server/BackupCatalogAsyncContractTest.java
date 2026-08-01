@@ -15,15 +15,15 @@ class BackupCatalogAsyncContractTest {
     void adminSnapshotsAndGuiVerificationUseOnlyTheAsyncCatalogView() throws IOException {
         String admin = read("admin/DefaultDelvefoldAdminService.java");
         String snapshotMethod = read("admin/AdminSnapshotAssembler.java");
-        String backupMethod = between(
-                admin, "public ServiceResult performBackup(", "\n    @Override\n    public ServiceResult perform(");
+        String backupMethod = read("admin/AdminBackupOperations.java");
 
         assertTrue(admin.contains("return AdminSnapshotAssembler.assemble("));
+        assertTrue(admin.contains("return AdminBackupOperations.perform("));
         assertTrue(snapshotMethod.contains("BackupCatalogCache.get().snapshot(saveRoot)"));
         assertTrue(snapshotMethod.contains("backupCatalog.refreshing()"));
         assertFalse(snapshotMethod.contains("new WorldBackupCatalog"));
         assertFalse(snapshotMethod.contains(".list()"));
-        assertTrue(backupMethod.contains("cachedCatalog.backups().stream()"));
+        assertTrue(backupMethod.contains("catalog.backups().stream()"));
         assertFalse(
                 backupMethod.contains("catalog.list()"),
                 "GUI verify and restore must not parse manifests on the server thread");
@@ -37,7 +37,7 @@ class BackupCatalogAsyncContractTest {
     @Test
     void everyInteractiveDeletionUsesTheServerAwareGuard() throws IOException {
         String command = read("command/DelvefoldCommands.java");
-        String admin = read("admin/DefaultDelvefoldAdminService.java");
+        String admin = read("admin/AdminBackupOperations.java");
         String cache = read("reset/BackupCatalogCache.java");
         String restore = read("reset/WorldRestoreService.java");
 
@@ -80,11 +80,5 @@ class BackupCatalogAsyncContractTest {
 
     private static String read(String relative) throws IOException {
         return Files.readString(MAIN.resolve(relative));
-    }
-
-    private static String between(String source, String startMarker, String endMarker) {
-        int start = source.indexOf(startMarker);
-        int end = source.indexOf(endMarker, start);
-        return start < 0 || end < 0 ? "" : source.substring(start, end);
     }
 }

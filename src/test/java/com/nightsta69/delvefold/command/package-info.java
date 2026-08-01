@@ -1,4 +1,4 @@
-/** Tests command registration, permissions, and administration behavior. */
+/** Tests command registration, permissions, administration behavior, and immutable ore-edit equivalence. */
 @NullMarked
 package com.nightsta69.delvefold.command;
 

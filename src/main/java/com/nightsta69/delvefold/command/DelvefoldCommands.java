@@ -1593,18 +1593,7 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> {
-                    List<OreTarget> targets = new ArrayList<>(rule.targets());
-                    targets.add(OreTarget.of(block, tag.startsWith("#") ? tag.substring(1) : tag, weight));
-                    return new OreRule(
-                            rule.id(),
-                            rule.enabled(),
-                            rule.required(),
-                            rule.terrainModes(),
-                            targets,
-                            rule.biomes(),
-                            rule.bands());
-                },
+                rule -> OreRuleEdits.addExactTarget(rule, block, tag, weight),
                 Component.translatable("message.delvefold.command.ore_target_added", ruleId, weight));
     }
 
@@ -1614,16 +1603,7 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> new OreRule(
-                        rule.id(),
-                        rule.enabled(),
-                        rule.required(),
-                        rule.terrainModes(),
-                        rule.targets().stream()
-                                .filter(target -> !target.block().equals(block))
-                                .toList(),
-                        rule.biomes(),
-                        rule.bands()),
+                rule -> OreRuleEdits.removeExactTargets(rule, block),
                 Component.translatable("message.delvefold.command.ore_target_removed", ruleId));
     }
 
@@ -1635,18 +1615,7 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> {
-                    List<OreTarget> targets = new ArrayList<>(rule.targets());
-                    targets.add(OreTarget.ofTag(blockTag, replaceTag, weight));
-                    return new OreRule(
-                            rule.id(),
-                            rule.enabled(),
-                            rule.required(),
-                            rule.terrainModes(),
-                            targets,
-                            rule.biomes(),
-                            rule.bands());
-                },
+                rule -> OreRuleEdits.addTagTarget(rule, blockTag, replaceTag, weight),
                 Component.translatable("message.delvefold.command.ore_tag_target_added", blockTag, ruleId, weight));
     }
 
@@ -1657,7 +1626,7 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> replaceTargetWeight(rule, block, false, weight),
+                rule -> OreRuleEdits.replaceTargetWeight(rule, block, false, weight),
                 Component.translatable("message.delvefold.command.ore_target_weight_set", block, weight, ruleId));
     }
 
@@ -1668,33 +1637,8 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> replaceTargetWeight(rule, blockTag, true, weight),
+                rule -> OreRuleEdits.replaceTargetWeight(rule, blockTag, true, weight),
                 Component.translatable("message.delvefold.command.ore_tag_weight_set", blockTag, weight, ruleId));
-    }
-
-    private static OreRule replaceTargetWeight(OreRule rule, String sourceId, boolean tagDriven, int weight) {
-        long matches = rule.targets().stream()
-                .filter(target -> tagDriven
-                        ? target.blockTag().equals(sourceId)
-                        : !target.tagDriven() && target.block().equals(sourceId))
-                .count();
-        if (matches == 0) {
-            throw new IllegalArgumentException(
-                    "Unknown " + (tagDriven ? "output tag: #" : "target block: ") + sourceId);
-        }
-        if (matches > 1) {
-            throw new IllegalArgumentException("Ambiguous " + (tagDriven ? "output tag: #" : "target block: ")
-                    + sourceId + "; multiple targets use that source. Edit the specific target in canonical JSON.");
-        }
-        List<OreTarget> targets = rule.targets().stream()
-                .map(target -> (tagDriven
-                                ? target.blockTag().equals(sourceId)
-                                : !target.tagDriven() && target.block().equals(sourceId))
-                        ? target.withWeight(weight)
-                        : target)
-                .toList();
-        return new OreRule(
-                rule.id(), rule.enabled(), rule.required(), rule.terrainModes(), targets, rule.biomes(), rule.bands());
     }
 
     private static int removeTagTarget(CommandContext<CommandSourceStack> context) {
@@ -1703,16 +1647,7 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> new OreRule(
-                        rule.id(),
-                        rule.enabled(),
-                        rule.required(),
-                        rule.terrainModes(),
-                        rule.targets().stream()
-                                .filter(target -> !target.blockTag().equals(blockTag))
-                                .toList(),
-                        rule.biomes(),
-                        rule.bands()),
+                rule -> OreRuleEdits.removeTagTargets(rule, blockTag),
                 Component.translatable("message.delvefold.command.ore_tag_target_removed", ruleId));
     }
 
@@ -1720,28 +1655,13 @@ public final class DelvefoldCommands {
         String ruleId = StringArgumentType.getString(context, "rule");
         String bandId = StringArgumentType.getString(context, "band");
         OreRuleFactory.Rarity rarity = OreRuleFactory.Rarity.parse(StringArgumentType.getString(context, "rarity"));
-        OreRule template = OreRuleFactory.create(ResourceLocation.withDefaultNamespace("iron_ore"), false, rarity);
-        SpawnBand band = template.bands().getFirst();
-        band = new SpawnBand(
-                bandId,
-                band.veinSize(),
-                band.attemptsPerChunk(),
-                band.distribution(),
-                band.minY(),
-                band.maxY(),
-                band.peakY(),
-                band.plateauMinY(),
-                band.plateauMaxY(),
-                band.discardOnAirExposure());
-        SpawnBand finalBand = band;
+        SpawnBand template = OreRuleFactory.create(ResourceLocation.withDefaultNamespace("iron_ore"), false, rarity)
+                .bands()
+                .getFirst();
         return mutateRule(
                 context,
                 ruleId,
-                rule -> {
-                    List<SpawnBand> bands = new ArrayList<>(rule.bands());
-                    bands.add(finalBand);
-                    return rule.withBands(bands);
-                },
+                rule -> OreRuleEdits.addBand(rule, bandId, template),
                 Component.translatable("message.delvefold.command.ore_band_added", bandId, ruleId));
     }
 
@@ -1751,9 +1671,7 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> rule.withBands(rule.bands().stream()
-                        .filter(band -> !band.id().equals(bandId))
-                        .toList()),
+                rule -> OreRuleEdits.removeBands(rule, bandId),
                 Component.translatable("message.delvefold.command.ore_band_removed", bandId, ruleId));
     }
 
@@ -1765,9 +1683,7 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> rule.withBands(rule.bands().stream()
-                        .map(band -> band.id().equals(bandId) ? withBandField(band, field, value) : band)
-                        .toList()),
+                rule -> OreRuleEdits.setBandField(rule, bandId, field, value),
                 Component.translatable("message.delvefold.command.ore_band_field_set", ruleId, bandId, field));
     }
 
@@ -1778,48 +1694,12 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> rule.withBands(rule.bands().stream()
-                        .map(band -> band.id().equals(bandId) ? withBandPlacement(band, placement) : band)
-                        .toList()),
+                rule -> OreRuleEdits.setBandPlacement(rule, bandId, placement),
                 Component.translatable(
                         "message.delvefold.command.ore_band_placement_set",
                         ruleId,
                         bandId,
                         placement.serializedName()));
-    }
-
-    private static SpawnBand withBandPlacement(SpawnBand band, OreBandPlacement placement) {
-        if (placement == OreBandPlacement.PROVINCE) {
-            ProvinceSettings configuredProvince = band.province();
-            return new SpawnBand(
-                    band.id(),
-                    1,
-                    0.0D,
-                    band.distribution(),
-                    band.minY(),
-                    band.maxY(),
-                    band.peakY(),
-                    band.plateauMinY(),
-                    band.plateauMaxY(),
-                    band.discardOnAirExposure(),
-                    OreBandPlacement.PROVINCE,
-                    configuredProvince == null ? ProvinceSettings.defaults() : configuredProvince);
-        }
-        int veinSize = band.placement() == OreBandPlacement.VEIN ? band.veinSize() : 8;
-        double attempts = band.placement() == OreBandPlacement.VEIN ? band.attemptsPerChunk() : 8.0D;
-        return new SpawnBand(
-                band.id(),
-                veinSize,
-                attempts,
-                band.distribution(),
-                band.minY(),
-                band.maxY(),
-                band.peakY(),
-                band.plateauMinY(),
-                band.plateauMaxY(),
-                band.discardOnAirExposure(),
-                OreBandPlacement.VEIN,
-                null);
     }
 
     private static int setProvinceField(CommandContext<CommandSourceStack> context) {
@@ -1830,87 +1710,8 @@ public final class DelvefoldCommands {
         return mutateRule(
                 context,
                 ruleId,
-                rule -> rule.withBands(rule.bands().stream()
-                        .map(band -> band.id().equals(bandId) ? withProvinceField(band, field, value) : band)
-                        .toList()),
+                rule -> OreRuleEdits.setProvinceField(rule, bandId, field, value),
                 Component.translatable("message.delvefold.command.ore_province_field_set", ruleId, bandId, field));
-    }
-
-    private static SpawnBand withProvinceField(SpawnBand band, String field, double value) {
-        if (band.placement() != OreBandPlacement.PROVINCE) {
-            throw new IllegalArgumentException(
-                    "Band " + band.id() + " is not a province; set its placement to province first");
-        }
-        ProvinceSettings configuredProvince = band.province();
-        ProvinceSettings current = configuredProvince == null ? ProvinceSettings.defaults() : configuredProvince;
-        int regionSize = current.regionSize();
-        int radius = current.radius();
-        int thickness = current.verticalThickness();
-        double density = current.density();
-        int workCap = current.perChunkWorkCap();
-        switch (field) {
-            case "region_size" -> regionSize = requireWhole(value, field);
-            case "radius" -> radius = requireWhole(value, field);
-            case "vertical_thickness" -> thickness = requireWhole(value, field);
-            case "density" -> density = value;
-            case "work_cap" -> workCap = requireWhole(value, field);
-            default -> throw new IllegalArgumentException("Unknown province field: " + field);
-        }
-        return new SpawnBand(
-                band.id(),
-                1,
-                0.0D,
-                band.distribution(),
-                band.minY(),
-                band.maxY(),
-                band.peakY(),
-                band.plateauMinY(),
-                band.plateauMaxY(),
-                band.discardOnAirExposure(),
-                OreBandPlacement.PROVINCE,
-                new ProvinceSettings(regionSize, radius, thickness, density, workCap));
-    }
-
-    private static SpawnBand withBandField(SpawnBand band, String field, double value) {
-        int vein = band.veinSize();
-        double attempts = band.attemptsPerChunk();
-        int min = band.minY();
-        int max = band.maxY();
-        Integer peak = band.peakY();
-        Integer plateauMin = band.plateauMinY();
-        Integer plateauMax = band.plateauMaxY();
-        double discard = band.discardOnAirExposure();
-        switch (field) {
-            case "vein_size" -> vein = requireWhole(value, field);
-            case "attempts" -> attempts = value;
-            case "min_y" -> min = requireWhole(value, field);
-            case "max_y" -> max = requireWhole(value, field);
-            case "peak_y" -> peak = requireWhole(value, field);
-            case "plateau_min_y" -> plateauMin = requireWhole(value, field);
-            case "plateau_max_y" -> plateauMax = requireWhole(value, field);
-            case "discard" -> discard = value;
-            default -> throw new IllegalArgumentException("Unknown band field: " + field);
-        }
-        return new SpawnBand(
-                band.id(),
-                vein,
-                attempts,
-                band.distribution(),
-                min,
-                max,
-                peak,
-                plateauMin,
-                plateauMax,
-                discard,
-                band.placement(),
-                band.province());
-    }
-
-    private static int requireWhole(double value, String field) {
-        if (!Double.isFinite(value) || value != Math.rint(value)) {
-            throw new IllegalArgumentException(field + " requires a whole number");
-        }
-        return (int) value;
     }
 
     private static int scanOres(CommandContext<CommandSourceStack> context, @Nullable String namespace) {

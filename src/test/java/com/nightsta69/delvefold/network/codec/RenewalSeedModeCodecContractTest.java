@@ -17,10 +17,13 @@ class RenewalSeedModeCodecContractTest {
                 Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldSetupScreen.java"));
         String dashboard = Files.readString(
                 Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldDashboardScreen.java"));
+        String dashboardDrafts =
+                Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DashboardDraftState.java"));
         String admin = Files.readString(
                 Path.of("src/main/java/com/nightsta69/delvefold/admin/DefaultDelvefoldAdminService.java"));
         String compactCodec = compact(codec);
         String compactDashboard = compact(dashboard);
+        String compactDashboardDrafts = compact(dashboardDrafts);
         String compactAdmin = compact(admin);
 
         assertTrue(compactCodec.contains("writeEnum(buffer,renewal.seedMode())"));
@@ -40,7 +43,7 @@ class RenewalSeedModeCodecContractTest {
                 "The server must reject configure-only attempts to mutate renewal settings");
         assertTrue(
                 compactDashboard.contains("seedMode.active=this.snapshot.capabilities().canManageWorld()")
-                        && compactDashboard.contains(":current.renewal()"),
+                        && compactDashboardDrafts.contains(":current.renewal()"),
                 "The dashboard must make renewal controls read-only and preserve renewal for configure-only saves");
     }
 

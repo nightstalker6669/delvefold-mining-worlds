@@ -1,15 +1,16 @@
 package com.nightsta69.delvefold.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import com.nightsta69.delvefold.config.validation.ValidationReport;
+import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class WorldSettingsRetentionPreservationTest {
@@ -35,15 +36,16 @@ class WorldSettingsRetentionPreservationTest {
     }
 
     @Test
-    void activatingAStoredOreProfileCarriesRetentionIntoTheSavedSettings() throws Exception {
-        String source =
-                Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/config/DelvefoldConfigService.java"));
-        int activation = source.indexOf("public ConfigWriteResult activateProfile");
-        int deletion = source.indexOf("public ProfileDeleteResult deleteProfile", activation);
-        String method = source.substring(activation, deletion);
+    void activatingAStoredOreProfileCarriesRetentionIntoTheSavedSettings() {
+        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized().withBackupRetention(RETENTION);
+        OreProfileDocument ores = OrePresets.balanced();
+        ConfigSnapshot before =
+                new ConfigSnapshot(ores, settings, new ValidationReport(List.of()), Instant.EPOCH, "test");
 
-        assertTrue(
-                method.contains("before.settings().backupRetention()"),
-                "Profile activation must not silently reset an administrator's retention policy");
+        ConfigDocumentTransitions.ProfileActivation activation =
+                ConfigDocumentTransitions.activateProfile(before, OrePresets.rich());
+
+        assertEquals(RETENTION, activation.settings().backupRetention());
+        assertEquals("rich", activation.settings().activeProfileId());
     }
 }

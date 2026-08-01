@@ -89,7 +89,7 @@ class ServerOperationsIntegrationContractTest {
 
     @Test
     void guiBackupVerificationUsesAsyncLegacyAndManifestPaths() throws IOException {
-        String admin = source("admin/DefaultDelvefoldAdminService.java");
+        String admin = source("admin/AdminBackupOperations.java");
         String compact = admin.replaceAll("\\s+", "");
 
         assertTrue(compact.contains("if(operation==BackupOperation.VERIFY)"));

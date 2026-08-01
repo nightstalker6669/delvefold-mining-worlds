@@ -31,7 +31,7 @@ class SourceHygieneCharacterizationTest {
             .thenComparing(site -> site.owner().signature());
     private static final List<SuppressionSite> RELEASED_SUPPRESSIONS = sorted(List.of(
             site(
-                    "admin/DefaultDelvefoldAdminService.java",
+                    "admin/AdminBackupOperations.java",
                     "ReferenceEquality",
                     OwnerKind.CALLABLE,
                     "deletionRejection(failure)"),

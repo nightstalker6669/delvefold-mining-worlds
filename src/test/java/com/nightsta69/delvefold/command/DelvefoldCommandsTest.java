@@ -17,8 +17,8 @@ class DelvefoldCommandsTest {
 
     @Test
     void weightedTargetCommandsAreRegisteredWithoutRemovingLegacyAddForms() throws IOException {
-        String source =
-                Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/command/DelvefoldCommands.java"));
+        String source = commandSource();
+        String edits = Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/command/OreRuleEdits.java"));
 
         assertTrue(containsCode(source, "Commands.literal(\"set-weight\")"));
         assertTrue(containsCode(source, "Commands.literal(\"set-tag-weight\")"));
@@ -32,8 +32,32 @@ class DelvefoldCommandsTest {
                 containsCode(source, "OreTarget.MIN_WEIGHT, OreTarget.MAX_WEIGHT"),
                 "Command arguments must use the domain's 1-1000 bounds");
         assertTrue(
-                containsCode(source, "if (matches > 1)"),
+                containsCode(source, "OreRuleEdits.replaceTargetWeight(rule, block, false, weight)"),
+                "The exact-target handler must delegate through the characterized immutable edit boundary");
+        assertTrue(
+                containsCode(source, "OreRuleEdits.replaceTargetWeight(rule, blockTag, true, weight)"),
+                "The tag-target handler must preserve its source-kind discriminator");
+        assertTrue(
+                containsCode(edits, "if (matches > 1)"),
                 "Weight setters must reject ambiguous duplicate source IDs instead of changing every target");
+    }
+
+    @Test
+    void oreHandlersRetainTheCommandAdapterBoundaryAroundPureEdits() throws IOException {
+        String source = commandSource();
+
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.addExactTarget(rule, block, tag, weight)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.removeExactTargets(rule, block)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.addTagTarget(rule, blockTag, replaceTag, weight)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.removeTagTargets(rule, blockTag)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.addBand(rule, bandId, template)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.removeBands(rule, bandId)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.setBandField(rule, bandId, field, value)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.setBandPlacement(rule, bandId, placement)"));
+        assertTrue(containsCode(source, "rule -> OreRuleEdits.setProvinceField(rule, bandId, field, value)"));
+        assertTrue(
+                containsCode(source, "private static int mutateRule("),
+                "Revision checks, auditing, writes, and translated feedback must remain in the command adapter");
     }
 
     @Test
