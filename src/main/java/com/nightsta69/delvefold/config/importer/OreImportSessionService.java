@@ -1,19 +1,11 @@
 package com.nightsta69.delvefold.config.importer;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -32,12 +24,8 @@ public final class OreImportSessionService {
     /** Minimum interval between accepted registry-scan requests from one owner UUID. */
     public static final Duration SCAN_COOLDOWN = Duration.ofSeconds(2);
 
-    private static final int TOKEN_BYTES = 32;
-    private static final int TOKEN_LENGTH = 43;
-    private static final int MAX_STATE_KEY_LENGTH = 256;
-    private static final int MAX_PROFILE_ID_LENGTH = 128;
     private static final OreImportSessionService INSTANCE =
-            new OreImportSessionService(Clock.systemUTC(), secureTokenSource());
+            new OreImportSessionService(Clock.systemUTC(), OreImportTokenSecurity.secureTokenSource());
 
     private final Object lock = new Object();
     private final Clock clock;
@@ -49,7 +37,7 @@ public final class OreImportSessionService {
 
     /** Creates an isolated session store using the system UTC clock and a cryptographically secure token source. */
     public OreImportSessionService() {
-        this(Clock.systemUTC(), secureTokenSource());
+        this(Clock.systemUTC(), OreImportTokenSecurity.secureTokenSource());
     }
 
     OreImportSessionService(Clock clock, TokenSource tokens) {
@@ -79,7 +67,7 @@ public final class OreImportSessionService {
         synchronized (lock) {
             long now = clock.millis();
             Long previous = lastScanRequests.get(owner);
-            long retryAt = previous == null ? now : expiresAt(previous, SCAN_COOLDOWN);
+            long retryAt = previous == null ? now : OreImportSessionValidation.expiresAt(previous, SCAN_COOLDOWN);
             if (previous != null && now < retryAt) {
                 return ScanAdmission.rejected(retryAt);
             }
@@ -108,10 +96,10 @@ public final class OreImportSessionService {
         synchronized (lock) {
             long now = clock.millis();
             Long admittedAt = scanAdmissions.remove(owner);
-            if (admittedAt == null || now < admittedAt || expired(expiresAt(admittedAt, SESSION_TTL), now)) {
+            if (!OreImportSessionValidation.validAdmission(admittedAt, now, SESSION_TTL)) {
                 throw new IllegalStateException("Ore-import discovery was not admitted or its admission expired");
             }
-            long expiresAt = expiresAt(now, SESSION_TTL);
+            long expiresAt = OreImportSessionValidation.expiresAt(now, SESSION_TTL);
             Token token = issueUniqueToken();
             scans.put(owner, new ScanSession(token.digest(), expiresAt, binding, discovery));
             previews.remove(owner);
@@ -139,14 +127,14 @@ public final class OreImportSessionService {
                 return ScanAccess.rejected(Status.NO_ACTIVE_SCAN);
             }
             long now = clock.millis();
-            if (expired(scan.expiresAtEpochMillis(), now)) {
+            if (OreImportSessionValidation.expired(scan.expiresAtEpochMillis(), now)) {
                 scans.remove(owner);
                 return ScanAccess.rejected(Status.EXPIRED);
             }
-            if (!tokenMatches(scan.tokenDigest(), scanToken)) {
+            if (!OreImportTokenSecurity.tokenMatches(scan.tokenDigest(), scanToken)) {
                 return ScanAccess.rejected(Status.INVALID_TOKEN);
             }
-            Status state = compare(scan.binding(), current);
+            Status state = OreImportSessionValidation.compareBindings(scan.binding(), current);
             if (state != Status.ACCEPTED) {
                 scans.remove(owner);
                 previews.remove(owner);
@@ -187,25 +175,25 @@ public final class OreImportSessionService {
                 return PreviewIssue.rejected(Status.NO_ACTIVE_SCAN);
             }
             long now = clock.millis();
-            if (expired(scan.expiresAtEpochMillis(), now)) {
+            if (OreImportSessionValidation.expired(scan.expiresAtEpochMillis(), now)) {
                 scans.remove(owner);
                 return PreviewIssue.rejected(Status.EXPIRED);
             }
-            if (!tokenMatches(scan.tokenDigest(), scanToken)) {
+            if (!OreImportTokenSecurity.tokenMatches(scan.tokenDigest(), scanToken)) {
                 return PreviewIssue.rejected(Status.INVALID_TOKEN);
             }
-            Status state = compare(scan.binding(), current);
+            Status state = OreImportSessionValidation.compareBindings(scan.binding(), current);
             if (state != Status.ACCEPTED) {
                 scans.remove(owner);
                 previews.remove(owner);
                 return PreviewIssue.rejected(state);
             }
-            if (!validRequest(scan.discovery(), request, plan)) {
+            if (!OreImportSessionValidation.validRequest(scan.discovery(), request, plan)) {
                 return PreviewIssue.rejected(Status.INVALID_REQUEST);
             }
 
             Token commitToken = issueUniqueToken();
-            long expiresAt = expiresAt(now, SESSION_TTL);
+            long expiresAt = OreImportSessionValidation.expiresAt(now, SESSION_TTL);
             PreviewSession preview = new PreviewSession(commitToken.digest(), expiresAt, scan.binding(), request, plan);
             previews.put(owner, preview);
             return PreviewIssue.accepted(new IssuedPreview(commitToken.value(), expiresAt, request, plan));
@@ -236,12 +224,12 @@ public final class OreImportSessionService {
                 return CommitAttempt.rejected(Status.NO_ACTIVE_PREVIEW);
             }
             long now = clock.millis();
-            if (expired(preview.expiresAtEpochMillis(), now)) {
+            if (OreImportSessionValidation.expired(preview.expiresAtEpochMillis(), now)) {
                 previews.remove(owner);
                 scans.remove(owner);
                 return CommitAttempt.rejected(Status.EXPIRED);
             }
-            if (!tokenMatches(preview.tokenDigest(), commitToken)) {
+            if (!OreImportTokenSecurity.tokenMatches(preview.tokenDigest(), commitToken)) {
                 return CommitAttempt.rejected(Status.INVALID_TOKEN);
             }
 
@@ -249,11 +237,11 @@ public final class OreImportSessionService {
             previews.remove(owner);
             scans.remove(owner);
 
-            Status state = compare(preview.binding(), current);
+            Status state = OreImportSessionValidation.compareBindings(preview.binding(), current);
             if (state != Status.ACCEPTED) {
                 return CommitAttempt.rejected(state);
             }
-            String target = normalizedProfileId(targetProfileId);
+            String target = OreImportSessionValidation.normalizedProfileId(targetProfileId);
             if (target == null) {
                 return CommitAttempt.rejected(Status.INVALID_REQUEST);
             }
@@ -284,15 +272,15 @@ public final class OreImportSessionService {
                 return PreviewAccess.rejected(Status.NO_ACTIVE_PREVIEW);
             }
             long now = clock.millis();
-            if (expired(preview.expiresAtEpochMillis(), now)) {
+            if (OreImportSessionValidation.expired(preview.expiresAtEpochMillis(), now)) {
                 previews.remove(owner);
                 scans.remove(owner);
                 return PreviewAccess.rejected(Status.EXPIRED);
             }
-            if (!tokenMatches(preview.tokenDigest(), commitToken)) {
+            if (!OreImportTokenSecurity.tokenMatches(preview.tokenDigest(), commitToken)) {
                 return PreviewAccess.rejected(Status.INVALID_TOKEN);
             }
-            Status state = compare(preview.binding(), current);
+            Status state = OreImportSessionValidation.compareBindings(preview.binding(), current);
             if (state != Status.ACCEPTED) {
                 previews.remove(owner);
                 scans.remove(owner);
@@ -332,131 +320,22 @@ public final class OreImportSessionService {
     }
 
     private Token issueUniqueToken() {
-        for (int attempt = 0; attempt < 16; attempt++) {
-            String value = requireToken(tokens.nextToken());
-            byte[] digest = digest(value);
-            if (!tokenInUse(digest)) {
-                return new Token(value, digest);
-            }
-        }
-        throw new IllegalStateException("Could not create a unique ore-import session token");
+        OreImportTokenSecurity.IssuedToken issued = OreImportTokenSecurity.issueUniqueToken(tokens, this::tokenInUse);
+        return new Token(issued.value(), issued.digest());
     }
 
     private boolean tokenInUse(byte[] candidate) {
         for (ScanSession session : scans.values()) {
-            if (MessageDigest.isEqual(session.tokenDigest(), candidate)) {
+            if (OreImportTokenSecurity.digestsEqual(session.tokenDigest(), candidate)) {
                 return true;
             }
         }
         for (PreviewSession session : previews.values()) {
-            if (MessageDigest.isEqual(session.tokenDigest(), candidate)) {
+            if (OreImportTokenSecurity.digestsEqual(session.tokenDigest(), candidate)) {
                 return true;
             }
         }
         return false;
-    }
-
-    private static boolean validRequest(
-            OreImportModels.DiscoveryResult discovery, PreviewRequest request, OreImportModels.Plan plan) {
-        if (!request.baseProfileId().equals(plan.baseProfileId())) {
-            return false;
-        }
-        Set<String> available = new HashSet<>();
-        for (OreImportModels.Group group : discovery.groups()) {
-            available.add(group.id());
-        }
-        return available.containsAll(request.selectedGroupIds());
-    }
-
-    private static Status compare(SnapshotBinding expected, SnapshotBinding current) {
-        if (expected.expectedOreRevision() != current.expectedOreRevision()) {
-            return Status.REVISION_CHANGED;
-        }
-        if (!expected.registryFingerprint().equals(current.registryFingerprint())) {
-            return Status.REGISTRY_CHANGED;
-        }
-        if (!expected.baseContentHash().equals(current.baseContentHash())) {
-            return Status.BASE_CHANGED;
-        }
-        return Status.ACCEPTED;
-    }
-
-    private static boolean tokenMatches(byte[] expectedDigest, @Nullable String supplied) {
-        if (supplied == null || !validToken(supplied)) {
-            return false;
-        }
-        return MessageDigest.isEqual(expectedDigest, digest(supplied));
-    }
-
-    private static String requireToken(String token) {
-        if (!validToken(token)) {
-            throw new IllegalStateException("Ore-import token source returned an invalid token");
-        }
-        return token;
-    }
-
-    private static boolean validToken(@Nullable String token) {
-        if (token == null || token.length() != TOKEN_LENGTH) {
-            return false;
-        }
-        for (int index = 0; index < token.length(); index++) {
-            char character = token.charAt(index);
-            if (!(character >= 'a' && character <= 'z')
-                    && !(character >= 'A' && character <= 'Z')
-                    && !(character >= '0' && character <= '9')
-                    && character != '-'
-                    && character != '_') {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static byte[] digest(String token) {
-        try {
-            return MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.US_ASCII));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
-    }
-
-    private static TokenSource secureTokenSource() {
-        SecureRandom random = new SecureRandom();
-        Base64.Encoder encoder = Base64.getUrlEncoder().withoutPadding();
-        return () -> {
-            byte[] bytes = new byte[TOKEN_BYTES];
-            random.nextBytes(bytes);
-            return encoder.encodeToString(bytes);
-        };
-    }
-
-    private static long expiresAt(long nowEpochMillis, Duration duration) {
-        long ttl = duration.toMillis();
-        return nowEpochMillis > Long.MAX_VALUE - ttl ? Long.MAX_VALUE : nowEpochMillis + ttl;
-    }
-
-    private static boolean expired(long expiresAtEpochMillis, long nowEpochMillis) {
-        return nowEpochMillis >= expiresAtEpochMillis;
-    }
-
-    private static String normalizedStateKey(String value, String name) {
-        Objects.requireNonNull(value, name);
-        String normalized = value.trim();
-        if (normalized.isEmpty() || normalized.length() > MAX_STATE_KEY_LENGTH) {
-            throw new IllegalArgumentException(name + " must contain 1-" + MAX_STATE_KEY_LENGTH + " characters");
-        }
-        return normalized;
-    }
-
-    private static @Nullable String normalizedProfileId(@Nullable String value) {
-        if (value == null) {
-            return null;
-        }
-        String normalized = value.trim();
-        if (normalized.isEmpty() || normalized.length() > MAX_PROFILE_ID_LENGTH) {
-            return null;
-        }
-        return normalized;
     }
 
     @FunctionalInterface
@@ -483,8 +362,9 @@ public final class OreImportSessionService {
             if (expectedOreRevision < 0L) {
                 throw new IllegalArgumentException("Expected ore revision cannot be negative");
             }
-            registryFingerprint = normalizedStateKey(registryFingerprint, "registryFingerprint");
-            baseContentHash = normalizedStateKey(baseContentHash, "baseContentHash");
+            registryFingerprint =
+                    OreImportSessionValidation.normalizedStateKey(registryFingerprint, "registryFingerprint");
+            baseContentHash = OreImportSessionValidation.normalizedStateKey(baseContentHash, "baseContentHash");
         }
     }
 
@@ -502,27 +382,8 @@ public final class OreImportSessionService {
          * @param selectedGroupIds selected discovery group IDs
          */
         public PreviewRequest {
-            String normalizedProfile = normalizedProfileId(baseProfileId);
-            if (normalizedProfile == null) {
-                throw new IllegalArgumentException(
-                        "Base profile ID must contain 1-" + MAX_PROFILE_ID_LENGTH + " characters");
-            }
-            baseProfileId = normalizedProfile;
-            Objects.requireNonNull(selectedGroupIds, "selectedGroupIds");
-            if (selectedGroupIds.isEmpty() || selectedGroupIds.size() > OreImportModels.MAX_SELECTED_GROUPS) {
-                throw new IllegalArgumentException(
-                        "A preview must select 1-" + OreImportModels.MAX_SELECTED_GROUPS + " groups");
-            }
-            List<String> normalizedGroups = new ArrayList<>(selectedGroupIds.size());
-            Set<String> unique = new HashSet<>();
-            for (String groupId : selectedGroupIds) {
-                String normalized = normalizedStateKey(groupId, "selectedGroupId");
-                if (!unique.add(normalized)) {
-                    throw new IllegalArgumentException("Selected group IDs must be unique");
-                }
-                normalizedGroups.add(normalized);
-            }
-            selectedGroupIds = List.copyOf(normalizedGroups);
+            baseProfileId = OreImportSessionValidation.normalizedBaseProfileId(baseProfileId);
+            selectedGroupIds = OreImportSessionValidation.normalizedSelectedGroupIds(selectedGroupIds);
         }
     }
 

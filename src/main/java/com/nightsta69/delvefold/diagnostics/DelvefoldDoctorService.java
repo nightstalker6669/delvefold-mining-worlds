@@ -3,7 +3,6 @@ package com.nightsta69.delvefold.diagnostics;
 import com.nightsta69.delvefold.Delvefold;
 import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.api.DelvefoldApi;
-import com.nightsta69.delvefold.config.ConfigJson;
 import com.nightsta69.delvefold.config.ConfigPaths;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
@@ -22,14 +21,10 @@ import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.reset.BackupRetentionPlanner;
 import com.nightsta69.delvefold.reset.BackupRetentionRunState;
 import com.nightsta69.delvefold.reset.BackupRetentionService;
-import com.nightsta69.delvefold.reset.PendingWorldOperation;
-import com.nightsta69.delvefold.reset.PendingWorldRestore;
 import com.nightsta69.delvefold.reset.WorldBackupCatalog;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import com.nightsta69.delvefold.world.feature.OreTargetResolution;
 import java.io.IOException;
-import java.nio.file.FileStore;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -41,12 +36,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Stream;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
@@ -71,9 +64,7 @@ public final class DelvefoldDoctorService {
     static final int MAX_INEFFECTIVE_TARGETS = 256;
     static final int MAX_BACKUP_PROBLEMS = 128;
     static final int MAX_RETENTION_PRUNES = 128;
-    static final int MAX_DISK_ESTIMATE_ENTRIES = 100_000;
-    private static final long MEBIBYTE = 1024L * 1024L;
-    private static final long MAX_PENDING_BYTES = 64L * 1024L;
+    static final int MAX_DISK_ESTIMATE_ENTRIES = DoctorFilesystemAnalysis.MAX_DISK_ESTIMATE_ENTRIES;
     private static final long CACHE_TTL_MILLIS = 30_000L;
     private static final int MAX_CACHED_SAVES = 16;
     private static final ExecutorService WORKER =
@@ -684,189 +675,24 @@ public final class DelvefoldDoctorService {
     }
 
     static PendingScan scanPending(Path configDirectory) {
-        Path directory = configDirectory.toAbsolutePath().normalize();
-        List<DoctorReport.PendingOperationStatus> statuses = new ArrayList<>();
-        Set<String> backupIds = new HashSet<>();
-        readPendingWorldOperation(directory.resolve("pending_world_operation.json"), statuses);
-        readPendingRestore(directory.resolve("pending_restore.json"), statuses, backupIds);
-        return new PendingScan(statuses, backupIds);
-    }
-
-    private static void readPendingWorldOperation(Path path, List<DoctorReport.PendingOperationStatus> statuses) {
-        if (Files.notExists(path)) {
-            return;
-        }
-        try {
-            PendingWorldOperation pending = readBounded(path, PendingWorldOperation.class);
-            if (pending == null
-                    || pending.schemaVersion() != PendingWorldOperation.CURRENT_SCHEMA_VERSION
-                    || !validOperationId(pending.operationId())
-                    || pending.type() == null
-                    || pending.createdAtEpochMillis() < 0L) {
-                throw new IOException("Pending world operation is invalid");
-            }
-            statuses.add(new DoctorReport.PendingOperationStatus(
-                    pending.operationId(),
-                    pending.type().name().toLowerCase(Locale.ROOT),
-                    "restart_required",
-                    pending.createdAtEpochMillis()));
-        } catch (IOException | RuntimeException exception) {
-            statuses.add(invalidPending("pending_world_operation", "world_operation", path));
-        }
-    }
-
-    private static void readPendingRestore(
-            Path path, List<DoctorReport.PendingOperationStatus> statuses, Set<String> backupIds) {
-        if (Files.notExists(path)) {
-            return;
-        }
-        try {
-            PendingWorldRestore pending = readBounded(path, PendingWorldRestore.class);
-            if (pending == null
-                    || pending.schemaVersion() != PendingWorldRestore.CURRENT_SCHEMA_VERSION
-                    || !validOperationId(pending.operationId())
-                    || !validBackupId(pending.backupId())
-                    || pending.phase() == null
-                    || pending.createdAtEpochMillis() < 0L) {
-                throw new IOException("Pending restore is invalid");
-            }
-            statuses.add(new DoctorReport.PendingOperationStatus(
-                    pending.operationId(),
-                    "restore",
-                    pending.phase().name().toLowerCase(Locale.ROOT),
-                    pending.createdAtEpochMillis()));
-            backupIds.add(pending.backupId());
-        } catch (IOException | RuntimeException exception) {
-            statuses.add(invalidPending("pending_restore", "restore", path));
-        }
-    }
-
-    private static <T> T readBounded(Path path, Class<T> type) throws IOException {
-        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path) || Files.size(path) > MAX_PENDING_BYTES) {
-            throw new IOException("Pending operation file failed safety checks");
-        }
-        try {
-            return ConfigJson.GSON.fromJson(Files.readString(path), type);
-        } catch (RuntimeException exception) {
-            throw new IOException("Pending operation JSON is invalid", exception);
-        }
-    }
-
-    private static DoctorReport.PendingOperationStatus invalidPending(String id, String operation, Path path) {
-        long modified = 0L;
-        try {
-            modified = Math.max(0L, Files.getLastModifiedTime(path).toMillis());
-        } catch (IOException ignored) {
-            // Invalid optional metadata retains the documented unknown-time sentinel.
-        }
-        return new DoctorReport.PendingOperationStatus(id, operation, "invalid", modified);
-    }
-
-    private static boolean validOperationId(@Nullable String value) {
-        try {
-            UUID.fromString(value);
-            return true;
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            return false;
-        }
-    }
-
-    private static boolean validBackupId(@Nullable String value) {
-        return value != null && value.matches("[a-zA-Z0-9_.-]{1,200}");
+        DoctorFilesystemAnalysis.PendingJournalScan scan = DoctorFilesystemAnalysis.scanPending(configDirectory);
+        return new PendingScan(scan.statuses(), scan.pendingBackupIds());
     }
 
     static long estimateTreeBytes(@Nullable Path root, int maximumEntries) {
-        if (root == null || maximumEntries < 1 || Files.notExists(root)) {
-            return root == null || maximumEntries < 1 ? -1L : 0L;
-        }
-        if (Files.isSymbolicLink(root) || !Files.isDirectory(root)) {
-            return -1L;
-        }
-        long total = 0L;
-        int visited = 0;
-        try (Stream<Path> paths = Files.walk(root)) {
-            for (Path path : paths.limit((long) maximumEntries + 1L).toList()) {
-                if (++visited > maximumEntries || Files.isSymbolicLink(path)) {
-                    return -1L;
-                }
-                if (Files.isRegularFile(path)) {
-                    total = saturatingAdd(total, Files.size(path));
-                } else if (!Files.isDirectory(path)) {
-                    return -1L;
-                }
-            }
-            return total;
-        } catch (IOException | RuntimeException exception) {
-            return -1L;
-        }
+        return DoctorFilesystemAnalysis.estimateTreeBytes(root, maximumEntries);
     }
 
     static long estimateCurrentBackupBytes(Path saveRoot, ConfigPaths paths) {
-        Path normalizedRoot = saveRoot.toAbsolutePath().normalize();
-        Path dimensions = normalizedRoot.resolve("dimensions/delvefold").normalize();
-        if (!dimensions.startsWith(normalizedRoot)) {
-            return -1L;
-        }
-        long total = estimateTreeBytes(dimensions, MAX_DISK_ESTIMATE_ENTRIES);
-        if (total < 0L) {
-            return -1L;
-        }
-        for (Path config : List.of(paths.ores(), paths.settings())) {
-            Path normalized = config.toAbsolutePath().normalize();
-            if (!normalized.startsWith(normalizedRoot) || Files.isSymbolicLink(normalized)) {
-                return -1L;
-            }
-            try {
-                if (Files.exists(normalized)) {
-                    if (!Files.isRegularFile(normalized)) {
-                        return -1L;
-                    }
-                    total = saturatingAdd(total, Files.size(normalized));
-                }
-            } catch (IOException exception) {
-                return -1L;
-            }
-        }
-        return total;
+        return DoctorFilesystemAnalysis.estimateCurrentBackupBytes(saveRoot, paths);
     }
 
     static DoctorReport.DiskEstimate diskEstimate(Path saveRoot, ConfigPaths paths, long backupBytes) {
-        long usable = -1L;
-        try {
-            FileStore store = Files.getFileStore(saveRoot);
-            usable = Math.max(0L, store.getUsableSpace());
-        } catch (IOException | RuntimeException ignored) {
-            // Disk-space reporting is advisory; unavailable values retain the -1 sentinel.
-        }
-        long nextBackup = estimateCurrentBackupBytes(saveRoot, paths);
-        long headroom = nextBackup < 0L ? -1L : Math.min(nextBackup, 64L * MEBIBYTE) + 16L * MEBIBYTE;
-        return new DoctorReport.DiskEstimate(usable, Math.max(-1L, backupBytes), nextBackup, headroom);
+        return DoctorFilesystemAnalysis.diskEstimate(saveRoot, paths, backupBytes);
     }
 
     static Path ensureExportsDirectory(ConfigPaths paths) throws IOException {
-        Path directory = paths.directory().toAbsolutePath().normalize();
-        Path exports = paths.exports().toAbsolutePath().normalize();
-        @Nullable Path parent = exports.getParent();
-        if (!exports.startsWith(directory)
-                || exports.equals(directory)
-                || parent == null
-                || !parent.equals(directory)) {
-            throw new IOException("Doctor exports directory escaped Delvefold serverconfig");
-        }
-        if (Files.exists(directory) && (Files.isSymbolicLink(directory) || !Files.isDirectory(directory))) {
-            throw new IOException("Delvefold serverconfig directory failed safety checks");
-        }
-        Files.createDirectories(directory);
-        if (Files.isSymbolicLink(directory) || !Files.isDirectory(directory)) {
-            throw new IOException("Delvefold serverconfig directory failed safety checks");
-        }
-        if (Files.notExists(exports)) {
-            Files.createDirectory(exports);
-        }
-        if (Files.isSymbolicLink(exports) || !Files.isDirectory(exports)) {
-            throw new IOException("Doctor exports directory failed safety checks");
-        }
-        return exports;
+        return DoctorFilesystemAnalysis.ensureExportsDirectory(paths);
     }
 
     private static String modVersion() {
@@ -943,15 +769,11 @@ public final class DelvefoldDoctorService {
     }
 
     private static long saturatingAdd(long left, long right) {
-        if (right > 0L && left > Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
+        return DoctorFilesystemAnalysis.saturatingAdd(left, right);
     }
 
     private static int saturatingCount(int first, int second) {
-        long result = (long) Math.max(0, first) + Math.max(0, second);
-        return (int) Math.min(Integer.MAX_VALUE, result);
+        return DoctorFilesystemAnalysis.saturatingCount(first, second);
     }
 
     private record DimensionDefinition(

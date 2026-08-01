@@ -320,11 +320,13 @@ subjective statements such as “looks faster” are not sufficient.
 | `DelvefoldCommands` | 1,726 lines | Stable facade plus domain command modules; exact tree unchanged. | _pending_ |
 | `DelvefoldOreRuleWizardScreen` | 1,448 lines | Stable screen plus immutable draft, validation, layout, and section collaborators. | _pending_ |
 | `DelvefoldDashboardScreen` | 1,252 lines | Stable screen plus tab/section controllers and cached derived layout. | _pending_ |
-| `DelvefoldDoctorService` | 820 lines | Stable service plus independent collectors and unchanged redaction/rendering. | _pending_ |
-| `DefaultDelvefoldAdminService` | 818 lines | Stable adapter plus package-private operation handlers. | _pending_ |
+| `DelvefoldDoctorService` | 820 lines | Stable service plus independent collectors and unchanged redaction/rendering. | The fully documented service was reduced from 1,003 to 825 lines by extracting the 276-line `DoctorFilesystemAnalysis`; `DoctorFilesystemAnalysisTest` covers tolerant journals, exact 64-KiB bounds, symlink/path containment, disk estimates, and saturation. |
+| `DefaultDelvefoldAdminService` | 818 lines | Stable adapter plus package-private operation handlers. | The stable adapter delegates bounded snapshot assembly to `AdminSnapshotAssembler` and exact ore draft/model conversion to `AdminOreDraftMapper`; `AdminSnapshotAssemblerTest`, `OreRuleDraftConversionTest`, lifecycle/source contracts, and the API descriptor gate pass. |
 | `WorldOperationService` | 746 lines | Stable lifecycle service using tested shared journal/file primitives. | `AtomicFilesTest`, `LifecycleFileOperationsTest`, `LifecycleJournalFilesTest`, `RestartBoundLifecycleCharacterizationTest`, and `SharedInfrastructureCharacterizationTest`; API/schema/protocol descriptors unchanged. |
 | `DelvefoldConfigService` | 682 lines | Stable facade with separated mutation, publication, and transition planning. | _pending_ |
 | `DelvefoldOreImportScreen` | 669 lines | Stable screen with separated paged display/selection/session state. | _pending_ |
+| `OreImportSessionService` | 623 lines | Stable synchronized state owner plus isolated token-security and validation policy. | The fully documented facade was reduced from 952 to 813 lines; `OreImportTokenSecurityTest`, `OreImportSessionValidationTest`, and expanded service tests cover token format/digests/collisions, expiry/cooldown boundaries, binding precedence, normalization, replay, and invalidation. |
+| `OreProfileForecastBuilder` | 616 lines | Stable public facade plus deterministic rule analysis and network-budget fitting. | The fully documented facade was reduced from 713 to 192 lines; `OreForecastRuleAnalysisTest`, `OreForecastNetworkBudgetFitterTest`, and existing forecast contracts cover status/order/formulas, province overlays, bounds, fair issue admission, exact byte limits, and truncation. |
 
 ### Performance and threading
 

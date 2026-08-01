@@ -47,7 +47,7 @@ class AsyncIsolationCharacterizationTest {
     @Test
     void interactiveAndTickEntrypointsDoNotPerformBackupScansOrDoctorBuildsInline() throws IOException {
         String adminSnapshot = compact(ProductionSources.block(
-                ProductionSources.read("admin/DefaultDelvefoldAdminService.java"), "public AdminSnapshot snapshot("));
+                ProductionSources.read("admin/AdminSnapshotAssembler.java"), "static AdminSnapshot assemble("));
         assertTrue(adminSnapshot.contains("BackupCatalogCache.get().snapshot(saveRoot)"));
         assertTrue(adminSnapshot.contains("cachedRenderedLines(player.getServer())"));
         assertFalse(adminSnapshot.contains("newWorldBackupCatalog("));

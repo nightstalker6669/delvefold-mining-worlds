@@ -50,7 +50,7 @@ class ServerOperationsIntegrationContractTest {
 
     @Test
     void doctorReportIsIncludedInTheAdministrativeDiagnosticsGui() throws IOException {
-        String admin = source("admin/DefaultDelvefoldAdminService.java");
+        String admin = source("admin/AdminSnapshotAssembler.java");
         String dashboard = source("client/gui/DelvefoldDashboardScreen.java");
 
         assertTrue(

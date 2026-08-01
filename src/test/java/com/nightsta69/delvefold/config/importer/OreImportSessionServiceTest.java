@@ -77,6 +77,89 @@ class OreImportSessionServiceTest {
     }
 
     @Test
+    void deterministicTokenSourceRetriesCollisionsAcrossScanAndPreviewState() {
+        MutableClock clock = new MutableClock(Instant.parse("2026-07-31T12:00:00Z"));
+        Queue<String> values = new ArrayDeque<>(
+                List.of("A".repeat(43), "A".repeat(43), "B".repeat(43), "B".repeat(43), "C".repeat(43)));
+        Fixture fixture = new Fixture(clock, new OreImportSessionService(clock, values::remove));
+
+        var scan = issueScan(fixture, OWNER);
+        var firstPreview = requireNonNull(fixture.service
+                .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, validPlan())
+                .preview());
+        var replacementPreview = requireNonNull(fixture.service
+                .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, validPlan())
+                .preview());
+
+        assertEquals("A".repeat(43), scan.scanToken());
+        assertEquals("B".repeat(43), firstPreview.commitToken());
+        assertEquals("C".repeat(43), replacementPreview.commitToken());
+    }
+
+    @Test
+    void nullAndMalformedTokensNeverConsumeOtherwiseValidState() {
+        Fixture fixture = fixture();
+        var scan = issueScan(fixture, OWNER);
+
+        assertEquals(
+                OreImportSessionService.Status.INVALID_TOKEN,
+                fixture.service.accessScan(OWNER, null, BINDING).status());
+        assertEquals(
+                OreImportSessionService.Status.INVALID_TOKEN,
+                fixture.service.accessScan(OWNER, "malformed", BINDING).status());
+        assertTrue(fixture.service.accessScan(OWNER, scan.scanToken(), BINDING).accepted());
+
+        var preview = requireNonNull(fixture.service
+                .issuePreview(OWNER, scan.scanToken(), BINDING, REQUEST, validPlan())
+                .preview());
+        assertEquals(
+                OreImportSessionService.Status.INVALID_TOKEN,
+                fixture.service
+                        .consumeCommit(OWNER, null, BINDING, "imported_tin")
+                        .status());
+        assertEquals(
+                OreImportSessionService.Status.INVALID_TOKEN,
+                fixture.service
+                        .consumeCommit(OWNER, "malformed", BINDING, "imported_tin")
+                        .status());
+        assertTrue(fixture.service
+                .consumeCommit(OWNER, preview.commitToken(), BINDING, "imported_tin")
+                .accepted());
+    }
+
+    @Test
+    void scanCooldownUsesTheOriginalAdmissionTimestampAndExactRetryBoundary() {
+        Fixture fixture = fixture();
+        var accepted = fixture.service.mayIssueScan(OWNER);
+
+        fixture.clock.advance(OreImportSessionService.SCAN_COOLDOWN.minusMillis(1L));
+        var rejected = fixture.service.mayIssueScan(OWNER);
+        assertEquals(OreImportSessionService.Status.RATE_LIMITED, rejected.status());
+        assertEquals(
+                accepted.admittedAtEpochMillis() + OreImportSessionService.SCAN_COOLDOWN.toMillis(),
+                rejected.retryAtEpochMillis());
+
+        fixture.clock.advance(Duration.ofMillis(1L));
+        assertTrue(fixture.service.mayIssueScan(OWNER).accepted());
+    }
+
+    @Test
+    void admissionExpiryAndPlayerInvalidationRetainTheirBoundaryAndResetSemantics() {
+        Fixture expired = fixture();
+        assertTrue(expired.service.mayIssueScan(OWNER).accepted());
+        expired.clock.advance(OreImportSessionService.SESSION_TTL);
+        var expiryFailure =
+                assertThrows(IllegalStateException.class, () -> expired.service.issueScan(OWNER, BINDING, DISCOVERY));
+        assertEquals("Ore-import discovery was not admitted or its admission expired", expiryFailure.getMessage());
+
+        Fixture invalidated = fixture();
+        assertTrue(invalidated.service.mayIssueScan(OWNER).accepted());
+        invalidated.service.invalidatePlayer(OWNER);
+        assertThrows(IllegalStateException.class, () -> invalidated.service.issueScan(OWNER, BINDING, DISCOVERY));
+        assertTrue(invalidated.service.mayIssueScan(OWNER).accepted());
+    }
+
+    @Test
     void scanAndPreviewTokensExpireAfterFiveMinutes() {
         Fixture fixture = fixture();
         var scan = issueScan(fixture, OWNER);

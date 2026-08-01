@@ -14,11 +14,11 @@ class BackupCatalogAsyncContractTest {
     @Test
     void adminSnapshotsAndGuiVerificationUseOnlyTheAsyncCatalogView() throws IOException {
         String admin = read("admin/DefaultDelvefoldAdminService.java");
-        String snapshotMethod =
-                between(admin, "public AdminSnapshot snapshot(", "\n    @Override\n    public OreProfileForecast");
+        String snapshotMethod = read("admin/AdminSnapshotAssembler.java");
         String backupMethod = between(
                 admin, "public ServiceResult performBackup(", "\n    @Override\n    public ServiceResult perform(");
 
+        assertTrue(admin.contains("return AdminSnapshotAssembler.assemble("));
         assertTrue(snapshotMethod.contains("BackupCatalogCache.get().snapshot(saveRoot)"));
         assertTrue(snapshotMethod.contains("backupCatalog.refreshing()"));
         assertFalse(snapshotMethod.contains("new WorldBackupCatalog"));

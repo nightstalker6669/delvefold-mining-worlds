@@ -80,12 +80,15 @@ class LifecycleOperationCoordinatorTest {
 
     @Test
     void snapshotProducerClassifiesBothPersistedJournalsWithoutCollapsingThem() throws IOException {
-        String service = Files.readString(
+        String facade = Files.readString(
                 Path.of("src/main/java/com/nightsta69/delvefold/admin/DefaultDelvefoldAdminService.java"));
+        String assembler =
+                Files.readString(Path.of("src/main/java/com/nightsta69/delvefold/admin/AdminSnapshotAssembler.java"));
 
-        assertTrue(service.contains("AdminSnapshot.PendingOperation.resolve("));
-        assertTrue(service.contains("WorldOperationService.get().hasPending(player.getServer())"));
-        assertTrue(service.contains("WorldRestoreService.get().hasPending(player.getServer())"));
+        assertTrue(facade.contains("return AdminSnapshotAssembler.assemble("));
+        assertTrue(assembler.contains("AdminSnapshot.PendingOperation.resolve("));
+        assertTrue(assembler.contains("WorldOperationService.get().hasPending(player.getServer())"));
+        assertTrue(assembler.contains("WorldRestoreService.get().hasPending(player.getServer())"));
     }
 
     private static String source(String name) throws IOException {
