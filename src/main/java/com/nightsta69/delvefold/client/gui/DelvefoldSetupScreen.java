@@ -3,28 +3,23 @@ package com.nightsta69.delvefold.client.gui;
 import com.nightsta69.delvefold.client.DelvefoldClientRequests;
 import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
-import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
-import com.nightsta69.delvefold.config.model.RenewalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
-import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.List;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
 
 /** Three-step first-time mining-world setup screen with explicit recreation-locked confirmation. */
 public final class DelvefoldSetupScreen extends DelvefoldScreen {
@@ -36,23 +31,14 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private static final int RESOURCE_LANDMARK_OPTIONS_TOP = 191;
     private static final int RESOURCE_LANDMARK_HELP_TOP = 225;
 
-    private TerrainMode terrainMode;
-    private OrePreset orePreset;
-    private GameplayPreset gameplayPreset;
-    private TerrainVariant terrainVariant;
-    private GeologyTheme geologyTheme;
-    private LandmarkPreset landmarkPreset;
-    private RenewalSeedMode renewalSeedMode;
+    private SetupDraft draft;
     private Step step = Step.TERRAIN;
     private boolean lockConfirmed;
     private @Nullable Button confirmationButton;
     private @Nullable Button initializeButton;
     private Component localStatus = Component.empty();
     private int localStatusColor = ACCENT;
-    private final List<AbstractWidget> bodyWidgets = new ArrayList<>();
-    private final IdentityHashMap<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
-    private int bodyScrollOffset;
-    private int bodyVirtualBottom;
+    private final ScrollableWidgetGroup bodyScroll = new ScrollableWidgetGroup();
     private int terrainModeOptionsTop;
     private int terrainVariantLabelTop;
     private int terrainVariantOptionsTop;
@@ -77,30 +63,24 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
      */
     public DelvefoldSetupScreen(AdminSnapshot snapshot) {
         super(Component.translatable("screen.delvefold.setup.title"), snapshot);
-        this.terrainMode = snapshot.terrainMode();
-        this.orePreset = snapshot.orePreset();
-        this.gameplayPreset = snapshot.gameplay().preset();
-        this.terrainVariant = snapshot.identity().terrainVariant();
-        this.geologyTheme = snapshot.identity().geologyTheme();
-        this.landmarkPreset = snapshot.identity().landmarkPreset();
-        this.renewalSeedMode = snapshot.identity().renewal().seedMode();
+        this.draft = SetupDraft.from(snapshot);
     }
 
     @Override
     protected void initPanel() {
-        this.bodyWidgets.clear();
-        this.bodyWidgetY.clear();
+        this.bodyScroll.reset(bodyTop());
         int x = this.contentLeft();
         int width = this.contentWidth();
         int gap = 6;
         int tabWidth = (width - gap * 2) / 3;
+        int tabHeight = this.compactChrome() ? 18 : 22;
         for (Step value : Step.values()) {
             int tabX = x + GuiEnumOrder.index(value) * (tabWidth + gap);
             this.addButton(
                     tabX,
                     this.contentTop(),
                     tabWidth,
-                    22,
+                    tabHeight,
                     Component.translatable(
                             "screen.delvefold.setup.step",
                             GuiEnumOrder.index(value) + 1,
@@ -116,7 +96,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         }
         applyBodyScroll();
 
-        int footerY = this.panelTop + this.panelHeight - 29;
+        int footerY = this.footerButtonY();
         if (this.step == Step.TERRAIN) {
             this.addButton(
                     x, footerY, 76, 22, Component.translatable("gui.cancel"), Style.GHOST, button -> this.onClose());
@@ -173,7 +153,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         int seedHelpHeight = wrappedTextHeight(seedModeHelp(), width);
         this.terrainGeologyHelpTop = Math.max(this.terrainNoticeTop + 72, this.terrainSeedHelpTop + seedHelpHeight + 6);
         int geologyHelpHeight = wrappedTextHeight(geologyThemeHelp(), width);
-        this.bodyVirtualBottom = bodyTop + this.terrainGeologyHelpTop + geologyHelpHeight + 8;
+        this.bodyScroll.setVirtualBottom(bodyTop + this.terrainGeologyHelpTop + geologyHelpHeight + 8);
 
         int y = bodyTop + this.terrainModeOptionsTop;
         int optionWidth = (width - gap * 2) / 3;
@@ -185,10 +165,10 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     optionWidth,
                     42,
                     DelvefoldText.choice(
-                            this.terrainMode == mode, DelvefoldText.option("terrain", mode.serializedName())),
-                    this.terrainMode == mode ? Style.TOGGLE_ON : Style.SECONDARY,
+                            this.draft.terrainMode() == mode, DelvefoldText.option("terrain", mode.serializedName())),
+                    this.draft.terrainMode() == mode ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
-                        this.terrainMode = mode;
+                        this.draft = this.draft.withTerrainMode(mode);
                         resetConfirmation();
                         rebuildWidgets();
                     });
@@ -203,11 +183,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     variantWidth,
                     24,
                     DelvefoldText.choice(
-                            this.terrainVariant == variant,
+                            this.draft.terrainVariant() == variant,
                             DelvefoldText.option("terrain_variant", variant.serializedName())),
-                    this.terrainVariant == variant ? Style.TOGGLE_ON : Style.SECONDARY,
+                    this.draft.terrainVariant() == variant ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
-                        this.terrainVariant = variant;
+                        this.draft = this.draft.withTerrainVariant(variant);
                         resetConfirmation();
                         rebuildWidgets();
                     });
@@ -224,10 +204,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     geologyWidth,
                     24,
                     DelvefoldText.choice(
-                            this.geologyTheme == theme, DelvefoldText.option("geology_theme", theme.serializedName())),
-                    this.geologyTheme == theme ? Style.TOGGLE_ON : Style.SECONDARY,
+                            this.draft.geologyTheme() == theme,
+                            DelvefoldText.option("geology_theme", theme.serializedName())),
+                    this.draft.geologyTheme() == theme ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
-                        this.geologyTheme = theme;
+                        this.draft = this.draft.withGeologyTheme(theme);
                         resetConfirmation();
                         rebuildWidgets();
                     });
@@ -242,11 +223,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     seedModeWidth,
                     24,
                     DelvefoldText.choice(
-                            this.renewalSeedMode == mode,
+                            this.draft.renewalSeedMode() == mode,
                             DelvefoldText.option("renewal_seed_mode", mode.serializedName())),
-                    this.renewalSeedMode == mode ? Style.TOGGLE_ON : Style.SECONDARY,
+                    this.draft.renewalSeedMode() == mode ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
-                        this.renewalSeedMode = mode;
+                        this.draft = this.draft.withRenewalSeedMode(mode);
                         resetConfirmation();
                         rebuildWidgets();
                     });
@@ -275,7 +256,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.resourceLandmarkHelpTop =
                 this.resourceLandmarkOptionsTop + (RESOURCE_LANDMARK_HELP_TOP - RESOURCE_LANDMARK_OPTIONS_TOP);
         int landmarkHelpHeight = wrappedTextHeight(landmarkDescription(), width);
-        this.bodyVirtualBottom = y + this.resourceLandmarkHelpTop + landmarkHelpHeight + 8;
+        this.bodyScroll.setVirtualBottom(y + this.resourceLandmarkHelpTop + landmarkHelpHeight + 8);
 
         int optionWidth = (width - gap * 2) / 3;
         for (OrePreset preset : OrePreset.values()) {
@@ -286,10 +267,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     optionWidth,
                     32,
                     DelvefoldText.choice(
-                            this.orePreset == preset, DelvefoldText.option("ore_preset", preset.serializedName())),
-                    this.orePreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
+                            this.draft.orePreset() == preset,
+                            DelvefoldText.option("ore_preset", preset.serializedName())),
+                    this.draft.orePreset() == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
-                        this.orePreset = preset;
+                        this.draft = this.draft.withOrePreset(preset);
                         resetConfirmation();
                         rebuildWidgets();
                     });
@@ -303,10 +285,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     optionWidth,
                     32,
                     DelvefoldText.choice(
-                            this.gameplayPreset == preset, DelvefoldText.option("gameplay", preset.serializedName())),
-                    this.gameplayPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
+                            this.draft.gameplayPreset() == preset,
+                            DelvefoldText.option("gameplay", preset.serializedName())),
+                    this.draft.gameplayPreset() == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
-                        this.gameplayPreset = preset;
+                        this.draft = this.draft.withGameplayPreset(preset);
                         resetConfirmation();
                         rebuildWidgets();
                     });
@@ -320,10 +303,11 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                     optionWidth,
                     28,
                     DelvefoldText.choice(
-                            this.landmarkPreset == preset, DelvefoldText.option("landmark", preset.serializedName())),
-                    this.landmarkPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
+                            this.draft.landmarkPreset() == preset,
+                            DelvefoldText.option("landmark", preset.serializedName())),
+                    this.draft.landmarkPreset() == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
-                        this.landmarkPreset = preset;
+                        this.draft = this.draft.withLandmarkPreset(preset);
                         resetConfirmation();
                         rebuildWidgets();
                     });
@@ -342,12 +326,12 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 confirmationLabel(),
                 this.lockConfirmed ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                 button -> toggleConfirmation());
-        this.bodyVirtualBottom = reviewVirtualBottom();
+        this.bodyScroll.setVirtualBottom(reviewVirtualBottom());
     }
 
     private void moveTo(Step requested) {
         this.step = requested;
-        this.bodyScrollOffset = 0;
+        this.bodyScroll.restoreOffset(0);
         rebuildWidgets();
     }
 
@@ -375,36 +359,16 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         initialize.active = false;
         this.localStatus = Component.translatable("screen.delvefold.setup.initializing");
         this.localStatusColor = ACCENT;
-        this.bodyVirtualBottom = reviewVirtualBottom();
-        setBodyScrollOffset(this.bodyScrollOffset);
+        this.bodyScroll.setVirtualBottom(reviewVirtualBottom());
+        setBodyScrollOffset(this.bodyScroll.scrollOffset());
         DelvefoldClientRequests.send(new InitializeWorldPayload(
                 this.snapshot.oreRevision(),
                 this.snapshot.settingsRevision(),
-                this.terrainMode,
-                this.orePreset,
-                GameplaySettings.fromPreset(this.gameplayPreset),
-                selectedIdentity(),
+                this.draft.terrainMode(),
+                this.draft.orePreset(),
+                this.draft.gameplay(),
+                this.draft.selectedIdentity(this.snapshot.identity()),
                 true));
-    }
-
-    private WorldIdentitySettings selectedIdentity() {
-        WorldIdentitySettings source = this.snapshot.identity();
-        boolean enabled = this.landmarkPreset != LandmarkPreset.PURE_MINING;
-        RenewalSettings renewal = source.renewal();
-        return new WorldIdentitySettings(
-                source.displayName(),
-                this.terrainVariant,
-                this.landmarkPreset,
-                enabled && source.surveyStations(),
-                enabled && source.motherlodes(),
-                enabled && source.faultLines(),
-                this.geologyTheme,
-                new RenewalSettings(
-                        renewal.enabled(),
-                        renewal.intervalDays(),
-                        renewal.warningMinutes(),
-                        renewal.nextRenewalAtEpochMillis(),
-                        this.renewalSeedMode));
     }
 
     private Component confirmationLabel() {
@@ -413,7 +377,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private int bodyTop() {
-        return this.contentTop() + 31;
+        return this.contentTop() + (this.compactChrome() ? 21 : 31);
     }
 
     private int wrappedTextHeight(Component text, int width) {
@@ -437,18 +401,20 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private Component terrainDetail() {
         return Component.translatable(
                 "screen.delvefold.setup.terrain.detail",
-                Component.translatable("screen.delvefold.setup.terrain.detail." + this.terrainMode.serializedName()),
-                Component.translatable("screen.delvefold.setup.terrain.scale." + this.terrainVariant.serializedName()));
+                Component.translatable("screen.delvefold.setup.terrain.detail."
+                        + this.draft.terrainMode().serializedName()),
+                Component.translatable("screen.delvefold.setup.terrain.scale."
+                        + this.draft.terrainVariant().serializedName()));
     }
 
     private Component seedModeHelp() {
-        return Component.translatable(
-                "screen.delvefold.setup.terrain.seed_mode.help." + this.renewalSeedMode.serializedName());
+        return Component.translatable("screen.delvefold.setup.terrain.seed_mode.help."
+                + this.draft.renewalSeedMode().serializedName());
     }
 
     private Component geologyThemeHelp() {
-        return Component.translatable(
-                "screen.delvefold.setup.terrain.geology_theme.help." + this.geologyTheme.serializedName());
+        return Component.translatable("screen.delvefold.setup.terrain.geology_theme.help."
+                + this.draft.geologyTheme().serializedName());
     }
 
     private Component reviewStatus() {
@@ -461,14 +427,14 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
         for (Renderable renderable : this.renderables) {
-            if (!this.bodyWidgets.contains(renderable)) {
+            if (!this.bodyScroll.contains(renderable)) {
                 renderable.render(graphics, mouseX, mouseY, partialTick);
             }
         }
         VerticalScrollLayout layout = bodyScrollLayout();
         graphics.enableScissor(
                 this.contentLeft() + 1, layout.viewportTop(), this.contentRight() - 1, layout.viewportBottom());
-        for (AbstractWidget widget : this.bodyWidgets) {
+        for (AbstractWidget widget : this.bodyScroll.widgets()) {
             widget.render(graphics, mouseX, mouseY, partialTick);
         }
         graphics.disableScissor();
@@ -482,10 +448,33 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 && mouseY >= layout.viewportTop()
                 && mouseY < layout.viewportBottom()
                 && layout.maximumScroll() > 0) {
-            setBodyScrollOffset(this.bodyScrollOffset - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
+            setBodyScrollOffset(this.bodyScroll.scrollOffset() - (int) Math.signum(scrollY) * BODY_SCROLL_STEP);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_TAB && this.getFocused() instanceof AbstractWidget focused) {
+            AbstractWidget next = this.bodyScroll.nextFocusable(focused, !hasShiftDown(), bodyScrollLayout());
+            if (next != null) {
+                this.setInitialFocus(next);
+                return true;
+            }
+        }
+        if (this.getFocused() instanceof AbstractWidget focused
+                && this.bodyScroll.contains(focused)
+                && this.bodyScroll.handleScrollKey(keyCode, bodyScrollLayout(), BODY_SCROLL_STEP)) {
+            if (!focused.visible) {
+                AbstractWidget replacement = this.bodyScroll.firstVisibleFocusable();
+                if (replacement != null) {
+                    this.setInitialFocus(replacement);
+                }
+            }
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -497,7 +486,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.drawCard(graphics, x, y, width, height);
         VerticalScrollLayout layout = bodyScrollLayout();
         graphics.enableScissor(x + 1, layout.viewportTop(), x + width - 1, layout.viewportBottom());
-        int scrolledY = y - this.bodyScrollOffset;
+        int scrolledY = y - this.bodyScroll.scrollOffset();
         switch (this.step) {
             case TERRAIN -> renderTerrain(graphics, x, scrolledY, width);
             case RESOURCES -> renderResources(graphics, x, scrolledY, width);
@@ -510,30 +499,23 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private Button addBodyButton(
             int x, int y, int width, int height, Component label, Style style, Button.OnPress onPress) {
         Button widget = this.addButton(x, y, width, height, label, style, onPress);
-        this.bodyWidgets.add(widget);
-        this.bodyWidgetY.put(widget, y);
-        return widget;
+        return this.bodyScroll.register(widget);
     }
 
     private VerticalScrollLayout bodyScrollLayout() {
         int top = bodyTop() + 1;
         int bottom = Math.max(top + 1, this.contentBottom() - 1);
-        return new VerticalScrollLayout(top, bottom, this.bodyVirtualBottom);
+        return new VerticalScrollLayout(top, bottom, this.bodyScroll.virtualBottom());
     }
 
     private void setBodyScrollOffset(int requestedOffset) {
-        this.bodyScrollOffset = bodyScrollLayout().clamp(requestedOffset);
-        applyBodyScroll();
+        this.bodyScroll.setScrollOffset(requestedOffset, bodyScrollLayout());
     }
 
     private void applyBodyScroll() {
         VerticalScrollLayout layout = bodyScrollLayout();
-        this.bodyScrollOffset = layout.clamp(this.bodyScrollOffset);
-        for (AbstractWidget widget : this.bodyWidgets) {
-            int y = layout.screenY(this.bodyWidgetY.getOrDefault(widget, widget.getY()), this.bodyScrollOffset);
-            widget.setY(y);
-            widget.visible = layout.fullyVisible(y, widget.getHeight());
-        }
+        this.bodyScroll.apply(layout);
+        this.bodyScroll.ensureFocusableVisible(layout);
     }
 
     private void drawBodyScrollbar(GuiGraphics graphics, int x, VerticalScrollLayout layout) {
@@ -542,10 +524,10 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
             return;
         }
         int trackHeight = layout.viewportHeight();
-        int virtualHeight = Math.max(trackHeight, this.bodyVirtualBottom - layout.viewportTop());
+        int virtualHeight = Math.max(trackHeight, this.bodyScroll.virtualBottom() - layout.viewportTop());
         int thumbHeight = Math.min(trackHeight, Math.max(14, trackHeight * trackHeight / virtualHeight));
         int thumbTravel = Math.max(1, trackHeight - thumbHeight);
-        int thumbY = layout.viewportTop() + this.bodyScrollOffset * thumbTravel / maximum;
+        int thumbY = layout.viewportTop() + this.bodyScroll.scrollOffset() * thumbTravel / maximum;
         graphics.fill(x, layout.viewportTop(), x + 3, layout.viewportBottom(), 0xAA0B1318);
         graphics.fill(x, thumbY, x + 3, thumbY + thumbHeight, ACCENT);
     }
@@ -617,7 +599,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 false);
         graphics.drawString(
                 this.font,
-                DelvefoldText.option("terrain", this.terrainMode.serializedName()),
+                DelvefoldText.option("terrain", this.draft.terrainMode().serializedName()),
                 x + width / 2,
                 y + 29,
                 TEXT,
@@ -631,7 +613,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 false);
         graphics.drawString(
                 this.font,
-                DelvefoldText.option("ore_preset", this.orePreset.serializedName()),
+                DelvefoldText.option("ore_preset", this.draft.orePreset().serializedName()),
                 x + width / 2,
                 y + 45,
                 TEXT,
@@ -645,7 +627,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 false);
         graphics.drawString(
                 this.font,
-                DelvefoldText.option("gameplay", this.gameplayPreset.serializedName()),
+                DelvefoldText.option("gameplay", this.draft.gameplayPreset().serializedName()),
                 x + width / 2,
                 y + 61,
                 TEXT,
@@ -659,7 +641,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 false);
         graphics.drawString(
                 this.font,
-                DelvefoldText.option("terrain_variant", this.terrainVariant.serializedName()),
+                DelvefoldText.option(
+                        "terrain_variant", this.draft.terrainVariant().serializedName()),
                 x + width / 2,
                 y + 77,
                 TEXT,
@@ -673,7 +656,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 false);
         graphics.drawString(
                 this.font,
-                DelvefoldText.option("geology_theme", this.geologyTheme.serializedName()),
+                DelvefoldText.option("geology_theme", this.draft.geologyTheme().serializedName()),
                 x + width / 2,
                 y + 93,
                 TEXT,
@@ -687,7 +670,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 false);
         graphics.drawString(
                 this.font,
-                DelvefoldText.option("landmark", this.landmarkPreset.serializedName()),
+                DelvefoldText.option("landmark", this.draft.landmarkPreset().serializedName()),
                 x + width / 2,
                 y + 109,
                 TEXT,
@@ -701,7 +684,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
                 false);
         graphics.drawString(
                 this.font,
-                DelvefoldText.option("renewal_seed_mode", this.renewalSeedMode.serializedName()),
+                DelvefoldText.option(
+                        "renewal_seed_mode", this.draft.renewalSeedMode().serializedName()),
                 x + width / 2,
                 y + 125,
                 TEXT,
@@ -722,7 +706,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private Component oreDescription() {
-        return switch (this.orePreset) {
+        return switch (this.draft.orePreset()) {
             case VANILLA_BALANCED -> Component.translatable("screen.delvefold.setup.ore_help.vanilla_balanced");
             case RICH -> Component.translatable("screen.delvefold.setup.ore_help.rich");
             case EMPTY -> Component.translatable("screen.delvefold.setup.ore_help.empty");
@@ -730,7 +714,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private Component gameplayDescription() {
-        return switch (this.gameplayPreset) {
+        return switch (this.draft.gameplayPreset()) {
             case SAFE -> Component.translatable("screen.delvefold.setup.gameplay_help.safe");
             case HOSTILE -> Component.translatable("screen.delvefold.setup.gameplay_help.hostile");
             case NORMAL -> Component.translatable("screen.delvefold.setup.gameplay_help.normal");
@@ -738,7 +722,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private Component landmarkDescription() {
-        return switch (this.landmarkPreset) {
+        return switch (this.draft.landmarkPreset()) {
             case PURE_MINING -> Component.translatable("screen.delvefold.setup.landmark_help.pure_mining");
             case BALANCED -> Component.translatable("screen.delvefold.setup.landmark_help.balanced");
             case ABUNDANT -> Component.translatable("screen.delvefold.setup.landmark_help.abundant");
@@ -750,8 +734,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         this.localStatus = DelvefoldText.serverMessage(payload.message());
         this.localStatusColor = payload.status() == ActionStatus.ACCEPTED ? SUCCESS : DANGER;
         if (this.step == Step.REVIEW) {
-            this.bodyVirtualBottom = reviewVirtualBottom();
-            setBodyScrollOffset(this.bodyScrollOffset);
+            this.bodyScroll.setVirtualBottom(reviewVirtualBottom());
+            setBodyScrollOffset(this.bodyScroll.scrollOffset());
         }
         Button initialize = this.initializeButton;
         if (payload.status() != ActionStatus.ACCEPTED && initialize != null) {

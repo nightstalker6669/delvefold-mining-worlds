@@ -78,7 +78,8 @@ class BackupScreenLayoutTest {
         String source = Files.readString(
                 Path.of("src/main/java/com/nightsta69/delvefold/client/gui/DelvefoldBackupScreen.java"));
 
-        assertTrue(source.contains("BackupScreenLayout layout = layout();"));
+        assertTrue(source.contains("this.currentLayout = layout;"));
+        assertTrue(source.contains("BackupScreenLayout layout = this.currentLayout;"));
         assertTrue(source.contains("int pageSize = layout.pageSize();"));
         assertTrue(source.contains("layout.actionBounds(row, 3)"));
         assertTrue(source.contains("layout.footer(pageCount > 1, snapshot.restorePending())"));

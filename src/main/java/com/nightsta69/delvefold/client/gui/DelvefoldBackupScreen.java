@@ -24,6 +24,7 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
     private final int page;
     private String armedId = "";
     private @Nullable BackupOperation armedOperation;
+    private @Nullable BackupScreenLayout currentLayout;
 
     /**
      * Creates the first page of the backup manager.
@@ -55,7 +56,9 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
 
     @Override
     protected void initPanel() {
-        BackupScreenLayout layout = layout();
+        BackupScreenLayout layout =
+                BackupScreenLayout.forPanel(this.panelLeft, this.panelTop, this.panelWidth, this.panelHeight);
+        this.currentLayout = layout;
         boolean canManageWorld = snapshot.capabilities().canManageWorld();
         int pageSize = layout.pageSize();
         int pageCount = Math.max(1, (snapshot.backups().size() + pageSize - 1) / pageSize);
@@ -269,8 +272,9 @@ public final class DelvefoldBackupScreen extends DelvefoldScreen {
     }
 
     private BackupScreenLayout layout() {
-        if (this.panelWidth > 0 && this.panelHeight > 0) {
-            return BackupScreenLayout.forPanel(this.panelLeft, this.panelTop, this.panelWidth, this.panelHeight);
+        BackupScreenLayout layout = this.currentLayout;
+        if (layout != null) {
+            return layout;
         }
         return BackupScreenLayout.forScreen(Math.max(1, this.width), Math.max(1, this.height));
     }

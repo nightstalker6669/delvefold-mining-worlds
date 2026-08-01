@@ -23,7 +23,6 @@ import org.jspecify.annotations.Nullable;
 
 /** Searchable client-registry picker for selecting exact ore or block outputs. */
 public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
-    private static final int TILE_STEP = 27;
     private static final TagKey<Block> COMMON_ORES =
             TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "ores"));
 
@@ -109,19 +108,20 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
                 Style.SECONDARY,
                 button -> chooseTypedId());
 
-        this.columns = Math.max(6, Math.min(14, (width - 20) / TILE_STEP));
-        this.gridTop = controlsY + 34;
-        int availableGridHeight = this.contentBottom() - this.gridTop - 36;
-        this.rows = Math.max(2, Math.min(5, availableGridHeight / TILE_STEP));
-        this.pageSize = this.columns * this.rows;
-        this.gridWidth = this.columns * TILE_STEP;
-        this.gridLeft = this.panelLeft + (this.panelWidth - this.gridWidth) / 2;
+        OrePickerLayout layout =
+                OrePickerLayout.calculate(this.panelLeft, this.panelWidth, width, controlsY + 34, this.footerButtonY());
+        this.columns = layout.columns();
+        this.rows = layout.rows();
+        this.pageSize = layout.pageSize();
+        this.gridWidth = layout.gridWidth();
+        this.gridLeft = layout.gridLeft();
+        this.gridTop = layout.gridTop();
         this.iconButtons.clear();
         for (int row = 0; row < this.rows; row++) {
             for (int column = 0; column < this.columns; column++) {
                 OreIconButton button = this.addRenderableWidget(new OreIconButton(
-                        this.gridLeft + column * TILE_STEP + 1,
-                        this.gridTop + row * TILE_STEP + 1,
+                        this.gridLeft + column * OrePickerLayout.TILE_STEP + 1,
+                        this.gridTop + row * OrePickerLayout.TILE_STEP + 1,
                         25,
                         25,
                         this::choose));
@@ -129,7 +129,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
             }
         }
 
-        int pagerY = this.gridTop + this.rows * TILE_STEP + 8;
+        int pagerY = layout.pagerY();
         this.previousButton = this.addButton(
                 this.gridLeft,
                 pagerY,
@@ -154,7 +154,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
                 });
         this.addButton(
                 this.contentLeft(),
-                this.panelTop + this.panelHeight - 29,
+                this.footerButtonY(),
                 76,
                 22,
                 Component.translatable("gui.back"),
@@ -260,7 +260,12 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
                 MUTED_TEXT,
                 false);
         int gridCardY = this.gridTop - 7;
-        this.drawCard(graphics, this.gridLeft - 7, gridCardY, this.gridWidth + 14, this.rows * TILE_STEP + 14);
+        this.drawCard(
+                graphics,
+                this.gridLeft - 7,
+                gridCardY,
+                this.gridWidth + 14,
+                this.rows * OrePickerLayout.TILE_STEP + 14);
         int pageCount = Math.max(1, (this.filteredEntries.size() + this.pageSize - 1) / this.pageSize);
         Component resultText = Component.translatable(
                 "screen.delvefold.ore_picker.results", this.filteredEntries.size(), this.page + 1, pageCount);
@@ -268,7 +273,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
                 this.font,
                 resultText,
                 this.panelLeft + this.panelWidth / 2,
-                this.gridTop + this.rows * TILE_STEP + 14,
+                this.gridTop + this.rows * OrePickerLayout.TILE_STEP + 14,
                 MUTED_TEXT);
         if (!this.localStatus.getString().isEmpty()) {
             graphics.drawString(

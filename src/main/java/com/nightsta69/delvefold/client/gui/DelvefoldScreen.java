@@ -44,11 +44,11 @@ public abstract class DelvefoldScreen extends Screen {
     /** ARGB success status color; labels and narration also identify the state. */
     protected static final int SUCCESS = 0xFF72D6A7;
 
-    /** Fixed header height in logical GUI pixels. */
+    /** Standard header height in logical GUI pixels; extra-small windows use compact chrome. */
     protected static final int HEADER_HEIGHT = 46;
-    /** Fixed footer height in logical GUI pixels. */
+    /** Standard footer height in logical GUI pixels; extra-small windows use compact chrome. */
     protected static final int FOOTER_HEIGHT = 38;
-    /** Horizontal content inset in logical GUI pixels. */
+    /** Standard horizontal content inset in logical GUI pixels; narrow windows use a smaller inset. */
     protected static final int CONTENT_PADDING = 16;
 
     /** Immutable server-authoritative snapshot rendered by this screen. */
@@ -61,6 +61,8 @@ public abstract class DelvefoldScreen extends Screen {
     protected int panelWidth;
     /** Calculated responsive panel height in logical GUI pixels. */
     protected int panelHeight;
+
+    private AdminPanelLayout panelLayout = new AdminPanelLayout(0, 0, 1, 1);
 
     /**
      * Creates a screen backed by one immutable server snapshot.
@@ -85,12 +87,13 @@ public abstract class DelvefoldScreen extends Screen {
     @Override
     protected final void init() {
         super.init();
-        int horizontalMargin = this.width < 500 ? 10 : 20;
-        int verticalMargin = this.height < 360 ? 8 : 14;
-        this.panelWidth = Math.min(this.preferredPanelWidth(), Math.max(1, this.width - horizontalMargin * 2));
-        this.panelHeight = Math.min(this.preferredPanelHeight(), Math.max(1, this.height - verticalMargin * 2));
-        this.panelLeft = (this.width - this.panelWidth) / 2;
-        this.panelTop = (this.height - this.panelHeight) / 2;
+        AdminPanelLayout layout = AdminPanelLayout.calculate(
+                this.width, this.height, this.preferredPanelWidth(), this.preferredPanelHeight());
+        this.panelWidth = layout.width();
+        this.panelHeight = layout.height();
+        this.panelLeft = layout.left();
+        this.panelTop = layout.top();
+        this.panelLayout = layout;
         this.initPanel();
         if (this.getFocused() == null) {
             for (var child : this.children()) {
@@ -190,7 +193,7 @@ public abstract class DelvefoldScreen extends Screen {
      * @return left content boundary in GUI pixels
      */
     protected int contentLeft() {
-        return this.panelLeft + CONTENT_PADDING;
+        return this.panelLayout.contentLeft();
     }
 
     /**
@@ -199,7 +202,7 @@ public abstract class DelvefoldScreen extends Screen {
      * @return exclusive right content boundary in GUI pixels
      */
     protected int contentRight() {
-        return this.panelLeft + this.panelWidth - CONTENT_PADDING;
+        return this.panelLayout.contentRight();
     }
 
     /**
@@ -208,7 +211,7 @@ public abstract class DelvefoldScreen extends Screen {
      * @return top content boundary below the panel header, in GUI pixels
      */
     protected int contentTop() {
-        return this.panelTop + HEADER_HEIGHT + 10;
+        return this.panelLayout.contentTop();
     }
 
     /**
@@ -217,7 +220,7 @@ public abstract class DelvefoldScreen extends Screen {
      * @return bottom content boundary above the fixed footer, in GUI pixels
      */
     protected int contentBottom() {
-        return this.panelTop + this.panelHeight - FOOTER_HEIGHT - 8;
+        return this.panelLayout.contentBottom();
     }
 
     /**
@@ -227,6 +230,24 @@ public abstract class DelvefoldScreen extends Screen {
      */
     protected int contentWidth() {
         return this.contentRight() - this.contentLeft();
+    }
+
+    /**
+     * Reports whether reduced header/footer chrome is active for a very small logical GUI.
+     *
+     * @return whether compact chrome preserves the content viewport
+     */
+    protected final boolean compactChrome() {
+        return this.panelLayout.compactChrome();
+    }
+
+    /**
+     * Returns the shared responsive footer-button coordinate.
+     *
+     * @return footer button Y coordinate in logical GUI pixels
+     */
+    protected final int footerButtonY() {
+        return this.panelLayout.footerButtonY();
     }
 
     /**
@@ -305,25 +326,26 @@ public abstract class DelvefoldScreen extends Screen {
                 this.panelLeft + 1,
                 this.panelTop + 1,
                 this.panelLeft + this.panelWidth - 1,
-                this.panelTop + HEADER_HEIGHT,
+                this.panelTop + this.panelLayout.headerHeight(),
                 0xFF1E3035,
                 0xFF142128);
         graphics.fill(
                 this.panelLeft + 1,
-                this.panelTop + this.panelHeight - FOOTER_HEIGHT,
+                this.panelTop + this.panelHeight - this.panelLayout.footerHeight(),
                 this.panelLeft + this.panelWidth - 1,
                 this.panelTop + this.panelHeight - 1,
                 0xFF10191F);
         graphics.fill(
                 this.panelLeft + 1, this.panelTop + 1, this.panelLeft + this.panelWidth - 1, this.panelTop + 4, ACCENT);
         graphics.renderOutline(this.panelLeft, this.panelTop, this.panelWidth, this.panelHeight, PANEL_BORDER);
-        graphics.drawString(this.font, this.title, this.panelLeft + CONTENT_PADDING, this.panelTop + 16, TEXT, false);
+        graphics.drawString(
+                this.font, this.title, this.panelLayout.contentLeft(), this.panelLayout.titleY(), TEXT, false);
 
-        if (this.panelWidth >= 430) {
+        if (!this.compactChrome() && this.panelWidth >= 430) {
             Component revision = Component.translatable(
                     "screen.delvefold.revisions", this.snapshot.oreRevision(), this.snapshot.settingsRevision());
             int revisionWidth = this.font.width(revision) + 12;
-            int revisionX = this.panelLeft + this.panelWidth - CONTENT_PADDING - revisionWidth;
+            int revisionX = this.panelLeft + this.panelWidth - this.panelLayout.contentPadding() - revisionWidth;
             graphics.fill(revisionX, this.panelTop + 12, revisionX + revisionWidth, this.panelTop + 31, 0xAA0B1318);
             graphics.renderOutline(revisionX, this.panelTop + 12, revisionWidth, 19, 0xFF334A52);
             graphics.drawString(this.font, revision, revisionX + 6, this.panelTop + 18, MUTED_TEXT, false);

@@ -74,7 +74,7 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
                 editBox(layout.workCap(), this.workCap, Component.translatable("screen.delvefold.province.work_cap"));
         cap.setResponder(value -> this.workCap = value);
 
-        int footerY = this.panelTop + this.panelHeight - 29;
+        int footerY = this.footerButtonY();
         this.addButton(
                 this.contentLeft(),
                 footerY,

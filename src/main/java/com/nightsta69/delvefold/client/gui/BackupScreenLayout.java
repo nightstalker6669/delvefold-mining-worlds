@@ -24,22 +24,20 @@ record BackupScreenLayout(
 
     private static final int PREFERRED_PANEL_WIDTH = 600;
     private static final int PREFERRED_PANEL_HEIGHT = 390;
-    private static final int CONTENT_PADDING = 16;
-    private static final int HEADER_HEIGHT = 46;
-    private static final int FOOTER_HEIGHT = 38;
     private static final int[] INLINE_ACTION_WIDTHS = {50, 58, 64, 54};
     private static final int[] FOOTER_NATURAL_WIDTHS = {72, 58, 58, 126};
     private static final int[] FOOTER_MINIMUM_WIDTHS = {44, 42, 42, 92};
 
     static BackupScreenLayout forPanel(int panelLeft, int panelTop, int panelWidth, int panelHeight) {
-        int contentLeft = panelLeft + CONTENT_PADDING;
-        int contentRight = panelLeft + panelWidth - CONTENT_PADDING;
-        int contentTop = panelTop + HEADER_HEIGHT + 10;
+        AdminPanelLayout panel = new AdminPanelLayout(panelLeft, panelTop, panelWidth, panelHeight);
+        int contentLeft = panel.contentLeft();
+        int contentRight = panel.contentRight();
+        int contentTop = panel.contentTop();
         int listX = contentLeft + 10;
         int listWidth = Math.max(1, contentRight - contentLeft - 20);
         int listTop = contentTop + 31;
-        int footerTop = panelTop + panelHeight - FOOTER_HEIGHT;
-        int footerY = panelTop + panelHeight - 29;
+        int footerTop = panelTop + panelHeight - panel.footerHeight();
+        int footerY = panel.footerButtonY();
         // Keep a visible gutter between the final row and the fixed footer.
         int listBottom = footerTop - 7;
 
@@ -72,13 +70,9 @@ record BackupScreenLayout(
 
     /** Mirrors {@link DelvefoldScreen}'s panel sizing without requiring a Minecraft client. */
     static BackupScreenLayout forScreen(int screenWidth, int screenHeight) {
-        int horizontalMargin = screenWidth < 500 ? 10 : 20;
-        int verticalMargin = screenHeight < 360 ? 8 : 14;
-        int panelWidth = Math.min(PREFERRED_PANEL_WIDTH, Math.max(1, screenWidth - horizontalMargin * 2));
-        int panelHeight = Math.min(PREFERRED_PANEL_HEIGHT, Math.max(1, screenHeight - verticalMargin * 2));
-        int panelLeft = (screenWidth - panelWidth) / 2;
-        int panelTop = (screenHeight - panelHeight) / 2;
-        return forPanel(panelLeft, panelTop, panelWidth, panelHeight);
+        AdminPanelLayout panel =
+                AdminPanelLayout.calculate(screenWidth, screenHeight, PREFERRED_PANEL_WIDTH, PREFERRED_PANEL_HEIGHT);
+        return forPanel(panel.left(), panel.top(), panel.width(), panel.height());
     }
 
     Bounds infoBounds(int row) {
