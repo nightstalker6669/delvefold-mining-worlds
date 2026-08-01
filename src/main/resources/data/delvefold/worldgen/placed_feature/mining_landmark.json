@@ -1,7 +1,9 @@
 {
   "feature": "delvefold:mining_landmark",
   "placement": [
-    { "type": "minecraft:rarity_filter", "chance": 12 },
-    { "type": "minecraft:in_square" }
+    {
+      "type": "delvefold:generation_salted_landmark",
+      "chance": 12
+    }
   ]
 }

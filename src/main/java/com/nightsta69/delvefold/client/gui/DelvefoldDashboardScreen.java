@@ -9,6 +9,7 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -18,14 +19,20 @@ import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
 import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
 public final class DelvefoldDashboardScreen extends DelvefoldScreen {
+    private static final int IDENTITY_SCROLL_STEP = 24;
     private final Tab selectedTab;
     private final int orePage;
     private final int profilePage;
@@ -50,7 +57,12 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private boolean renewalEnabled;
     private String renewalDays;
     private String renewalWarning;
+    private RenewalSeedMode renewalSeedMode;
     private String identityError = "";
+    private final List<AbstractWidget> identityBodyWidgets = new ArrayList<>();
+    private final Map<AbstractWidget, Integer> identityBodyWidgetY = new IdentityHashMap<>();
+    private int identityScrollOffset;
+    private int identityVirtualBottom;
     private String deleteArmedProfile = "";
     private boolean profileOverwrite;
     private AdminOperation armedOperation;
@@ -80,6 +92,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
     @Override
     protected void initPanel() {
+        this.identityBodyWidgets.clear();
+        this.identityBodyWidgetY.clear();
         int available = this.contentWidth();
         int gap = 4;
         int tabWidth = Math.max(1, (available - gap * (Tab.values().length - 1)) / Tab.values().length);
@@ -104,6 +118,10 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             case IDENTITY -> initIdentity();
             case DIAGNOSTICS -> initDiagnostics();
             case WORLD_MANAGEMENT -> initWorldManagement();
+        }
+        if (this.selectedTab == Tab.IDENTITY) {
+            this.identityVirtualBottom = bodyTop() + 205;
+            applyIdentityScroll();
         }
 
         int doneWidth = footerDoneWidth();
@@ -440,8 +458,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int x = this.contentLeft() + 10;
         int y = bodyTop() + 30;
         int width = this.contentWidth() - 20;
-        EditBox name = this.addRenderableWidget(new EditBox(this.font, x, y, width, 20,
-                Component.translatable("screen.delvefold.identity.name")));
+        EditBox name = registerIdentityWidget(this.addRenderableWidget(new EditBox(this.font, x, y, width, 20,
+                Component.translatable("screen.delvefold.identity.name"))));
         name.setMaxLength(64);
         name.setValue(this.identityName);
         name.setHint(Component.translatable("screen.delvefold.identity.name"));
@@ -449,37 +467,49 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
         int gap = 6;
         int half = (width - gap) / 2;
-        this.addButton(x, y + 34, half, 22,
+        this.addIdentityButton(x, y + 34, half, 22,
                 landmarkLabel(), Style.SECONDARY,
                 button -> {
                     LandmarkPreset[] values = LandmarkPreset.values();
                     this.landmarkPreset = values[(this.landmarkPreset.ordinal() + 1) % values.length];
                     button.setMessage(landmarkLabel());
                 });
-        this.addButton(x + half + gap, y + 34, width - half - gap, 22,
+        Button renewalToggle = this.addIdentityButton(x + half + gap, y + 34, width - half - gap, 22,
                 toggleLabel("Scheduled renewal", this.renewalEnabled),
                 this.renewalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF, button -> {
                     this.renewalEnabled = !this.renewalEnabled;
                     button.setMessage(toggleLabel("Scheduled renewal", this.renewalEnabled));
                     setButtonStyle(button, this.renewalEnabled ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
                 });
+        renewalToggle.active = this.snapshot.capabilities().canManageWorld();
 
-        EditBox days = this.addRenderableWidget(new EditBox(this.font, x, y + 68, half, 20,
-                Component.translatable("screen.delvefold.identity.renewal_days")));
+        EditBox days = registerIdentityWidget(this.addRenderableWidget(new EditBox(this.font, x, y + 68, half, 20,
+                Component.translatable("screen.delvefold.identity.renewal_days"))));
         days.setMaxLength(4);
         days.setValue(this.renewalDays);
         days.setHint(Component.translatable("screen.delvefold.identity.renewal_days"));
         days.setResponder(value -> this.renewalDays = value);
-        EditBox warning = this.addRenderableWidget(new EditBox(this.font, x + half + gap, y + 68,
-                width - half - gap, 20, Component.translatable("screen.delvefold.identity.warning_minutes")));
+        days.active = this.snapshot.capabilities().canManageWorld();
+        EditBox warning = registerIdentityWidget(this.addRenderableWidget(new EditBox(this.font, x + half + gap, y + 68,
+                width - half - gap, 20, Component.translatable("screen.delvefold.identity.warning_minutes"))));
         warning.setMaxLength(5);
         warning.setValue(this.renewalWarning);
         warning.setHint(Component.translatable("screen.delvefold.identity.warning_minutes"));
         warning.setResponder(value -> this.renewalWarning = value);
+        warning.active = this.snapshot.capabilities().canManageWorld();
 
-        this.addButton(x, y + 102, width, 22,
+        Button seedMode = this.addIdentityButton(x, y + 102, width, 22,
+                renewalSeedModeLabel(), Style.SECONDARY, button -> {
+            RenewalSeedMode[] values = RenewalSeedMode.values();
+            this.renewalSeedMode = values[(this.renewalSeedMode.ordinal() + 1) % values.length];
+            button.setMessage(renewalSeedModeLabel());
+        });
+        seedMode.active = this.snapshot.capabilities().canManageWorld();
+
+        Button save = this.addIdentityButton(x, y + 130, width, 22,
                 Component.translatable("screen.delvefold.identity.save"), Style.PRIMARY,
                 button -> saveIdentity());
+        save.active = this.snapshot.backendReady() && this.snapshot.capabilities().canConfigure();
     }
 
     private void setIdentity(WorldIdentitySettings identity) {
@@ -488,23 +518,30 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         this.renewalEnabled = identity.renewal().enabled();
         this.renewalDays = Integer.toString(identity.renewal().intervalDays());
         this.renewalWarning = Integer.toString(identity.renewal().warningMinutes());
+        this.renewalSeedMode = identity.renewal().seedMode();
     }
 
     private void saveIdentity() {
         try {
-            int days = Integer.parseInt(this.renewalDays.trim());
-            int warning = Integer.parseInt(this.renewalWarning.trim());
-            if (this.identityName.isBlank() || days < 1 || days > 3650 || warning < 1 || warning > 10080) {
+            WorldIdentitySettings current = this.snapshot.identity();
+            boolean canManageRenewal = this.snapshot.capabilities().canManageWorld();
+            int days = canManageRenewal
+                    ? Integer.parseInt(this.renewalDays.trim()) : current.renewal().intervalDays();
+            int warning = canManageRenewal
+                    ? Integer.parseInt(this.renewalWarning.trim()) : current.renewal().warningMinutes();
+            if (this.identityName.isBlank()
+                    || canManageRenewal && (days < 1 || days > 3650 || warning < 1 || warning > 10080)) {
                 throw new NumberFormatException();
             }
-            WorldIdentitySettings current = this.snapshot.identity();
             boolean landmarks = this.landmarkPreset != LandmarkPreset.PURE_MINING;
             long next = this.renewalEnabled
                     ? (current.renewal().enabled() && current.renewal().intervalDays() == days
                             ? current.renewal().nextRenewalAtEpochMillis()
                             : System.currentTimeMillis() + days * 86_400_000L)
                     : 0L;
-            RenewalSettings renewal = new RenewalSettings(this.renewalEnabled, days, warning, next);
+            RenewalSettings renewal = canManageRenewal
+                    ? new RenewalSettings(this.renewalEnabled, days, warning, next, this.renewalSeedMode)
+                    : current.renewal();
             WorldIdentitySettings updated = new WorldIdentitySettings(this.identityName,
                     current.terrainVariant(), this.landmarkPreset,
                     landmarks, landmarks, landmarks, renewal);
@@ -639,6 +676,11 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 DelvefoldText.option("landmark", this.landmarkPreset.serializedName()));
     }
 
+    private Component renewalSeedModeLabel() {
+        return Component.translatable("screen.delvefold.identity.seed_mode",
+                DelvefoldText.option("renewal_seed_mode", this.renewalSeedMode.serializedName()));
+    }
+
     private static Component toggleLabel(String name, boolean enabled) {
         return Component.literal((enabled ? "ON  •  " : "OFF  •  ") + name);
     }
@@ -667,6 +709,41 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
     private static String pretty(String name) {
         String text = name.toLowerCase().replace('_', ' ');
         return Character.toUpperCase(text.charAt(0)) + text.substring(1);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        if (this.selectedTab != Tab.IDENTITY) {
+            super.render(graphics, mouseX, mouseY, partialTick);
+            return;
+        }
+        this.renderBackground(graphics, mouseX, mouseY, partialTick);
+        for (Renderable renderable : this.renderables) {
+            if (!this.identityBodyWidgets.contains(renderable)) {
+                renderable.render(graphics, mouseX, mouseY, partialTick);
+            }
+        }
+        VerticalScrollLayout layout = identityScrollLayout();
+        graphics.enableScissor(this.contentLeft() + 1, layout.viewportTop(),
+                this.contentRight() - 1, layout.viewportBottom());
+        for (AbstractWidget widget : this.identityBodyWidgets) {
+            widget.render(graphics, mouseX, mouseY, partialTick);
+        }
+        graphics.disableScissor();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        VerticalScrollLayout layout = identityScrollLayout();
+        if (this.selectedTab == Tab.IDENTITY
+                && mouseX >= this.contentLeft() && mouseX < this.contentRight()
+                && mouseY >= layout.viewportTop() && mouseY < layout.viewportBottom()
+                && layout.maximumScroll() > 0) {
+            setIdentityScrollOffset(this.identityScrollOffset
+                    - (int) Math.signum(scrollY) * IDENTITY_SCROLL_STEP);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     @Override
@@ -752,16 +829,25 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                                 this.snapshot.identity().terrainVariant().serializedName()));
                 graphics.drawString(this.font, variant, x + width - this.font.width(variant) - 10,
                         y + 8, ACCENT, false);
+                VerticalScrollLayout layout = identityScrollLayout();
+                graphics.enableScissor(x + 1, layout.viewportTop(), x + width - 1, layout.viewportBottom());
+                int messageY = layout.maximumScroll() > 0
+                        ? y - this.identityScrollOffset + 190 : y + height - 15;
                 if (!this.identityError.isEmpty()) {
                     graphics.drawString(this.font, this.font.plainSubstrByWidth(this.identityError, width - 20),
-                            x + 10, y + height - 15, DANGER, false);
+                            x + 10, messageY, DANGER, false);
                 } else {
-                    String schedule = this.snapshot.identity().renewal().enabled()
-                            ? "Renewal creates a backup, evacuates players, and waits for restart."
-                            : "Scheduled renewal is opt-in and currently disabled.";
-                    graphics.drawString(this.font, this.font.plainSubstrByWidth(schedule, width - 20),
-                            x + 10, y + height - 15, DIM_TEXT, false);
+                    Component schedule = !this.snapshot.capabilities().canManageWorld()
+                            ? Component.translatable("screen.delvefold.identity.renewal_read_only")
+                            : Component.literal(this.snapshot.identity().renewal().enabled()
+                                    ? "Renewal creates a backup, evacuates players, and waits for restart."
+                                    : "Scheduled renewal is opt-in and currently disabled.");
+                    graphics.drawString(this.font,
+                            this.font.plainSubstrByWidth(schedule.getString(), width - 20),
+                            x + 10, messageY, DIM_TEXT, false);
                 }
+                graphics.disableScissor();
+                drawIdentityScrollbar(graphics, x + width - 5, layout);
             }
             case DIAGNOSTICS -> {
                 this.drawCard(graphics, x, y, width, height);
@@ -791,6 +877,53 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                         warningY + warningHeight - 7, DANGER);
             }
         }
+    }
+
+    private Button addIdentityButton(
+            int x, int y, int width, int height, Component label, Style style, Button.OnPress onPress) {
+        return registerIdentityWidget(this.addButton(x, y, width, height, label, style, onPress));
+    }
+
+    private <T extends AbstractWidget> T registerIdentityWidget(T widget) {
+        this.identityBodyWidgets.add(widget);
+        this.identityBodyWidgetY.put(widget, widget.getY());
+        return widget;
+    }
+
+    private VerticalScrollLayout identityScrollLayout() {
+        int top = bodyTop() + 22;
+        int bottom = Math.max(top + 1, this.contentBottom() - 1);
+        return new VerticalScrollLayout(top, bottom, this.identityVirtualBottom);
+    }
+
+    private void setIdentityScrollOffset(int requestedOffset) {
+        this.identityScrollOffset = identityScrollLayout().clamp(requestedOffset);
+        applyIdentityScroll();
+    }
+
+    private void applyIdentityScroll() {
+        VerticalScrollLayout layout = identityScrollLayout();
+        this.identityScrollOffset = layout.clamp(this.identityScrollOffset);
+        for (AbstractWidget widget : this.identityBodyWidgets) {
+            int y = layout.screenY(this.identityBodyWidgetY.getOrDefault(widget, widget.getY()),
+                    this.identityScrollOffset);
+            widget.setY(y);
+            widget.visible = layout.fullyVisible(y, widget.getHeight());
+        }
+    }
+
+    private void drawIdentityScrollbar(GuiGraphics graphics, int x, VerticalScrollLayout layout) {
+        int maximum = layout.maximumScroll();
+        if (maximum <= 0) {
+            return;
+        }
+        int trackHeight = layout.viewportHeight();
+        int virtualHeight = Math.max(trackHeight, this.identityVirtualBottom - layout.viewportTop());
+        int thumbHeight = Math.min(trackHeight, Math.max(14, trackHeight * trackHeight / virtualHeight));
+        int thumbTravel = Math.max(1, trackHeight - thumbHeight);
+        int thumbY = layout.viewportTop() + this.identityScrollOffset * thumbTravel / maximum;
+        graphics.fill(x, layout.viewportTop(), x + 3, layout.viewportBottom(), 0xAA0B1318);
+        graphics.fill(x, thumbY, x + 3, thumbY + thumbHeight, ACCENT);
     }
 
     private void renderDiagnostics(GuiGraphics graphics, int x, int y, int width, int height) {

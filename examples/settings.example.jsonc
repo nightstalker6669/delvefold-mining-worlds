@@ -2,6 +2,7 @@
   "schema_version": 2,
   "revision": 0,
   "generation_epoch": 0,
+  "generation_salt": 0,
   "last_world_operation_id": "",
   "initialized": false,
   "terrain_mode": null,
@@ -19,7 +20,8 @@
       "enabled": false,
       "interval_days": 30,
       "warning_minutes": 30,
-      "next_renewal_at_epoch_millis": 0
+      "next_renewal_at_epoch_millis": 0,
+      "seed_mode": "stable"
     }
   },
   "gameplay": {

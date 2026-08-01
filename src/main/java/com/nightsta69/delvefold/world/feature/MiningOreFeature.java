@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.world.feature;
 
 import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
@@ -32,8 +33,6 @@ import org.slf4j.Logger;
 public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<ResourceLocation> WARNED_MISSING_BLOCKS = ConcurrentHashMap.newKeySet();
-    private static final long CHUNK_SALT = 0x9E3779B97F4A7C15L;
-    private static final long ORE_SALT = 0xD1B54A32D192ED03L;
     private static final long COUNT_SALT = 0x94D049BB133111EBL;
     private static final long ATTEMPT_SALT = 0xBF58476D1CE4E5B9L;
     private volatile RuntimeOreProfile runtimeProfile;
@@ -45,25 +44,28 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     @Override
     public boolean place(FeaturePlaceContext<MiningOreConfiguration> context) {
         ChunkPos chunkPos = new ChunkPos(context.origin());
-        OreProfileDocument document = currentOreDocument();
+        ConfigSnapshot snapshot = currentSnapshot();
+        OreProfileDocument document = snapshot == null ? null : snapshot.ores();
+        long generationSalt = snapshot == null ? 0L : snapshot.settings().generationSalt();
         TerrainMode terrainMode = terrainMode(context);
         if (document != null && terrainMode != null) {
-            return placeRuntimeProfile(context, chunkPos, document, terrainMode);
+            return placeRuntimeProfile(context, chunkPos, document, terrainMode, generationSalt);
         }
-        return placeResourceFallback(context, chunkPos);
+        return placeResourceFallback(context, chunkPos, generationSalt);
     }
 
     private boolean placeRuntimeProfile(
             FeaturePlaceContext<MiningOreConfiguration> context,
             ChunkPos chunkPos,
             OreProfileDocument document,
-            TerrainMode terrainMode) {
+            TerrainMode terrainMode,
+            long generationSalt) {
         RuntimeOreProfile profile = profileFor(document);
         Holder<Biome> biome = context.level().getBiome(context.origin());
         boolean placedAny = false;
 
         for (CompiledBand band : profile.bands(terrainMode, biome)) {
-            long bandSeed = seedFor(context.level().getSeed(), chunkPos, band.salt());
+            long bandSeed = seedFor(context.level().getSeed(), chunkPos, band.salt(), generationSalt);
             RandomSource countRandom = RandomSource.create(mix64(bandSeed ^ COUNT_SALT));
             int attempts = (int) Math.floor(band.attemptsPerChunk());
             double fractionalAttempt = band.attemptsPerChunk() - attempts;
@@ -95,7 +97,7 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     }
 
     private static boolean placeResourceFallback(
-            FeaturePlaceContext<MiningOreConfiguration> context, ChunkPos chunkPos) {
+            FeaturePlaceContext<MiningOreConfiguration> context, ChunkPos chunkPos, long generationSalt) {
         boolean placedAny = false;
 
         for (OreDefinition definition : context.config().ores()) {
@@ -114,7 +116,8 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
                 continue;
             }
 
-            long definitionSeed = seedFor(context.level().getSeed(), chunkPos, definition.id());
+            long definitionSeed = seedFor(
+                    context.level().getSeed(), chunkPos, definition.id(), generationSalt);
             OreConfiguration ore = new OreConfiguration(
                     targets, definition.veinSize(), definition.discardChanceOnAirExposure());
 
@@ -159,8 +162,13 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
     }
 
     private static OreProfileDocument currentOreDocument() {
+        ConfigSnapshot snapshot = currentSnapshot();
+        return snapshot == null ? null : snapshot.ores();
+    }
+
+    private static ConfigSnapshot currentSnapshot() {
         try {
-            return DelvefoldConfigService.get().snapshot().ores();
+            return DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {
             return null;
         }
@@ -189,32 +197,32 @@ public final class MiningOreFeature extends Feature<MiningOreConfiguration> {
         return resolved;
     }
 
-    private static long seedFor(long worldSeed, ChunkPos chunkPos, ResourceLocation oreId) {
+    static long seedFor(long worldSeed, ChunkPos chunkPos, ResourceLocation oreId) {
         return seedFor(worldSeed, chunkPos, oreId.toString());
     }
 
-    private static long seedFor(long worldSeed, ChunkPos chunkPos, String salt) {
-        long seed = worldSeed ^ chunkPos.toLong() * CHUNK_SALT;
-        seed ^= stableHash64(salt) * ORE_SALT;
-        return mix64(seed);
+    static long seedFor(long worldSeed, ChunkPos chunkPos, String salt) {
+        return GenerationSeedMixer.oreSeed(worldSeed, chunkPos.toLong(), salt, 0L);
+    }
+
+    static long seedFor(
+            long worldSeed, ChunkPos chunkPos, ResourceLocation oreId, long generationSalt) {
+        return seedFor(worldSeed, chunkPos, oreId.toString(), generationSalt);
+    }
+
+    static long seedFor(long worldSeed, ChunkPos chunkPos, String salt, long generationSalt) {
+        if (generationSalt == 0L) {
+            // Compatibility path: retain the exact pre-renewal arithmetic and call path.
+            return seedFor(worldSeed, chunkPos, salt);
+        }
+        return GenerationSeedMixer.oreSeed(worldSeed, chunkPos.toLong(), salt, generationSalt);
     }
 
     private static RandomSource randomForAttempt(long definitionSeed, int attempt) {
         return RandomSource.create(mix64(definitionSeed ^ (attempt + 1L) * ATTEMPT_SALT));
     }
 
-    private static long stableHash64(String value) {
-        long hash = 0xCBF29CE484222325L;
-        for (int index = 0; index < value.length(); index++) {
-            hash ^= value.charAt(index);
-            hash *= 0x100000001B3L;
-        }
-        return hash;
-    }
-
     private static long mix64(long value) {
-        value = (value ^ value >>> 30) * 0xBF58476D1CE4E5B9L;
-        value = (value ^ value >>> 27) * 0x94D049BB133111EBL;
-        return value ^ value >>> 31;
+        return GenerationSeedMixer.mix64(value);
     }
 }

@@ -22,6 +22,7 @@ import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
@@ -138,6 +139,12 @@ public final class DelvefoldCommands {
                 .then(Commands.argument("interval_days", IntegerArgumentType.integer(1, 3650))
                         .then(Commands.argument("warning_minutes", IntegerArgumentType.integer(1, 10080))
                                 .executes(DelvefoldCommands::configureRenewal))));
+        renewal.then(Commands.literal("seed-mode")
+                .executes(DelvefoldCommands::renewalSeedModeStatus)
+                .then(Commands.argument("mode", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("stable", "rotate_on_recreate"), builder))
+                        .executes(DelvefoldCommands::setRenewalSeedMode)));
         return renewal;
     }
 
@@ -444,7 +451,8 @@ public final class DelvefoldCommands {
             GameplayPreset gameplay = GameplayPreset.parse(StringArgumentType.getString(context, "gameplay_preset"));
             ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
             ConfigWriteResult result = DelvefoldConfigService.get().initialize(
-                    snapshot.ores().revision(), snapshot.settings().revision(), terrain, orePreset, gameplay);
+                    snapshot.ores().revision(), snapshot.settings().revision(), terrain, orePreset, gameplay,
+                    snapshot.settings().identity());
             return reportWrite(context.getSource(), result, "Delvefold initialized as " + terrain.serializedName());
         } catch (IllegalArgumentException exception) {
             context.getSource().sendFailure(Component.literal(exception.getMessage()));
@@ -460,6 +468,7 @@ public final class DelvefoldCommands {
             context.getSource().sendSuccess(() -> Component.literal(
                     "Delvefold: " + terrain
                             + ", epoch " + settings.generationEpoch()
+                            + ", recreation layout " + settings.identity().renewal().seedMode().serializedName()
                             + ", ore revision " + snapshot.ores().revision()
                             + ", settings revision " + settings.revision()
                             + (WorldOperationService.get().isEntryBlocked() ? ", world operation pending" : "")
@@ -516,21 +525,47 @@ public final class DelvefoldCommands {
                 ? "enabled every " + renewal.intervalDays() + " day(s), warning " + renewal.warningMinutes()
                         + " minute(s), next epoch ms " + renewal.nextRenewalAtEpochMillis()
                 : "disabled";
-        context.getSource().sendSuccess(() -> Component.literal("Scheduled renewal: " + status), false);
+        context.getSource().sendSuccess(() -> Component.literal("Scheduled renewal: " + status
+                + "; recreation layout: " + renewal.seedMode().serializedName()), false);
         return 1;
+    }
+
+    private static int renewalSeedModeStatus(CommandContext<CommandSourceStack> context) {
+        RenewalSeedMode mode = DelvefoldConfigService.get().snapshot().settings().identity().renewal().seedMode();
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Renewal seed mode: " + mode.serializedName()
+                        + ". This selection applies on the next initialization or recreation."), false);
+        return 1;
+    }
+
+    private static int setRenewalSeedMode(CommandContext<CommandSourceStack> context) {
+        RenewalSeedMode mode = RenewalSeedMode.parse(StringArgumentType.getString(context, "mode"));
+        return updateIdentity(context, identity -> {
+            RenewalSettings current = identity.renewal();
+            return identity.withRenewal(new RenewalSettings(
+                    current.enabled(), current.intervalDays(), current.warningMinutes(),
+                    current.nextRenewalAtEpochMillis(), mode));
+        }, "Renewal seed mode set to " + mode.serializedName()
+                + "; it will apply on the next initialization or recreation.");
     }
 
     private static int configureRenewal(CommandContext<CommandSourceStack> context) {
         int days = IntegerArgumentType.getInteger(context, "interval_days");
         int warning = IntegerArgumentType.getInteger(context, "warning_minutes");
-        RenewalSettings renewal = new RenewalSettings(true, days, warning, 0L)
+        RenewalSeedMode seedMode = DelvefoldConfigService.get().snapshot()
+                .settings().identity().renewal().seedMode();
+        RenewalSettings renewal = new RenewalSettings(true, days, warning, 0L, seedMode)
                 .scheduledFrom(System.currentTimeMillis());
         return updateIdentity(context, identity -> identity.withRenewal(renewal),
                 "Scheduled renewal enabled every " + days + " day(s). Backups are mandatory.");
     }
 
     private static int disableRenewal(CommandContext<CommandSourceStack> context) {
-        return updateIdentity(context, identity -> identity.withRenewal(RenewalSettings.disabled()),
+        return updateIdentity(context, identity -> {
+            RenewalSettings current = identity.renewal();
+            return identity.withRenewal(new RenewalSettings(
+                    false, current.intervalDays(), current.warningMinutes(), 0L, current.seedMode()));
+        },
                 "Scheduled renewal disabled.");
     }
 

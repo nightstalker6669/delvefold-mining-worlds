@@ -7,6 +7,7 @@ import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import com.nightsta69.delvefold.config.validation.OreConfigValidator;
 import com.nightsta69.delvefold.config.validation.ValidationReport;
@@ -14,6 +15,7 @@ import com.nightsta69.delvefold.api.DelvefoldApi;
 import com.nightsta69.delvefold.api.event.DelvefoldOreProfileActivatedEvent;
 import com.nightsta69.delvefold.api.event.DelvefoldWorldLifecycleEvent;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -85,7 +87,9 @@ public final class DelvefoldConfigService {
     public ConfigLoadResult reload() throws IOException {
         synchronized (mutationLock) {
             ensureStarted();
-            ConfigLoadResult result = repository.loadOrCreate(current.get());
+            ConfigSnapshot before = current.get();
+            ConfigLoadResult result = enforceLiveLifecycleLocks(
+                    before, repository.loadOrCreate(before));
             updateCompatibility(result);
             if (!result.usedFallback() || current.get() == null) {
                 current.set(result.snapshot());
@@ -99,8 +103,26 @@ public final class DelvefoldConfigService {
     public ConfigLoadResult validateDisk() throws IOException {
         synchronized (mutationLock) {
             ensureStarted();
-            return repository.validateDisk(current.get());
+            ConfigSnapshot before = current.get();
+            return enforceLiveLifecycleLocks(before, repository.validateDisk(before));
         }
+    }
+
+    private static ConfigLoadResult enforceLiveLifecycleLocks(
+            ConfigSnapshot before, ConfigLoadResult result) {
+        if (before == null || result.usedFallback()) {
+            return result;
+        }
+        List<ConfigIssue> lifecycleIssues = LiveSettingsTransition.validate(
+                before.settings(), result.snapshot().settings());
+        if (lifecycleIssues.isEmpty()) {
+            return result;
+        }
+        List<ConfigIssue> issues = new ArrayList<>(result.issues());
+        issues.addAll(lifecycleIssues);
+        issues.add(ConfigIssue.warning("fallback.last_good", "$",
+                "Lifecycle-owned settings changed on disk; continuing with the active snapshot"));
+        return new ConfigLoadResult(before, true, issues);
     }
 
     public ConfigWriteResult initialize(
@@ -109,6 +131,17 @@ public final class DelvefoldConfigService {
             TerrainMode terrain,
             OrePreset orePreset,
             GameplayPreset gameplayPreset
+    ) {
+        return initialize(expectedOreRevision, expectedSettingsRevision, terrain, orePreset, gameplayPreset, null);
+    }
+
+    public ConfigWriteResult initialize(
+            long expectedOreRevision,
+            long expectedSettingsRevision,
+            TerrainMode terrain,
+            OrePreset orePreset,
+            GameplayPreset gameplayPreset,
+            WorldIdentitySettings identity
     ) {
         synchronized (mutationLock) {
             try {
@@ -132,7 +165,8 @@ public final class DelvefoldConfigService {
                         preset.profile(),
                         preset.rules()
                 );
-                WorldSettingsDocument settings = before.settings().initialize(terrain, orePreset, gameplayPreset);
+                WorldSettingsDocument settings = before.settings().initialize(
+                        terrain, orePreset, gameplayPreset, identity);
                 ConfigSnapshot saved = repository.save(ores, settings);
                 current.set(saved);
                 NeoForge.EVENT_BUS.post(new DelvefoldWorldLifecycleEvent(
@@ -239,6 +273,7 @@ public final class DelvefoldConfigService {
                         WorldSettingsDocument.CURRENT_SCHEMA_VERSION,
                         before.settings().revision() + 1,
                         candidate.generationEpoch(),
+                        candidate.generationSalt(),
                         candidate.lastWorldOperationId(),
                         candidate.initialized(),
                         candidate.terrainMode(),
@@ -315,6 +350,7 @@ public final class DelvefoldConfigService {
                         WorldSettingsDocument.CURRENT_SCHEMA_VERSION,
                         before.settings().revision() + 1,
                         before.settings().generationEpoch(),
+                        before.settings().generationSalt(),
                         before.settings().lastWorldOperationId(),
                         before.settings().initialized(),
                         before.settings().terrainMode(),

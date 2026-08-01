@@ -9,6 +9,7 @@ import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.RenewalSettings;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -154,6 +155,7 @@ public final class DelvefoldStreamCodecs {
         buffer.writeVarInt(renewal.intervalDays());
         buffer.writeVarInt(renewal.warningMinutes());
         buffer.writeLong(renewal.nextRenewalAtEpochMillis());
+        writeEnum(buffer, renewal.seedMode());
     }
 
     public static WorldIdentitySettings readIdentity(RegistryFriendlyByteBuf buffer) {
@@ -162,7 +164,8 @@ public final class DelvefoldStreamCodecs {
                 readEnum(buffer, TerrainVariant.class),
                 readEnum(buffer, LandmarkPreset.class),
                 buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
-                new RenewalSettings(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt(), buffer.readLong()));
+                new RenewalSettings(buffer.readBoolean(), buffer.readVarInt(), buffer.readVarInt(), buffer.readLong(),
+                        readEnum(buffer, RenewalSeedMode.class)));
     }
 
     public static void writeGameplay(RegistryFriendlyByteBuf buffer, GameplaySettings gameplay) {

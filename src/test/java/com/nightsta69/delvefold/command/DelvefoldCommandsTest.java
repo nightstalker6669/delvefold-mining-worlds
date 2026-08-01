@@ -31,4 +31,19 @@ class DelvefoldCommandsTest {
         assertTrue(source.contains("if (matches > 1)"),
                 "Weight setters must reject ambiguous duplicate source IDs instead of changing every target");
     }
+
+    @Test
+    void renewalSeedModeCommandPreservesScheduleAndUsesAtomicInitialization() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/nightsta69/delvefold/command/DelvefoldCommands.java"));
+
+        assertTrue(source.contains("Commands.literal(\"seed-mode\")"));
+        assertTrue(source.contains("List.of(\"stable\", \"rotate_on_recreate\")"));
+        assertTrue(source.contains("current.nextRenewalAtEpochMillis(), mode"),
+                "Changing seed mode must preserve the renewal schedule");
+        assertTrue(source.contains("current.warningMinutes(), 0L, current.seedMode()"),
+                "Disabling renewal must preserve seed mode and schedule choices");
+        assertTrue(source.contains("gameplay,\n                    snapshot.settings().identity())"),
+                "Command initialization must use the identity-aware atomic overload");
+    }
 }

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 /** Source-contract checks for code that lives on the NeoForge-only compile classpath. */
 class OreRuleDraftCodecTest {
     @Test
-    void protocolEightWritesAndReadsVariantWeightAtTheSameWirePosition() throws IOException {
+    void protocolNineWritesAndReadsVariantWeightAtTheSameWirePosition() throws IOException {
         String codec = Files.readString(Path.of(
                 "src/main/java/com/nightsta69/delvefold/network/codec/DelvefoldStreamCodecs.java"));
         String network = Files.readString(Path.of(
@@ -29,7 +29,7 @@ class OreRuleDraftCodecTest {
                 "Weight must be decoded from the matching wire position");
         assertTrue(codec.contains("replaceTag, state, weight)"),
                 "The decoded weight must reach OreVariantDraft");
-        assertTrue(network.contains("PROTOCOL_VERSION = \"8\""),
-                "Changing the ore-rule payload shape requires protocol 8");
+        assertTrue(network.contains("PROTOCOL_VERSION = \"9\""),
+                "The identity payload now includes renewal seed mode and requires protocol 9");
     }
 }

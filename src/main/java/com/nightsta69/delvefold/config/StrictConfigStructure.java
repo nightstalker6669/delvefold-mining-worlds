@@ -26,7 +26,7 @@ final class StrictConfigStructure {
             "id", "vein_size", "attempts_per_chunk", "distribution", "min_y", "max_y",
             "discard_on_air_exposure");
     private static final Set<String> SETTINGS_DOCUMENT = Set.of(
-            "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
+            "schema_version", "revision", "generation_epoch", "generation_salt", "last_world_operation_id", "initialized",
             "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal", "identity",
             "guide_visibility");
     private static final Set<String> REQUIRED_SETTINGS_DOCUMENT = Set.of(
@@ -41,7 +41,10 @@ final class StrictConfigStructure {
             "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
             "fault_lines", "renewal");
     private static final Set<String> RENEWAL = Set.of(
+            "enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis", "seed_mode");
+    private static final Set<String> REQUIRED_RENEWAL = Set.of(
             "enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis");
+    private static final Set<String> RENEWAL_SEED_MODE = Set.of("stable", "rotate_on_recreate");
 
     private StrictConfigStructure() {
     }
@@ -59,8 +62,8 @@ final class StrictConfigStructure {
     private static void validateOreDocument(JsonElement root) {
         JsonObject document = object(root, "$");
         fields(document, ORE_DOCUMENT, ORE_DOCUMENT, "$");
-        integer(document.get("schema_version"), "$.schema_version");
-        integer(document.get("revision"), "$.revision");
+        boundedInteger(document.get("schema_version"), "$.schema_version", 0, Integer.MAX_VALUE);
+        boundedLong(document.get("revision"), "$.revision", 0L, Long.MAX_VALUE);
         string(document.get("profile"), "$.profile", false);
         JsonArray rules = array(document.get("rules"), "$.rules");
         for (int ruleIndex = 0; ruleIndex < rules.size(); ruleIndex++) {
@@ -117,9 +120,12 @@ final class StrictConfigStructure {
     private static void validateSettingsDocument(JsonElement root) {
         JsonObject settings = object(root, "$");
         fields(settings, SETTINGS_DOCUMENT, REQUIRED_SETTINGS_DOCUMENT, "$");
-        integer(settings.get("schema_version"), "$.schema_version");
-        integer(settings.get("revision"), "$.revision");
-        integer(settings.get("generation_epoch"), "$.generation_epoch");
+        boundedInteger(settings.get("schema_version"), "$.schema_version", 0, Integer.MAX_VALUE);
+        boundedLong(settings.get("revision"), "$.revision", 0L, Long.MAX_VALUE);
+        boundedLong(settings.get("generation_epoch"), "$.generation_epoch", 0L, Long.MAX_VALUE);
+        if (settings.has("generation_salt")) {
+            boundedLong(settings.get("generation_salt"), "$.generation_salt", 0L, Long.MAX_VALUE);
+        }
         string(settings.get("last_world_operation_id"), "$.last_world_operation_id", false);
         bool(settings.get("initialized"), "$.initialized");
         string(settings.get("terrain_mode"), "$.terrain_mode", true);
@@ -145,7 +151,8 @@ final class StrictConfigStructure {
         fields(portal, PORTAL, PORTAL, "$.portal");
         bool(portal.get("enabled"), "$.portal.enabled");
         bool(portal.get("allow_from_overworld_only"), "$.portal.allow_from_overworld_only");
-        integer(portal.get("cooldown_seconds"), "$.portal.cooldown_seconds");
+        boundedInteger(portal.get("cooldown_seconds"), "$.portal.cooldown_seconds",
+                Integer.MIN_VALUE, Integer.MAX_VALUE);
         number(portal.get("coordinate_scale"), "$.portal.coordinate_scale");
         if (settings.has("identity")) {
             JsonObject identity = object(settings.get("identity"), "$.identity");
@@ -157,12 +164,22 @@ final class StrictConfigStructure {
             bool(identity.get("motherlodes"), "$.identity.motherlodes");
             bool(identity.get("fault_lines"), "$.identity.fault_lines");
             JsonObject renewal = object(identity.get("renewal"), "$.identity.renewal");
-            fields(renewal, RENEWAL, RENEWAL, "$.identity.renewal");
+            fields(renewal, RENEWAL, REQUIRED_RENEWAL, "$.identity.renewal");
             bool(renewal.get("enabled"), "$.identity.renewal.enabled");
-            integer(renewal.get("interval_days"), "$.identity.renewal.interval_days");
-            integer(renewal.get("warning_minutes"), "$.identity.renewal.warning_minutes");
-            integer(renewal.get("next_renewal_at_epoch_millis"),
-                    "$.identity.renewal.next_renewal_at_epoch_millis");
+            boundedInteger(renewal.get("interval_days"), "$.identity.renewal.interval_days",
+                    Integer.MIN_VALUE, Integer.MAX_VALUE);
+            boundedInteger(renewal.get("warning_minutes"), "$.identity.renewal.warning_minutes",
+                    Integer.MIN_VALUE, Integer.MAX_VALUE);
+            boundedLong(renewal.get("next_renewal_at_epoch_millis"),
+                    "$.identity.renewal.next_renewal_at_epoch_millis", 0L, Long.MAX_VALUE);
+            if (renewal.has("seed_mode")) {
+                string(renewal.get("seed_mode"), "$.identity.renewal.seed_mode", false);
+                String seedMode = renewal.get("seed_mode").getAsString();
+                if (!RENEWAL_SEED_MODE.contains(seedMode)) {
+                    throw new JsonParseException(
+                            "$.identity.renewal.seed_mode must be stable or rotate_on_recreate");
+                }
+            }
         }
     }
 
@@ -222,15 +239,24 @@ final class StrictConfigStructure {
     }
 
     private static void integer(JsonElement element, String path) {
-        number(element, path);
-        try {
-            element.getAsBigDecimal().toBigIntegerExact();
-        } catch (ArithmeticException exception) {
-            throw new JsonParseException(path + " must be a whole number", exception);
-        }
+        boundedInteger(element, path, Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     private static void boundedInteger(JsonElement element, String path, int minimum, int maximum) {
+        number(element, path);
+        final BigInteger value;
+        try {
+            value = element.getAsBigDecimal().toBigIntegerExact();
+        } catch (ArithmeticException exception) {
+            throw new JsonParseException(path + " must be a whole number", exception);
+        }
+        if (value.compareTo(BigInteger.valueOf(minimum)) < 0
+                || value.compareTo(BigInteger.valueOf(maximum)) > 0) {
+            throw new JsonParseException(path + " must be between " + minimum + " and " + maximum);
+        }
+    }
+
+    private static void boundedLong(JsonElement element, String path, long minimum, long maximum) {
         number(element, path);
         final BigInteger value;
         try {

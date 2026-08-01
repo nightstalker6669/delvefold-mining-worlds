@@ -10,6 +10,7 @@ import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
@@ -18,6 +19,7 @@ import com.google.gson.JsonParseException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class ConfigJsonTest {
@@ -43,6 +45,7 @@ class ConfigJsonTest {
                 TerrainMode.CAVERN, OrePreset.RICH, GameplayPreset.HOSTILE);
         assertTrue(initialized.initialized());
         assertEquals(1, initialized.generationEpoch());
+        assertEquals(0L, initialized.generationSalt());
         assertEquals(TerrainMode.CAVERN, initialized.terrainMode());
         assertEquals(GuideVisibility.OPERATORS, initialized.guideVisibility());
 
@@ -50,6 +53,7 @@ class ConfigJsonTest {
                 TerrainMode.WILD, TerrainVariant.EXPANSIVE,
                 OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE, "operation-1");
         assertEquals(2, recreated.generationEpoch());
+        assertEquals(0L, recreated.generationSalt());
         assertEquals("operation-1", recreated.lastWorldOperationId());
         assertEquals(TerrainMode.WILD, recreated.terrainMode());
         assertEquals(TerrainVariant.EXPANSIVE, recreated.identity().terrainVariant());
@@ -58,8 +62,103 @@ class ConfigJsonTest {
         WorldSettingsDocument deleted = recreated.markDeleted("operation-2");
         assertFalse(deleted.initialized());
         assertEquals(3, deleted.generationEpoch());
+        assertEquals(0L, deleted.generationSalt());
         assertEquals("operation-2", deleted.lastWorldOperationId());
         assertEquals(GuideVisibility.OPERATORS, deleted.guideVisibility());
+    }
+
+    @Test
+    void rotatingGenerationSaltsAreDeterministicPersistedAndLifecycleBound() {
+        var rotatingIdentity = WorldSettingsDocument.uninitialized().identity().withRenewal(
+                WorldSettingsDocument.uninitialized().identity().renewal()
+                        .withSeedMode(RenewalSeedMode.ROTATE_ON_RECREATE));
+        WorldSettingsDocument base = WorldSettingsDocument.uninitialized();
+
+        WorldSettingsDocument first = base.initialize(
+                TerrainMode.FLAT, OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE, rotatingIdentity);
+        WorldSettingsDocument repeated = base.initialize(
+                TerrainMode.FLAT, OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE, rotatingIdentity);
+        assertTrue(first.generationSalt() > 0L);
+        assertEquals(first.generationSalt(), repeated.generationSalt());
+
+        WorldSettingsDocument restored = ConfigJson.GSON.fromJson(
+                ConfigJson.GSON.toJson(first), WorldSettingsDocument.class);
+        assertEquals(first, restored);
+
+        WorldSettingsDocument second = first.recreate(
+                TerrainMode.FLAT, TerrainVariant.CLASSIC, null, null, "operation-rotate");
+        assertTrue(second.generationSalt() > 0L);
+        assertTrue(second.generationSalt() != first.generationSalt());
+
+        WorldSettingsDocument deleted = second.markDeleted("operation-delete");
+        assertEquals(0L, deleted.generationSalt());
+        WorldSettingsDocument reinitialized = deleted.initialize(
+                TerrainMode.FLAT, OrePreset.VANILLA_BALANCED, GameplayPreset.SAFE);
+        assertTrue(reinitialized.generationSalt() > 0L);
+        assertTrue(reinitialized.generationSalt() != second.generationSalt());
+    }
+
+    @Test
+    void liveSeedModeChangesOnlyAffectTheNextGeneration() {
+        WorldSettingsDocument stable = WorldSettingsDocument.uninitialized().initialize(
+                TerrainMode.WILD, OrePreset.EMPTY, GameplayPreset.SAFE);
+        var rotating = stable.identity().withRenewal(
+                stable.identity().renewal().withSeedMode(RenewalSeedMode.ROTATE_ON_RECREATE));
+
+        WorldSettingsDocument optedIn = stable.withIdentity(rotating);
+        assertEquals(0L, optedIn.generationSalt());
+        WorldSettingsDocument rotated = optedIn.recreate(
+                TerrainMode.WILD, TerrainVariant.CLASSIC, null, null, "operation-opt-in");
+        assertTrue(rotated.generationSalt() > 0L);
+
+        var stableAgain = rotated.identity().withRenewal(
+                rotated.identity().renewal().withSeedMode(RenewalSeedMode.STABLE));
+        WorldSettingsDocument optedOut = rotated.withIdentity(stableAgain);
+        assertEquals(rotated.generationSalt(), optedOut.generationSalt());
+        assertEquals(0L, optedOut.recreate(
+                TerrainMode.WILD, TerrainVariant.CLASSIC, null, null, "operation-opt-out").generationSalt());
+    }
+
+    @Test
+    void renewalSeedModeUsesStableLowercaseSchemaValuesAndLegacyDefault() {
+        var legacy = new com.nightsta69.delvefold.config.model.RenewalSettings(false, 30, 30, 0L);
+        assertEquals(RenewalSeedMode.STABLE, legacy.seedMode());
+
+        var rotating = legacy.withSeedMode(RenewalSeedMode.ROTATE_ON_RECREATE);
+        String json = ConfigJson.GSON.toJson(rotating);
+        assertTrue(json.contains("\"seed_mode\": \"rotate_on_recreate\""));
+        assertEquals(rotating,
+                ConfigJson.GSON.fromJson(json, com.nightsta69.delvefold.config.model.RenewalSettings.class));
+    }
+
+    @Test
+    void strictSettingsParsingRejectsInvalidSeedModeAndGenerationSaltOverflow() {
+        String valid = ConfigJson.GSON.toJson(WorldSettingsDocument.uninitialized());
+        String invalidMode = valid.replace(
+                "\"seed_mode\": \"stable\"", "\"seed_mode\": \"random_every_restart\"");
+        String overflowingSalt = valid.replace(
+                "\"generation_salt\": 0", "\"generation_salt\": 9223372036854775808");
+
+        assertThrows(JsonParseException.class,
+                () -> StrictConfigStructure.parseAndValidate(invalidMode, WorldSettingsDocument.class));
+        assertThrows(JsonParseException.class,
+                () -> StrictConfigStructure.parseAndValidate(overflowingSalt, WorldSettingsDocument.class));
+    }
+
+    @Test
+    void strictSettingsParsingRejectsIntegralOverflowBeforeGsonCanNarrowIt() {
+        String valid = ConfigJson.GSON.toJson(WorldSettingsDocument.uninitialized());
+        List<String> invalid = List.of(
+                valid.replace("\"schema_version\": 2", "\"schema_version\": 4294967298"),
+                valid.replace("\"revision\": 0", "\"revision\": 18446744073709551616"),
+                valid.replace("\"generation_epoch\": 0", "\"generation_epoch\": 18446744073709551616"),
+                valid.replace("\"next_renewal_at_epoch_millis\": 0",
+                        "\"next_renewal_at_epoch_millis\": 18446744073709551616"));
+
+        for (String json : invalid) {
+            assertThrows(JsonParseException.class,
+                    () -> StrictConfigStructure.parseAndValidate(json, WorldSettingsDocument.class));
+        }
     }
 
     @Test

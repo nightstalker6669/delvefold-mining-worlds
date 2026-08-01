@@ -11,6 +11,7 @@ import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import com.nightsta69.delvefold.config.validation.ValidationReport;
 import com.nightsta69.delvefold.config.validation.WorldSettingsValidator;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -188,7 +189,13 @@ public final class FileConfigRepository {
                     || !root.getAsJsonObject().get("schema_version").getAsJsonPrimitive().isNumber()) {
                 throw new IOException(path.getFileName() + " has no numeric schema_version");
             }
-            return root.getAsJsonObject().get("schema_version").getAsInt();
+            BigInteger value = root.getAsJsonObject().get("schema_version")
+                    .getAsBigDecimal().toBigIntegerExact();
+            if (value.compareTo(BigInteger.ZERO) < 0
+                    || value.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0) {
+                throw new IOException(path.getFileName() + " schema_version is outside the supported integer range");
+            }
+            return value.intValueExact();
         } catch (RuntimeException exception) {
             throw new IOException(path.getFileName() + " schema could not be read", exception);
         }

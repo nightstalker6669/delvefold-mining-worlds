@@ -54,6 +54,29 @@ class WorldSettingsValidatorTest {
     }
 
     @Test
+    void rejectsNegativeGenerationSalt() {
+        WorldSettingsDocument legacy = WorldSettingsDocument.uninitialized();
+        WorldSettingsDocument settings = new WorldSettingsDocument(
+                legacy.schemaVersion(), legacy.revision(), legacy.generationEpoch(), -1L,
+                legacy.lastWorldOperationId(), legacy.initialized(), legacy.terrainMode(), legacy.orePreset(),
+                legacy.gameplay(), legacy.portal(), legacy.activeProfileId(), legacy.identity(),
+                legacy.guideVisibility());
+
+        assertFalse(WorldSettingsValidator.validate(settings).valid());
+    }
+
+    @Test
+    void rejectsActiveGenerationSaltWithoutAnInitializedWorld() {
+        WorldSettingsDocument legacy = WorldSettingsDocument.uninitialized();
+        WorldSettingsDocument settings = new WorldSettingsDocument(
+                legacy.schemaVersion(), legacy.revision(), legacy.generationEpoch(), 42L,
+                legacy.lastWorldOperationId(), false, null, legacy.orePreset(), legacy.gameplay(),
+                legacy.portal(), legacy.activeProfileId(), legacy.identity(), legacy.guideVisibility());
+
+        assertFalse(WorldSettingsValidator.validate(settings).valid());
+    }
+
+    @Test
     void acceptsNamespacedProfilesButEnforcesTotalLength() {
         WorldSettingsDocument valid = WorldSettingsDocument.uninitialized()
                 .withActiveProfile("examplepack:metals/rich_tin");
