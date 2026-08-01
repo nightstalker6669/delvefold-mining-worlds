@@ -68,6 +68,14 @@ If exact targets, tag targets, or repeated tag membership resolve to the same bl
 
 Profiles written before 1.1.0 have no `weight` field and continue to behave as weight `1`. Profiles whose configured weights are all `1` retain the existing member-uniform deterministic per-vein output-selection sequence. Weighted targets are an additive schema-2 feature and require no schema migration. A missing optional output tag warns and skips; a missing required output tag rejects the profile.
 
+### Forecast and guided import
+
+The Ores GUI forecast is derived at request time from a named profile and the server's current block/tag registry. It does not add fields to schema 2 or write files. Its configured totals include the profile's declared work; effective totals additionally account for enabled state, active terrain, biome applicability, resolved output blocks/tags, valid block states, and deduplicated host-specific outputs. The height overlay is available only after a terrain has been initialized.
+
+The Profiles GUI's guided importer scans conventional `c:ores/*` membership and conservative ore-like registry names. It creates optional, all-terrain exact-output rules using the existing Uncommon band template, skips targets already covered by the base profile, and refuses to guess a replacement tag for ambiguous hosts. A preview validates the complete proposal and compares its per-terrain safety workload before any write. Saving uses create-new semantics in `profiles/`: built-in, datapack, scripted, or local collisions are rejected, symlinks are not followed, and the active profile and ore revision are unchanged until the administrator explicitly selects the new profile.
+
+No forecast, scan token, registry fingerprint, diff, or import-session state is serialized into `ores.json` or `settings.json`.
+
 Common host tags are:
 
 - `minecraft:stone_ore_replaceables`

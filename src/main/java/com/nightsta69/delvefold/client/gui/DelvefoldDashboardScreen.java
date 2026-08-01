@@ -138,14 +138,20 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
     private void initOres() {
         int innerWidth = Math.max(1, this.contentWidth() - 20);
-        int actionGap = Math.min(6, Math.max(0, innerWidth - 2));
-        int addWidth = Math.min(116, Math.max(1, (innerWidth - actionGap) * 3 / 5));
-        int refreshWidth = Math.max(1, innerWidth - addWidth - actionGap);
+        int actionGap = Math.min(6, Math.max(0, (innerWidth - 3) / 2));
+        int usable = Math.max(3, innerWidth - actionGap * 2);
+        int addWidth = Math.max(1, usable * 2 / 5);
+        int forecastWidth = Math.max(1, usable * 2 / 5);
+        int refreshWidth = Math.max(1, innerWidth - addWidth - forecastWidth - actionGap * 2);
         int y = bodyTop() + (compactHeight() ? 23 : 25);
         this.addButton(this.contentLeft() + 10, y, addWidth, 22,
                 Component.translatable("screen.delvefold.ores.add"), Style.PRIMARY,
                 button -> this.minecraft.setScreen(new DelvefoldOrePickerScreen(this, this.snapshot)));
-        this.addButton(this.contentLeft() + 10 + addWidth + actionGap, y, refreshWidth, 22,
+        this.addButton(this.contentLeft() + 10 + addWidth + actionGap, y, forecastWidth, 22,
+                Component.translatable("screen.delvefold.forecast.open"), Style.SECONDARY,
+                button -> DelvefoldClientRequests.requestForecast(this.snapshot.activeProfileId(), 0));
+        this.addButton(this.contentLeft() + 10 + addWidth + forecastWidth + actionGap * 2,
+                y, refreshWidth, 22,
                 Component.translatable("screen.delvefold.refresh"), Style.GHOST, button -> refresh());
 
         List<AdminSnapshot.OreRuleDraft> rules = this.snapshot.oreRules();
@@ -191,7 +197,8 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
         int deleteWidth = 74;
         int gap = 5;
         int rowWidth = Math.max(1, innerWidth - deleteWidth - gap);
-        int pageSize = 5;
+        ProfilePanelLayout layout = profilePanelLayout();
+        int pageSize = layout.pageSize();
         int pageCount = Math.max(1, (this.snapshot.profiles().size() + pageSize - 1) / pageSize);
         int safePage = Math.min(this.profilePage, pageCount - 1);
         int start = safePage * pageSize;
@@ -200,16 +207,16 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             AdminSnapshot.ProfileDraft profile = this.snapshot.profiles().get(index);
             boolean active = profile.id().equals(this.snapshot.activeProfileId());
             String flags = active ? "ACTIVE  •  " : (profile.valid() ? "" : "INVALID  •  ");
-            this.addButton(x, y, rowWidth, 20,
+            this.addButton(x, y, rowWidth, layout.rowHeight(),
                     Component.literal(flags + profile.id() + "  —  " + profile.ruleCount() + " rules"),
                     active ? Style.TOGGLE_ON : Style.GHOST,
                     button -> performProfile(ProfileOperation.SELECT, profile.id(), "", "", false));
-            Button delete = this.addButton(x + rowWidth + gap, y, deleteWidth, 20,
+            Button delete = this.addButton(x + rowWidth + gap, y, deleteWidth, layout.rowHeight(),
                     Component.translatable(profile.id().equals(this.deleteArmedProfile)
                             ? "screen.delvefold.confirm" : "screen.delvefold.delete"),
                     Style.DANGER, button -> deleteProfile(profile));
             delete.active = !active && profile.localOverride();
-            y += 23;
+            y += layout.rowStep();
         }
 
         if (pageCount > 1) {
@@ -223,7 +230,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             next.active = safePage + 1 < pageCount;
         }
 
-        int controlsY = bodyTop() + (compactHeight() ? 145 : 154);
+        int controlsY = layout.controlsY();
         int nameWidth = Math.max(100, innerWidth / 2);
         EditBox name = this.addRenderableWidget(new EditBox(this.font, x, controlsY, nameWidth, 20,
                 Component.translatable("screen.delvefold.profiles.id")));
@@ -242,7 +249,7 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
 
         int actionY = controlsY + 25;
         int actionGap = 5;
-        int actionWidth = Math.max(1, (innerWidth - actionGap * 2) / 3);
+        int actionWidth = Math.max(1, (innerWidth - actionGap * 3) / 4);
         this.addButton(x, actionY, actionWidth, 20,
                 Component.translatable("screen.delvefold.profiles.save_current"), Style.PRIMARY,
                 button -> performProfile(ProfileOperation.SAVE_CURRENT, "", this.profileName, "",
@@ -251,9 +258,13 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 Component.translatable("screen.delvefold.profiles.import_clipboard"), Style.SECONDARY,
                 button -> importClipboard());
         this.addButton(x + (actionWidth + actionGap) * 2, actionY,
-                innerWidth - actionWidth * 2 - actionGap * 2, 20,
+                actionWidth, 20,
                 Component.translatable("screen.delvefold.profiles.copy_active"), Style.GHOST,
                 button -> DelvefoldClientRequests.requestProfileExport(this.snapshot.activeProfileId()));
+        this.addButton(x + (actionWidth + actionGap) * 3, actionY,
+                innerWidth - actionWidth * 3 - actionGap * 3, 20,
+                Component.translatable("screen.delvefold.import.open"), Style.SECONDARY,
+                button -> this.minecraft.setScreen(new DelvefoldOreImportScreen(this, this.snapshot)));
     }
 
     private void setProfilePage(int page) {
@@ -261,6 +272,14 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
             this.minecraft.setScreen(new DelvefoldDashboardScreen(
                     this.snapshot, Tab.PROFILES, this.snapshot.orePage(), Math.max(0, page)));
         }
+    }
+
+    private int profilePageSize() {
+        return profilePanelLayout().pageSize();
+    }
+
+    private ProfilePanelLayout profilePanelLayout() {
+        return ProfilePanelLayout.calculate(bodyTop(), this.contentBottom(), compactHeight());
     }
 
     private void deleteProfile(AdminSnapshot.ProfileDraft profile) {
@@ -781,8 +800,9 @@ public final class DelvefoldDashboardScreen extends DelvefoldScreen {
                 if (!this.profileError.isEmpty()) {
                     graphics.drawString(this.font, this.font.plainSubstrByWidth(this.profileError, width - 20),
                             x + 10, y + height - 15, DANGER, false);
-                } else if (this.snapshot.profiles().size() > 5) {
-                    int pageCount = (this.snapshot.profiles().size() + 4) / 5;
+                } else if (this.snapshot.profiles().size() > profilePageSize()) {
+                    int pageSize = profilePageSize();
+                    int pageCount = (this.snapshot.profiles().size() + pageSize - 1) / pageSize;
                     graphics.drawString(this.font,
                             Component.translatable("screen.delvefold.profiles.page",
                                     Math.min(this.profilePage, pageCount - 1) + 1,

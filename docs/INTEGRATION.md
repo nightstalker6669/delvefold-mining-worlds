@@ -1,6 +1,6 @@
 # Modpack and Mod Integration
 
-Delvefold 1.0 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is stable for the 1.x line; `DelvefoldApi.API_VERSION` is `1`. Additive methods and events may appear in later 1.x releases, while existing public signatures retain source and binary compatibility.
+Delvefold 1.1 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is stable for the 1.x line; `DelvefoldApi.API_VERSION` is `1`. Additive methods and events may appear in later 1.x releases, while existing public signatures retain source and binary compatibility.
 
 ## Datapack ore profiles
 
@@ -35,7 +35,9 @@ Use `block_tag` instead of `block` to support any installed mod that contributes
 
 Exactly one output source is required. Members are expanded in registry-ID order. `weight` is optional, accepts 1 through 1000, and defaults to `1`. Exact targets use their configured weight directly. A tag target's total weight is divided equally among its installed members, with fractional member weights supported internally, and only outputs sharing the same replacement-host tag compete during per-vein selection. For compatibility, a host group whose configured weights are all `1` retains the earlier member-uniform selection and exact random sequence; tag-total weighting begins when any target in that group has a non-default weight. If multiple sources resolve to the same block state, the first deterministically ordered candidate wins; later overlaps are ineffective, ignored, and warned rather than contributing more weight. Mark a cross-mod rule `required: false` if a pack should remain valid when no provider is installed.
 
-This addition does not change configuration schema 2 or `DelvefoldApi.API_VERSION` 1. Datapack and script producers should treat an omitted weight as `1`; profiles whose configured target weights are all `1` retain the earlier member-uniform deterministic output-selection sequence. The 1.1 client/server protocol is version 9 because administration payloads carry target weights and the selected renewal seed mode, so clients and servers must use the same Delvefold version. The derived generation salt is intentionally excluded from public API and guide/network views.
+This addition does not change configuration schema 2 or `DelvefoldApi.API_VERSION` 1. Datapack and script producers should treat an omitted weight as `1`; profiles whose configured target weights are all `1` retain the earlier member-uniform deterministic output-selection sequence. The 1.1 client/server protocol is version 10 because administration payloads carry target weights, renewal seed mode, bounded forecasts, and guided-import pages, so clients and servers must use the same Delvefold version. The derived generation salt and import registry/profile fingerprints are intentionally excluded from public API and client views.
+
+The 1.1 guided importer recognizes conventional block tags shaped like `c:ores/<material>` and may also suggest strictly ore-like registered block names. Integrations get the best automatic grouping by contributing stone and deepslate variants to the matching conventional tag and by using ordinary `<material>_ore` / `deepslate_<material>_ore` registry names. Ambiguous aggregate blocks and unknown hosts are shown as review-required and are never silently assigned a replacement host. Suggestions are previews only: Delvefold creates a new local inactive profile and never mutates a datapack/script profile or activates a result automatically.
 
 Commands expose the same model:
 

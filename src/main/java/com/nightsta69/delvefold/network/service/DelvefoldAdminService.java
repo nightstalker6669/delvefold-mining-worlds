@@ -5,6 +5,7 @@ import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
+import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
@@ -19,6 +20,8 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public interface DelvefoldAdminService {
     AdminSnapshot snapshot(ServerPlayer player, int orePage, int orePageSize);
+
+    OreProfileForecast forecast(ServerPlayer player, String profileId, int page);
 
     default AdminSnapshot snapshot(ServerPlayer player) {
         return snapshot(player, 0, com.nightsta69.delvefold.network.ProtocolLimits.GUI_ORE_RULES_PER_PAGE);

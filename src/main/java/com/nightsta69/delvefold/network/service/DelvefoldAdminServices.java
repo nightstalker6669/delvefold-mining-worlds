@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
+import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.model.BackupOperation;
@@ -35,6 +36,11 @@ public final class DelvefoldAdminServices {
         @Override
         public AdminSnapshot snapshot(ServerPlayer player, int orePage, int orePageSize) {
             return AdminSnapshot.unavailable();
+        }
+
+        @Override
+        public OreProfileForecast forecast(ServerPlayer player, String profileId, int page) {
+            throw new IllegalStateException("Delvefold administration backend is not installed");
         }
 
         @Override

@@ -1,12 +1,10 @@
 package com.nightsta69.delvefold.command;
 
-import com.nightsta69.delvefold.config.model.BiomeFilter;
+import com.nightsta69.delvefold.config.OreRuleTemplates;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.SpawnBand;
-import com.nightsta69.delvefold.config.model.TerrainMode;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -26,20 +24,12 @@ public final class OreRuleFactory {
         List<OreTarget> targets = detectVariants ? detectTargets(selected) : List.of(exactTarget(selected));
         String id = uniqueSafeId(selected);
         SpawnBand band = switch (rarity) {
-            case COMMON -> SpawnBand.triangle("main", 10, 16.0D, -64, 160, 32, 0.0D);
-            case UNCOMMON -> SpawnBand.triangle("main", 8, 8.0D, -64, 128, 16, 0.0D);
-            case RARE -> SpawnBand.triangle("main", 6, 4.0D, -64, 96, 0, 0.25D);
-            case VERY_RARE -> SpawnBand.triangle("main", 4, 1.0D, -64, 64, -32, 0.5D);
+            case COMMON -> OreRuleTemplates.commonBand();
+            case UNCOMMON -> OreRuleTemplates.uncommonBand();
+            case RARE -> OreRuleTemplates.rareBand();
+            case VERY_RARE -> OreRuleTemplates.veryRareBand();
         };
-        return new OreRule(
-                id,
-                true,
-                false,
-                EnumSet.allOf(TerrainMode.class),
-                targets,
-                BiomeFilter.ALL_MINING_BIOMES,
-                List.of(band)
-        );
+        return OreRuleTemplates.optionalAllTerrain(id, targets, band);
     }
 
     private static List<OreTarget> detectTargets(ResourceLocation selected) {

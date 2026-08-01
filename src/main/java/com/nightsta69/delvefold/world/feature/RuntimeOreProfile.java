@@ -5,13 +5,10 @@ import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
-import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
-import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,16 +16,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.IntToDoubleFunction;
 import net.minecraft.core.Holder;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.levelgen.feature.configurations.OreConfiguration;
 import net.minecraft.world.level.levelgen.structure.templatesystem.TagMatchTest;
 import org.slf4j.Logger;
@@ -37,7 +30,6 @@ import org.slf4j.Logger;
 final class RuntimeOreProfile {
     private static final Logger LOGGER = LogUtils.getLogger();
     private static final Set<String> WARNED_TARGETS = ConcurrentHashMap.newKeySet();
-    private static final String MINING_BIOMES_SELECTOR = "#delvefold:mining_biomes";
 
     private final OreProfileDocument source;
     private final List<CompiledRule> rules;
@@ -55,7 +47,18 @@ final class RuntimeOreProfile {
                 continue;
             }
 
-            List<CompiledTargetGroup> targetGroups = compileTargetGroups(rule);
+            OreTargetResolution.Result targetResolution = OreTargetResolution.resolve(rule);
+            logTargetIssues(targetResolution);
+            List<CompiledTargetGroup> targetGroups = targetResolution.groups().stream()
+                    .map(group -> new CompiledTargetGroup(
+                            group.replaceable(),
+                            group.outputs().stream()
+                                    .map(output -> new CompiledOutput(output.state(), output.selectionWeight(),
+                                            output.cumulativeWeight()))
+                                    .toList(),
+                            group.legacyUniform(),
+                            group.totalWeight()))
+                    .toList();
             if (targetGroups.isEmpty()) {
                 continue;
             }
@@ -96,138 +99,41 @@ final class RuntimeOreProfile {
     private List<CompiledBand> selectBands(TerrainMode terrainMode, Holder<Biome> biome) {
         List<CompiledBand> result = new ArrayList<>();
         for (CompiledRule rule : rules) {
-            if (rule.terrainModes().contains(terrainMode) && matches(rule.biomes(), biome)) {
+            if (rule.terrainModes().contains(terrainMode) && OreBiomeMatcher.matches(rule.biomes(), biome)) {
                 result.addAll(rule.bands());
             }
         }
         return List.copyOf(result);
     }
 
-    private static List<CompiledTargetGroup> compileTargetGroups(OreRule rule) {
-        Map<TagKey<Block>, MutableTargetGroup> grouped = new LinkedHashMap<>();
-        for (OreTarget target : rule.targets()) {
-            ResourceLocation tagId = ResourceLocation.tryParse(stripHash(target.replaceTag()));
-            if (tagId == null) {
-                warnOnce(
-                        rule.id() + '|' + target.sourceId() + '|' + target.replaceTag(),
+    private static void logTargetIssues(OreTargetResolution.Result resolution) {
+        for (OreTargetResolution.Issue issue : resolution.issues()) {
+            String key = issue.ruleId() + '|' + issue.targetIndex() + '|' + issue.kind() + '|'
+                    + issue.referenceId();
+            switch (issue.kind()) {
+                case INVALID_HOST_TAG -> warnOnce(key,
                         "Skipping ore rule {} target {} because its replacement tag ID is unavailable",
-                        rule.id(),
-                        target.sourceId());
-                continue;
-            }
-            if (target.weight() < OreTarget.MIN_WEIGHT || target.weight() > OreTarget.MAX_WEIGHT) {
-                warnOnce(
-                        rule.id() + '|' + target.sourceId() + "|weight=" + target.weight(),
-                        "Skipping ore rule {} target {} because its weight {} is outside {}..{}",
-                        rule.id(),
-                        target.sourceId(),
-                        target.weight(),
-                        OreTarget.MIN_WEIGHT,
-                        OreTarget.MAX_WEIGHT);
-                continue;
-            }
-            TagKey<Block> replaceable = TagKey.create(Registries.BLOCK, tagId);
-            List<Map.Entry<ResourceLocation, Block>> outputs = outputBlocks(target);
-            if (outputs.isEmpty()) {
-                warnOnce(
-                        rule.id() + '|' + target.sourceId() + "|empty",
+                        issue.ruleId(), issue.sourceId());
+                case INVALID_WEIGHT -> warnOnce(key,
+                        "Skipping ore rule {} target {} because its configured weight is invalid",
+                        issue.ruleId(), issue.sourceId());
+                case MISSING_BLOCK, MISSING_OUTPUT_TAG -> warnOnce(key,
                         "Skipping ore rule {} target {} because it resolves to no installed output blocks",
-                        rule.id(),
-                        target.sourceId());
-                continue;
-            }
-            MutableTargetGroup group = grouped.computeIfAbsent(replaceable, ignored -> new MutableTargetGroup());
-            double memberWeight = target.tagDriven()
-                    ? (double) target.weight() / outputs.size()
-                    : target.weight();
-            int distinctOutputs = 0;
-            for (Map.Entry<ResourceLocation, Block> output : outputs) {
-                BlockState state = applyProperties(
-                        rule.id(), output.getKey(), output.getValue().defaultBlockState(), target.state());
-                if (group.add(state, memberWeight, target.weight() == OreTarget.DEFAULT_WEIGHT)) {
-                    distinctOutputs++;
-                } else {
-                    warnOnce(
-                            rule.id() + '|' + replaceable.location() + '|' + state,
-                            "Deduplicating overlapping output {} for host tag {} in ore rule {}",
-                            output.getKey(),
-                            replaceable.location(),
-                            rule.id());
+                        issue.ruleId(), issue.sourceId());
+                case INVALID_STATE_PROPERTY, INVALID_STATE_VALUE -> warnOnce(key,
+                        "Ignoring invalid block-state setting {} for target {} in ore rule {}",
+                        issue.referenceId(), issue.sourceId(), issue.ruleId());
+                case SHADOWED_OUTPUT -> warnOnce(key,
+                        "Deduplicating overlapping output {} for target {} in ore rule {}",
+                        issue.referenceId(), issue.sourceId(), issue.ruleId());
+                case SHADOWED_TARGET -> warnOnce(key,
+                        "Ore rule {} target {} is ineffective because every resolved state overlaps an earlier target",
+                        issue.ruleId(), issue.sourceId());
+                case MISSING_HOST_TAG -> {
+                    // Validation already reports this; runtime retains its prior empty-host behavior.
                 }
             }
-            if (distinctOutputs == 0) {
-                warnOnce(
-                        rule.id() + '|' + replaceable.location() + '|' + target.sourceId() + "|shadowed",
-                        "Ore rule {} target {} is ineffective because every resolved state overlaps an earlier target for host tag {}",
-                        rule.id(),
-                        target.sourceId(),
-                        replaceable.location());
-            }
         }
-        return grouped.entrySet().stream()
-                .filter(entry -> !entry.getValue().candidates.isEmpty())
-                .map(entry -> entry.getValue().compile(entry.getKey()))
-                .toList();
-    }
-
-    private static List<Map.Entry<ResourceLocation, Block>> outputBlocks(OreTarget target) {
-        if (!target.tagDriven()) {
-            ResourceLocation id = ResourceLocation.tryParse(target.block());
-            Block block = id == null ? null : BuiltInRegistries.BLOCK.getOptional(id).orElse(null);
-            if (block == null) {
-                return List.of();
-            }
-            return List.of(Map.entry(id, block));
-        }
-        ResourceLocation id = ResourceLocation.tryParse(target.blockTag());
-        if (id == null) {
-            return List.of();
-        }
-        TagKey<Block> tag = TagKey.create(Registries.BLOCK, id);
-        return BuiltInRegistries.BLOCK.getTag(tag).stream()
-                .flatMap(holders -> holders.stream())
-                .map(holder -> Map.entry(BuiltInRegistries.BLOCK.getKey(holder.value()), holder.value()))
-                .sorted(Map.Entry.comparingByKey())
-                .toList();
-    }
-
-    private static BlockState applyProperties(
-            String ruleId,
-            ResourceLocation blockId,
-            BlockState state,
-            Map<String, String> properties) {
-        BlockState result = state;
-        for (Map.Entry<String, String> entry : properties.entrySet()) {
-            Property<?> property = result.getBlock().getStateDefinition().getProperty(entry.getKey());
-            if (property == null) {
-                warnOnce(
-                        ruleId + '|' + blockId + '|' + entry.getKey(),
-                        "Ignoring unknown block-state property {} for {} in ore rule {}",
-                        entry.getKey(),
-                        blockId,
-                        ruleId);
-                continue;
-            }
-            Optional<BlockState> updated = setProperty(result, property, entry.getValue());
-            if (updated.isEmpty()) {
-                warnOnce(
-                        ruleId + '|' + blockId + '|' + entry.getKey() + '=' + entry.getValue(),
-                        "Ignoring invalid value {} for property {} on {} in ore rule {}",
-                        entry.getValue(),
-                        entry.getKey(),
-                        blockId,
-                        ruleId);
-            } else {
-                result = updated.get();
-            }
-        }
-        return result;
-    }
-
-    private static <T extends Comparable<T>> Optional<BlockState> setProperty(
-            BlockState state, Property<T> property, String serializedValue) {
-        return property.getValue(serializedValue)
-                .map(value -> state.setValue(property, value));
     }
 
     private static HeightSampler compileHeight(SpawnBand band) {
@@ -271,39 +177,6 @@ final class RuntimeOreProfile {
             }
             return minY + Math.min(index, cumulativeWeights.length - 1);
         };
-    }
-
-    private static boolean matches(BiomeFilter filter, Holder<Biome> biome) {
-        boolean included = filter.include().isEmpty()
-                || filter.include().stream().anyMatch(selector -> matches(selector, biome));
-        boolean excluded = filter.exclude().stream().anyMatch(selector -> matches(selector, biome));
-        return included && !excluded;
-    }
-
-    private static boolean matches(String selector, Holder<Biome> biome) {
-        if (MINING_BIOMES_SELECTOR.equals(selector) && isDelvefoldMiningBiome(biome)) {
-            return true;
-        }
-
-        boolean tag = selector.startsWith("#");
-        ResourceLocation id = ResourceLocation.tryParse(tag ? selector.substring(1) : selector);
-        if (id == null) {
-            return false;
-        }
-        if (tag) {
-            return biome.is(TagKey.create(Registries.BIOME, id));
-        }
-        return biome.is(ResourceKey.create(Registries.BIOME, id));
-    }
-
-    private static boolean isDelvefoldMiningBiome(Holder<Biome> biome) {
-        return biome.is(DelvefoldWorldgen.MINING_FLAT_BIOME)
-                || biome.is(DelvefoldWorldgen.MINING_CAVERN_BIOME)
-                || biome.is(DelvefoldWorldgen.MINING_WILD_BIOME);
-    }
-
-    private static String stripHash(String value) {
-        return value.startsWith("#") ? value.substring(1) : value;
     }
 
     private static void warnOnce(String key, String message, Object... arguments) {
@@ -376,30 +249,6 @@ final class RuntimeOreProfile {
     }
 
     record CompiledOutput(BlockState state, double selectionWeight, double cumulativeWeight) {
-    }
-
-    private static final class MutableTargetGroup {
-        private final LinkedHashMap<BlockState, Double> candidates = new LinkedHashMap<>();
-        private boolean legacyUniform = true;
-
-        boolean add(BlockState state, double selectionWeight, boolean defaultWeight) {
-            if (candidates.containsKey(state)) {
-                return false;
-            }
-            candidates.put(state, selectionWeight);
-            legacyUniform &= defaultWeight;
-            return true;
-        }
-
-        CompiledTargetGroup compile(TagKey<Block> replaceable) {
-            List<CompiledOutput> outputs = new ArrayList<>(candidates.size());
-            double cumulative = 0.0D;
-            for (Map.Entry<BlockState, Double> candidate : candidates.entrySet()) {
-                cumulative += candidate.getValue();
-                outputs.add(new CompiledOutput(candidate.getKey(), candidate.getValue(), cumulative));
-            }
-            return new CompiledTargetGroup(replaceable, outputs, legacyUniform, cumulative);
-        }
     }
 
     private record SelectionKey(TerrainMode terrainMode, ResourceKey<Biome> biome) {

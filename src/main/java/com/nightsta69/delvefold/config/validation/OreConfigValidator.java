@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.config.validation;
 
+import com.nightsta69.delvefold.config.analysis.OreWorkBudgetAnalysis;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
@@ -205,30 +206,17 @@ public final class OreConfigValidator {
     }
 
     private static void validateAggregateGenerationBudget(OreProfileDocument document, List<ConfigIssue> issues) {
-        double[] attempts = new double[TerrainMode.values().length];
-        double[] work = new double[TerrainMode.values().length];
-        for (OreRule rule : document.rules()) {
-            if (!rule.enabled()) {
-                continue;
-            }
-            for (SpawnBand band : rule.bands()) {
-                if (!Double.isFinite(band.attemptsPerChunk()) || band.attemptsPerChunk() <= 0.0D) {
-                    continue;
-                }
-                for (TerrainMode terrain : rule.terrainModes()) {
-                    attempts[terrain.ordinal()] += band.attemptsPerChunk();
-                    work[terrain.ordinal()] += band.attemptsPerChunk() * Math.max(1, band.veinSize());
-                }
-            }
-        }
+        OreWorkBudgetAnalysis.ProfileBudget budget = OreWorkBudgetAnalysis.analyze(document);
         for (TerrainMode terrain : TerrainMode.values()) {
-            if (attempts[terrain.ordinal()] > MAX_ATTEMPTS_PER_CHUNK_PER_TERRAIN) {
+            OreWorkBudgetAnalysis.Budget terrainBudget = budget.terrain(terrain);
+            if (terrainBudget.attemptsPerChunk() > MAX_ATTEMPTS_PER_CHUNK_PER_TERRAIN) {
                 issues.add(ConfigIssue.error("budget.too_many_attempts", "$.rules",
-                        "Enabled " + terrain.serializedName() + " rules request " + attempts[terrain.ordinal()]
+                        "Enabled " + terrain.serializedName() + " rules request "
+                                + terrainBudget.attemptsPerChunk()
                                 + " ore attempts per chunk; the safety limit is "
                                 + MAX_ATTEMPTS_PER_CHUNK_PER_TERRAIN));
             }
-            if (work[terrain.ordinal()] > MAX_ORE_WORK_PER_CHUNK_PER_TERRAIN) {
+            if (terrainBudget.workUnitsPerChunk() > MAX_ORE_WORK_PER_CHUNK_PER_TERRAIN) {
                 issues.add(ConfigIssue.error("budget.too_much_work", "$.rules",
                         "Enabled " + terrain.serializedName() + " rules exceed the aggregate ore-work safety budget of "
                                 + MAX_ORE_WORK_PER_CHUNK_PER_TERRAIN));

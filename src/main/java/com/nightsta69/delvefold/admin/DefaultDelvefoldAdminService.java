@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.config.AdminAccess;
 import com.nightsta69.delvefold.config.ConfigLoadResult;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.ConfigWriteResult;
+import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
@@ -128,6 +129,17 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 page,
                 pageRules
         );
+    }
+
+    @Override
+    public OreProfileForecast forecast(ServerPlayer player, String profileId, int page) {
+        requireConfigure(player);
+        try {
+            return DelvefoldConfigService.get().forecast(
+                    profileId, page, OreProfileForecast.DEFAULT_RULES_PER_PAGE);
+        } catch (IOException | IllegalArgumentException exception) {
+            throw new IllegalStateException("Could not forecast profile: " + exception.getMessage(), exception);
+        }
     }
 
     @Override

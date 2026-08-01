@@ -17,6 +17,9 @@ public final class DelvefoldClientEvents {
                 DelvefoldClientPayloadHandler::open,
                 DelvefoldClientPayloadHandler::showResult,
                 DelvefoldClientPayloadHandler::copyProfileExport,
-                DelvefoldClientPayloadHandler::openGuide));
+                DelvefoldClientPayloadHandler::openGuide,
+                DelvefoldClientPayloadHandler::openForecast,
+                DelvefoldClientPayloadHandler::openOreImportScan,
+                DelvefoldClientPayloadHandler::openOreImportPreview));
     }
 }

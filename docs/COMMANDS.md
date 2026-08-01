@@ -73,6 +73,8 @@ Visibility controls only guide content. It does not change portal access, ore ge
 
 Local profiles are stored per save. Datapack and scripted profiles appear as namespaced read-only entries. Selecting one changes generation in future chunks only. Import reads only from `serverconfig/delvefold/imports/`, and export writes only to `serverconfig/delvefold/exports/`. Built-in profiles remain available even when a local override is removed; the active profile cannot be deleted.
 
+The Profiles GUI also provides **Detect ores…**. This guided registry scan is intentionally GUI-only: it shows block icons, groups probable stone/deepslate variants, flags uncertain hosts for review, and requires an explicit diff/workload preview. The result is written under a new local profile ID without overwriting or activating it. Existing command-line workflows remain available through `ore scan`, `ore add`, and canonical profile import for administrators who do not use a graphical client.
+
 ## Ore rules
 
 ```text
@@ -86,6 +88,8 @@ Local profiles are stored per save. Datapack and scripted profiles appear as nam
 ```
 
 `detected` looks for matching normal/deepslate variants in the same namespace. The four rarity values are convenient starting templates; every value can then be refined in the GUI, JSON, or band commands.
+
+The administration GUI's Ores tab also provides a whole-profile **Forecast**. It reports effective versus configured attempts/work for every terrain, the active height overlay, and missing, shadowed, biome-filtered, or terrain-ineffective rules. It is a read-only server calculation and does not change chunks or configuration.
 
 Targets and bands:
 

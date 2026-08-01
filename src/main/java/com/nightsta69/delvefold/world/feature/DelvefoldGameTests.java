@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.world.feature;
 
 import com.nightsta69.delvefold.Delvefold;
+import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
@@ -96,10 +97,11 @@ public final class DelvefoldGameTests {
 
     @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
     public static void tagWeightIsSharedAcrossSortedMembersAndOverlapsAreDeduplicated(GameTestHelper helper) {
-        RuntimeOreProfile.CompiledBand band = compileBand(helper, List.of(
+        List<OreTarget> targets = List.of(
                 OreTarget.ofTag("minecraft:coal_ores", "minecraft:stone_ore_replaceables", 8),
                 OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables", 2),
-                OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables", 3)));
+                OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables", 3));
+        RuntimeOreProfile.CompiledBand band = compileBand(helper, targets);
         RuntimeOreProfile.CompiledTargetGroup group = band.targetGroups().getFirst();
 
         helper.assertTrue(group.outputs().size() == 3,
@@ -115,12 +117,62 @@ public final class DelvefoldGameTests {
                 "The tag-level weight was not shared equally across its members");
         helper.assertTrue(group.outputs().get(2).selectionWeight() == 2.0D,
                 "An overlapping exact target changed the first candidate's selection weight");
+
+        OreTargetResolution.Result resolution = OreTargetResolution.resolve(rule(targets));
+        helper.assertTrue(resolution.effectiveOutputCount() == 3,
+                "Forecast target resolution did not share runtime's deduplicated outputs");
+        helper.assertTrue(resolution.shadowedOutputCount() == 1,
+                "Forecast target resolution did not report the overlapping exact output");
+        helper.assertTrue(resolution.targets().get(2).status()
+                        == OreTargetResolution.TargetStatus.SHADOWED,
+                "The fully overlapped target was not reported as shadowed");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "minecraft", template = EMPTY_TEMPLATE)
+    public static void forecastUsesRuntimeTargetsBiomeAndDistributionMath(GameTestHelper helper) {
+        OreRule rule = new OreRule(
+                "forecast",
+                true,
+                true,
+                Set.of(TerrainMode.FLAT),
+                List.of(OreTarget.of("minecraft:diamond_ore", "minecraft:stone_ore_replaceables")),
+                new BiomeFilter(List.of(), List.of()),
+                List.of(SpawnBand.uniform("main", 8, 4.0D, 0, 3, 0.0D)));
+        OreProfileDocument document = new OreProfileDocument(
+                OreProfileDocument.CURRENT_SCHEMA_VERSION, 7L, "forecast", List.of(rule));
+
+        OreProfileForecast forecast = MinecraftOreProfileForecastBuilder.build(
+                document, TerrainMode.FLAT, helper.getLevel().registryAccess(), 0, 12);
+        OreProfileForecast.RuleForecast ruleForecast = forecast.rules().getFirst();
+
+        helper.assertTrue(ruleForecast.status() == OreProfileForecast.RuleStatus.EFFECTIVE,
+                "A valid flat rule was not forecast as effective");
+        helper.assertTrue(ruleForecast.effectiveAttempts() == 4.0D
+                        && ruleForecast.effectiveWorkUnits() == 32.0D,
+                "Forecast workload did not match runtime band settings");
+        helper.assertTrue(ruleForecast.effectiveOutputCount() == 1,
+                "Forecast did not resolve the exact output and host tag");
+        for (int y = 0; y <= 3; y++) {
+            OreProfileForecast.HeightSample sample = forecast.activeTerrainHeightOverlay().get(y + 64);
+            helper.assertTrue(sample.y() == y && sample.expectedAttempts() == 1.0D
+                            && sample.expectedWorkUnits() == 8.0D,
+                    "Uniform height overlay was incorrect at Y=" + y);
+        }
         helper.succeed();
     }
 
     private static RuntimeOreProfile.CompiledBand compileBand(
             GameTestHelper helper, List<OreTarget> targets) {
-        OreRule rule = new OreRule(
+        OreRule rule = rule(targets);
+        RuntimeOreProfile profile = RuntimeOreProfile.compile(
+                new OreProfileDocument(OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, "test", List.of(rule)));
+        return profile.bands(
+                TerrainMode.FLAT, helper.getLevel().getBiome(helper.absolutePos(BlockPos.ZERO))).getFirst();
+    }
+
+    private static OreRule rule(List<OreTarget> targets) {
+        return new OreRule(
                 "weighted_test",
                 true,
                 true,
@@ -128,9 +180,5 @@ public final class DelvefoldGameTests {
                 targets,
                 new BiomeFilter(List.of(), List.of()),
                 List.of(SpawnBand.uniform("main", 6, 1.0D, -32, 32, 0.0D)));
-        RuntimeOreProfile profile = RuntimeOreProfile.compile(
-                new OreProfileDocument(OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, "test", List.of(rule)));
-        return profile.bands(
-                TerrainMode.FLAT, helper.getLevel().getBiome(helper.absolutePos(BlockPos.ZERO))).getFirst();
     }
 }

@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 — The Surveying Update (in development)
+## 1.1.0 — The Surveying Update
 
 - Expanded optional JEI and EMI support with a visual Portal Construction category, minimum-frame diagram, Flint and Steel catalyst, initialization guidance, isolated development launch profiles, and client compatibility smoke tests.
 - Kept both recipe viewers out of the release JAR and all common/server code; Delvefold continues to run with neither viewer installed.
@@ -13,11 +13,15 @@
 - Added `DelvefoldApi.activeGuide()` as an additive API-v1 read-only snapshot that excludes seeds, coordinates, filesystem paths, world-operation confirmation data, and administration diagnostics.
 - Added optional ore-target weights from 1 through 1000. Exact outputs use their configured weights, each tag target divides its total weight equally among installed members once a host group uses non-default weighting, duplicate states are first-wins with warnings, and omitted or all-1 weights preserve the established member-uniform deterministic selection sequence.
 - Added stable and rotate-on-recreation seed modes. Stable remains the compatibility default; rotating layouts incorporate the generation epoch, and the server persists the derived salt so restarts cannot change an already-created ore or landmark layout.
+- Added a bounded, server-authoritative whole-profile forecast from the Ores dashboard. It compares configured and effective attempts/work across all terrain modes, graphs the active height distribution, and reports missing blocks/tags, invalid states, shadowed outputs, biome exclusions, and terrain-ineffective rules.
+- Added a guided **Detect ores** wizard that discovers conventional `c:ores/*` tags and conservative ore-like registry entries, groups probable stone/deepslate variants, and lets administrators select ore groups by icon.
+- Added a server-validated import diff and per-terrain workload preview. Imported rules use the existing Uncommon template and are saved only to a new inactive named profile; the wizard never overwrites or activates a profile.
+- Bound ore discovery, paging, strings, diagnostics, selection counts, and network payloads. Scan and commit capabilities are random, player-bound, revision/registry/profile-bound, expiring, rate-limited, and single-use where mutation occurs.
 - Exposed recreation layout selection in setup, the administration dashboard, and `/delvefold renewal seed-mode`, with changes applying only on the next initialization or recreation.
 - Made setup and identity administration vertically scrollable at compact resolutions and high GUI scales, while keeping renewal controls visibly read-only for configure-only users.
 - Hardened live configuration reloads so lifecycle-owned terrain, epoch, operation, and generation-salt fields cannot be changed around confirmed world operations; oversized integer and long values are rejected before deserialization can narrow them.
 - Kept landmark rarity data-driven through a registered placement modifier while preserving the exact legacy random sequence in stable mode and separating rotated placement from landmark contents.
-- Advanced the identical-version client/server protocol to 9 for weighted administration payloads and renewal seed-mode identity data while keeping the derived salt server-only and retaining configuration schema 2 and public API version 1.
+- Advanced the identical-version client/server protocol to 10 for weighted administration, renewal identity, bounded forecasts, and guided import sessions while keeping seeds, coordinates, filesystem paths, and server-only fingerprints out of client views.
 
 Configuration schema 2 and public API version 1 remain unchanged.
 

@@ -1,6 +1,8 @@
 package com.nightsta69.delvefold.config;
 
 import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.config.importer.MinecraftOreImportRegistry;
+import com.nightsta69.delvefold.config.importer.OreImportSessionService;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import java.io.IOException;
 import java.io.InputStream;
@@ -59,6 +61,8 @@ public final class EcosystemProfileReloadListener extends SimplePreparableReload
     @Override
     protected void apply(LoadResult result, ResourceManager resources, ProfilerFiller profiler) {
         EcosystemProfileRegistry.replaceDatapackProfiles(result.profiles());
+        MinecraftOreImportRegistry.invalidateCache();
+        OreImportSessionService.get().invalidateAll();
         LOGGER.info("Loaded {} Delvefold datapack ore profile(s)", result.profiles().size());
         result.errors().forEach(error -> LOGGER.error("Rejected Delvefold datapack profile {}", error));
     }

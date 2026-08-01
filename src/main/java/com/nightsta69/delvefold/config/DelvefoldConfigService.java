@@ -8,6 +8,8 @@ import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
+import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
+import com.nightsta69.delvefold.world.feature.MinecraftOreProfileForecastBuilder;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import com.nightsta69.delvefold.config.validation.OreConfigValidator;
 import com.nightsta69.delvefold.config.validation.ValidationReport;
@@ -305,6 +307,32 @@ public final class DelvefoldConfigService {
         }
     }
 
+    /** Loads a named profile without activating or rewriting it. */
+    public OreProfileDocument loadProfile(String id) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            String selected = id == null || id.isBlank() ? snapshot().ores().profile() : id.trim();
+            if (selected.equals(snapshot().ores().profile())) {
+                return snapshot().ores();
+            }
+            return profileCatalog.load(selected);
+        }
+    }
+
+    /** Builds one bounded, read-only forecast page from the current server registry state. */
+    public OreProfileForecast forecast(String id, int page, int pageSize) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            String selected = id == null || id.isBlank()
+                    ? snapshot().settings().activeProfileId() : id.trim();
+            OreProfileDocument profile = loadProfile(selected);
+            return MinecraftOreProfileForecastBuilder.build(
+                    selected, profile, snapshot().settings().initialized()
+                            ? snapshot().settings().terrainMode() : null,
+                    server.registryAccess(), page, pageSize);
+        }
+    }
+
     public OreProfileCatalog.ProfileWriteResult saveCurrentProfileAs(String id, boolean overwrite) throws IOException {
         synchronized (mutationLock) {
             ensureStarted();
@@ -319,6 +347,16 @@ public final class DelvefoldConfigService {
             ensureStarted();
             ensureWritable();
             return profileCatalog.saveAs(id, OrePresets.create(preset), overwrite);
+        }
+    }
+
+    /** Persists a server-authored profile without overwriting or activating anything. */
+    public OreProfileCatalog.ProfileWriteResult createNewProfile(
+            String id, OreProfileDocument source) throws IOException {
+        synchronized (mutationLock) {
+            ensureStarted();
+            ensureWritable();
+            return profileCatalog.createNew(id, source);
         }
     }
 
