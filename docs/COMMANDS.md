@@ -52,9 +52,11 @@ Visibility controls only guide content. It does not change portal access, ore ge
 /delvefold renewal
 /delvefold renewal configure <interval_days> <warning_minutes>
 /delvefold renewal disable
+/delvefold renewal seed-mode
+/delvefold renewal seed-mode <stable|rotate_on_recreate>
 ```
 
-`identity variant` sets the scale for an uninitialized world. Once initialized, choose Classic or Expansive as part of a confirmed recreation in the World GUI or command below. Landmark changes apply only to newly generated chunks. Renewal is opt-in, always retains a backup, warns online players, evacuates the mining dimensions when due, and waits for a restart before replacing terrain.
+`identity variant` sets the scale for an uninitialized world. Once initialized, choose Classic or Expansive as part of a confirmed recreation in the World GUI or command below. Landmark changes apply only to newly generated chunks. Renewal is opt-in, always retains a backup, warns online players, evacuates the mining dimensions when due, and waits for a restart before replacing terrain. Every renewal setting, including `seed-mode`, requires `delvefold.manage_world` (operator level 4 fallback); configure-only users may still edit the name and landmark policy in the GUI, but its renewal controls are read-only. `renewal seed-mode` reports or selects the layout policy for the next initialization or recreation: `stable` repeats the established ore and landmark layout, while `rotate_on_recreate` installs a new deterministic layout. Changing the selection never alters existing chunks, and a normal restart never rotates the layout.
 
 ## Named ore profiles
 

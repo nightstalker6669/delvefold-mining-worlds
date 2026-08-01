@@ -106,6 +106,8 @@ Nether quartz, ancient debris, and End-specific ores are intentionally excluded.
 
 The `generation_epoch` increments on initialization, recreation, and deletion. Portal links and generation caches use the epoch to avoid reusing stale state.
 
+`generation_salt` is server-maintained lifecycle state used for deterministic ore and landmark placement. It is never sent to the administration GUI or Seam Ledger. Existing schema-2 settings that omit it load as `0` without being rewritten. Live reload rejects edits to the active generation epoch, salt, terrain, terrain scale, initialization state, or world-operation ID; those values change only through initialization, confirmed recreation/deletion, restart-time restoration, or loading a save backup.
+
 Terrain is locked for the current mining world. Changing it requires **Recreate Mining World**, which removes the old active dimension safely on restart and begins a new epoch.
 
 ### Seam Ledger visibility
@@ -145,7 +147,8 @@ The optional `identity` object is additive to schema 2. A schema-2 settings file
       "enabled": false,
       "interval_days": 30,
       "warning_minutes": 30,
-      "next_renewal_at_epoch_millis": 0
+      "next_renewal_at_epoch_millis": 0,
+      "seed_mode": "stable"
     }
   }
 }
@@ -154,6 +157,13 @@ The optional `identity` object is additive to schema 2. A schema-2 settings file
 `terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat adds substantially more mineable depth while keeping its surface safely below the cloud layer, Expansive Cavern creates amplified subterranean ranges, and Expansive Wild uses amplified Overworld terrain. `landmark_preset` is `pure_mining`, `balanced`, or `abundant`. Pure Mining disables Delvefold landmarks. The individual landmark booleans can further narrow which bounded landmark types appear in newly generated chunks.
 
 Scheduled renewal is disabled by default. When enabled, `interval_days` is 1–3650 and `warning_minutes` is 1–10080. The server announces the configured warning plus ten- and one-minute warnings when applicable. At the due time it blocks entry, evacuates players, schedules a restart-safe recreation, and always retains a timestamped backup. Singleplayer users apply it by exiting to title and reopening the save; dedicated servers apply it on restart.
+
+`seed_mode` controls the layout installed by the next initialization or recreation:
+
+- `stable` is the compatibility default and reproduces the established layout for the same save, profile, and terrain.
+- `rotate_on_recreate` incorporates the next generation epoch into ore and landmark placement so each recreated world receives a new deterministic layout.
+
+Changing the selection does not retrogen chunks or alter the active mining world. The server derives and persists `generation_salt` only when initialization or recreation commits, so restarting an already-created world cannot change its layout. Existing schema-2 files that omit `seed_mode` continue to load as `stable`, without a rewrite or schema migration.
 
 Gameplay presets are live settings:
 

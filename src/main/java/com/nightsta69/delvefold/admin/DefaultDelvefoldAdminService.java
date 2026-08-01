@@ -146,16 +146,17 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 expectedSettingsRevision,
                 terrainMode,
                 orePreset,
-                gameplay.preset()
+                gameplay.preset(),
+                identity
         );
         if (!initialized.saved()) {
             return fromWrite(initialized, "Initialization was rejected");
         }
         ConfigSnapshot after = DelvefoldConfigService.get().snapshot();
-        if (!after.settings().gameplay().equals(gameplay) || !after.settings().identity().equals(identity)) {
+        if (!after.settings().gameplay().equals(gameplay)) {
             ConfigWriteResult customized = DelvefoldConfigService.get().updateSettings(
                     after.settings().revision(),
-                    settings -> settings.withGameplay(gameplay).withIdentity(identity)
+                    settings -> settings.withGameplay(gameplay)
             );
             if (!customized.saved()) {
                 return fromWrite(customized, "Initialized, but custom gameplay toggles were rejected");
@@ -220,6 +221,11 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 && before.settings().identity().terrainVariant() != identity.terrainVariant()) {
             return rejected(expectedRevision,
                     "Terrain scale is locked for the active world; change it through world recreation.");
+        }
+        if (!before.settings().identity().renewal().equals(identity.renewal())
+                && !AdminAccess.canManageWorld(player)) {
+            return rejected(expectedRevision,
+                    "World-management permission is required to change renewal settings or recreation layout.");
         }
         ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(expectedRevision,
                 settings -> settings.withIdentity(identity));

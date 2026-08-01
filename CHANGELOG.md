@@ -12,7 +12,12 @@
 - Required a short-lived, player-bound, single-use client-open acknowledgement and a fresh server visibility check before awarding the consulting advancement.
 - Added `DelvefoldApi.activeGuide()` as an additive API-v1 read-only snapshot that excludes seeds, coordinates, filesystem paths, world-operation confirmation data, and administration diagnostics.
 - Added optional ore-target weights from 1 through 1000. Exact outputs use their configured weights, each tag target divides its total weight equally among installed members once a host group uses non-default weighting, duplicate states are first-wins with warnings, and omitted or all-1 weights preserve the established member-uniform deterministic selection sequence.
-- Advanced the identical-version client/server protocol to 8 for weighted administration payloads while retaining configuration schema 2 and public API version 1.
+- Added stable and rotate-on-recreation seed modes. Stable remains the compatibility default; rotating layouts incorporate the generation epoch, and the server persists the derived salt so restarts cannot change an already-created ore or landmark layout.
+- Exposed recreation layout selection in setup, the administration dashboard, and `/delvefold renewal seed-mode`, with changes applying only on the next initialization or recreation.
+- Made setup and identity administration vertically scrollable at compact resolutions and high GUI scales, while keeping renewal controls visibly read-only for configure-only users.
+- Hardened live configuration reloads so lifecycle-owned terrain, epoch, operation, and generation-salt fields cannot be changed around confirmed world operations; oversized integer and long values are rejected before deserialization can narrow them.
+- Kept landmark rarity data-driven through a registered placement modifier while preserving the exact legacy random sequence in stable mode and separating rotated placement from landmark contents.
+- Advanced the identical-version client/server protocol to 9 for weighted administration payloads and renewal seed-mode identity data while keeping the derived salt server-only and retaining configuration schema 2 and public API version 1.
 
 Configuration schema 2 and public API version 1 remain unchanged.
 

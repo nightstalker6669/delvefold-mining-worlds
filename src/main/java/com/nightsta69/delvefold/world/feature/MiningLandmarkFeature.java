@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.world.feature;
 
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
+import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.WorldGenLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -28,16 +30,21 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
 
     @Override
     public boolean place(FeaturePlaceContext<NoneFeatureConfiguration> context) {
-        WorldIdentitySettings identity;
+        ConfigSnapshot snapshot;
         try {
-            identity = DelvefoldConfigService.get().snapshot().settings().identity();
+            snapshot = DelvefoldConfigService.get().snapshot();
         } catch (IllegalStateException ignored) {
             return false;
         }
+        WorldIdentitySettings identity = snapshot.settings().identity();
+        RandomSource random = randomForContent(
+                context.random(),
+                context.level().getSeed(),
+                new ChunkPos(context.origin()),
+                snapshot.settings().generationSalt());
         if (identity.landmarkPreset() == LandmarkPreset.PURE_MINING) {
             return false;
         }
-        RandomSource random = context.random();
         if (identity.landmarkPreset() == LandmarkPreset.BALANCED && random.nextBoolean()) {
             return false;
         }
@@ -58,6 +65,16 @@ public final class MiningLandmarkFeature extends Feature<NoneFeatureConfiguratio
             case MOTHERLODE -> motherlode(context.level(), origin, random);
             case FAULT_LINE -> faultLine(context.level(), origin, random);
         };
+    }
+
+    static RandomSource randomForContent(
+            RandomSource legacyRandom, long worldSeed, ChunkPos chunkPos, long generationSalt) {
+        if (generationSalt == 0L) {
+            // The placement modifier already consumed the legacy rarity and in-square draws.
+            return legacyRandom;
+        }
+        return RandomSource.create(GenerationSeedMixer.landmarkContentSeed(
+                worldSeed, chunkPos.toLong(), generationSalt));
     }
 
     private static boolean surveyStation(WorldGenLevel level, BlockPos origin, TerrainMode terrain) {

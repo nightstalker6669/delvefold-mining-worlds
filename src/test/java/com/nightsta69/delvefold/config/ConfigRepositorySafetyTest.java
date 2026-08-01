@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -171,6 +172,98 @@ class ConfigRepositorySafetyTest {
         assertTrue(!loaded.usedFallback());
         assertEquals(GuideVisibility.PUBLIC, loaded.snapshot().settings().guideVisibility());
         assertEquals(legacySettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void schemaTwoSettingsWithoutSeedFieldsReceiveNonDestructiveStableDefaults() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        root.remove("generation_salt");
+        root.getAsJsonObject("identity").getAsJsonObject("renewal").remove("seed_mode");
+        String legacySettings = ConfigJson.GSON.toJson(root) + System.lineSeparator();
+        Files.writeString(paths.settings(), legacySettings);
+
+        ConfigLoadResult loaded = repository.loadOrCreate(null);
+
+        assertTrue(!loaded.usedFallback());
+        assertEquals(0L, loaded.snapshot().settings().generationSalt());
+        assertEquals(RenewalSeedMode.STABLE,
+                loaded.snapshot().settings().identity().renewal().seedMode());
+        assertEquals(legacySettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void invalidSeedModeAndOverflowingGenerationSaltAreRejectedWithoutRewriting() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        ConfigLoadResult baseline = repository.loadOrCreate(null);
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        root.addProperty("generation_salt", new java.math.BigInteger("9223372036854775808"));
+        root.getAsJsonObject("identity").getAsJsonObject("renewal")
+                .addProperty("seed_mode", "random_every_restart");
+        String invalidSettings = ConfigJson.GSON.toJson(root) + System.lineSeparator();
+        Files.writeString(paths.settings(), invalidSettings);
+
+        ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
+
+        assertTrue(rejected.usedFallback());
+        assertEquals(baseline.snapshot(), rejected.snapshot());
+        assertTrue(rejected.issues().stream().anyMatch(issue -> "json.invalid".equals(issue.code())));
+        assertEquals(invalidSettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void overflowingSchemaCannotWrapBackToSchemaTwo() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        ConfigLoadResult baseline = repository.loadOrCreate(null);
+        String invalidSettings = Files.readString(paths.settings())
+                .replace("\"schema_version\": 2", "\"schema_version\": 4294967298");
+        Files.writeString(paths.settings(), invalidSettings);
+
+        ConfigLoadResult rejected = repository.loadOrCreate(baseline.snapshot());
+
+        assertTrue(rejected.usedFallback());
+        assertEquals(baseline.snapshot(), rejected.snapshot());
+        assertEquals(invalidSettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void rotatingGenerationSaltSurvivesRepositoryRestart() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        ConfigLoadResult baseline = repository.loadOrCreate(null);
+        var rotatingIdentity = baseline.snapshot().settings().identity().withRenewal(
+                baseline.snapshot().settings().identity().renewal()
+                        .withSeedMode(RenewalSeedMode.ROTATE_ON_RECREATE));
+        var rotating = baseline.snapshot().settings().initialize(
+                com.nightsta69.delvefold.config.model.TerrainMode.FLAT,
+                com.nightsta69.delvefold.config.model.OrePreset.VANILLA_BALANCED,
+                com.nightsta69.delvefold.config.model.GameplayPreset.SAFE,
+                rotatingIdentity);
+        repository.save(baseline.snapshot().ores(), rotating);
+
+        ConfigLoadResult restarted = new FileConfigRepository(paths, RegistryLookup.SKIP).loadOrCreate(null);
+
+        assertTrue(!restarted.usedFallback());
+        assertTrue(restarted.snapshot().settings().generationSalt() > 0L);
+        assertEquals(rotating.generationSalt(), restarted.snapshot().settings().generationSalt());
+        assertEquals(RenewalSeedMode.ROTATE_ON_RECREATE,
+                restarted.snapshot().settings().identity().renewal().seedMode());
     }
 
     @Test

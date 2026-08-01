@@ -23,6 +23,14 @@ public final class WorldSettingsValidator {
         if (settings.generationEpoch() < 0) {
             issues.add(ConfigIssue.error("settings.epoch.negative", "$.generation_epoch", "Generation epoch cannot be negative"));
         }
+        if (settings.generationSalt() < 0) {
+            issues.add(ConfigIssue.error("settings.generation_salt.negative", "$.generation_salt",
+                    "Generation salt cannot be negative"));
+        }
+        if (!settings.initialized() && settings.generationSalt() != 0L) {
+            issues.add(ConfigIssue.error("settings.generation_salt.uninitialized", "$.generation_salt",
+                    "An uninitialized mining world cannot retain an active generation salt"));
+        }
         if (settings.initialized() && settings.terrainMode() == null) {
             issues.add(ConfigIssue.error("settings.terrain.missing", "$.terrain_mode", "Initialized worlds require a terrain mode"));
         }

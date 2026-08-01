@@ -11,7 +11,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Explicit initialization through `/delvefold gui` or `/delvefold initialize`; portal activation never chooses settings.
 - Flat, roofed cavern, and overworld-shaped mining terrain, each with Classic and Expansive scale variants.
 - Optional survey stations, ore motherlodes, and fault-line landmarks with Pure Mining, Balanced, and Abundant presets.
-- A configurable world name and opt-in scheduled renewal with player warnings and mandatory backups.
+- A configurable world name, stable or rotating recreation layouts, and opt-in scheduled renewal with player warnings and mandatory backups.
 - An onboarding advancement path for building, activating, and entering the mining world.
 - A craftable **Seam Ledger** and `/delvefold guide` screen that publish server-authoritative ore outputs, best mining heights, relative frequency, terrain applicability, portal state, and renewal status without exposing administrative data.
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
@@ -76,6 +76,7 @@ Setup, status, and JSON:
 /delvefold renewal
 /delvefold renewal configure <interval_days> <warning_minutes>
 /delvefold renewal disable
+/delvefold renewal seed-mode <stable|rotate_on_recreate>
 ```
 
 For players, `/delvefold guide` opens the same read-only Seam Ledger screen as right-clicking the item. From a dedicated-server console it prints a bounded text summary instead. The visibility command requires configuration access; `public` allows all sources, `operators` allows the integrated owner, configure-authorized players, and the trusted server console, while `disabled` blocks every command, item, command-block, and console opening source.
@@ -149,6 +150,8 @@ Backup management:
 ```
 
 World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. See [Commands](docs/COMMANDS.md) for behavior and permission details.
+
+Recreation layout defaults to `stable`, which reproduces the established ore and landmark layout. Administrators can select `rotate_on_recreate` through the GUI or renewal command; the selection applies only when the world is next initialized or recreated, and ordinary restarts never change an existing layout.
 
 ## Seam Ledger
 

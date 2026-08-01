@@ -11,6 +11,7 @@ import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
+import com.nightsta69.delvefold.config.model.RenewalSeedMode;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.compat.PortalConstructionGuide;
@@ -52,6 +53,10 @@ class TranslationCoverageTest {
             for (LandmarkPreset value : LandmarkPreset.values()) {
                 assertKey(language, "option.delvefold.landmark." + value.serializedName());
                 assertKey(language, "screen.delvefold.setup.landmark_help." + value.serializedName());
+            }
+            for (RenewalSeedMode value : RenewalSeedMode.values()) {
+                assertKey(language, "option.delvefold.renewal_seed_mode." + value.serializedName());
+                assertKey(language, "screen.delvefold.setup.terrain.seed_mode.help." + value.serializedName());
             }
             for (GuideVisibility value : GuideVisibility.values()) {
                 assertKey(language, "option.delvefold.guide_visibility." + value.serializedName());
