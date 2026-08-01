@@ -25,6 +25,8 @@ final class LiveSettingsTransition {
                 "settings.lifecycle.terrain_locked", "$.terrain_mode", "terrain_mode");
         locked(issues, active.identity().terrainVariant() == candidate.identity().terrainVariant(),
                 "settings.lifecycle.variant_locked", "$.identity.terrain_variant", "terrain_variant");
+        locked(issues, active.identity().geologyTheme() == candidate.identity().geologyTheme(),
+                "settings.lifecycle.geology_theme_locked", "$.identity.geology_theme", "geology_theme");
         locked(issues, active.lastWorldOperationId().equals(candidate.lastWorldOperationId()),
                 "settings.lifecycle.operation_locked", "$.last_world_operation_id", "last_world_operation_id");
         return List.copyOf(issues);

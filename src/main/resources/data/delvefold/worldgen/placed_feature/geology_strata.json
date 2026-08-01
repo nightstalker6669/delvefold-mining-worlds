@@ -1,0 +1,8 @@
+{
+  "feature": "delvefold:geology_strata",
+  "placement": [
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}

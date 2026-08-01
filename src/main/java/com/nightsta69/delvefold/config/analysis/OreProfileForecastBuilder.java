@@ -10,9 +10,11 @@ import com.nightsta69.delvefold.config.analysis.OreProfileForecast.RuleStatus;
 import com.nightsta69.delvefold.config.analysis.OreProfileForecast.TerrainTotals;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.validation.OreConfigValidator;
@@ -227,16 +229,14 @@ public final class OreProfileForecastBuilder {
     }
 
     private static OreWorkBudgetAnalysis.Budget effectiveBandBudget(OreRule rule) {
-        double attempts = 0.0D;
-        double workUnits = 0.0D;
+        OreWorkBudgetAnalysis.Budget result = OreWorkBudgetAnalysis.Budget.ZERO;
         for (SpawnBand band : rule.bands()) {
             if (!runtimeBand(band)) {
                 continue;
             }
-            attempts += band.attemptsPerChunk();
-            workUnits += band.attemptsPerChunk() * Math.max(1, band.veinSize());
+            result = result.plus(OreWorkBudgetAnalysis.analyze(band));
         }
-        return new OreWorkBudgetAnalysis.Budget(attempts, workUnits);
+        return result;
     }
 
     private static List<HeightSample> heightOverlay(
@@ -260,6 +260,10 @@ public final class OreProfileForecastBuilder {
                 if (!runtimeBand(band)) {
                     continue;
                 }
+                if (band.placement() == OreBandPlacement.PROVINCE) {
+                    addProvinceHeightOverlay(band, attempts, workUnits, minimumY, maximumY);
+                    continue;
+                }
                 OreDistributionAnalysis.Summary distribution = OreDistributionAnalysis.analyze(band);
                 for (OreDistributionAnalysis.Sample sample : distribution.samples()) {
                     if (sample.y() < minimumY || sample.y() > maximumY) {
@@ -276,6 +280,48 @@ public final class OreProfileForecastBuilder {
             result.add(new HeightSample(minimumY + index, attempts[index], workUnits[index]));
         }
         return List.copyOf(result);
+    }
+
+    private static void addProvinceHeightOverlay(
+            SpawnBand band,
+            double[] attempts,
+            double[] workUnits,
+            int minimumY,
+            int maximumY) {
+        ProvinceSettings province = band.province();
+        if (province == null) {
+            return;
+        }
+        OreDistributionAnalysis.Summary centers = OreDistributionAnalysis.analyze(band.withAttempts(1.0D));
+        if (centers.samples().isEmpty()) {
+            return;
+        }
+        double[] weights = new double[attempts.length];
+        double verticalRadius = Math.max(0.5D, province.verticalThickness() / 2.0D);
+        int lowerHalf = (province.verticalThickness() - 1) / 2;
+        int upperHalf = province.verticalThickness() / 2;
+        double totalWeight = 0.0D;
+        for (OreDistributionAnalysis.Sample center : centers.samples()) {
+            int low = Math.max(minimumY, center.y() - lowerHalf);
+            int high = Math.min(maximumY, center.y() + upperHalf);
+            for (int y = low; y <= high; y++) {
+                double normalized = (y - center.y()) / verticalRadius;
+                double crossSection = Math.max(0.0D, 1.0D - normalized * normalized);
+                double contribution = center.probability() * crossSection;
+                weights[y - minimumY] += contribution;
+                totalWeight += contribution;
+            }
+        }
+        if (!(totalWeight > 0.0D)) {
+            return;
+        }
+        double cappedWork = OreWorkBudgetAnalysis.analyze(band).workUnitsPerChunk();
+        double scale = cappedWork / totalWeight;
+        for (int index = 0; index < weights.length; index++) {
+            double expected = weights[index] * scale;
+            attempts[index] += expected;
+            workUnits[index] += expected;
+        }
     }
 
     private static RuleForecast ruleForecast(
@@ -427,15 +473,35 @@ public final class OreProfileForecastBuilder {
     }
 
     private static boolean validConfiguredBand(SpawnBand band) {
-        if (band.veinSize() < 1 || band.veinSize() > 64
-                || !Double.isFinite(band.attemptsPerChunk())
-                || band.attemptsPerChunk() < 0.0D || band.attemptsPerChunk() > 256.0D
-                || band.minY() < OreConfigValidator.MIN_WORLD_Y
+        if (band.minY() < OreConfigValidator.MIN_WORLD_Y
                 || band.maxY() > OreConfigValidator.MAX_WORLD_Y
                 || band.minY() > band.maxY()
                 || !Double.isFinite(band.discardOnAirExposure())
                 || band.discardOnAirExposure() < 0.0D || band.discardOnAirExposure() > 1.0D) {
             return false;
+        }
+        if (band.placement() == OreBandPlacement.VEIN) {
+            if (band.province() != null || band.veinSize() < 1 || band.veinSize() > 64
+                    || !Double.isFinite(band.attemptsPerChunk())
+                    || band.attemptsPerChunk() < 0.0D || band.attemptsPerChunk() > 256.0D) {
+                return false;
+            }
+        } else {
+            ProvinceSettings province = band.province();
+            if (province == null
+                    || province.regionSize() < OreConfigValidator.MIN_PROVINCE_REGION_SIZE
+                    || province.regionSize() > OreConfigValidator.MAX_PROVINCE_REGION_SIZE
+                    || province.regionSize() % 16 != 0
+                    || province.radius() < 1 || province.radius() > province.regionSize()
+                    || province.verticalThickness() < 1
+                    || province.verticalThickness() > OreConfigValidator.MAX_WORLD_Y
+                            - OreConfigValidator.MIN_WORLD_Y + 1
+                    || !Double.isFinite(province.density())
+                    || province.density() <= 0.0D || province.density() > 1.0D
+                    || province.perChunkWorkCap() < 1
+                    || province.perChunkWorkCap() > OreConfigValidator.MAX_PROVINCE_WORK_PER_CHUNK) {
+                return false;
+            }
         }
         if (band.distribution() == HeightDistribution.TRIANGLE) {
             return band.peakY() != null && band.peakY() >= band.minY() && band.peakY() <= band.maxY();
@@ -450,7 +516,9 @@ public final class OreProfileForecastBuilder {
     }
 
     private static boolean runtimeBand(SpawnBand band) {
-        return validConfiguredBand(band) && band.attemptsPerChunk() > 0.0D;
+        return validConfiguredBand(band)
+                && (band.placement() == OreBandPlacement.PROVINCE
+                        || band.attemptsPerChunk() > 0.0D);
     }
 
     private static boolean missing(IssueKind kind) {

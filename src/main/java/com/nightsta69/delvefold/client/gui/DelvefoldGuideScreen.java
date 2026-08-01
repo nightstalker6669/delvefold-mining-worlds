@@ -125,9 +125,9 @@ public final class DelvefoldGuideScreen extends Screen {
         graphics.fill(x + 8, y + 8, x + 11, y + 46, ACCENT);
 
         drawFitted(graphics, Component.literal(this.snapshot.worldName()), x + 18, y + 8, width - 28, TEXT);
-        Component terrain = Component.translatable("screen.delvefold.guide.terrain_profile",
+        Component terrain = Component.translatable("screen.delvefold.guide.terrain_profile_geology",
                 terrainName(this.snapshot.terrain()), terrainVariantName(this.snapshot.terrainVariant()),
-                this.snapshot.activeProfile());
+                geologyThemeName(this.snapshot.geologyTheme()), this.snapshot.activeProfile());
         drawFitted(graphics, terrain, x + 18, y + 23, width - 28, MUTED);
         Component status = Component.translatable("screen.delvefold.guide.status_line",
                 Component.translatable("screen.delvefold.guide.portal."
@@ -292,13 +292,19 @@ public final class DelvefoldGuideScreen extends Screen {
         String best = band.bestMinY() == band.bestMaxY()
                 ? Integer.toString(band.bestMinY())
                 : band.bestMinY() + ".." + band.bestMaxY();
-        return "Y " + best + " " + distributionName(band.distribution()).getString() + " ×" + band.veinSize();
+        String summary = "Y " + best + " " + distributionName(band.distribution()).getString();
+        return provinceBand(band) ? summary : summary + " ×" + band.veinSize();
     }
 
     private Component fullHeightSummary(HeightBand band) {
         String best = band.bestMinY() == band.bestMaxY()
                 ? Integer.toString(band.bestMinY())
                 : band.bestMinY() + ".." + band.bestMaxY();
+        if (provinceBand(band)) {
+            return Component.translatable("screen.delvefold.guide.tooltip.province_band_detail",
+                    band.bandId(), band.minY(), band.maxY(), best,
+                    distributionName(band.distribution()));
+        }
         return Component.translatable("screen.delvefold.guide.tooltip.band_detail",
                 band.bandId(), band.minY(), band.maxY(), best,
                 distributionName(band.distribution()), band.veinSize());
@@ -396,16 +402,28 @@ public final class DelvefoldGuideScreen extends Screen {
         return Component.translatable("option.delvefold.terrain_variant." + value);
     }
 
+    private static Component geologyThemeName(String value) {
+        if (value == null || value.isBlank()) {
+            return Component.translatable("option.delvefold.geology_theme.classic");
+        }
+        return Component.translatable("option.delvefold.geology_theme." + value);
+    }
+
     private static Component distributionName(String value) {
         return Component.translatable("screen.delvefold.guide.distribution."
                 + (value == null ? "uniform" : value.toLowerCase(Locale.ROOT)));
+    }
+
+    private static boolean provinceBand(HeightBand band) {
+        return band.distribution() != null && band.distribution().startsWith("province_");
     }
 
     @Override
     public Component getNarrationMessage() {
         return Component.translatable("screen.delvefold.guide.narration",
                 this.snapshot.worldName(), terrainName(this.snapshot.terrain()),
-                terrainVariantName(this.snapshot.terrainVariant()), this.snapshot.activeProfile(),
+                terrainVariantName(this.snapshot.terrainVariant()),
+                geologyThemeName(this.snapshot.geologyTheme()), this.snapshot.activeProfile(),
                 Component.translatable("screen.delvefold.guide.portal."
                         + this.snapshot.portalStatus().name().toLowerCase(Locale.ROOT)),
                 this.snapshot.ores().size());

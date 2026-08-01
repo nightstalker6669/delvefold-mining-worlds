@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "template": "delvefold:landmarks/fault_line_grotto",
+  "weight": 6,
+  "category": "fault_line",
+  "terrain_modes": ["cavern", "wild"],
+  "placement_style": "cave_floor",
+  "min_y": -48,
+  "max_y": 112,
+  "biomes": { "include": ["#delvefold:mining_biomes"], "exclude": [] },
+  "processors": ["delvefold:landmark_weathering"],
+  "loot_table": "delvefold:chests/fault_line_grotto"
+}

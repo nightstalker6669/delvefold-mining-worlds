@@ -1,0 +1,13 @@
+{
+  "format": 1,
+  "template": "delvefold:landmarks/collapsed_mine_entrance",
+  "weight": 10,
+  "category": "fault_line",
+  "terrain_modes": ["flat", "wild"],
+  "placement_style": "surface",
+  "min_y": -48,
+  "max_y": 240,
+  "biomes": { "include": ["#delvefold:mining_biomes"], "exclude": [] },
+  "processors": ["delvefold:landmark_weathering"],
+  "loot_table": "delvefold:chests/collapsed_mine_entrance"
+}

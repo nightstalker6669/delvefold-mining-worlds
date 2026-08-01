@@ -1,7 +1,9 @@
 package com.nightsta69.delvefold.config.analysis;
 
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreRule;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import java.util.Collections;
@@ -43,15 +45,33 @@ public final class OreWorkBudgetAnalysis {
         double attempts = 0.0D;
         double workUnits = 0.0D;
         for (SpawnBand band : rule.bands()) {
-            double bandAttempts = band.attemptsPerChunk();
-            if (!Double.isFinite(bandAttempts) || bandAttempts <= 0.0D) {
-                continue;
-            }
-            attempts = saturatingAdd(attempts, bandAttempts);
-            workUnits = saturatingAdd(workUnits,
-                    saturatingMultiply(bandAttempts, Math.max(1, band.veinSize())));
+            Budget bandBudget = analyze(band);
+            attempts = saturatingAdd(attempts, bandBudget.attemptsPerChunk());
+            workUnits = saturatingAdd(workUnits, bandBudget.workUnitsPerChunk());
         }
         return new Budget(attempts, workUnits);
+    }
+
+    /** Conservative upper bound for one configured band in one eligible chunk. */
+    public static Budget analyze(SpawnBand band) {
+        Objects.requireNonNull(band, "band");
+        if (band.placement() == OreBandPlacement.PROVINCE) {
+            ProvinceSettings province = band.province();
+            if (province == null || !Double.isFinite(province.density())
+                    || province.density() <= 0.0D || province.perChunkWorkCap() <= 0) {
+                return Budget.ZERO;
+            }
+            // A province sampler shares this hard cap across every regional center touching the chunk.
+            // Each sampled voxel is both one attempt and one unit of work.
+            double cappedWork = province.perChunkWorkCap();
+            return new Budget(cappedWork, cappedWork);
+        }
+        double bandAttempts = band.attemptsPerChunk();
+        if (!Double.isFinite(bandAttempts) || bandAttempts <= 0.0D) {
+            return Budget.ZERO;
+        }
+        return new Budget(bandAttempts,
+                saturatingMultiply(bandAttempts, Math.max(1, band.veinSize())));
     }
 
     private static EnumMap<TerrainMode, Budget> emptyBudgets() {

@@ -1,0 +1,7 @@
+{
+  "type": "delvefold:landmark",
+  "biomes": "#delvefold:mining_biomes",
+  "step": "surface_structures",
+  "spawn_overrides": {},
+  "terrain_adaptation": "none"
+}

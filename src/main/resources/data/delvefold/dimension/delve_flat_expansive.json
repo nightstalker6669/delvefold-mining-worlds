@@ -13,7 +13,7 @@
         { "block": "minecraft:dirt", "height": 3 },
         { "block": "minecraft:grass_block", "height": 1 }
       ],
-      "structure_overrides": []
+      "structure_overrides": ["delvefold:mining_landmarks"]
     }
   }
 }

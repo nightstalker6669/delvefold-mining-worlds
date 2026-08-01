@@ -88,6 +88,7 @@ public final class GuideGameTests {
         buffer.writeUtf("mine", GuideLimits.MAX_WORLD_NAME_CHARACTERS);
         buffer.writeUtf("flat", GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         buffer.writeUtf("classic", GuideLimits.MAX_IDENTIFIER_CHARACTERS);
+        buffer.writeUtf("volcanic", GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         buffer.writeUtf("profile", GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         buffer.writeVarInt(PortalStatus.AVAILABLE.ordinal());
         buffer.writeBoolean(false);
@@ -130,6 +131,7 @@ public final class GuideGameTests {
                 "Public Mine",
                 "cavern",
                 "classic",
+                "crystal",
                 "pack:metals",
                 PortalStatus.AVAILABLE,
                 new Renewal(true, true, false, 12_345L),

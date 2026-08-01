@@ -8,6 +8,7 @@ import com.nightsta69.delvefold.config.analysis.OreProfileForecast;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
+import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreRule;
@@ -31,6 +32,7 @@ import com.nightsta69.delvefold.reset.WorldOperationResult;
 import com.nightsta69.delvefold.reset.WorldOperationService;
 import com.nightsta69.delvefold.reset.WorldBackupCatalog;
 import com.nightsta69.delvefold.reset.WorldRestoreService;
+import com.nightsta69.delvefold.world.landmark.catalog.LandmarkCatalogService;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,13 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         diagnostics.add("Config hash: " + snapshot.diskHash());
         diagnostics.add("Loaded: " + snapshot.loadedAt());
         diagnostics.add("Generation epoch: " + settings.generationEpoch());
+        var landmarkCatalog = LandmarkCatalogService.get();
+        var landmarkDiagnostics = landmarkCatalog.diagnostics();
+        diagnostics.add("Landmark catalog: revision " + landmarkCatalog.snapshot().revision()
+                + ", " + landmarkCatalog.snapshot().definitions().size() + " definition(s), last reload "
+                + (landmarkDiagnostics.lastReloadAccepted() ? "applied" : "rejected"));
+        landmarkDiagnostics.errors().stream().limit(8)
+                .forEach(error -> diagnostics.add("Landmark catalog error: " + error));
         if (!compatible) {
             diagnostics.add(DelvefoldConfigService.get().compatibilityMessage());
         }
@@ -234,6 +243,11 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return rejected(expectedRevision,
                     "Terrain scale is locked for the active world; change it through world recreation.");
         }
+        if (before.settings().initialized()
+                && before.settings().identity().geologyTheme() != identity.geologyTheme()) {
+            return rejected(expectedRevision,
+                    "Geology theme is locked for the active world; change it through world recreation.");
+        }
         if (!before.settings().identity().renewal().equals(identity.renewal())
                 && !AdminAccess.canManageWorld(player)) {
             return rejected(expectedRevision,
@@ -351,7 +365,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             case RECREATE_WORLD -> scheduleAndConfirm(player,
                     WorldOperationRequest.recreate(
                             recreateTerrain(confirmation, snapshot.settings().terrainMode()),
-                            recreateVariant(confirmation, snapshot.settings().identity().terrainVariant())));
+                            recreateVariant(confirmation, snapshot.settings().identity().terrainVariant()),
+                            recreateGeologyTheme(confirmation, snapshot.settings().identity().geologyTheme())));
             case CANCEL_PENDING_RESET -> fromOperation(
                     WorldOperationService.get().cancelConfirmed(player.getServer()), snapshot.settings().revision());
         };
@@ -361,7 +376,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         WorldOperationPreview preview = WorldOperationService.get().request(
                 player.getServer(),
                 new WorldOperationRequest(
-                        request.type(), request.targetTerrain(), request.targetVariant(), request.targetOrePreset(), request.targetGameplayPreset(),
+                        request.type(), request.targetTerrain(), request.targetVariant(), request.targetGeologyTheme(),
+                        request.targetOrePreset(), request.targetGameplayPreset(),
                         BackupMode.KEEP_BACKUP, request.resetOreConfiguration()),
                 player.getGameProfile().getName()
         );
@@ -407,6 +423,21 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         try {
             return com.nightsta69.delvefold.config.model.TerrainVariant.valueOf(
                     parts[2].toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+            return fallback;
+        }
+    }
+
+    private static GeologyTheme recreateGeologyTheme(String confirmation, GeologyTheme fallback) {
+        if (confirmation == null) {
+            return fallback;
+        }
+        String[] parts = confirmation.split(":");
+        if (parts.length < 4) {
+            return fallback;
+        }
+        try {
+            return GeologyTheme.parse(parts[3]);
         } catch (IllegalArgumentException ignored) {
             return fallback;
         }
@@ -464,7 +495,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         Integer plateauMax = draft.distribution() == HeightDistribution.TRAPEZOID ? draft.plateauMaxY() : null;
         return new SpawnBand(
                 draft.id(), draft.veinSize(), draft.attemptsPerChunk(), draft.distribution(),
-                draft.minY(), draft.maxY(), peak, plateauMin, plateauMax, draft.discardOnAirExposure()
+                draft.minY(), draft.maxY(), peak, plateauMin, plateauMax, draft.discardOnAirExposure(),
+                draft.placement(), draft.province()
         );
     }
 
@@ -498,7 +530,9 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 band.peakY() == null ? 0 : band.peakY(),
                 band.plateauMinY() == null ? band.minY() : band.plateauMinY(),
                 band.plateauMaxY() == null ? band.maxY() : band.plateauMaxY(),
-                band.discardOnAirExposure()
+                band.discardOnAirExposure(),
+                band.placement(),
+                band.province()
         );
     }
 

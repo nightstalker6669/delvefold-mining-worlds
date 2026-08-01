@@ -28,7 +28,7 @@
           "height": 1
         }
       ],
-      "structure_overrides": []
+      "structure_overrides": ["delvefold:mining_landmarks"]
     }
   }
 }

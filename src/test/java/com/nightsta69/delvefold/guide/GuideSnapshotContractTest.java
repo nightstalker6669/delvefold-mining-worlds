@@ -11,7 +11,7 @@ class GuideSnapshotContractTest {
     @Test
     void publicContractContainsOnlyWhitelistedReadOnlyFields() {
         assertEquals(List.of(
-                        "formatVersion", "worldName", "terrain", "terrainVariant", "activeProfile",
+                        "formatVersion", "worldName", "terrain", "terrainVariant", "geologyTheme", "activeProfile",
                         "portalStatus", "renewal", "ores", "truncated"),
                 componentNames(GuideSnapshot.class));
         assertEquals(List.of("enabled", "scheduled", "due", "remainingSeconds"),
@@ -33,6 +33,23 @@ class GuideSnapshotContractTest {
         String bounded = GuideLimits.boundedText("Mine " + "🪨".repeat(100), 64);
         assertFalse(Character.isHighSurrogate(bounded.charAt(bounded.length() - 1)));
         assertTrue(bounded.length() <= 64);
+    }
+
+    @Test
+    void legacyGuideConstructorDefaultsToClassicGeology() {
+        GuideSnapshot snapshot = new GuideSnapshot(
+                GuideSnapshot.LEGACY_FORMAT_VERSION,
+                "Legacy Mine",
+                "flat",
+                "classic",
+                "legacy_profile",
+                GuideSnapshot.PortalStatus.AVAILABLE,
+                new GuideSnapshot.Renewal(false, false, false, 0L),
+                List.of(),
+                false);
+
+        assertEquals("classic", snapshot.geologyTheme());
+        assertEquals(GuideSnapshot.LEGACY_FORMAT_VERSION, snapshot.formatVersion());
     }
 
     private static List<String> componentNames(Class<?> recordType) {

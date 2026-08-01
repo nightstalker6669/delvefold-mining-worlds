@@ -40,18 +40,18 @@
       "minecraft:ore_andesite_upper",
       "minecraft:ore_andesite_lower",
       "minecraft:ore_tuff",
-      "delvefold:mining_ores"
+      "delvefold:mining_ores",
+      "delvefold:geology_strata"
     ],
     [
+      "delvefold:geology_decorations",
       "minecraft:glow_lichen"
     ],
     [
       "minecraft:spring_water",
       "minecraft:spring_lava"
     ],
-    [
-      "delvefold:mining_landmark"
-    ],
+    [],
     []
   ],
   "has_precipitation": false,

@@ -1,0 +1,15 @@
+{
+  "structures": [
+    {
+      "structure": "delvefold:mining_landmark",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "delvefold:generation_salted_random_spread",
+    "salt": 14681357,
+    "spacing": 12,
+    "separation": 6,
+    "spread_type": "linear"
+  }
+}

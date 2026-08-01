@@ -117,6 +117,11 @@
       ],
       "properties": {
         "id": { "$ref": "#/$defs/rule_id" },
+        "placement": {
+          "enum": ["vein", "province"],
+          "default": "vein",
+          "description": "Placement algorithm. Omitted schema-2 values retain classic vein placement."
+        },
         "vein_size": { "type": "integer", "minimum": 1, "maximum": 64 },
         "attempts_per_chunk": { "type": "number", "minimum": 0, "maximum": 256 },
         "distribution": { "enum": ["uniform", "triangle", "trapezoid"] },
@@ -125,9 +130,30 @@
         "peak_y": { "type": ["integer", "null"], "minimum": -64, "maximum": 320 },
         "plateau_min_y": { "type": ["integer", "null"], "minimum": -64, "maximum": 320 },
         "plateau_max_y": { "type": ["integer", "null"], "minimum": -64, "maximum": 320 },
-        "discard_on_air_exposure": { "type": "number", "minimum": 0, "maximum": 1 }
+        "discard_on_air_exposure": { "type": "number", "minimum": 0, "maximum": 1 },
+        "province": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/province" }
+          ],
+          "default": null,
+          "description": "Regional controls required for province placement and null for vein placement."
+        }
       },
       "allOf": [
+        {
+          "if": {
+            "required": ["placement"],
+            "properties": { "placement": { "const": "province" } }
+          },
+          "then": {
+            "required": ["province"],
+            "properties": { "province": { "$ref": "#/$defs/province" } }
+          },
+          "else": {
+            "properties": { "province": { "type": "null" } }
+          }
+        },
         {
           "if": { "properties": { "distribution": { "const": "triangle" } } },
           "then": { "required": ["peak_y"] }
@@ -137,6 +163,30 @@
           "then": { "required": ["plateau_min_y", "plateau_max_y"] }
         }
       ]
+    },
+    "province": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region_size", "radius", "vertical_thickness", "density", "per_chunk_work_cap"],
+      "properties": {
+        "region_size": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 8192,
+          "multipleOf": 16,
+          "default": 512
+        },
+        "radius": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192,
+          "default": 192,
+          "description": "Horizontal radius; runtime validation also requires this not to exceed region_size."
+        },
+        "vertical_thickness": { "type": "integer", "minimum": 1, "maximum": 385, "default": 48 },
+        "density": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 0.08 },
+        "per_chunk_work_cap": { "type": "integer", "minimum": 1, "maximum": 4096, "default": 1024 }
+      }
     }
   }
 }

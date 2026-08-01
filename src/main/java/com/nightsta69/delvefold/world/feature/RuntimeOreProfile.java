@@ -4,7 +4,9 @@ import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreRule;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import java.util.ArrayList;
@@ -65,7 +67,18 @@ final class RuntimeOreProfile {
 
             List<CompiledBand> bands = new ArrayList<>(rule.bands().size());
             for (SpawnBand band : rule.bands()) {
-                if (band.attemptsPerChunk() <= 0.0D || band.minY() > band.maxY()) {
+                if (band.minY() > band.maxY()) {
+                    continue;
+                }
+                ProvinceSettings province = band.province();
+                boolean effectiveProvince = band.placement() == OreBandPlacement.PROVINCE
+                        && province != null && province.regionSize() > 0 && province.radius() > 0
+                        && province.radius() <= province.regionSize()
+                        && province.verticalThickness() > 0 && Double.isFinite(province.density())
+                        && province.density() > 0.0D && province.density() <= 1.0D
+                        && province.perChunkWorkCap() > 0;
+                if ((band.placement() == OreBandPlacement.VEIN && band.attemptsPerChunk() <= 0.0D)
+                        || (band.placement() == OreBandPlacement.PROVINCE && !effectiveProvince)) {
                     continue;
                 }
                 bands.add(new CompiledBand(
@@ -74,7 +87,10 @@ final class RuntimeOreProfile {
                         band.veinSize(),
                         (float) band.discardOnAirExposure(),
                         band.attemptsPerChunk(),
-                        compileHeight(band)));
+                        compileHeight(band),
+                        band.placement(),
+                        province,
+                        band));
             }
             if (!bands.isEmpty()) {
                 rules.add(new CompiledRule(rule.terrainModes(), rule.biomes(), bands));
@@ -198,9 +214,14 @@ final class RuntimeOreProfile {
             int veinSize,
             float discardOnAirExposure,
             double attemptsPerChunk,
-            HeightSampler height) {
+            HeightSampler height,
+            OreBandPlacement placement,
+            ProvinceSettings province,
+            SpawnBand sourceBand) {
         CompiledBand {
             targetGroups = List.copyOf(targetGroups);
+            placement = placement == null ? OreBandPlacement.VEIN : placement;
+            sourceBand = java.util.Objects.requireNonNull(sourceBand, "sourceBand");
         }
 
         OreConfiguration ore(RandomSource random) {

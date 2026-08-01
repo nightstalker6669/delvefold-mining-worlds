@@ -1,6 +1,6 @@
 # Modpack and Mod Integration
 
-Delvefold 1.1 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is stable for the 1.x line; `DelvefoldApi.API_VERSION` is `1`. Additive methods and events may appear in later 1.x releases, while existing public signatures retain source and binary compatibility.
+Delvefold 1.2 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is stable for the 1.x line; `DelvefoldApi.API_VERSION` is `1`. Additive methods and independent event types may appear in later 1.x releases, while existing public signatures retain source and binary compatibility.
 
 ## Datapack ore profiles
 
@@ -35,7 +35,7 @@ Use `block_tag` instead of `block` to support any installed mod that contributes
 
 Exactly one output source is required. Members are expanded in registry-ID order. `weight` is optional, accepts 1 through 1000, and defaults to `1`. Exact targets use their configured weight directly. A tag target's total weight is divided equally among its installed members, with fractional member weights supported internally, and only outputs sharing the same replacement-host tag compete during per-vein selection. For compatibility, a host group whose configured weights are all `1` retains the earlier member-uniform selection and exact random sequence; tag-total weighting begins when any target in that group has a non-default weight. If multiple sources resolve to the same block state, the first deterministically ordered candidate wins; later overlaps are ineffective, ignored, and warned rather than contributing more weight. Mark a cross-mod rule `required: false` if a pack should remain valid when no provider is installed.
 
-This addition does not change configuration schema 2 or `DelvefoldApi.API_VERSION` 1. Datapack and script producers should treat an omitted weight as `1`; profiles whose configured target weights are all `1` retain the earlier member-uniform deterministic output-selection sequence. The 1.1 client/server protocol is version 10 because administration payloads carry target weights, renewal seed mode, bounded forecasts, and guided-import pages, so clients and servers must use the same Delvefold version. The derived generation salt and import registry/profile fingerprints are intentionally excluded from public API and client views.
+These additions do not change configuration schema 2 or `DelvefoldApi.API_VERSION` 1. Datapack and script producers should treat an omitted weight as `1`; profiles whose configured target weights are all `1` retain the earlier member-uniform deterministic output-selection sequence. The 1.2 client/server protocol is version 11 because administration payloads additionally carry geology-theme identity and province-band drafts, and the player guide advances to format 2 with its bounded geology-theme field. Clients and servers must use the same Delvefold version. The derived generation salt and import registry/profile fingerprints are intentionally excluded from public API and player-facing views.
 
 The 1.1 guided importer recognizes conventional block tags shaped like `c:ores/<material>` and may also suggest strictly ore-like registered block names. Integrations get the best automatic grouping by contributing stone and deepslate variants to the matching conventional tag and by using ordinary `<material>_ore` / `deepslate_<material>_ore` registry names. Ambiguous aggregate blocks and unknown hosts are shown as review-required and are never silently assigned a replacement host. Suggestions are previews only: Delvefold creates a new local inactive profile and never mutates a datapack/script profile or activates a result automatically.
 
@@ -48,6 +48,47 @@ Commands expose the same model:
 ```
 
 Omitting the optional add weight uses the compatibility default of `1`. Pack authors can also supply a non-default weight in schema-2 profile JSON or change it later with `set-tag-weight`.
+
+## Regional ore provinces
+
+A schema-2 spawn band may opt into deterministic regional placement. Omit `placement` to preserve classic vein behavior, or provide a province band:
+
+```json
+{
+  "id": "tin_province",
+  "placement": "province",
+  "vein_size": 1,
+  "attempts_per_chunk": 0.0,
+  "distribution": "triangle",
+  "min_y": -48,
+  "max_y": 96,
+  "peak_y": 12,
+  "plateau_min_y": null,
+  "plateau_max_y": null,
+  "discard_on_air_exposure": 0.25,
+  "province": {
+    "region_size": 512,
+    "radius": 192,
+    "vertical_thickness": 48,
+    "density": 0.08,
+    "per_chunk_work_cap": 256
+  }
+}
+```
+
+Regional centers are derived independently of chunk generation order. Each chunk calculates the same centers but writes only within its own borders, and the shared `per_chunk_work_cap` bounds all province slices touching that chunk. Province work participates in the normal 4,096-attempt and 65,536-work-unit profile limits. Pack authors should run `/delvefold config validate` after installing or changing a profile. See [Configuration](CONFIGURATION.md#spawn-band) for every bound and the command equivalents.
+
+## Reloadable landmark datapacks
+
+Add landmark definitions under `data/<namespace>/delvefold/landmarks/<path>.json`. A complete entry references normal Minecraft datapack resources:
+
+- structure template: `data/<namespace>/structure/<path>.nbt`;
+- processor list: `data/<namespace>/worldgen/processor_list/<path>.json`;
+- loot table: `data/<namespace>/loot_table/<path>.json`.
+
+Definitions select a template, weight, category, terrain modes, placement style, height bounds, biome selectors, processor lists, and loot table. Their full schema and example are documented in [Configuration](CONFIGURATION.md#reloadable-landmark-catalog). Use the `survey_station`, `motherlode`, or `fault_line` category to honor the corresponding existing world-identity toggle. A template data marker named `loot` directly above an empty container installs the definition's loot table once.
+
+The catalog reload is all-or-nothing. `/reload` validates every definition and dependency, including each compressed template's declared dimensions. Templates must be positive on every axis, at most 96 blocks wide/deep, and at most 384 blocks tall; an invalid or oversized dependency cannot replace the last-known-good catalog. Any error retains the prior complete catalog and publishes the failure to Delvefold diagnostics and the server log. Structure-system placement handles chunk boundaries and spacing. Pure Mining accepts no candidates, Balanced deterministically accepts 25%, and Abundant accepts 75% before definition weights are applied.
 
 ## Startup scripts
 
@@ -84,15 +125,18 @@ import com.nightsta69.delvefold.guide.GuideSnapshot;
 
 DelvefoldApi.activeGuide().ifPresent(guide -> {
     String worldName = guide.worldName();
+    String geologyTheme = guide.geologyTheme();
     for (GuideSnapshot.OreEntry ore : guide.ores()) {
         // Publish or render the already-bounded player-facing data.
     }
 });
 ```
 
-The contract contains only whitelisted player-facing information: world display name, terrain and variant, active profile, coarse portal and renewal status, and enabled ore entries with output IDs or tags, representative block icons, terrain applicability, bounded biome include/exclude selectors, height summaries, vein sizes, and relative frequency. It deliberately excludes seeds, horizontal coordinates, filesystem paths, replacement-host details, world-operation confirmation data, permissions, validation reports, configuration hashes, and administration diagnostics.
+The contract contains only whitelisted player-facing information: world display name, terrain, terrain variant, geology theme, active profile, coarse portal and renewal status, and enabled ore entries with output IDs or tags, representative block icons, terrain applicability, bounded biome include/exclude selectors, height summaries, vein sizes or province distributions, and relative frequency. It deliberately excludes seeds, horizontal coordinates, filesystem paths, replacement-host details, world-operation confirmation data, permissions, validation reports, configuration hashes, and administration diagnostics.
 
-Every guide snapshot is independently bounded: format version 1, at most 96 ore entries, eight outputs and eight height bands per entry, three applicable terrains, 16 biome selectors per include list and 16 per exclude list, 64 characters for the world name, 128 characters for identifiers, and a conservative 24 KiB estimated network budget. The `truncated` flags tell consumers when a large profile was shortened. Consumers must tolerate future additive enum values and should display truncation rather than attempting to recover omitted internal data.
+The active 1.2 guide uses format version 2. It adds the bounded `geologyTheme()` identifier and keeps the same limits: at most 96 ore entries, eight outputs and eight height bands per entry, three applicable terrains, 16 biome selectors per include list and 16 per exclude list, 64 characters for the world name, 128 characters for identifiers, and a conservative 24 KiB estimated network budget. The `truncated` flags tell consumers when a large profile was shortened. Consumers must tolerate future additive enum values and should display truncation rather than attempting to recover omitted internal data.
+
+For API-v1 source and binary compatibility, `GuideSnapshot` retains the 1.1 constructor signature; it supplies `classic` geology when that legacy constructor is used, and the class still recognizes legacy format version 1 objects. `activeGuide()` returns current format 2, and protocol 11 transmits only format 2 snapshots so the geology field cannot be silently omitted between a matching 1.2 client and server.
 
 `activeGuide()` has no player argument and returns content, not an authorization decision. Delvefold's built-in command and item enforce `guide_visibility` separately. An integration that republishes the snapshot to its own audience remains responsible for that audience decision.
 
@@ -102,9 +146,10 @@ The NeoForge game bus posts:
 
 - `DelvefoldWorldLifecycleEvent` after initialization, recreation, or deletion commits;
 - `DelvefoldOreProfileActivatedEvent` after profile selection;
-- `DelvefoldPortalTravelEvent` immediately before destination resolution. This event is cancellable.
+- `DelvefoldPortalTravelEvent` immediately before destination resolution. This event is cancellable;
+- `DelvefoldLandmarkDiscoveredEvent` when a server player newly enters a Delvefold landmark visit. It exposes the player, landmark definition ID, dimension key, and structure start chunk.
 
-Listeners should use the immutable values supplied by each event and should not mutate Delvefold configuration from inside a lifecycle callback.
+The landmark event is an additive API-v1 independent type; it does not change `DelvefoldApi.API_VERSION`. The built-in advancement remains a one-time player reward, while an integration may observe later visits as new discovery events after the player leaves and enters a landmark again. Listeners should use the immutable values supplied by each event and should not mutate Delvefold configuration from inside a lifecycle callback.
 
 ## JEI and EMI
 

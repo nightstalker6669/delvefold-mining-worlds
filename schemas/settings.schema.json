@@ -47,6 +47,11 @@
       "properties": {
         "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
         "terrain_variant": { "enum": ["classic", "expansive"] },
+        "geology_theme": {
+          "enum": ["classic", "volcanic", "dripstone", "lush", "crystal"],
+          "default": "classic",
+          "description": "Recreation-locked vanilla-block geology theme. Omitted schema-2 values load as classic."
+        },
         "landmark_preset": { "enum": ["pure_mining", "balanced", "abundant"] },
         "survey_stations": { "type": "boolean" },
         "motherlodes": { "type": "boolean" },

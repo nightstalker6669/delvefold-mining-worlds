@@ -1,0 +1,109 @@
+{
+  "format": 1,
+  "templates": [
+    {
+      "id": "survey_camp",
+      "size": [13, 7, 11],
+      "operations": [
+        { "op": "fill", "from": [0, 0, 0], "to": [12, 0, 10], "block": "minecraft:cobbled_deepslate" },
+        { "op": "fill", "from": [1, 0, 1], "to": [11, 0, 9], "block": "minecraft:polished_deepslate" },
+        { "op": "fill", "from": [2, 1, 2], "to": [2, 4, 2], "block": "minecraft:oak_fence" },
+        { "op": "fill", "from": [10, 1, 2], "to": [10, 4, 2], "block": "minecraft:oak_fence" },
+        { "op": "fill", "from": [2, 1, 8], "to": [2, 4, 8], "block": "minecraft:oak_fence" },
+        { "op": "fill", "from": [10, 1, 8], "to": [10, 4, 8], "block": "minecraft:oak_fence" },
+        { "op": "fill", "from": [2, 5, 2], "to": [10, 5, 8], "block": "minecraft:white_wool" },
+        { "op": "fill", "from": [4, 5, 2], "to": [5, 5, 8], "block": "minecraft:orange_wool" },
+        { "op": "set", "pos": [4, 1, 5], "block": "minecraft:crafting_table" },
+        { "op": "set", "pos": [6, 1, 5], "block": "minecraft:cartography_table" },
+        { "op": "set", "pos": [8, 1, 5], "block": "minecraft:barrel" },
+        { "op": "set", "pos": [8, 2, 5], "block": "minecraft:structure_block[mode=data]", "marker": "loot" },
+        { "op": "set", "pos": [1, 1, 1], "block": "minecraft:lantern" },
+        { "op": "set", "pos": [11, 1, 9], "block": "minecraft:lantern" }
+      ]
+    },
+    {
+      "id": "collapsed_mine_entrance",
+      "size": [15, 9, 11],
+      "operations": [
+        { "op": "fill", "from": [0, 0, 0], "to": [14, 0, 10], "block": "minecraft:coarse_dirt" },
+        { "op": "hollow", "from": [3, 1, 2], "to": [11, 7, 10], "block": "minecraft:stone_bricks" },
+        { "op": "fill", "from": [4, 2, 3], "to": [10, 6, 10], "block": "minecraft:air" },
+        { "op": "fill", "from": [3, 1, 2], "to": [5, 3, 4], "block": "minecraft:cobblestone" },
+        { "op": "fill", "from": [9, 1, 2], "to": [11, 4, 4], "block": "minecraft:mossy_cobblestone" },
+        { "op": "fill", "from": [5, 1, 5], "to": [9, 1, 10], "block": "minecraft:rail" },
+        { "op": "set", "pos": [6, 1, 7], "block": "minecraft:barrel" },
+        { "op": "set", "pos": [6, 2, 7], "block": "minecraft:structure_block[mode=data]", "marker": "loot" },
+        { "op": "set", "pos": [4, 4, 3], "block": "minecraft:cobweb" },
+        { "op": "set", "pos": [10, 5, 4], "block": "minecraft:cobweb" }
+      ]
+    },
+    {
+      "id": "lift_station",
+      "size": [21, 11, 9],
+      "operations": [
+        { "op": "fill", "from": [0, 0, 0], "to": [20, 0, 8], "block": "minecraft:deepslate_tiles" },
+        { "op": "fill", "from": [1, 1, 1], "to": [1, 8, 1], "block": "minecraft:polished_deepslate_wall" },
+        { "op": "fill", "from": [19, 1, 1], "to": [19, 8, 1], "block": "minecraft:polished_deepslate_wall" },
+        { "op": "fill", "from": [1, 1, 7], "to": [1, 8, 7], "block": "minecraft:polished_deepslate_wall" },
+        { "op": "fill", "from": [19, 1, 7], "to": [19, 8, 7], "block": "minecraft:polished_deepslate_wall" },
+        { "op": "fill", "from": [1, 9, 1], "to": [19, 9, 1], "block": "minecraft:dark_oak_log" },
+        { "op": "fill", "from": [1, 9, 7], "to": [19, 9, 7], "block": "minecraft:dark_oak_log" },
+        { "op": "fill", "from": [10, 1, 4], "to": [10, 9, 4], "block": "minecraft:chain" },
+        { "op": "fill", "from": [4, 1, 4], "to": [16, 1, 4], "block": "minecraft:rail" },
+        { "op": "set", "pos": [17, 1, 3], "block": "minecraft:barrel" },
+        { "op": "set", "pos": [17, 2, 3], "block": "minecraft:structure_block[mode=data]", "marker": "loot" },
+        { "op": "set", "pos": [3, 2, 2], "block": "minecraft:lantern" },
+        { "op": "set", "pos": [17, 2, 6], "block": "minecraft:lantern" }
+      ]
+    },
+    {
+      "id": "geode_vault",
+      "size": [13, 13, 13],
+      "operations": [
+        { "op": "hollow", "from": [0, 0, 0], "to": [12, 12, 12], "block": "minecraft:smooth_basalt" },
+        { "op": "hollow", "from": [1, 1, 1], "to": [11, 11, 11], "block": "minecraft:calcite" },
+        { "op": "fill", "from": [2, 2, 2], "to": [10, 10, 10], "block": "minecraft:air" },
+        { "op": "fill", "from": [3, 1, 3], "to": [9, 1, 9], "block": "minecraft:amethyst_block" },
+        { "op": "set", "pos": [2, 5, 6], "block": "minecraft:budding_amethyst" },
+        { "op": "set", "pos": [10, 7, 6], "block": "minecraft:budding_amethyst" },
+        { "op": "set", "pos": [6, 2, 2], "block": "minecraft:barrel" },
+        { "op": "set", "pos": [6, 3, 2], "block": "minecraft:structure_block[mode=data]", "marker": "loot" },
+        { "op": "set", "pos": [6, 6, 6], "block": "minecraft:amethyst_cluster" }
+      ]
+    },
+    {
+      "id": "motherlode_chamber",
+      "size": [17, 11, 17],
+      "operations": [
+        { "op": "hollow", "from": [0, 0, 0], "to": [16, 10, 16], "block": "minecraft:tuff" },
+        { "op": "fill", "from": [1, 1, 1], "to": [15, 9, 15], "block": "minecraft:air" },
+        { "op": "fill", "from": [1, 0, 1], "to": [15, 0, 15], "block": "minecraft:deepslate" },
+        { "op": "fill", "from": [7, 1, 7], "to": [9, 3, 9], "block": "minecraft:raw_iron_block" },
+        { "op": "set", "pos": [8, 4, 8], "block": "minecraft:raw_gold_block" },
+        { "op": "set", "pos": [3, 1, 3], "block": "minecraft:raw_copper_block" },
+        { "op": "set", "pos": [13, 1, 13], "block": "minecraft:raw_copper_block" },
+        { "op": "set", "pos": [8, 1, 3], "block": "minecraft:barrel" },
+        { "op": "set", "pos": [8, 2, 3], "block": "minecraft:structure_block[mode=data]", "marker": "loot" },
+        { "op": "set", "pos": [2, 3, 8], "block": "minecraft:lantern" },
+        { "op": "set", "pos": [14, 3, 8], "block": "minecraft:lantern" }
+      ]
+    },
+    {
+      "id": "fault_line_grotto",
+      "size": [19, 10, 13],
+      "operations": [
+        { "op": "hollow", "from": [0, 0, 0], "to": [18, 9, 12], "block": "minecraft:tuff" },
+        { "op": "fill", "from": [1, 1, 1], "to": [17, 8, 11], "block": "minecraft:air" },
+        { "op": "fill", "from": [1, 0, 1], "to": [17, 0, 11], "block": "minecraft:dripstone_block" },
+        { "op": "fill", "from": [8, 0, 1], "to": [10, 0, 11], "block": "minecraft:magma_block" },
+        { "op": "fill", "from": [9, 1, 2], "to": [9, 1, 10], "block": "minecraft:lava" },
+        { "op": "set", "pos": [4, 1, 6], "block": "minecraft:barrel" },
+        { "op": "set", "pos": [4, 2, 6], "block": "minecraft:structure_block[mode=data]", "marker": "loot" },
+        { "op": "set", "pos": [2, 4, 2], "block": "minecraft:glow_lichen" },
+        { "op": "set", "pos": [16, 5, 10], "block": "minecraft:glow_lichen" },
+        { "op": "set", "pos": [6, 1, 3], "block": "minecraft:pointed_dripstone" },
+        { "op": "set", "pos": [13, 1, 9], "block": "minecraft:pointed_dripstone" }
+      ]
+    }
+  ]
+}

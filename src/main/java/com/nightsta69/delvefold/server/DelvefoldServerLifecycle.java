@@ -7,6 +7,8 @@ import com.nightsta69.delvefold.config.importer.OreImportSessionService;
 import com.nightsta69.delvefold.reset.WorldOperationService;
 import com.nightsta69.delvefold.reset.WorldRestoreService;
 import com.nightsta69.delvefold.reset.RenewalScheduler;
+import com.nightsta69.delvefold.world.landmark.catalog.LandmarkCatalogService;
+import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.io.IOException;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
@@ -33,6 +35,7 @@ public final class DelvefoldServerLifecycle {
         IEventBus gameBus = NeoForge.EVENT_BUS;
         gameBus.addListener(EventPriority.HIGHEST, ServerAboutToStartEvent.class,
                 event -> {
+                    DelvefoldWorldgen.MINING_ORE_FEATURE.get().invalidateRuntimeProfile();
                     MinecraftOreImportRegistry.invalidateCache();
                     OreImportSessionService.get().invalidateAll();
                     WorldRestoreService.get().prepareStartup(event.getServer());
@@ -49,8 +52,10 @@ public final class DelvefoldServerLifecycle {
             WorldOperationService.get().stop(event.getServer());
             WorldRestoreService.get().stop();
             RenewalScheduler.reset();
+            DelvefoldWorldgen.MINING_ORE_FEATURE.get().invalidateRuntimeProfile();
             MinecraftOreImportRegistry.invalidateCache();
             OreImportSessionService.get().invalidateAll();
+            LandmarkCatalogService.get().reset();
             DelvefoldConfigService.get().stop(event.getServer());
         });
     }

@@ -1,8 +1,10 @@
 package com.nightsta69.delvefold.guide;
 
 import com.nightsta69.delvefold.config.ConfigSnapshot;
+import com.nightsta69.delvefold.config.analysis.OreWorkBudgetAnalysis;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreRule;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.RenewalSettings;
@@ -45,6 +47,7 @@ public final class GuideSnapshotBuilder {
                 settings.identity().displayName(), GuideLimits.MAX_WORLD_NAME_CHARACTERS);
         String terrain = settings.terrainMode() == null ? "uninitialized" : settings.terrainMode().serializedName();
         String terrainVariant = settings.identity().terrainVariant().serializedName();
+        String geologyTheme = settings.identity().geologyTheme().serializedName();
         String activeProfile = GuideLimits.boundedText(
                 settings.activeProfileId(), GuideLimits.MAX_IDENTIFIER_CHARACTERS);
         PortalStatus portalStatus = portalStatus(settings, portalEntryBlocked);
@@ -56,7 +59,7 @@ public final class GuideSnapshotBuilder {
                 .max()
                 .orElse(0.0D);
         int estimatedBytes = GuideSnapshot.estimatedBaseNetworkBytes(
-                worldName, terrain, terrainVariant, activeProfile, renewal);
+                worldName, terrain, terrainVariant, geologyTheme, activeProfile, renewal);
         boolean truncated = false;
         List<OreEntry> entries = new ArrayList<>();
 
@@ -80,6 +83,7 @@ public final class GuideSnapshotBuilder {
                 worldName,
                 terrain,
                 terrainVariant,
+                geologyTheme,
                 activeProfile,
                 portalStatus,
                 renewal,
@@ -166,7 +170,9 @@ public final class GuideSnapshotBuilder {
     }
 
     private static boolean validBand(SpawnBand band) {
-        return band.minY() <= band.maxY() && band.veinSize() >= 1 && band.veinSize() <= 64;
+        return band.minY() <= band.maxY()
+                && (band.placement() == OreBandPlacement.PROVINCE
+                        || band.veinSize() >= 1 && band.veinSize() <= 64);
     }
 
     private static HeightBand heightBand(SpawnBand band) {
@@ -182,20 +188,21 @@ public final class GuideSnapshotBuilder {
             bestMin = Math.clamp(plateauMin, band.minY(), band.maxY());
             bestMax = Math.clamp(plateauMax, bestMin, band.maxY());
         }
+        String distribution = band.distribution().name().toLowerCase(java.util.Locale.ROOT);
+        if (band.placement() == OreBandPlacement.PROVINCE) {
+            distribution = "province_" + distribution;
+        }
         return new HeightBand(
-                band.id(), band.distribution().name().toLowerCase(java.util.Locale.ROOT),
-                band.minY(), band.maxY(), bestMin, bestMax, band.veinSize());
+                band.id(), distribution,
+                band.minY(), band.maxY(), bestMin, bestMax,
+                band.placement() == OreBandPlacement.PROVINCE ? 1 : band.veinSize());
     }
 
     private static double activeWork(OreRule rule, TerrainMode activeTerrain) {
         if (activeTerrain == null || !rule.terrainModes().contains(activeTerrain)) {
             return 0.0D;
         }
-        return rule.bands().stream()
-                .filter(GuideSnapshotBuilder::validBand)
-                .mapToDouble(band -> Math.max(0.0D, band.attemptsPerChunk()) * band.veinSize())
-                .filter(Double::isFinite)
-                .sum();
+        return OreWorkBudgetAnalysis.analyze(rule, activeTerrain).workUnitsPerChunk();
     }
 
     private static RelativeFrequency relativeFrequency(double work, double maximumWork) {

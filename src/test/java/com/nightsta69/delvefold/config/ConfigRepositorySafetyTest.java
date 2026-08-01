@@ -1,9 +1,11 @@
 package com.nightsta69.delvefold.config;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nightsta69.delvefold.config.model.GeologyTheme;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
@@ -195,6 +197,31 @@ class ConfigRepositorySafetyTest {
         assertEquals(RenewalSeedMode.STABLE,
                 loaded.snapshot().settings().identity().renewal().seedMode());
         assertEquals(legacySettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void schemaTwoOneOneSettingsWithoutGeologyThemeLoadClassicWithoutByteRewrite() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var identity = root.getAsJsonObject("identity");
+        assertTrue(identity.remove("geology_theme") != null,
+                "The current settings fixture must contain the sole post-1.1 identity field");
+        byte[] oneOneSettings = (ConfigJson.GSON.toJson(root) + System.lineSeparator())
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(paths.settings(), oneOneSettings);
+
+        ConfigLoadResult loaded = new FileConfigRepository(paths, RegistryLookup.SKIP).loadOrCreate(null);
+
+        assertTrue(!loaded.usedFallback());
+        assertEquals(GeologyTheme.CLASSIC, loaded.snapshot().settings().identity().geologyTheme());
+        assertArrayEquals(oneOneSettings, Files.readAllBytes(paths.settings()),
+                "Loading a compatible 1.1 settings file must not rewrite it");
     }
 
     @Test

@@ -6,7 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.BiomeFilter;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
+import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.OreTarget;
+import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.validation.OreConfigValidator;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
@@ -140,5 +142,52 @@ class OreConfigValidatorTest {
                 new OreProfileDocument(2, 0, "weighted_overlap", List.of(overlapping)), RegistryLookup.SKIP);
         assertTrue(warned.valid(), () -> warned.issues().toString());
         assertTrue(warned.issues().stream().anyMatch(issue -> "target.duplicate".equals(issue.code())));
+    }
+
+    @Test
+    void validatesProvinceShapeDensityCapAndPlacementAssociation() {
+        var original = OrePresets.balanced().rules().getFirst();
+        var invalidProvince = new SpawnBand(
+                "province", 0, -1.0D, HeightDistribution.UNIFORM, -32, 64,
+                null, null, null, 0.0D, OreBandPlacement.PROVINCE,
+                new ProvinceSettings(30, 31, 386, Double.NaN, 4097));
+        var missingProvince = new SpawnBand(
+                "missing", 1, 0.0D, HeightDistribution.UNIFORM, -32, 64,
+                null, null, null, 0.0D, OreBandPlacement.PROVINCE, null);
+        var veinWithProvince = new SpawnBand(
+                "vein", 8, 1.0D, HeightDistribution.UNIFORM, -32, 64,
+                null, null, null, 0.0D, OreBandPlacement.VEIN, ProvinceSettings.defaults());
+        var report = OreConfigValidator.validate(new OreProfileDocument(
+                2, 0L, "invalid_provinces",
+                List.of(original.withBands(List.of(invalidProvince, missingProvince, veinWithProvince)))),
+                RegistryLookup.SKIP);
+
+        assertFalse(report.valid());
+        for (String code : List.of(
+                "province.invalid_region_size", "province.invalid_radius",
+                "province.invalid_vertical_thickness", "province.invalid_density",
+                "province.invalid_work_cap", "band.missing_province", "band.unexpected_province",
+                "band.invalid_vein_size", "band.invalid_attempts")) {
+            assertTrue(report.issues().stream().anyMatch(issue -> code.equals(issue.code())),
+                    () -> "Missing " + code + " in " + report.issues());
+        }
+    }
+
+    @Test
+    void aggregateSafetyBudgetCountsProvinceCapsAlongsideVeins() {
+        var original = OrePresets.balanced().rules().getFirst();
+        var first = SpawnBand.province("first", HeightDistribution.UNIFORM,
+                -32, 64, null, null, null, 0.0D,
+                new ProvinceSettings(512, 192, 48, 0.08D, 3000));
+        var second = SpawnBand.province("second", HeightDistribution.UNIFORM,
+                -32, 64, null, null, null, 0.0D,
+                new ProvinceSettings(512, 192, 48, 0.08D, 3000));
+        var report = OreConfigValidator.validate(new OreProfileDocument(
+                2, 0L, "province_budget",
+                List.of(original.withBands(List.of(first, second)))), RegistryLookup.SKIP);
+
+        assertFalse(report.valid());
+        assertTrue(report.issues().stream()
+                .anyMatch(issue -> "budget.too_many_attempts".equals(issue.code())));
     }
 }

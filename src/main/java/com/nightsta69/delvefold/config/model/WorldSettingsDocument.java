@@ -147,6 +147,11 @@ public record WorldSettingsDocument(
 
     public WorldSettingsDocument recreate(TerrainMode mode, TerrainVariant variant, OrePreset preset,
             GameplayPreset gameplayPreset, String operationId) {
+        return recreate(mode, variant, identity.geologyTheme(), preset, gameplayPreset, operationId);
+    }
+
+    public WorldSettingsDocument recreate(TerrainMode mode, TerrainVariant variant, GeologyTheme geologyTheme,
+            OrePreset preset, GameplayPreset gameplayPreset, String operationId) {
         if (!initialized) {
             throw new IllegalStateException("Delvefold must be initialized before it can be recreated");
         }
@@ -163,7 +168,7 @@ public record WorldSettingsDocument(
                 gameplayPreset == null ? gameplay : GameplaySettings.fromPreset(gameplayPreset),
                 portal,
                 activeProfileId,
-                identity.withTerrainVariant(variant),
+                identity.withTerrainAndGeology(variant, geologyTheme),
                 guideVisibility
         );
     }

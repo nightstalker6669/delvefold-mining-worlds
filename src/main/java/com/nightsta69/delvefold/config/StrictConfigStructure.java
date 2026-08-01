@@ -21,10 +21,14 @@ final class StrictConfigStructure {
     private static final Set<String> BIOME_FILTER = Set.of("include", "exclude");
     private static final Set<String> SPAWN_BAND = Set.of(
             "id", "vein_size", "attempts_per_chunk", "distribution", "min_y", "max_y",
-            "peak_y", "plateau_min_y", "plateau_max_y", "discard_on_air_exposure");
+            "peak_y", "plateau_min_y", "plateau_max_y", "discard_on_air_exposure",
+            "placement", "province");
     private static final Set<String> REQUIRED_SPAWN_BAND = Set.of(
             "id", "vein_size", "attempts_per_chunk", "distribution", "min_y", "max_y",
             "discard_on_air_exposure");
+    private static final Set<String> BAND_PLACEMENT = Set.of("vein", "province");
+    private static final Set<String> PROVINCE = Set.of(
+            "region_size", "radius", "vertical_thickness", "density", "per_chunk_work_cap");
     private static final Set<String> SETTINGS_DOCUMENT = Set.of(
             "schema_version", "revision", "generation_epoch", "generation_salt", "last_world_operation_id", "initialized",
             "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal", "identity",
@@ -39,7 +43,12 @@ final class StrictConfigStructure {
     private static final Set<String> GUIDE_VISIBILITY = Set.of("public", "operators", "disabled");
     private static final Set<String> IDENTITY = Set.of(
             "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
+            "fault_lines", "geology_theme", "renewal");
+    private static final Set<String> REQUIRED_IDENTITY = Set.of(
+            "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
             "fault_lines", "renewal");
+    private static final Set<String> GEOLOGY_THEMES = Set.of(
+            "classic", "volcanic", "dripstone", "lush", "crystal");
     private static final Set<String> RENEWAL = Set.of(
             "enabled", "interval_days", "warning_minutes", "next_renewal_at_epoch_millis", "seed_mode");
     private static final Set<String> REQUIRED_RENEWAL = Set.of(
@@ -113,6 +122,23 @@ final class StrictConfigStructure {
                 optionalInteger(band, "plateau_min_y", bandPath);
                 optionalInteger(band, "plateau_max_y", bandPath);
                 number(band.get("discard_on_air_exposure"), bandPath + ".discard_on_air_exposure");
+                if (band.has("placement")) {
+                    string(band.get("placement"), bandPath + ".placement", false);
+                    String placement = band.get("placement").getAsString();
+                    if (!BAND_PLACEMENT.contains(placement)) {
+                        throw new JsonParseException(bandPath + ".placement must be vein or province");
+                    }
+                }
+                if (band.has("province") && !band.get("province").isJsonNull()) {
+                    String provincePath = bandPath + ".province";
+                    JsonObject province = object(band.get("province"), provincePath);
+                    fields(province, PROVINCE, PROVINCE, provincePath);
+                    integer(province.get("region_size"), provincePath + ".region_size");
+                    integer(province.get("radius"), provincePath + ".radius");
+                    integer(province.get("vertical_thickness"), provincePath + ".vertical_thickness");
+                    number(province.get("density"), provincePath + ".density");
+                    integer(province.get("per_chunk_work_cap"), provincePath + ".per_chunk_work_cap");
+                }
             }
         }
     }
@@ -156,13 +182,21 @@ final class StrictConfigStructure {
         number(portal.get("coordinate_scale"), "$.portal.coordinate_scale");
         if (settings.has("identity")) {
             JsonObject identity = object(settings.get("identity"), "$.identity");
-            fields(identity, IDENTITY, IDENTITY, "$.identity");
+            fields(identity, IDENTITY, REQUIRED_IDENTITY, "$.identity");
             string(identity.get("display_name"), "$.identity.display_name", false);
             string(identity.get("terrain_variant"), "$.identity.terrain_variant", false);
             string(identity.get("landmark_preset"), "$.identity.landmark_preset", false);
             bool(identity.get("survey_stations"), "$.identity.survey_stations");
             bool(identity.get("motherlodes"), "$.identity.motherlodes");
             bool(identity.get("fault_lines"), "$.identity.fault_lines");
+            if (identity.has("geology_theme")) {
+                string(identity.get("geology_theme"), "$.identity.geology_theme", false);
+                String geologyTheme = identity.get("geology_theme").getAsString();
+                if (!GEOLOGY_THEMES.contains(geologyTheme)) {
+                    throw new JsonParseException(
+                            "$.identity.geology_theme must be classic, volcanic, dripstone, lush, or crystal");
+                }
+            }
             JsonObject renewal = object(identity.get("renewal"), "$.identity.renewal");
             fields(renewal, RENEWAL, REQUIRED_RENEWAL, "$.identity.renewal");
             bool(renewal.get("enabled"), "$.identity.renewal.enabled");
