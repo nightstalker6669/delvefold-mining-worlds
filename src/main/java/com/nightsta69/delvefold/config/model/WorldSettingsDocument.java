@@ -67,7 +67,21 @@ public record WorldSettingsDocument(
      * @param backupRetention backup-retention policy
      * @throws IllegalArgumentException if {@code initialized} is true and {@code terrainMode} is {@code null}
      */
-    public WorldSettingsDocument {
+    public WorldSettingsDocument(
+            int schemaVersion,
+            long revision,
+            long generationEpoch,
+            long generationSalt,
+            @Nullable String lastWorldOperationId,
+            boolean initialized,
+            @Nullable TerrainMode terrainMode,
+            @Nullable OrePreset orePreset,
+            @Nullable GameplaySettings gameplay,
+            @Nullable PortalSettings portal,
+            @Nullable String activeProfileId,
+            @Nullable WorldIdentitySettings identity,
+            @Nullable GuideVisibility guideVisibility,
+            @Nullable BackupRetentionSettings backupRetention) {
         lastWorldOperationId = lastWorldOperationId == null ? "" : lastWorldOperationId;
         orePreset = orePreset == null ? OrePreset.VANILLA_BALANCED : orePreset;
         gameplay = gameplay == null ? GameplaySettings.fromPreset(GameplayPreset.SAFE) : gameplay;
@@ -81,6 +95,20 @@ public record WorldSettingsDocument(
         if (initialized && terrainMode == null) {
             throw new IllegalArgumentException("An initialized world requires a terrain mode");
         }
+        this.schemaVersion = schemaVersion;
+        this.revision = revision;
+        this.generationEpoch = generationEpoch;
+        this.generationSalt = generationSalt;
+        this.lastWorldOperationId = lastWorldOperationId;
+        this.initialized = initialized;
+        this.terrainMode = terrainMode;
+        this.orePreset = orePreset;
+        this.gameplay = gameplay;
+        this.portal = portal;
+        this.activeProfileId = activeProfileId;
+        this.identity = identity;
+        this.guideVisibility = guideVisibility;
+        this.backupRetention = backupRetention;
     }
 
     /**
@@ -105,15 +133,15 @@ public record WorldSettingsDocument(
             long revision,
             long generationEpoch,
             long generationSalt,
-            String lastWorldOperationId,
+            @Nullable String lastWorldOperationId,
             boolean initialized,
             @Nullable TerrainMode terrainMode,
-            OrePreset orePreset,
-            GameplaySettings gameplay,
-            PortalSettings portal,
-            String activeProfileId,
-            WorldIdentitySettings identity,
-            GuideVisibility guideVisibility) {
+            @Nullable OrePreset orePreset,
+            @Nullable GameplaySettings gameplay,
+            @Nullable PortalSettings portal,
+            @Nullable String activeProfileId,
+            @Nullable WorldIdentitySettings identity,
+            @Nullable GuideVisibility guideVisibility) {
         this(
                 schemaVersion,
                 revision,
@@ -151,15 +179,15 @@ public record WorldSettingsDocument(
             int schemaVersion,
             long revision,
             long generationEpoch,
-            String lastWorldOperationId,
+            @Nullable String lastWorldOperationId,
             boolean initialized,
             @Nullable TerrainMode terrainMode,
-            OrePreset orePreset,
-            GameplaySettings gameplay,
-            PortalSettings portal,
-            String activeProfileId,
-            WorldIdentitySettings identity,
-            GuideVisibility guideVisibility) {
+            @Nullable OrePreset orePreset,
+            @Nullable GameplaySettings gameplay,
+            @Nullable PortalSettings portal,
+            @Nullable String activeProfileId,
+            @Nullable WorldIdentitySettings identity,
+            @Nullable GuideVisibility guideVisibility) {
         this(
                 schemaVersion,
                 revision,
@@ -196,14 +224,14 @@ public record WorldSettingsDocument(
             int schemaVersion,
             long revision,
             long generationEpoch,
-            String lastWorldOperationId,
+            @Nullable String lastWorldOperationId,
             boolean initialized,
             @Nullable TerrainMode terrainMode,
-            OrePreset orePreset,
-            GameplaySettings gameplay,
-            PortalSettings portal,
-            String activeProfileId,
-            WorldIdentitySettings identity) {
+            @Nullable OrePreset orePreset,
+            @Nullable GameplaySettings gameplay,
+            @Nullable PortalSettings portal,
+            @Nullable String activeProfileId,
+            @Nullable WorldIdentitySettings identity) {
         this(
                 schemaVersion,
                 revision,

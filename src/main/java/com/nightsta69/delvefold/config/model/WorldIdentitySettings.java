@@ -1,5 +1,7 @@
 package com.nightsta69.delvefold.config.model;
 
+import org.jspecify.annotations.Nullable;
+
 /**
  * Immutable player-facing identity and generation policy for the mining world.
  *
@@ -39,12 +41,28 @@ public record WorldIdentitySettings(
      * @param geologyTheme geology theme
      * @param renewal renewal schedule
      */
-    public WorldIdentitySettings {
+    public WorldIdentitySettings(
+            @Nullable String displayName,
+            @Nullable TerrainVariant terrainVariant,
+            @Nullable LandmarkPreset landmarkPreset,
+            boolean surveyStations,
+            boolean motherlodes,
+            boolean faultLines,
+            @Nullable GeologyTheme geologyTheme,
+            @Nullable RenewalSettings renewal) {
         displayName = displayName == null || displayName.isBlank() ? "Delvefold Mining World" : displayName.trim();
         terrainVariant = terrainVariant == null ? TerrainVariant.CLASSIC : terrainVariant;
         landmarkPreset = landmarkPreset == null ? LandmarkPreset.BALANCED : landmarkPreset;
         renewal = renewal == null ? RenewalSettings.disabled() : renewal;
         geologyTheme = geologyTheme == null ? GeologyTheme.CLASSIC : geologyTheme;
+        this.displayName = displayName;
+        this.terrainVariant = terrainVariant;
+        this.landmarkPreset = landmarkPreset;
+        this.surveyStations = surveyStations;
+        this.motherlodes = motherlodes;
+        this.faultLines = faultLines;
+        this.geologyTheme = geologyTheme;
+        this.renewal = renewal;
     }
 
     /**
@@ -59,13 +77,13 @@ public record WorldIdentitySettings(
      * @param renewal renewal schedule
      */
     public WorldIdentitySettings(
-            String displayName,
-            TerrainVariant terrainVariant,
-            LandmarkPreset landmarkPreset,
+            @Nullable String displayName,
+            @Nullable TerrainVariant terrainVariant,
+            @Nullable LandmarkPreset landmarkPreset,
             boolean surveyStations,
             boolean motherlodes,
             boolean faultLines,
-            RenewalSettings renewal) {
+            @Nullable RenewalSettings renewal) {
         this(
                 displayName,
                 terrainVariant,

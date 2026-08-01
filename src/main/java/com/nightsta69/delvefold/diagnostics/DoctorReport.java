@@ -2,6 +2,7 @@ package com.nightsta69.delvefold.diagnostics;
 
 import java.util.Comparator;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Immutable, transport-neutral snapshot used by the doctor command, screen, and export.
@@ -50,7 +51,16 @@ public record DoctorReport(
      * @param disk byte estimates, or {@code null} for unknown estimates
      * @throws IllegalArgumentException if the format is unsupported or the timestamp is negative
      */
-    public DoctorReport {
+    public DoctorReport(
+            int formatVersion,
+            long generatedAtEpochMillis,
+            @Nullable VersionInfo versions,
+            @Nullable List<DimensionStatus> dimensions,
+            @Nullable ProfileHealth profile,
+            @Nullable List<PendingOperationStatus> pendingOperations,
+            @Nullable BackupHealth backups,
+            @Nullable RetentionPreview retention,
+            @Nullable DiskEstimate disk) {
         if (formatVersion != CURRENT_FORMAT_VERSION) {
             throw new IllegalArgumentException("Unsupported doctor report format: " + formatVersion);
         }
@@ -67,6 +77,15 @@ public record DoctorReport(
         backups = backups == null ? BackupHealth.empty() : backups;
         retention = retention == null ? RetentionPreview.disabled() : retention;
         disk = disk == null ? DiskEstimate.unknown() : disk;
+        this.formatVersion = formatVersion;
+        this.generatedAtEpochMillis = generatedAtEpochMillis;
+        this.versions = versions;
+        this.dimensions = dimensions;
+        this.profile = profile;
+        this.pendingOperations = pendingOperations;
+        this.backups = backups;
+        this.retention = retention;
+        this.disk = disk;
     }
 
     /**
@@ -85,12 +104,12 @@ public record DoctorReport(
     public DoctorReport(
             int formatVersion,
             long generatedAtEpochMillis,
-            VersionInfo versions,
-            List<DimensionStatus> dimensions,
-            ProfileHealth profile,
-            List<PendingOperationStatus> pendingOperations,
-            BackupHealth backups,
-            DiskEstimate disk) {
+            @Nullable VersionInfo versions,
+            @Nullable List<DimensionStatus> dimensions,
+            @Nullable ProfileHealth profile,
+            @Nullable List<PendingOperationStatus> pendingOperations,
+            @Nullable BackupHealth backups,
+            @Nullable DiskEstimate disk) {
         this(
                 formatVersion,
                 generatedAtEpochMillis,
@@ -116,7 +135,7 @@ public record DoctorReport(
                 && disk.sufficient();
     }
 
-    private static <T> List<T> sortedCopy(List<T> values, Comparator<? super T> comparator) {
+    private static <T> List<T> sortedCopy(@Nullable List<T> values, Comparator<? super T> comparator) {
         return values == null ? List.of() : values.stream().sorted(comparator).toList();
     }
 
@@ -143,13 +162,25 @@ public record DoctorReport(
          * @param configSchema non-negative configuration schema version
          * @throws IllegalArgumentException if any numeric version is negative
          */
-        public VersionInfo {
+        public VersionInfo(
+                @Nullable String delvefold,
+                @Nullable String minecraft,
+                @Nullable String neoForge,
+                int publicApi,
+                int networkProtocol,
+                int configSchema) {
             delvefold = fallback(delvefold);
             minecraft = fallback(minecraft);
             neoForge = fallback(neoForge);
             if (publicApi < 0 || networkProtocol < 0 || configSchema < 0) {
                 throw new IllegalArgumentException("Version numbers must not be negative");
             }
+            this.delvefold = delvefold;
+            this.minecraft = minecraft;
+            this.neoForge = neoForge;
+            this.publicApi = publicApi;
+            this.networkProtocol = networkProtocol;
+            this.configSchema = configSchema;
         }
 
         /**
@@ -177,10 +208,13 @@ public record DoctorReport(
          * @param terrain configured terrain description, or blank for {@code unknown}
          * @param state state value, or {@code null} to conservatively report {@link DimensionState#MISSING}
          */
-        public DimensionStatus {
+        public DimensionStatus(@Nullable String dimensionId, @Nullable String terrain, @Nullable DimensionState state) {
             dimensionId = fallback(dimensionId);
             terrain = fallback(terrain);
             state = state == null ? DimensionState.MISSING : state;
+            this.dimensionId = dimensionId;
+            this.terrain = terrain;
+            this.state = state;
         }
     }
 
@@ -228,7 +262,15 @@ public record DoctorReport(
          * @param findings profile findings, or {@code null} for an empty list
          * @throws IllegalArgumentException if counts are negative or enabled rules exceed total rules
          */
-        public ProfileHealth {
+        public ProfileHealth(
+                @Nullable String activeProfileId,
+                long revision,
+                int enabledRules,
+                int totalRules,
+                long errorCount,
+                long warningCount,
+                @Nullable List<IneffectiveTarget> ineffectiveTargets,
+                @Nullable List<Finding> findings) {
             activeProfileId = fallback(activeProfileId);
             if (revision < 0L
                     || enabledRules < 0
@@ -248,6 +290,14 @@ public record DoctorReport(
                     Comparator.comparing(Finding::severity)
                             .thenComparing(Finding::code)
                             .thenComparing(Finding::objectId));
+            this.activeProfileId = activeProfileId;
+            this.revision = revision;
+            this.enabledRules = enabledRules;
+            this.totalRules = totalRules;
+            this.errorCount = errorCount;
+            this.warningCount = warningCount;
+            this.ineffectiveTargets = ineffectiveTargets;
+            this.findings = findings;
         }
 
         /**
@@ -284,10 +334,13 @@ public record DoctorReport(
          * @param targetId resource identifier, or blank for {@code unknown}
          * @param reasonCode stable reason code, or blank for {@code unknown}
          */
-        public IneffectiveTarget {
+        public IneffectiveTarget(@Nullable String ruleId, @Nullable String targetId, @Nullable String reasonCode) {
             ruleId = fallback(ruleId);
             targetId = fallback(targetId);
             reasonCode = fallback(reasonCode);
+            this.ruleId = ruleId;
+            this.targetId = targetId;
+            this.reasonCode = reasonCode;
         }
     }
 
@@ -306,10 +359,13 @@ public record DoctorReport(
          * @param code stable code, or blank for {@code unknown}
          * @param objectId logical object ID, or blank for {@code unknown}
          */
-        public Finding {
+        public Finding(@Nullable Severity severity, @Nullable String code, @Nullable String objectId) {
             severity = severity == null ? Severity.WARNING : severity;
             code = fallback(code);
             objectId = fallback(objectId);
+            this.severity = severity;
+            this.code = code;
+            this.objectId = objectId;
         }
     }
 
@@ -342,13 +398,21 @@ public record DoctorReport(
          * @param createdAtEpochMillis non-negative creation time in milliseconds since the Unix epoch
          * @throws IllegalArgumentException if the timestamp is negative
          */
-        public PendingOperationStatus {
+        public PendingOperationStatus(
+                @Nullable String operationId,
+                @Nullable String operation,
+                @Nullable String state,
+                long createdAtEpochMillis) {
             operationId = fallback(operationId);
             operation = fallback(operation);
             state = fallback(state);
             if (createdAtEpochMillis < 0L) {
                 throw new IllegalArgumentException("Pending-operation timestamp must not be negative");
             }
+            this.operationId = operationId;
+            this.operation = operation;
+            this.state = state;
+            this.createdAtEpochMillis = createdAtEpochMillis;
         }
     }
 
@@ -384,7 +448,14 @@ public record DoctorReport(
          * @throws IllegalArgumentException if counts are negative, exceed totals, overlap beyond the total, or byte
          *     size is negative
          */
-        public BackupHealth {
+        public BackupHealth(
+                int total,
+                int verified,
+                int invalid,
+                int legacy,
+                int pinned,
+                long totalBytes,
+                @Nullable List<BackupProblem> problems) {
             if (total < 0
                     || verified < 0
                     || invalid < 0
@@ -400,6 +471,13 @@ public record DoctorReport(
             }
             problems = sortedCopy(
                     problems, Comparator.comparing(BackupProblem::backupId).thenComparing(BackupProblem::reasonCode));
+            this.total = total;
+            this.verified = verified;
+            this.invalid = invalid;
+            this.legacy = legacy;
+            this.pinned = pinned;
+            this.totalBytes = totalBytes;
+            this.problems = problems;
         }
 
         /**
@@ -436,10 +514,13 @@ public record DoctorReport(
          * @param state stable state, or blank for {@code unknown}
          * @param reasonCode stable reason code, or blank for {@code unknown}
          */
-        public BackupProblem {
+        public BackupProblem(@Nullable String backupId, @Nullable String state, @Nullable String reasonCode) {
             backupId = fallback(backupId);
             state = fallback(state);
             reasonCode = fallback(reasonCode);
+            this.backupId = backupId;
+            this.state = state;
+            this.reasonCode = reasonCode;
         }
     }
 
@@ -480,7 +561,16 @@ public record DoctorReport(
          * @param lastRun last run summary, or {@code null} when none is available
          * @throws IllegalArgumentException if counts or bytes are inconsistent, or disabled retention proposes changes
          */
-        public RetentionPreview {
+        public RetentionPreview(
+                boolean enabled,
+                int beforeCount,
+                int afterCount,
+                long beforeBytes,
+                long afterBytes,
+                boolean constraintsSatisfied,
+                @Nullable List<RetentionPrune> prunes,
+                @Nullable List<@Nullable String> warnings,
+                @Nullable RetentionRun lastRun) {
             if (beforeCount < 0
                     || afterCount < 0
                     || afterCount > beforeCount
@@ -493,13 +583,22 @@ public record DoctorReport(
                     prunes,
                     Comparator.comparingLong(RetentionPrune::createdAtEpochMillis)
                             .thenComparing(RetentionPrune::backupId));
-            warnings = warnings == null
+            List<String> normalizedWarnings = warnings == null
                     ? List.of()
                     : warnings.stream().map(DoctorReport::fallback).sorted().toList();
             lastRun = lastRun == null ? RetentionRun.none() : lastRun;
             if (!enabled && (!prunes.isEmpty() || beforeCount != afterCount || beforeBytes != afterBytes)) {
                 throw new IllegalArgumentException("Disabled retention cannot preview pruning");
             }
+            this.enabled = enabled;
+            this.beforeCount = beforeCount;
+            this.afterCount = afterCount;
+            this.beforeBytes = beforeBytes;
+            this.afterBytes = afterBytes;
+            this.constraintsSatisfied = constraintsSatisfied;
+            this.prunes = prunes;
+            this.warnings = normalizedWarnings;
+            this.lastRun = lastRun;
         }
 
         /**
@@ -522,8 +621,8 @@ public record DoctorReport(
                 long beforeBytes,
                 long afterBytes,
                 boolean constraintsSatisfied,
-                List<RetentionPrune> prunes,
-                List<String> warnings) {
+                @Nullable List<RetentionPrune> prunes,
+                @Nullable List<@Nullable String> warnings) {
             this(
                     enabled,
                     beforeCount,
@@ -616,7 +715,20 @@ public record DoctorReport(
          * @throws IllegalArgumentException if counts are inconsistent, unavailable state contains results, or detailed
          *     proposals exceed {@code proposedCount}
          */
-        public RetentionRun {
+        public RetentionRun(
+                boolean available,
+                long evaluatedAtEpochMillis,
+                boolean enabled,
+                int beforeCount,
+                int afterCount,
+                int proposedCount,
+                @Nullable List<RetentionProposal> proposals,
+                int protectedCount,
+                boolean constraintsSatisfied,
+                boolean applyRecorded,
+                int appliedCount,
+                int failureCount,
+                @Nullable List<@Nullable String> warnings) {
             if (evaluatedAtEpochMillis < 0L
                     || beforeCount < 0
                     || afterCount < 0
@@ -631,7 +743,7 @@ public record DoctorReport(
                     proposals,
                     Comparator.comparing(RetentionProposal::backupId)
                             .thenComparing(proposal -> String.join(",", proposal.reasons())));
-            warnings = warnings == null
+            List<String> normalizedWarnings = warnings == null
                     ? List.of()
                     : warnings.stream().map(DoctorReport::fallback).sorted().toList();
             if (!available
@@ -645,6 +757,19 @@ public record DoctorReport(
             if (proposals.size() > proposedCount) {
                 throw new IllegalArgumentException("Retention-run proposals exceed the reported count");
             }
+            this.available = available;
+            this.evaluatedAtEpochMillis = evaluatedAtEpochMillis;
+            this.enabled = enabled;
+            this.beforeCount = beforeCount;
+            this.afterCount = afterCount;
+            this.proposedCount = proposedCount;
+            this.proposals = proposals;
+            this.protectedCount = protectedCount;
+            this.constraintsSatisfied = constraintsSatisfied;
+            this.applyRecorded = applyRecorded;
+            this.appliedCount = appliedCount;
+            this.failureCount = failureCount;
+            this.warnings = normalizedWarnings;
         }
 
         /**
@@ -670,11 +795,13 @@ public record DoctorReport(
          * @param backupId logical backup ID, or blank for {@code unknown}
          * @param reasons stable reason codes, or {@code null} for an empty list
          */
-        public RetentionProposal {
+        public RetentionProposal(@Nullable String backupId, @Nullable List<@Nullable String> reasons) {
             backupId = fallback(backupId);
-            reasons = reasons == null
+            List<String> normalizedReasons = reasons == null
                     ? List.of()
                     : reasons.stream().map(DoctorReport::fallback).sorted().toList();
+            this.backupId = backupId;
+            this.reasons = normalizedReasons;
         }
     }
 
@@ -696,14 +823,22 @@ public record DoctorReport(
          * @param reasons stable reason codes, or {@code null} for an empty list
          * @throws IllegalArgumentException if the timestamp or size is negative
          */
-        public RetentionPrune {
+        public RetentionPrune(
+                @Nullable String backupId,
+                long createdAtEpochMillis,
+                long sizeBytes,
+                @Nullable List<@Nullable String> reasons) {
             backupId = fallback(backupId);
             if (createdAtEpochMillis < 0L || sizeBytes < 0L) {
                 throw new IllegalArgumentException("Retention prune values must not be negative");
             }
-            reasons = reasons == null
+            List<String> normalizedReasons = reasons == null
                     ? List.of()
                     : reasons.stream().map(DoctorReport::fallback).sorted().toList();
+            this.backupId = backupId;
+            this.createdAtEpochMillis = createdAtEpochMillis;
+            this.sizeBytes = sizeBytes;
+            this.reasons = normalizedReasons;
         }
     }
 
@@ -757,7 +892,7 @@ public record DoctorReport(
         }
     }
 
-    private static String fallback(String value) {
+    private static String fallback(@Nullable String value) {
         return value == null || value.isBlank() ? "unknown" : value;
     }
 }

@@ -8,6 +8,7 @@ import com.nightsta69.delvefold.config.validation.IssueSeverity;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Bounded, display-only views for the server-authoritative ore importer.
@@ -150,11 +151,15 @@ public final class OreImportViews {
          * @throws IllegalArgumentException if an identifier violates protocol bounds
          * @throws NullPointerException if host kind or evidence is null
          */
-        public CandidateView {
+        public CandidateView(String blockId, @Nullable String replaceTag, HostKind hostKind, Evidence evidence) {
             blockId = OreImportViews.id(blockId, "candidate block ID");
             replaceTag = OreImportViews.optionalId(replaceTag, "replacement tag");
             Objects.requireNonNull(hostKind, "hostKind");
             Objects.requireNonNull(evidence, "evidence");
+            this.blockId = blockId;
+            this.replaceTag = replaceTag;
+            this.hostKind = hostKind;
+            this.evidence = evidence;
         }
     }
 
@@ -266,13 +271,25 @@ public final class OreImportViews {
          * @throws IllegalArgumentException if text or identifier bounds are violated
          * @throws NullPointerException if status is null or a copied block list contains a null element
          */
-        public DiffView {
+        public DiffView(
+                String groupId,
+                DiffStatus status,
+                @Nullable String ruleId,
+                @Nullable List<String> addedBlocks,
+                @Nullable List<String> skippedBlocks,
+                @Nullable String message) {
             groupId = OreImportViews.id(groupId, "diff group ID");
             Objects.requireNonNull(status, "status");
             ruleId = OreImportViews.optionalId(ruleId, "diff rule ID");
             addedBlocks = OreImportViews.ids(addedBlocks, ProtocolLimits.MAX_VARIANTS, "added blocks");
             skippedBlocks = OreImportViews.ids(skippedBlocks, ProtocolLimits.MAX_VARIANTS, "skipped blocks");
             message = OreImportViews.text(message, ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH);
+            this.groupId = groupId;
+            this.status = status;
+            this.ruleId = ruleId;
+            this.addedBlocks = addedBlocks;
+            this.skippedBlocks = skippedBlocks;
+            this.message = message;
         }
     }
 
@@ -348,21 +365,26 @@ public final class OreImportViews {
          * @throws IllegalArgumentException if textual bounds are violated or the code is blank
          * @throws NullPointerException if severity is null
          */
-        public ValidationIssueView {
+        public ValidationIssueView(
+                IssueSeverity severity, String code, @Nullable String path, @Nullable String message) {
             Objects.requireNonNull(severity, "severity");
             code = OreImportViews.id(code, "validation code");
             path = OreImportViews.text(path, ProtocolLimits.SHORT_TEXT_LENGTH);
             message = OreImportViews.text(message, ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH);
+            this.severity = severity;
+            this.code = code;
+            this.path = path;
+            this.message = message;
         }
     }
 
-    private static List<String> ids(List<String> values, int maximum, String label) {
+    private static List<String> ids(@Nullable List<String> values, int maximum, String label) {
         return limited(values, maximum, label).stream()
                 .map(value -> id(value, label))
                 .toList();
     }
 
-    private static <T> List<T> limited(List<T> values, int maximum, String label) {
+    private static <T> List<T> limited(@Nullable List<T> values, int maximum, String label) {
         List<T> safe = values == null ? List.of() : List.copyOf(values);
         if (safe.size() > maximum) {
             throw new IllegalArgumentException(label + " exceed " + maximum);
@@ -386,7 +408,7 @@ public final class OreImportViews {
         return safe;
     }
 
-    private static String optionalId(String value, String label) {
+    private static String optionalId(@Nullable String value, String label) {
         String safe = text(value, ProtocolLimits.ID_LENGTH).trim();
         if (safe.length() > ProtocolLimits.ID_LENGTH) {
             throw new IllegalArgumentException(label + " is too long");
@@ -394,7 +416,7 @@ public final class OreImportViews {
         return safe;
     }
 
-    private static String text(String value, int maximum) {
+    private static String text(@Nullable String value, int maximum) {
         String safe = value == null ? "" : value;
         if (safe.codePointCount(0, safe.length()) > maximum) {
             throw new IllegalArgumentException("Text exceeds " + maximum + " characters");

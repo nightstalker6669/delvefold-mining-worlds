@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Immutable, explicitly bounded values shared by discovery, preview, and later network adapters. */
 public final class OreImportModels {
@@ -64,13 +65,16 @@ public final class OreImportModels {
          * @param truncated whether discovery omitted any source or result data
          * @param scannedBlocks bounded number of inspected block entries
          */
-        public DiscoveryResult {
+        public DiscoveryResult(@Nullable List<Group> groups, boolean truncated, int scannedBlocks) {
             groups = bounded(groups, MAX_GROUPS, "ore import groups").stream()
                     .sorted(Comparator.comparing(Group::id))
                     .toList();
             if (scannedBlocks < 0 || scannedBlocks > MAX_SCANNED_BLOCKS) {
                 throw new IllegalArgumentException("Invalid scanned block count: " + scannedBlocks);
             }
+            this.groups = groups;
+            this.truncated = truncated;
+            this.scannedBlocks = scannedBlocks;
         }
     }
 
@@ -257,7 +261,13 @@ public final class OreImportModels {
          * @param skippedBlocks skipped exact block IDs
          * @param message localized explanatory message, or {@code null} for none
          */
-        public DiffEntry {
+        public DiffEntry(
+                String groupId,
+                DiffStatus status,
+                @Nullable String ruleId,
+                @Nullable List<String> addedBlocks,
+                @Nullable List<String> skippedBlocks,
+                @Nullable String message) {
             groupId = resourceId(groupId, "diff group id");
             Objects.requireNonNull(status, "status");
             ruleId = optionalSimpleId(ruleId, "diff rule id");
@@ -267,9 +277,15 @@ public final class OreImportModels {
             if (message.length() > MAX_MESSAGE_LENGTH) {
                 throw new IllegalArgumentException("Diff message exceeds " + MAX_MESSAGE_LENGTH + " characters");
             }
+            this.groupId = groupId;
+            this.status = status;
+            this.ruleId = ruleId;
+            this.addedBlocks = addedBlocks;
+            this.skippedBlocks = skippedBlocks;
+            this.message = message;
         }
 
-        private static List<String> blockIds(List<String> values, String label) {
+        private static List<String> blockIds(@Nullable List<String> values, String label) {
             return bounded(values, MAX_CANDIDATES_PER_GROUP, label).stream()
                     .map(value -> resourceId(value, label))
                     .distinct()
@@ -327,7 +343,7 @@ public final class OreImportModels {
          *
          * @param byTerrain partial or complete terrain workload map, or {@code null}
          */
-        public Workload {
+        public Workload(@Nullable Map<TerrainMode, @Nullable TerrainWorkload> byTerrain) {
             EnumMap<TerrainMode, TerrainWorkload> normalized = new EnumMap<>(TerrainMode.class);
             for (TerrainMode terrain : TerrainMode.values()) {
                 normalized.put(
@@ -336,7 +352,7 @@ public final class OreImportModels {
                                 ? TerrainWorkload.ZERO
                                 : Objects.requireNonNullElse(byTerrain.get(terrain), TerrainWorkload.ZERO));
             }
-            byTerrain = Collections.unmodifiableMap(normalized);
+            this.byTerrain = Collections.unmodifiableMap(normalized);
         }
 
         /**
@@ -422,7 +438,7 @@ public final class OreImportModels {
         return normalized;
     }
 
-    private static String optionalSimpleId(String value, String label) {
+    private static String optionalSimpleId(@Nullable String value, String label) {
         String normalized = value == null ? "" : value.trim();
         if (normalized.isEmpty()) {
             return "";
@@ -438,7 +454,7 @@ public final class OreImportModels {
         return value != null && value.startsWith("#") ? value.substring(1) : value;
     }
 
-    private static <T> List<T> bounded(List<T> values, int maximum, String label) {
+    private static <T> List<T> bounded(@Nullable List<T> values, int maximum, String label) {
         List<T> copy = values == null ? List.of() : List.copyOf(values);
         if (copy.size() > maximum) {
             throw new IllegalArgumentException(label + " exceed the limit of " + maximum);

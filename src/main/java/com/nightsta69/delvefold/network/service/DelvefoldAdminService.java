@@ -13,6 +13,7 @@ import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.model.BackupOperation;
 import com.nightsta69.delvefold.network.model.ProfileOperation;
 import net.minecraft.server.level.ServerPlayer;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Server-side integration boundary for the GUI and command/config backend. Implementations must re-check authorization,
@@ -211,12 +212,17 @@ public interface DelvefoldAdminService {
          * @param message client-displayable result message, or {@code null}
          * @param refreshSnapshot whether a fresh authoritative snapshot should follow
          */
-        public ServiceResult {
+        public ServiceResult(
+                @Nullable ActionStatus status, long revision, @Nullable String message, boolean refreshSnapshot) {
             status = status == null ? ActionStatus.ERROR : status;
             revision = Math.max(0L, revision);
             message = message == null || message.isBlank()
                     ? AdminLocalizedMessage.encode("message.delvefold.admin.operation_completed")
                     : message;
+            this.status = status;
+            this.revision = revision;
+            this.message = message;
+            this.refreshSnapshot = refreshSnapshot;
         }
 
         /**
