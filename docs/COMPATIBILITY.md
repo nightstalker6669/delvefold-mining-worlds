@@ -4,7 +4,7 @@
 
 Delvefold 1.0 targets Minecraft Java Edition 1.21.1, NeoForge 21.1.x, and Java 21. Install the same Delvefold JAR on every client and the server. Singleplayer uses the same server-authoritative implementation through Minecraft's integrated server.
 
-JEI, EMI, permission handlers, scripting mods, and mods that contribute ores are optional. Delvefold resolves blocks and tags after registration and does not declare a hard dependency on those integrations.
+JEI, EMI, permission handlers, scripting mods, and mods that contribute ores are optional. Delvefold resolves blocks and tags after registration and does not declare a hard dependency on those integrations. JEI 19.18.3–19.x and EMI 1.1.x receive the Portal Frame recipe plus Delvefold's visual portal-construction guide.
 
 ## Save compatibility
 

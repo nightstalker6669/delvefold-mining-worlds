@@ -27,13 +27,13 @@ side="BOTH"
 [[dependencies.${mod_id}]]
 modId="jei"
 type="optional"
-versionRange="[19,)"
-ordering="AFTER"
+versionRange="${jei_version_range}"
+ordering="NONE"
 side="CLIENT"
 
 [[dependencies.${mod_id}]]
 modId="emi"
 type="optional"
-versionRange="[1.1,)"
-ordering="AFTER"
+versionRange="${emi_version_range}"
+ordering="NONE"
 side="CLIENT"

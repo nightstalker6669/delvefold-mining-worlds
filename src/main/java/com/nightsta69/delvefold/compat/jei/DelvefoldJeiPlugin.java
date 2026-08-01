@@ -1,12 +1,17 @@
 package com.nightsta69.delvefold.compat.jei;
 
 import com.nightsta69.delvefold.Delvefold;
+import com.nightsta69.delvefold.compat.PortalConstructionGuide;
 import com.nightsta69.delvefold.portal.PortalRegistries;
+import java.util.List;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
+import mezz.jei.api.registration.IRecipeCatalystRegistration;
+import mezz.jei.api.registration.IRecipeCategoryRegistration;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Items;
 
 /** Optional JEI information page; this class is discovered only when JEI is installed. */
 @JeiPlugin
@@ -20,10 +25,26 @@ public final class DelvefoldJeiPlugin implements IModPlugin {
     }
 
     @Override
+    public void registerCategories(IRecipeCategoryRegistration registration) {
+        registration.addRecipeCategories(new DelvefoldJeiPortalCategory(
+                registration.getJeiHelpers().getGuiHelper()));
+    }
+
+    @Override
     public void registerRecipes(IRecipeRegistration registration) {
+        registration.addRecipes(DelvefoldJeiRecipeTypes.PORTAL_CONSTRUCTION,
+                List.of(PortalConstructionGuide.INSTANCE));
         registration.addIngredientInfo(PortalRegistries.PORTAL_FRAME_ITEM.get(),
                 Component.translatable("compat.delvefold.recipe_viewer.portal.1"),
                 Component.translatable("compat.delvefold.recipe_viewer.portal.2"),
                 Component.translatable("compat.delvefold.recipe_viewer.portal.3"));
+    }
+
+    @Override
+    public void registerRecipeCatalysts(IRecipeCatalystRegistration registration) {
+        registration.addRecipeCatalysts(
+                DelvefoldJeiRecipeTypes.PORTAL_CONSTRUCTION,
+                PortalRegistries.PORTAL_FRAME_ITEM.get(),
+                Items.FLINT_AND_STEEL);
     }
 }

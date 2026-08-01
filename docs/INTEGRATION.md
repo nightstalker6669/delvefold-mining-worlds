@@ -78,7 +78,21 @@ Listeners should use the immutable values supplied by each event and should not 
 
 ## JEI and EMI
 
-When JEI or EMI is installed, the Portal Frame receives an information page explaining frame size, explicit world initialization, and Flint and Steel activation. The ordinary frame crafting recipe is discovered from vanilla recipe data. Neither recipe viewer is required at runtime.
+When JEI or EMI is installed, the Portal Frame receives both an information page and a visual **Portal Construction** category. The category shows the minimum 2x3-interior frame, identifies Flint and Steel as the ignition catalyst, documents the supported 2x3 through 21x21 interior range, and reminds players that `/delvefold gui` initialization must happen first. The ordinary frame crafting recipe is discovered from vanilla recipe data and is not registered twice.
+
+Both integrations are optional, client-only adapters. Delvefold does not load either API from common or server code, and the same release JAR works with neither viewer, JEI only, EMI only, or both installed. Development launch profiles are available for each combination:
+
+```text
+./gradlew runClient                    # Delvefold only
+./gradlew runClientJei                 # JEI only
+./gradlew runClientEmi                 # EMI only
+./gradlew runClientRecipeViewers       # JEI and EMI together
+```
+
+IDE run configurations can opt into the same runtime classpaths with
+`-Pdelvefold_recipe_viewers=jei`, `emi`, or `both`. These dependencies are development-only and are never bundled into Delvefold's JAR.
+
+When JEI and EMI are installed together, Delvefold keeps EMI's native visual category and lets EMI's JEMI bridge import the JEI information page. The native EMI information page is suppressed in that combination, preventing duplicate help entries.
 
 ## Localization
 

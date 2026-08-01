@@ -11,6 +11,7 @@ import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
+import com.nightsta69.delvefold.compat.PortalConstructionGuide;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -49,6 +50,12 @@ class TranslationCoverageTest {
                 assertKey(language, "option.delvefold.landmark." + value.serializedName());
                 assertKey(language, "screen.delvefold.setup.landmark_help." + value.serializedName());
             }
+            assertKey(language, PortalConstructionGuide.TITLE_KEY);
+            assertKey(language, PortalConstructionGuide.DIMENSIONS_KEY);
+            assertKey(language, PortalConstructionGuide.FRAMES_KEY);
+            assertKey(language, PortalConstructionGuide.INITIALIZE_KEY);
+            assertKey(language, PortalConstructionGuide.IGNITE_KEY);
+            assertKey(language, "emi.category.delvefold.portal_construction");
         }
     }
 
