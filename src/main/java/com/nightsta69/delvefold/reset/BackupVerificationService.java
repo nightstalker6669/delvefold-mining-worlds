@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.reset;
 
 import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
+import com.nightsta69.delvefold.internal.concurrent.NamedDaemonThreadFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,8 +15,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Background API for backup hashing. Its default executor uses daemon worker threads, so command and GUI callers never
@@ -23,8 +22,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class BackupVerificationService {
     private static final System.Logger LOGGER = System.getLogger(BackupVerificationService.class.getName());
-    private static final AtomicInteger WORKER_IDS = new AtomicInteger();
-    private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(2, new WorkerThreadFactory());
+    private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(
+            2, new NamedDaemonThreadFactory("Delvefold Backup Verifier ", (ignored, failure) -> {
+                // CompletableFuture captures task failures; this only protects the executor itself.
+            }));
     private static final int MAX_CACHED_SAVES = 16;
     private static final Map<Path, BackupVerificationService> SERVICES = new LinkedHashMap<>(16, 0.75F, true);
 
@@ -271,16 +272,4 @@ public final class BackupVerificationService {
     }
 
     private record RequestKey(String backupId, Action action) {}
-
-    private static final class WorkerThreadFactory implements ThreadFactory {
-        @Override
-        public Thread newThread(Runnable task) {
-            Thread thread = new Thread(task, "Delvefold Backup Verifier " + WORKER_IDS.incrementAndGet());
-            thread.setDaemon(true);
-            thread.setUncaughtExceptionHandler((ignored, failure) -> {
-                // CompletableFuture captures task failures; this only protects the executor itself.
-            });
-            return thread;
-        }
-    }
 }

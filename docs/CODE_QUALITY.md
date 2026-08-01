@@ -305,9 +305,9 @@ subjective statements such as “looks faster” are not sufficient.
 | --- | ---: | ---: | --- |
 | Compiler warnings | 2 deprecation/removal | 0 | `compileJava` and `compileTestJava` with complete applicable lint and `-Werror` in `./gradlew check --rerun-tasks`. |
 | Javadoc warnings | at least 100 (output capped) | 0 | `javadoc` with full doclint and `-Werror` in `check`. |
-| Production packages with `@NullMarked` | 0 | 33 of 33 | `PackageContractCoverageTest` plus the production `package-info.java` inventory. |
-| Test-only packages with `@NullMarked` | 0 | 22 of 22 | `PackageContractCoverageTest` plus the test `package-info.java` inventory. |
-| Explicit nullable boundaries | 10 legacy annotations | 374 JSpecify type uses | NullAway, explicit-null-marking enforcement, and the production source inventory. |
+| Production packages with `@NullMarked` | 0 | 35 of 35 | `PackageContractCoverageTest` plus the production `package-info.java` inventory. |
+| Test-only packages with `@NullMarked` | 0 | 24 of 24 | `PackageContractCoverageTest` plus the test `package-info.java` inventory. |
+| Explicit nullable boundaries | 10 legacy annotations | 495 JSpecify type uses | NullAway, explicit-null-marking enforcement, and the production source inventory. |
 | Suppression sites/categories | 2 sites | 32 sites in 9 reviewed categories | `SourceHygieneCharacterizationTest` verifies each declaration-owned site and rejects new, stale, broad, or multi-category suppressions. |
 | Error Prone findings | not enforced | 0 | Error Prone 2.50.0 runs at error severity during both Java compile tasks. |
 | NullAway findings | not enforced | 0 | NullAway 0.13.8 and `RequireExplicitNullMarking` run at error severity during both Java compile tasks. |
@@ -322,7 +322,7 @@ subjective statements such as “looks faster” are not sufficient.
 | `DelvefoldDashboardScreen` | 1,252 lines | Stable screen plus tab/section controllers and cached derived layout. | _pending_ |
 | `DelvefoldDoctorService` | 820 lines | Stable service plus independent collectors and unchanged redaction/rendering. | _pending_ |
 | `DefaultDelvefoldAdminService` | 818 lines | Stable adapter plus package-private operation handlers. | _pending_ |
-| `WorldOperationService` | 746 lines | Stable lifecycle service using tested shared journal/file primitives. | _pending_ |
+| `WorldOperationService` | 746 lines | Stable lifecycle service using tested shared journal/file primitives. | `AtomicFilesTest`, `LifecycleFileOperationsTest`, `LifecycleJournalFilesTest`, `RestartBoundLifecycleCharacterizationTest`, and `SharedInfrastructureCharacterizationTest`; API/schema/protocol descriptors unchanged. |
 | `DelvefoldConfigService` | 682 lines | Stable facade with separated mutation, publication, and transition planning. | _pending_ |
 | `DelvefoldOreImportScreen` | 669 lines | Stable screen with separated paged display/selection/session state. | _pending_ |
 

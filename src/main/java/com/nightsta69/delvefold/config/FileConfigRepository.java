@@ -10,16 +10,12 @@ import com.nightsta69.delvefold.config.validation.OreConfigValidator;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import com.nightsta69.delvefold.config.validation.ValidationReport;
 import com.nightsta69.delvefold.config.validation.WorldSettingsValidator;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -313,30 +309,7 @@ public final class FileConfigRepository {
         if (bytes.length > maximumBytes) {
             throw new IOException(target.getFileName() + " would exceed the " + maximumBytes + " byte safety limit");
         }
-        Files.createDirectories(target.getParent());
-        Path temporary =
-                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
-        boolean moved = false;
-        try {
-            try (FileChannel channel =
-                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-            moved = true;
-        } finally {
-            if (!moved) {
-                Files.deleteIfExists(temporary);
-            }
-        }
+        AtomicFiles.writeReplacing(target, bytes);
     }
 
     private static String hash(Path... paths) throws IOException {

@@ -6,11 +6,9 @@ import com.nightsta69.delvefold.audit.AuditMutation;
 import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.ConfigJson;
 import com.nightsta69.delvefold.config.ConfigPaths;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -593,15 +591,7 @@ public final class WorldRestoreService {
     }
 
     private static PendingWorldRestore readPending(Path path) throws IOException {
-        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path) || Files.size(path) > 64 * 1024) {
-            throw new IOException("Pending restore failed safety checks");
-        }
-        PendingWorldRestore pending = ConfigJson.GSON.fromJson(Files.readString(path), PendingWorldRestore.class);
-        if (pending == null || pending.schemaVersion() != PendingWorldRestore.CURRENT_SCHEMA_VERSION) {
-            throw new IOException("Pending restore schema is unsupported");
-        }
-        UUID.fromString(pending.operationId());
-        return pending;
+        return LifecycleJournalFiles.readRestore(path);
     }
 
     private static void writePending(Path path, PendingWorldRestore pending) throws IOException {
@@ -610,30 +600,7 @@ public final class WorldRestoreService {
 
     private static void writeJson(Path target, Object value) throws IOException {
         byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
-        Files.createDirectories(target.getParent());
-        Path temporary =
-                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
-        boolean moved = false;
-        try {
-            try (FileChannel channel =
-                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-            moved = true;
-        } finally {
-            if (!moved) {
-                Files.deleteIfExists(temporary);
-            }
-        }
+        AtomicFiles.writeReplacing(target, bytes);
     }
 
     private static void archivePending(MinecraftServer server, Path pendingPath, PendingWorldRestore pending)
@@ -647,11 +614,7 @@ public final class WorldRestoreService {
 
     private static void move(Path source, Path destination) throws IOException {
         Files.createDirectories(destination.getParent());
-        try {
-            Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(source, destination);
-        }
+        AtomicFiles.moveWithoutReplaceOption(source, destination);
     }
 
     private static void deleteTree(Path root) throws IOException {
@@ -661,11 +624,7 @@ public final class WorldRestoreService {
         if (Files.isSymbolicLink(root)) {
             throw new IOException("Refusing to delete symbolic-link restore staging");
         }
-        try (Stream<Path> paths = Files.walk(root)) {
-            for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
-                Files.delete(path);
-            }
-        }
+        LifecycleFileOperations.deleteTree(root);
     }
 
     private static Path saveRoot(MinecraftServer server) {
@@ -681,7 +640,8 @@ public final class WorldRestoreService {
     }
 
     private static Path pendingPath(MinecraftServer server) {
-        return ConfigPaths.forServer(server).directory().resolve("pending_restore.json");
+        return LifecycleJournalFiles.pendingRestore(
+                ConfigPaths.forServer(server).directory());
     }
 
     private static Path stagingRoot(MinecraftServer server, PendingWorldRestore pending) {

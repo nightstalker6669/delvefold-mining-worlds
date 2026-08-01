@@ -1,13 +1,12 @@
 package com.nightsta69.delvefold.reset;
 
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.Comparator;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -15,16 +14,18 @@ import java.util.stream.Stream;
 final class RestoreConfigSnapshot {
     static final String COMPLETE_MARKER = ".config-complete";
     private static final String STAGING_DIRECTORY = ".config-staging";
-    private static final Set<String> TRANSIENT_CONFIG_FILES =
-            Set.of("pending_restore.json", "pending_world_operation.json", "config_transaction.json");
+    private static final Set<String> TRANSIENT_CONFIG_FILES = Set.of(
+            LifecycleJournalFiles.PENDING_RESTORE_FILE_NAME,
+            LifecycleJournalFiles.PENDING_WORLD_OPERATION_FILE_NAME,
+            "config_transaction.json");
     private static final Set<String> OPERATIONAL_CONFIG_DIRECTORIES =
             Set.of("audit", "exports", "imports", "world_operations");
 
     private RestoreConfigSnapshot() {}
 
     static void capture(Path sourceDirectory, Path preRestoreRoot) throws IOException {
-        Path source = checkedDirectory(sourceDirectory, "configuration source");
-        Path root = checkedDirectoryOrCreate(preRestoreRoot, "pre-restore backup");
+        Path source = LifecycleFileOperations.requireDirectory(sourceDirectory, "configuration source");
+        Path root = LifecycleFileOperations.requireDirectoryOrCreate(preRestoreRoot, "pre-restore backup");
         Path marker = root.resolve(COMPLETE_MARKER);
         Path destination = root.resolve("config/serverconfig/delvefold");
         Path destinationParent = requiredParent(destination, "configuration snapshot destination");
@@ -51,14 +52,14 @@ final class RestoreConfigSnapshot {
 
     /** Installs only restorable configuration while preserving live operational history. */
     static void install(Path stagedDirectory, Path activeDirectory) throws IOException {
-        Path source = checkedDirectory(stagedDirectory, "staged configuration");
-        Path destination = checkedDirectoryOrCreate(activeDirectory, "active configuration");
+        Path source = LifecycleFileOperations.requireDirectory(stagedDirectory, "staged configuration");
+        Path destination = LifecycleFileOperations.requireDirectoryOrCreate(activeDirectory, "active configuration");
         copyTree(source, destination);
     }
 
     /** Removes a snapshot created by an uncommitted backup transaction so a retry can recapture it. */
     static void discardCapture(Path preRestoreRoot) throws IOException {
-        Path root = checkedDirectory(preRestoreRoot, "pre-restore backup");
+        Path root = LifecycleFileOperations.requireDirectory(preRestoreRoot, "pre-restore backup");
         Path marker = root.resolve(COMPLETE_MARKER);
         if (Files.isSymbolicLink(marker)) {
             throw new IOException("Pre-restore configuration completion marker failed safety checks");
@@ -118,32 +119,6 @@ final class RestoreConfigSnapshot {
                 && OPERATIONAL_CONFIG_DIRECTORIES.contains(relative.getName(0).toString());
     }
 
-    private static Path checkedDirectory(Path supplied, String description) throws IOException {
-        if (supplied == null) {
-            throw new IOException(description + " is missing");
-        }
-        Path path = supplied.toAbsolutePath().normalize();
-        if (Files.isSymbolicLink(path) || !Files.isDirectory(path)) {
-            throw new IOException(description + " failed safety checks");
-        }
-        return path;
-    }
-
-    private static Path checkedDirectoryOrCreate(Path supplied, String description) throws IOException {
-        if (supplied == null) {
-            throw new IOException(description + " is missing");
-        }
-        Path path = supplied.toAbsolutePath().normalize();
-        if (Files.isSymbolicLink(path)) {
-            throw new IOException(description + " failed safety checks");
-        }
-        Files.createDirectories(path);
-        if (!Files.isDirectory(path)) {
-            throw new IOException(description + " failed safety checks");
-        }
-        return path;
-    }
-
     private static Path requiredParent(Path path, String description) throws IOException {
         Path parent = path.getParent();
         if (parent == null) {
@@ -163,11 +138,7 @@ final class RestoreConfigSnapshot {
     }
 
     private static void move(Path source, Path destination) throws IOException {
-        try {
-            Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(source, destination);
-        }
+        AtomicFiles.moveWithoutReplaceOption(source, destination);
     }
 
     private static void deleteTree(Path root) throws IOException {
@@ -177,10 +148,6 @@ final class RestoreConfigSnapshot {
         if (Files.isSymbolicLink(root)) {
             throw new IOException("Refusing to delete symbolic-link configuration staging");
         }
-        try (Stream<Path> paths = Files.walk(root)) {
-            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
-                Files.delete(path);
-            }
-        }
+        LifecycleFileOperations.deleteTree(root);
     }
 }

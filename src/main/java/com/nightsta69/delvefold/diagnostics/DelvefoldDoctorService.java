@@ -17,6 +17,7 @@ import com.nightsta69.delvefold.config.validation.IssueSeverity;
 import com.nightsta69.delvefold.config.validation.OreConfigValidator;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import com.nightsta69.delvefold.config.validation.ValidationReport;
+import com.nightsta69.delvefold.internal.concurrent.NamedDaemonThreadFactory;
 import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.reset.BackupRetentionPlanner;
 import com.nightsta69.delvefold.reset.BackupRetentionRunState;
@@ -45,8 +46,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import net.minecraft.SharedConstants;
 import net.minecraft.core.Registry;
@@ -77,8 +76,8 @@ public final class DelvefoldDoctorService {
     private static final long MAX_PENDING_BYTES = 64L * 1024L;
     private static final long CACHE_TTL_MILLIS = 30_000L;
     private static final int MAX_CACHED_SAVES = 16;
-    private static final AtomicInteger WORKER_IDS = new AtomicInteger();
-    private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(new DoctorThreadFactory());
+    private static final ExecutorService WORKER =
+            Executors.newSingleThreadExecutor(new NamedDaemonThreadFactory("Delvefold Doctor "));
     private static final DelvefoldDoctorService INSTANCE = new DelvefoldDoctorService(Clock.systemUTC());
     private final Clock clock;
     private final DoctorReportRenderer renderer = new DoctorReportRenderer();
@@ -1001,13 +1000,4 @@ public final class DelvefoldDoctorService {
             Path saveRoot,
             DoctorReportBuilder builder,
             BackupRetentionRunState.@Nullable Snapshot retentionRun) {}
-
-    private static final class DoctorThreadFactory implements ThreadFactory {
-        @Override
-        public Thread newThread(Runnable task) {
-            Thread thread = new Thread(task, "Delvefold Doctor " + WORKER_IDS.incrementAndGet());
-            thread.setDaemon(true);
-            return thread;
-        }
-    }
 }

@@ -14,22 +14,17 @@ import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.OrePresets;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileStore;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -506,7 +501,7 @@ public final class WorldOperationService {
                     }
                 }
                 if (operation.backupMode() == BackupMode.PERMANENT) {
-                    deleteTree(currentApplied.holdingRoot());
+                    LifecycleFileOperations.deleteTree(currentApplied.holdingRoot());
                 }
                 archiveOperationRecord(server, currentApplied);
                 ConfigSnapshot after = configs.snapshot();
@@ -534,16 +529,7 @@ public final class WorldOperationService {
     }
 
     private static PendingWorldOperation readPending(Path path) throws IOException {
-        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path) || Files.size(path) > 64 * 1024) {
-            throw new IOException("Pending operation file failed safety checks");
-        }
-        PendingWorldOperation operation =
-                ConfigJson.GSON.fromJson(Files.readString(path, StandardCharsets.UTF_8), PendingWorldOperation.class);
-        if (operation == null || operation.schemaVersion() != PendingWorldOperation.CURRENT_SCHEMA_VERSION) {
-            throw new IOException("Pending operation has an unsupported schema");
-        }
-        UUID.fromString(operation.operationId());
-        return operation;
+        return LifecycleJournalFiles.readWorldOperation(path);
     }
 
     private static boolean isOperationCommitted(MinecraftServer server, PendingWorldOperation operation) {
@@ -680,7 +666,7 @@ public final class WorldOperationService {
             throw new IOException("Refusing symbolic-link world-operation holding directory");
         }
         Files.createDirectories(holdingRoot);
-        Path marker = holdingRoot.resolve("operation.json");
+        Path marker = LifecycleJournalFiles.operationMarker(holdingRoot);
         if (Files.notExists(marker)) {
             try (Stream<Path> contents = Files.list(holdingRoot)) {
                 if (contents.findAny().isPresent()) {
@@ -697,11 +683,7 @@ public final class WorldOperationService {
     }
 
     private static void moveDirectory(Path source, Path destination) throws IOException {
-        try {
-            Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(source, destination);
-        }
+        AtomicFiles.moveWithoutReplaceOption(source, destination);
     }
 
     private static void captureConfiguration(MinecraftServer server, Path holdingRoot) throws IOException {
@@ -713,11 +695,7 @@ public final class WorldOperationService {
         Files.createDirectories(history);
         Path destination = history.resolve(applied.operation().createdAtEpochMillis() + "-"
                 + applied.operation().operationId() + ".json");
-        try {
-            Files.move(applied.pendingPath(), destination, StandardCopyOption.ATOMIC_MOVE);
-        } catch (AtomicMoveNotSupportedException ignored) {
-            Files.move(applied.pendingPath(), destination);
-        }
+        AtomicFiles.moveWithoutReplaceOption(applied.pendingPath(), destination);
     }
 
     private static long estimateSize(List<Path> targets) {
@@ -767,7 +745,8 @@ public final class WorldOperationService {
     }
 
     private static Path pendingPath(MinecraftServer server) {
-        return ConfigPaths.forServer(server).directory().resolve("pending_world_operation.json");
+        return LifecycleJournalFiles.pendingWorldOperation(
+                ConfigPaths.forServer(server).directory());
     }
 
     private static Path saveRoot(MinecraftServer server) {
@@ -824,42 +803,7 @@ public final class WorldOperationService {
 
     private static void writeJsonAtomically(Path target, Object value) throws IOException {
         byte[] bytes = (ConfigJson.GSON.toJson(value) + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
-        Files.createDirectories(target.getParent());
-        Path temporary =
-                Files.createTempFile(target.getParent(), target.getFileName().toString(), ".tmp");
-        boolean moved = false;
-        try {
-            try (FileChannel channel =
-                    FileChannel.open(temporary, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                ByteBuffer buffer = ByteBuffer.wrap(bytes);
-                while (buffer.hasRemaining()) {
-                    channel.write(buffer);
-                }
-                channel.force(true);
-            }
-            try {
-                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-            moved = true;
-        } finally {
-            if (!moved) {
-                Files.deleteIfExists(temporary);
-            }
-        }
-    }
-
-    private static void deleteTree(Path root) throws IOException {
-        if (Files.notExists(root)) {
-            return;
-        }
-        try (Stream<Path> paths = Files.walk(root)) {
-            List<Path> ordered = paths.sorted(Comparator.reverseOrder()).toList();
-            for (Path path : ordered) {
-                Files.delete(path);
-            }
-        }
+        AtomicFiles.writeReplacing(target, bytes);
     }
 
     private record Draft(

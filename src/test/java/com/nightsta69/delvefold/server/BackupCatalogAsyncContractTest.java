@@ -73,7 +73,7 @@ class BackupCatalogAsyncContractTest {
         String cache = read("reset/BackupCatalogCache.java");
         assertTrue(cache.contains("DEFAULT_MAX_SAVES = 16"));
         assertTrue(cache.contains("Executors.newSingleThreadExecutor"));
-        assertTrue(cache.contains("thread.setDaemon(true)"));
+        assertTrue(cache.contains("new NamedDaemonThreadFactory(\"delvefold-backup-catalog-\")"));
         assertTrue(cache.contains("List.copyOf(loader.load(key))"));
         assertTrue(cache.contains("if (entry.refreshing)"), "refreshes must deduplicate per save");
     }

@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.reset;
 
 import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
+import com.nightsta69.delvefold.internal.concurrent.NamedDaemonThreadFactory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -14,8 +15,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 import org.jspecify.annotations.Nullable;
@@ -28,8 +27,8 @@ public final class BackupCatalogCache {
     private static final System.Logger LOGGER = System.getLogger(BackupCatalogCache.class.getName());
     private static final long DEFAULT_TTL_MILLIS = 5_000L;
     private static final int DEFAULT_MAX_SAVES = 16;
-    private static final AtomicInteger WORKER_IDS = new AtomicInteger();
-    private static final ExecutorService WORKER = Executors.newSingleThreadExecutor(new WorkerThreadFactory());
+    private static final ExecutorService WORKER =
+            Executors.newSingleThreadExecutor(new NamedDaemonThreadFactory("delvefold-backup-catalog-"));
     private static final BackupCatalogCache INSTANCE = new BackupCatalogCache(
             WORKER,
             Clock.systemUTC(),
@@ -371,13 +370,4 @@ public final class BackupCatalogCache {
     }
 
     private record DeleteKey(Path saveRoot, String backupId) {}
-
-    private static final class WorkerThreadFactory implements ThreadFactory {
-        @Override
-        public Thread newThread(Runnable task) {
-            Thread thread = new Thread(task, "delvefold-backup-catalog-" + WORKER_IDS.incrementAndGet());
-            thread.setDaemon(true);
-            return thread;
-        }
-    }
 }

@@ -1,12 +1,11 @@
 package com.nightsta69.delvefold.diagnostics;
 
 import com.nightsta69.delvefold.config.ConfigJson;
+import com.nightsta69.delvefold.internal.io.AtomicFiles;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -259,11 +258,7 @@ public final class DoctorReportExporter {
     }
 
     private static void moveAtomically(Path temporary, Path target) throws IOException {
-        try {
-            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-        } catch (AtomicMoveNotSupportedException exception) {
-            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+        AtomicFiles.moveReplacing(temporary, target);
     }
 
     private record ExportReport(
