@@ -230,6 +230,10 @@ tasks.withType(JavaCompile).configureEach {
             '-XDaddTypeAnnotationsToSymbol=true'
     )
     options.errorprone {
+        // Error Prone 2.50.0's stylistic StringConcatToTextBlock checker throws a
+        // NoSuchElementException on valid translated-component literals after formatting. Keep
+        // every correctness checker enabled and disable only the crashing, non-correctness rule.
+        check('StringConcatToTextBlock', net.ltgt.gradle.errorprone.CheckSeverity.OFF)
         check('NullAway', net.ltgt.gradle.errorprone.CheckSeverity.ERROR)
         check('RequireExplicitNullMarking', net.ltgt.gradle.errorprone.CheckSeverity.ERROR)
         option('NullAway:OnlyNullMarked', 'true')

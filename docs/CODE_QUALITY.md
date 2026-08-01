@@ -123,6 +123,13 @@ because its documented wildcard/generic coverage is incomplete. Standard
 JSpecify annotations and NullAway checking remain required. Enabling an
 experimental mode later requires a separate compatibility review.
 
+Error Prone 2.50.0's non-correctness `StringConcatToTextBlock` checker is the
+sole analyzer-level exception. It throws `NoSuchElementException` while scanning
+valid translated-component string literals after Palantir formatting, aborting
+compilation before diagnostics can complete. The Gradle configuration disables
+only that stylistic rule; compiler lint, all other Error Prone checks, NullAway,
+and explicit-null-marking enforcement remain active at error severity.
+
 ## Annotation policy
 
 “Annotate everything” means every relevant contract is explicit; it does not
