@@ -13,6 +13,7 @@ import com.nightsta69.delvefold.config.ConfigSnapshot;
 import com.nightsta69.delvefold.config.ConfigWriteResult;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
+import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.OreRule;
@@ -25,6 +26,10 @@ import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.config.model.WorldIdentitySettings;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
 import com.nightsta69.delvefold.network.DelvefoldNetwork;
+import com.nightsta69.delvefold.guide.DelvefoldGuideService;
+import com.nightsta69.delvefold.guide.GuideAccessPolicy;
+import com.nightsta69.delvefold.guide.GuideSnapshotService;
+import com.nightsta69.delvefold.guide.GuideTextSummary;
 import com.nightsta69.delvefold.reset.BackupMode;
 import com.nightsta69.delvefold.reset.WorldBackupCatalog;
 import com.nightsta69.delvefold.reset.WorldOperationPreview;
@@ -82,12 +87,26 @@ public final class DelvefoldCommands {
                                                 .suggests((context, builder) -> SharedSuggestionProvider.suggest(List.of("safe", "hostile", "normal"), builder))
                                                 .executes(DelvefoldCommands::initialize)))))
                 .then(Commands.literal("status").executes(DelvefoldCommands::status))
+                .then(guideCommands())
                 .then(identityCommands())
                 .then(renewalCommands())
                 .then(profileCommands())
                 .then(backupCommands())
                 .then(oreCommands())
                 .then(worldCommands());
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> guideCommands() {
+        LiteralArgumentBuilder<CommandSourceStack> guide = Commands.literal("guide")
+                .executes(DelvefoldCommands::openGuide);
+        guide.then(Commands.literal("visibility")
+                .requires(AdminAccess::canConfigure)
+                .executes(DelvefoldCommands::guideVisibilityStatus)
+                .then(Commands.argument("mode", StringArgumentType.word())
+                        .suggests((context, builder) -> SharedSuggestionProvider.suggest(
+                                List.of("public", "operators", "disabled"), builder))
+                        .executes(DelvefoldCommands::setGuideVisibility)));
+        return guide;
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> identityCommands() {
@@ -333,6 +352,67 @@ public final class DelvefoldCommands {
             return 0;
         }
         return 1;
+    }
+
+    private static int openGuide(CommandContext<CommandSourceStack> context) {
+        ConfigSnapshot config;
+        try {
+            config = DelvefoldConfigService.get().snapshot();
+        } catch (IllegalStateException exception) {
+            context.getSource().sendFailure(Component.translatable("message.delvefold.guide.unavailable"));
+            return 0;
+        }
+        GuideVisibility visibility = config.settings().guideVisibility();
+        boolean operator = AdminAccess.canConfigure(context.getSource());
+        if (!GuideAccessPolicy.allows(visibility, operator)) {
+            context.getSource().sendFailure(Component.translatable(visibility == GuideVisibility.DISABLED
+                    ? "message.delvefold.guide.disabled" : "message.delvefold.guide.operators_only"));
+            return 0;
+        }
+        if (context.getSource().getEntity() instanceof ServerPlayer player) {
+            DelvefoldGuideService.OpenResult result = DelvefoldGuideService.openFor(player);
+            if (!result.opened()) {
+                context.getSource().sendFailure(result.message());
+                return 0;
+            }
+            return 1;
+        }
+        return GuideSnapshotService.current().map(snapshot -> {
+            for (String line : GuideTextSummary.lines(snapshot)) {
+                context.getSource().sendSuccess(() -> Component.literal(line), false);
+            }
+            return 1;
+        }).orElseGet(() -> {
+            context.getSource().sendFailure(Component.translatable("message.delvefold.guide.unavailable"));
+            return 0;
+        });
+    }
+
+    private static int guideVisibilityStatus(CommandContext<CommandSourceStack> context) {
+        try {
+            GuideVisibility visibility = DelvefoldConfigService.get().snapshot().settings().guideVisibility();
+            context.getSource().sendSuccess(() -> Component.translatable(
+                    "message.delvefold.guide.visibility", Component.translatable(
+                            "option.delvefold.guide_visibility." + visibility.serializedName())), false);
+            return 1;
+        } catch (IllegalStateException exception) {
+            context.getSource().sendFailure(Component.translatable("message.delvefold.guide.unavailable"));
+            return 0;
+        }
+    }
+
+    private static int setGuideVisibility(CommandContext<CommandSourceStack> context) {
+        try {
+            GuideVisibility visibility = GuideVisibility.parse(StringArgumentType.getString(context, "mode"));
+            ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
+            ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(
+                    before.settings().revision(), settings -> settings.withGuideVisibility(visibility));
+            return reportWrite(context.getSource(), result,
+                    "Guide visibility set to " + visibility.serializedName() + ".");
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            context.getSource().sendFailure(Component.literal(exception.getMessage()));
+            return 0;
+        }
     }
 
     private static int initialize(CommandContext<CommandSourceStack> context) {

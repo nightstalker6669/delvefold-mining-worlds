@@ -102,6 +102,26 @@ The `generation_epoch` increments on initialization, recreation, and deletion. P
 
 Terrain is locked for the current mining world. Changing it requires **Recreate Mining World**, which removes the old active dimension safely on restart and begins a new epoch.
 
+### Seam Ledger visibility
+
+`guide_visibility` is an additive, optional schema-2 setting controlling which sources may open the read-only guide through `/delvefold guide` or the Seam Ledger item:
+
+```json
+{
+  "guide_visibility": "public"
+}
+```
+
+Accepted values are:
+
+- `public`: all player and command sources may open the guide. This is the default.
+- `operators`: the integrated singleplayer owner, players with Delvefold configuration access, and trusted console sources may open it; the normal player fallback is operator level 2.
+- `disabled`: every built-in opening source is denied, including player commands, Seam Ledger use, command blocks, and the console summary.
+
+Existing schema-2 files that omit `guide_visibility` continue to load as `public`; no schema bump or manual migration is required, and loading alone does not rewrite the file. The field is validated by the [settings schema](../schemas/settings.schema.json). Changing it through `/delvefold guide visibility <mode>` is immediate. A JSON edit takes effect after a successful `/delvefold config reload` and never requires world recreation.
+
+The setting governs every built-in guide entry point. A trusted dedicated-server console counts as an operator in `operators` mode, while `disabled` suppresses even the bounded console summary.
+
 ### World identity
 
 The optional `identity` object is additive to schema 2. A schema-2 settings file written by 0.2 loads with safe defaults when the object is absent and is not rewritten merely by loading:

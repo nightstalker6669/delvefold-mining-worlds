@@ -11,7 +11,8 @@ public record WorldSettingsDocument(
         GameplaySettings gameplay,
         PortalSettings portal,
         String activeProfileId,
-        WorldIdentitySettings identity
+        WorldIdentitySettings identity,
+        GuideVisibility guideVisibility
 ) {
     public static final int CURRENT_SCHEMA_VERSION = 2;
 
@@ -23,9 +24,28 @@ public record WorldSettingsDocument(
         activeProfileId = activeProfileId == null || activeProfileId.isBlank()
                 ? orePreset.serializedName() : activeProfileId.trim();
         identity = identity == null ? WorldIdentitySettings.defaults() : identity;
+        guideVisibility = guideVisibility == null ? GuideVisibility.PUBLIC : guideVisibility;
         if (initialized && terrainMode == null) {
             throw new IllegalArgumentException("An initialized world requires a terrain mode");
         }
+    }
+
+    /** Source- and binary-compatible constructor for schema-2 callers predating guide visibility. */
+    public WorldSettingsDocument(
+            int schemaVersion,
+            long revision,
+            long generationEpoch,
+            String lastWorldOperationId,
+            boolean initialized,
+            TerrainMode terrainMode,
+            OrePreset orePreset,
+            GameplaySettings gameplay,
+            PortalSettings portal,
+            String activeProfileId,
+            WorldIdentitySettings identity
+    ) {
+        this(schemaVersion, revision, generationEpoch, lastWorldOperationId, initialized, terrainMode,
+                orePreset, gameplay, portal, activeProfileId, identity, GuideVisibility.PUBLIC);
     }
 
     public static WorldSettingsDocument uninitialized() {
@@ -40,7 +60,8 @@ public record WorldSettingsDocument(
                 GameplaySettings.fromPreset(GameplayPreset.SAFE),
                 PortalSettings.defaults(),
                 OrePreset.VANILLA_BALANCED.serializedName(),
-                WorldIdentitySettings.defaults()
+                WorldIdentitySettings.defaults(),
+                GuideVisibility.PUBLIC
         );
     }
 
@@ -59,7 +80,8 @@ public record WorldSettingsDocument(
                 GameplaySettings.fromPreset(gameplayPreset),
                 portal,
                 preset.serializedName(),
-                identity
+                identity,
+                guideVisibility
         );
     }
 
@@ -79,7 +101,8 @@ public record WorldSettingsDocument(
                 gameplay,
                 portal,
                 activeProfileId,
-                identity
+                identity,
+                guideVisibility
         );
     }
 
@@ -107,7 +130,8 @@ public record WorldSettingsDocument(
                 gameplayPreset == null ? gameplay : GameplaySettings.fromPreset(gameplayPreset),
                 portal,
                 activeProfileId,
-                identity.withTerrainVariant(variant)
+                identity.withTerrainVariant(variant),
+                guideVisibility
         );
     }
 
@@ -123,7 +147,8 @@ public record WorldSettingsDocument(
                 replacement,
                 portal,
                 activeProfileId,
-                identity
+                identity,
+                guideVisibility
         );
     }
 
@@ -139,17 +164,23 @@ public record WorldSettingsDocument(
                 gameplay,
                 replacement,
                 activeProfileId,
-                identity
+                identity,
+                guideVisibility
         );
     }
 
     public WorldSettingsDocument withActiveProfile(String replacement) {
         return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, replacement, identity);
+                initialized, terrainMode, orePreset, gameplay, portal, replacement, identity, guideVisibility);
     }
 
     public WorldSettingsDocument withIdentity(WorldIdentitySettings replacement) {
         return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, replacement);
+                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, replacement, guideVisibility);
+    }
+
+    public WorldSettingsDocument withGuideVisibility(GuideVisibility replacement) {
+        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, lastWorldOperationId,
+                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, identity, replacement);
     }
 }

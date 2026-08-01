@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.portal;
 
 import com.nightsta69.delvefold.Delvefold;
+import com.nightsta69.delvefold.content.SeamLedgerItem;
 import java.util.Set;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -57,12 +58,18 @@ public final class PortalRegistries {
     public static final DeferredHolder<Item, BlockItem> PORTAL_FRAME_ITEM = ITEMS.register(
             "portal_frame", () -> new BlockItem(PORTAL_FRAME.get(), new Item.Properties()));
 
+    public static final DeferredHolder<Item, SeamLedgerItem> SEAM_LEDGER = ITEMS.register(
+            "seam_ledger", () -> new SeamLedgerItem(new Item.Properties().stacksTo(1)));
+
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> DELVEFOLD_TAB = CREATIVE_TABS.register(
             "mining_worlds",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.delvefold.mining_worlds"))
                     .icon(() -> new ItemStack(PORTAL_FRAME_ITEM.get()))
-                    .displayItems((parameters, output) -> output.accept(PORTAL_FRAME_ITEM.get()))
+                    .displayItems((parameters, output) -> {
+                        output.accept(PORTAL_FRAME_ITEM.get());
+                        output.accept(SEAM_LEDGER.get());
+                    })
                     .build());
 
     public static final DeferredHolder<PoiType, PoiType> PORTAL_POI = POI_TYPES.register(

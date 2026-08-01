@@ -8,7 +8,7 @@ JEI, EMI, permission handlers, scripting mods, and mods that contribute ores are
 
 ## Save compatibility
 
-Configuration schema 2 is stable for Delvefold 1.x. Worlds created with Delvefold 0.2, 0.3, or 0.4 upgrade directly to 1.0. Identity fields introduced after 0.2 receive conservative defaults when absent. Existing exact-block targets remain valid alongside 0.4's `block_tag` targets.
+Configuration schema 2 is stable for Delvefold 1.x. Worlds created with Delvefold 0.2, 0.3, or 0.4 upgrade directly to 1.0. Identity fields introduced after 0.2 receive conservative defaults when absent. The additive `guide_visibility` field defaults to `public` when absent, so existing schema-2 saves require no migration. Existing exact-block targets remain valid alongside 0.4's `block_tag` targets.
 
 Schema-1 configuration is intentionally not migrated in place because its dimension contract predates the stable terrain and lifecycle model. Delvefold detects it, leaves every file and dimension folder untouched, disables mutations and portal entry, and explains that a new save is required.
 
@@ -22,10 +22,10 @@ Changing terrain shape or scale requires a confirmed recreation. The default wor
 
 ## Multiplayer and network compatibility
 
-The administration protocol is versioned. A client and server with incompatible protocol versions cannot safely exchange Delvefold GUI payloads; use identical mod versions. Commands and canonical JSON remain available from the server console when no graphical client is connected.
+The 1.1.0 client/server protocol is version 7. It carries both bounded guide snapshots and the short-lived client-open acknowledgement used for the consulting advancement. A client and server with incompatible protocol versions cannot safely exchange Delvefold administration or guide payloads; use identical mod versions. Commands and canonical JSON remain available from the server console when no graphical client is connected. `/delvefold guide` prints a bounded text summary there in `public` or `operators` mode because the trusted console passes the operator check; `disabled` rejects the console as well as every other built-in opening source.
 
 Permission fallback behavior is operator level 2 for configuration, level 4 for world lifecycle operations, and allowed for portal use. A NeoForge permission handler can override these nodes. Return travel to the Overworld is never denied.
 
 ## Integration API
 
-`DelvefoldApi.API_VERSION` is `1`. Public classes under `com.nightsta69.delvefold.api` retain source and binary compatibility throughout the 1.x line. Later 1.x releases may add methods, record-independent event types, or enum values. Integrations should ignore unknown values where practical and must not depend on internal packages.
+`DelvefoldApi.API_VERSION` is `1`. The additive `activeGuide()` method does not change that version. Public classes under `com.nightsta69.delvefold.api` retain source and binary compatibility throughout the 1.x line. Later 1.x releases may add methods, record-independent event types, or enum values. Integrations should ignore unknown values where practical and must not depend on internal packages.

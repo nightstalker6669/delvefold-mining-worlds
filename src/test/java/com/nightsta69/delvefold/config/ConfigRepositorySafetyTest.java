@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -149,5 +150,50 @@ class ConfigRepositorySafetyTest {
         assertTrue(!loaded.usedFallback());
         assertEquals("Delvefold Mining World", loaded.snapshot().settings().identity().displayName());
         assertEquals(withoutIdentity, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void schemaTwoSettingsWithoutGuideVisibilityReceiveNonDestructivePublicDefault() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        root.remove("guide_visibility");
+        String legacySettings = ConfigJson.GSON.toJson(root) + System.lineSeparator();
+        Files.writeString(paths.settings(), legacySettings);
+
+        ConfigLoadResult loaded = repository.loadOrCreate(null);
+
+        assertTrue(!loaded.usedFallback());
+        assertEquals(GuideVisibility.PUBLIC, loaded.snapshot().settings().guideVisibility());
+        assertEquals(legacySettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void explicitGuideVisibilityIsLoadedAndInvalidValuesAreRejected() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        ConfigLoadResult baseline = repository.loadOrCreate(null);
+
+        String operators = Files.readString(paths.settings())
+                .replace("\"guide_visibility\": \"public\"", "\"guide_visibility\": \"operators\"");
+        Files.writeString(paths.settings(), operators);
+        ConfigLoadResult accepted = repository.loadOrCreate(baseline.snapshot());
+        assertTrue(!accepted.usedFallback());
+        assertEquals(GuideVisibility.OPERATORS, accepted.snapshot().settings().guideVisibility());
+
+        Files.writeString(paths.settings(), operators.replace(
+                "\"guide_visibility\": \"operators\"", "\"guide_visibility\": \"everyone\""));
+        ConfigLoadResult rejected = repository.loadOrCreate(accepted.snapshot());
+        assertTrue(rejected.usedFallback());
+        assertEquals(accepted.snapshot(), rejected.snapshot());
+        assertTrue(rejected.issues().stream()
+                .anyMatch(issue -> issue.message().contains("guide_visibility")));
     }
 }

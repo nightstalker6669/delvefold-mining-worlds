@@ -10,10 +10,12 @@ import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
+import com.nightsta69.delvefold.network.payload.GuideOpenedPayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
+import com.nightsta69.delvefold.network.payload.OpenGuidePayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
@@ -36,7 +38,7 @@ import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
-    public static final String PROTOCOL_VERSION = "6";
+    public static final String PROTOCOL_VERSION = "7";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {
@@ -44,6 +46,8 @@ public final class DelvefoldNetwork {
     private static volatile Consumer<ActionResultPayload> clientResultHandler = payload -> {
     };
     private static volatile Consumer<ProfileExportPayload> clientProfileExportHandler = payload -> {
+    };
+    private static volatile Consumer<OpenGuidePayload> clientGuideHandler = payload -> {
     };
 
     private DelvefoldNetwork() {
@@ -61,10 +65,12 @@ public final class DelvefoldNetwork {
     public static void installClientHandlers(
             Consumer<OpenGuiPayload> openHandler,
             Consumer<ActionResultPayload> resultHandler,
-            Consumer<ProfileExportPayload> profileExportHandler) {
+            Consumer<ProfileExportPayload> profileExportHandler,
+            Consumer<OpenGuidePayload> guideHandler) {
         clientOpenHandler = Objects.requireNonNull(openHandler, "openHandler");
         clientResultHandler = Objects.requireNonNull(resultHandler, "resultHandler");
         clientProfileExportHandler = Objects.requireNonNull(profileExportHandler, "profileExportHandler");
+        clientGuideHandler = Objects.requireNonNull(guideHandler, "guideHandler");
     }
 
     /** Server/command integration hook for /delvefold gui and config. */
@@ -102,6 +108,8 @@ public final class DelvefoldNetwork {
                 DelvefoldNetwork::handleBackupAction);
         registrar.playToServer(AdminActionPayload.TYPE, AdminActionPayload.STREAM_CODEC,
                 DelvefoldNetwork::handleAdminAction);
+        registrar.playToServer(GuideOpenedPayload.TYPE, GuideOpenedPayload.STREAM_CODEC,
+                DelvefoldNetwork::handleGuideOpened);
 
         registrar.playToClient(OpenGuiPayload.TYPE, OpenGuiPayload.STREAM_CODEC,
                 (payload, context) -> clientOpenHandler.accept(payload));
@@ -109,12 +117,22 @@ public final class DelvefoldNetwork {
                 (payload, context) -> clientResultHandler.accept(payload));
         registrar.playToClient(ProfileExportPayload.TYPE, ProfileExportPayload.STREAM_CODEC,
                 (payload, context) -> clientProfileExportHandler.accept(payload));
+        registrar.playToClient(OpenGuidePayload.TYPE, OpenGuidePayload.STREAM_CODEC,
+                (payload, context) -> clientGuideHandler.accept(payload));
     }
 
     private static void handleOpenRequest(OpenGuiRequestPayload payload, IPayloadContext context) {
         ServerPlayer player = serverPlayer(context);
         if (player != null) {
             openFor(player);
+        }
+    }
+
+    private static void handleGuideOpened(GuideOpenedPayload payload, IPayloadContext context) {
+        ServerPlayer player = serverPlayer(context);
+        if (player != null) {
+            com.nightsta69.delvefold.guide.DelvefoldGuideService.confirmOpened(
+                    player, payload.authorizationId());
         }
     }
 

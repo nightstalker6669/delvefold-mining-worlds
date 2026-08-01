@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
+import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
@@ -15,6 +16,14 @@ import com.nightsta69.delvefold.config.validation.WorldSettingsValidator;
 import org.junit.jupiter.api.Test;
 
 class WorldSettingsValidatorTest {
+    @Test
+    void acceptsEveryGuideVisibilityMode() {
+        for (GuideVisibility visibility : GuideVisibility.values()) {
+            assertTrue(WorldSettingsValidator.validate(
+                    WorldSettingsDocument.uninitialized().withGuideVisibility(visibility)).valid());
+        }
+    }
+
     @Test
     void rejectsUnsafePortalAndUninitializedTerrainSettings() {
         WorldSettingsDocument settings = new WorldSettingsDocument(

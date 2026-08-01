@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.GameplayPreset;
+import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.model.TerrainMode;
@@ -29,15 +30,18 @@ class ConfigJsonTest {
 
     @Test
     void initializationIsExplicitAndEpochChangesOnlyWithWorldLifecycle() {
-        WorldSettingsDocument uninitialized = WorldSettingsDocument.uninitialized();
+        WorldSettingsDocument uninitialized = WorldSettingsDocument.uninitialized()
+                .withGuideVisibility(GuideVisibility.OPERATORS);
         assertFalse(uninitialized.initialized());
         assertEquals(0, uninitialized.generationEpoch());
+        assertEquals(GuideVisibility.OPERATORS, uninitialized.guideVisibility());
 
         WorldSettingsDocument initialized = uninitialized.initialize(
                 TerrainMode.CAVERN, OrePreset.RICH, GameplayPreset.HOSTILE);
         assertTrue(initialized.initialized());
         assertEquals(1, initialized.generationEpoch());
         assertEquals(TerrainMode.CAVERN, initialized.terrainMode());
+        assertEquals(GuideVisibility.OPERATORS, initialized.guideVisibility());
 
         WorldSettingsDocument recreated = initialized.recreate(
                 TerrainMode.WILD, TerrainVariant.EXPANSIVE,
@@ -46,11 +50,24 @@ class ConfigJsonTest {
         assertEquals("operation-1", recreated.lastWorldOperationId());
         assertEquals(TerrainMode.WILD, recreated.terrainMode());
         assertEquals(TerrainVariant.EXPANSIVE, recreated.identity().terrainVariant());
+        assertEquals(GuideVisibility.OPERATORS, recreated.guideVisibility());
 
         WorldSettingsDocument deleted = recreated.markDeleted("operation-2");
         assertFalse(deleted.initialized());
         assertEquals(3, deleted.generationEpoch());
         assertEquals("operation-2", deleted.lastWorldOperationId());
+        assertEquals(GuideVisibility.OPERATORS, deleted.guideVisibility());
+    }
+
+    @Test
+    void guideVisibilityUsesLowercaseSchemaValues() {
+        WorldSettingsDocument settings = WorldSettingsDocument.uninitialized()
+                .withGuideVisibility(GuideVisibility.DISABLED);
+
+        String json = ConfigJson.GSON.toJson(settings);
+        assertTrue(json.contains("\"guide_visibility\": \"disabled\""));
+        assertEquals(GuideVisibility.DISABLED,
+                ConfigJson.GSON.fromJson(json, WorldSettingsDocument.class).guideVisibility());
     }
 
     @Test

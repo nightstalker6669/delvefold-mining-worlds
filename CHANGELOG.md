@@ -5,6 +5,14 @@
 - Expanded optional JEI and EMI support with a visual Portal Construction category, minimum-frame diagram, Flint and Steel catalyst, initialization guidance, isolated development launch profiles, and client compatibility smoke tests.
 - Kept both recipe viewers out of the release JAR and all common/server code; Delvefold continues to run with neither viewer installed.
 - Prevented duplicate information entries when EMI and JEI are installed together.
+- Added the craftable Seam Ledger to the Delvefold creative tab with advancements for obtaining it and for successfully consulting a server-authorized guide.
+- Added a responsive, scrollable `/delvefold guide` screen showing server-authoritative world identity, portal and renewal state, ore outputs and icons, best height bands, vein sizes, relative frequency, terrain applicability, and bounded biome include/exclude selectors.
+- Added a bounded console summary for `/delvefold guide` and source visibility modes `public`, `operators`, and `disabled`; trusted consoles count as operators, disabled blocks every built-in source, and existing schema-2 saves default to public when the additive field is absent.
+- Added strict count, string, enum, biome-selector, and estimated-size limits to guide snapshots, with explicit truncation for unusually large profiles.
+- Required a short-lived, player-bound, single-use client-open acknowledgement and a fresh server visibility check before awarding the consulting advancement.
+- Added `DelvefoldApi.activeGuide()` as an additive API-v1 read-only snapshot that excludes seeds, coordinates, filesystem paths, world-operation confirmation data, and administration diagnostics.
+
+Configuration schema 2 and public API version 1 remain unchanged.
 
 ## 1.0.1 — Stability and Correctness
 

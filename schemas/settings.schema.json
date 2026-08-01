@@ -30,6 +30,10 @@
       "minLength": 1,
       "maxLength": 128
     },
+    "guide_visibility": {
+      "enum": ["public", "operators", "disabled"],
+      "default": "public"
+    },
     "identity": {
       "type": "object",
       "additionalProperties": false,

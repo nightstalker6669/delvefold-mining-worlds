@@ -246,7 +246,8 @@ public final class DelvefoldConfigService {
                         candidate.gameplay(),
                         candidate.portal(),
                         candidate.activeProfileId(),
-                        candidate.identity()
+                        candidate.identity(),
+                        candidate.guideVisibility()
                 );
                 ConfigSnapshot saved = repository.save(before.ores(), candidate);
                 current.set(saved);
@@ -321,7 +322,8 @@ public final class DelvefoldConfigService {
                         before.settings().gameplay(),
                         before.settings().portal(),
                         selected.profile(),
-                        before.settings().identity());
+                        before.settings().identity(),
+                        before.settings().guideVisibility());
                 ConfigSnapshot saved = repository.save(active, settings);
                 current.set(saved);
                 NeoForge.EVENT_BUS.post(new DelvefoldOreProfileActivatedEvent(

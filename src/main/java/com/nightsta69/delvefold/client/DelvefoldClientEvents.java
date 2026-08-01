@@ -16,6 +16,7 @@ public final class DelvefoldClientEvents {
         event.enqueueWork(() -> DelvefoldNetwork.installClientHandlers(
                 DelvefoldClientPayloadHandler::open,
                 DelvefoldClientPayloadHandler::showResult,
-                DelvefoldClientPayloadHandler::copyProfileExport));
+                DelvefoldClientPayloadHandler::copyProfileExport,
+                DelvefoldClientPayloadHandler::openGuide));
     }
 }
