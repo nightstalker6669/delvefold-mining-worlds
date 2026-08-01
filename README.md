@@ -13,6 +13,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Optional survey stations, ore motherlodes, and fault-line landmarks with Pure Mining, Balanced, and Abundant presets.
 - A configurable world name and opt-in scheduled renewal with player warnings and mandatory backups.
 - An onboarding advancement path for building, activating, and entering the mining world.
+- A craftable **Seam Ledger** and `/delvefold guide` screen that publish server-authoritative ore outputs, best mining heights, relative frequency, terrain applicability, portal state, and renewal status without exposing administrative data.
 - Vanilla-balanced, Rich, and Empty starting ore profiles.
 - Named per-save ore profiles with safe duplication, selection, and JSON import/export.
 - Visual height-distribution and generation-workload previews in the ore editor.
@@ -23,7 +24,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Native NeoForge permission nodes, public lifecycle events, and a stable versioned integration API.
 - Optional JEI and EMI integration with a visual portal-construction guide, Flint and Steel catalyst, and no required recipe-viewer dependency.
 - Safe, Hostile, and Normal gameplay presets with individual spawn-category toggles.
-- Dedicated Delvefold creative tab with the Portal Frame and room for future content.
+- Dedicated Delvefold creative tab containing the Portal Frame and Seam Ledger.
 - Iron-tier framed portal ignited with vanilla Flint and Steel.
 - Safe world deletion/recreation on restart, with a timestamped backup by default.
 - In-game backup browser with pinning, confirmed deletion, and restart-safe restoration.
@@ -54,7 +55,7 @@ The console equivalent is:
 
 ## Commands
 
-All commands use the `/delvefold` root. The integrated singleplayer owner can administer Delvefold even with cheats disabled. Dedicated-server configuration requires operator level 2; world deletion and recreation require level 4.
+All commands use the `/delvefold` root. The player guide is public by default. The integrated singleplayer owner can administer Delvefold even with cheats disabled. Dedicated-server configuration requires operator level 2; world deletion and recreation require level 4.
 
 Setup, status, and JSON:
 
@@ -63,6 +64,9 @@ Setup, status, and JSON:
 /delvefold config
 /delvefold initialize <flat|cavern|wild> <balanced|rich|empty> <safe|hostile|normal>
 /delvefold status
+/delvefold guide
+/delvefold guide visibility
+/delvefold guide visibility <public|operators|disabled>
 /delvefold config validate
 /delvefold config reload
 /delvefold identity
@@ -73,6 +77,8 @@ Setup, status, and JSON:
 /delvefold renewal configure <interval_days> <warning_minutes>
 /delvefold renewal disable
 ```
+
+For players, `/delvefold guide` opens the same read-only Seam Ledger screen as right-clicking the item. From a dedicated-server console it prints a bounded text summary instead. The visibility command requires configuration access; `public` allows all sources, `operators` allows the integrated owner, configure-authorized players, and the trusted server console, while `disabled` blocks every command, item, command-block, and console opening source.
 
 Named profiles:
 
@@ -140,6 +146,12 @@ Backup management:
 
 World operations use a short-lived confirmation token and retain a timestamped backup unless `permanent` is explicitly selected. See [Commands](docs/COMMANDS.md) for behavior and permission details.
 
+## Seam Ledger
+
+Craft the Seam Ledger shapelessly from one Book, one Compass, and one Copper Ingot, or find it in the Delvefold creative tab. Right-clicking it opens a scrollable, read-only view of the active world and enabled ore profile. It shows representative ore icons, output IDs or tags, best height bands, vein sizes, relative frequency, terrain applicability, bounded biome include/exclude selectors, portal availability, and renewal timing.
+
+The server constructs and authorizes every snapshot. Oversized profiles are safely truncated, and the snapshot never publishes world seeds, horizontal coordinates, filesystem paths, world-operation confirmation tokens, permissions, or administration diagnostics. Successfully obtaining the ledger has an advancement. Consultation is awarded only after the client installs a server-authorized screen, returns its short-lived single-use acknowledgement, and the server rechecks visibility.
+
 ## Portal recipe and activation
 
 Portal frame (outputs four blocks):
@@ -164,7 +176,7 @@ Each save owns its configuration:
 <save>/serverconfig/delvefold/exports/*.json
 ```
 
-Editing JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), and the [JSON Schema](schemas/ores.schema.json).
+Editing ore-generation JSON affects only chunks generated after a successful `/delvefold config reload`. Existing chunks are never silently retrogened. See [Configuration](docs/CONFIGURATION.md), [Commands](docs/COMMANDS.md), the [ore schema](schemas/ores.schema.json), and the [settings schema](schemas/settings.schema.json).
 
 Modpack authors can provide namespaced, read-only profiles under `data/<namespace>/delvefold/ore_profiles/`, register profiles from startup scripts, and use NeoForge events and permission nodes. See [Integration](docs/INTEGRATION.md) and the [example datapack](examples/datapack).
 

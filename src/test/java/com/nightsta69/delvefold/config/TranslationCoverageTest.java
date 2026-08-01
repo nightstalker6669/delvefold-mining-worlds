@@ -7,11 +7,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
+import com.nightsta69.delvefold.config.model.GuideVisibility;
+import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.LandmarkPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
 import com.nightsta69.delvefold.compat.PortalConstructionGuide;
+import com.nightsta69.delvefold.guide.GuideSnapshot;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -50,6 +53,23 @@ class TranslationCoverageTest {
                 assertKey(language, "option.delvefold.landmark." + value.serializedName());
                 assertKey(language, "screen.delvefold.setup.landmark_help." + value.serializedName());
             }
+            for (GuideVisibility value : GuideVisibility.values()) {
+                assertKey(language, "option.delvefold.guide_visibility." + value.serializedName());
+            }
+            for (GuideSnapshot.PortalStatus value : GuideSnapshot.PortalStatus.values()) {
+                assertKey(language, "screen.delvefold.guide.portal."
+                        + value.name().toLowerCase(java.util.Locale.ROOT));
+            }
+            for (GuideSnapshot.RelativeFrequency value : GuideSnapshot.RelativeFrequency.values()) {
+                assertKey(language, "screen.delvefold.guide.frequency."
+                        + value.name().toLowerCase(java.util.Locale.ROOT));
+            }
+            for (HeightDistribution value : HeightDistribution.values()) {
+                assertKey(language, "screen.delvefold.guide.distribution."
+                        + value.name().toLowerCase(java.util.Locale.ROOT));
+            }
+            assertKey(language, "screen.delvefold.guide.empty");
+            assertKey(language, "screen.delvefold.guide.narration");
             assertKey(language, PortalConstructionGuide.TITLE_KEY);
             assertKey(language, PortalConstructionGuide.DIMENSIONS_KEY);
             assertKey(language, PortalConstructionGuide.FRAMES_KEY);

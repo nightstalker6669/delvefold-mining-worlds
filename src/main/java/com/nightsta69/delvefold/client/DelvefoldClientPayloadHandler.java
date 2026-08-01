@@ -5,9 +5,11 @@ import com.nightsta69.delvefold.client.gui.DelvefoldBackupScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreRuleWizardScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldSetupScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldGuideScreen;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
+import com.nightsta69.delvefold.network.payload.OpenGuidePayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -52,6 +54,14 @@ public final class DelvefoldClientPayloadHandler {
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(
                     Component.literal("Copied profile '" + payload.profileId() + "' JSON to the clipboard."), true);
+        }
+    }
+
+    public static void openGuide(OpenGuidePayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.setScreen(new DelvefoldGuideScreen(payload.snapshot()));
+        if (minecraft.screen instanceof DelvefoldGuideScreen) {
+            DelvefoldClientRequests.confirmGuideOpened(payload.authorizationId());
         }
     }
 }

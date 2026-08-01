@@ -1,0 +1,18 @@
+{
+  "parent": "delvefold:obtain_seam_ledger",
+  "display": {
+    "icon": { "id": "delvefold:seam_ledger" },
+    "title": { "translate": "advancement.delvefold.seam_ledger.consult.title" },
+    "description": { "translate": "advancement.delvefold.seam_ledger.consult.description" },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "consult": {
+      "trigger": "minecraft:impossible"
+    }
+  },
+  "requirements": [["consult"]]
+}

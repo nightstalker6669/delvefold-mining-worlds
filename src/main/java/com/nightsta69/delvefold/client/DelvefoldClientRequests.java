@@ -4,6 +4,7 @@ import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.GameplayUpdatePayload;
+import com.nightsta69.delvefold.network.payload.GuideOpenedPayload;
 import com.nightsta69.delvefold.network.payload.InitializeWorldPayload;
 import com.nightsta69.delvefold.network.payload.IdentityUpdatePayload;
 import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
@@ -65,6 +66,10 @@ public final class DelvefoldClientRequests {
 
     public static void requestOrePage(int page, long knownOreRevision) {
         send(new OrePageRequestPayload(page, knownOreRevision));
+    }
+
+    public static void confirmGuideOpened(long authorizationId) {
+        send(new GuideOpenedPayload(authorizationId));
     }
 
     private static void send(CustomPacketPayload payload) {

@@ -7,6 +7,7 @@
   "terrain_mode": null,
   "ore_preset": "vanilla_balanced",
   "active_profile_id": "vanilla_balanced",
+  "guide_visibility": "public",
   "identity": {
     "display_name": "Delvefold Mining World",
     "terrain_variant": "classic",

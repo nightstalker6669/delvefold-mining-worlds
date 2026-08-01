@@ -3,6 +3,8 @@ package com.nightsta69.delvefold.api;
 import com.nightsta69.delvefold.config.DelvefoldConfigService;
 import com.nightsta69.delvefold.config.EcosystemProfileRegistry;
 import com.nightsta69.delvefold.config.model.WorldSettingsDocument;
+import com.nightsta69.delvefold.guide.GuideSnapshot;
+import com.nightsta69.delvefold.guide.GuideSnapshotService;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
 import java.util.Optional;
 
@@ -19,6 +21,16 @@ public final class DelvefoldApi {
         } catch (IllegalStateException ignored) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Returns the bounded, read-only player guide for the active server.
+     *
+     * <p>The guide intentionally excludes seeds, horizontal coordinates,
+     * filesystem paths, confirmation data, and administration diagnostics.</p>
+     */
+    public static Optional<GuideSnapshot> activeGuide() {
+        return GuideSnapshotService.current();
     }
 
     public static Optional<MiningWorldView> worldView(WorldSettingsDocument settings) {

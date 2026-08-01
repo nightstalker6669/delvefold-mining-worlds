@@ -1,6 +1,6 @@
 # Commands
 
-All administration commands use the `/delvefold` root.
+All Delvefold commands use the `/delvefold` root.
 
 The integrated singleplayer owner may administer Delvefold even with cheats disabled. On dedicated servers, configuration falls back to operator level 2 and world deletion/recreation falls back to level 4. Permission mods may grant `delvefold.configure`, `delvefold.manage_world`, and `delvefold.use_portal` independently.
 
@@ -14,6 +14,26 @@ The integrated singleplayer owner may administer Delvefold even with cheats disa
 ```
 
 `gui` and `config` open the same screen. Before initialization it is the setup wizard; afterward it is the administration dashboard. GUI commands are player-only, while `initialize` works from a dedicated-server console.
+
+## Seam Ledger guide
+
+```text
+/delvefold guide
+/delvefold guide visibility
+/delvefold guide visibility <public|operators|disabled>
+```
+
+For a player, `/delvefold guide` opens the server-authorized, read-only Seam Ledger screen; the player does not need to hold the item. Right-clicking a Seam Ledger uses the same authorization and snapshot path. The consulting advancement is awarded only after the client installs the authorized screen and returns the matching player-bound, single-use acknowledgement within ten seconds. The server rechecks visibility before awarding it, so merely requesting or receiving a payload is insufficient.
+
+From a dedicated-server console, `/delvefold guide` prints a bounded text summary instead of opening a screen. It reports the world identity, terrain and profile, portal and renewal state, and up to 24 ore entries. The console counts as an operator for visibility checks and never awards a player advancement.
+
+`/delvefold guide visibility` reports the current mode. Supplying a mode updates it immediately and requires the same configuration access as the administration GUI:
+
+- `public` is the default and allows every source, including players and the server console.
+- `operators` allows the integrated singleplayer owner, players granted `delvefold.configure`, and trusted console sources; without a permission mod, player access falls back to operator level 2.
+- `disabled` denies player, command-block, and console guide access as well as Seam Ledger use. It does not remove the item.
+
+Visibility controls only guide content. It does not change portal access, ore generation, or the permissions required to administer Delvefold.
 
 ## JSON diagnostics
 

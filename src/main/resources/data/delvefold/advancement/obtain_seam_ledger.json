@@ -1,0 +1,21 @@
+{
+  "parent": "delvefold:root",
+  "display": {
+    "icon": { "id": "delvefold:seam_ledger" },
+    "title": { "translate": "advancement.delvefold.seam_ledger.obtain.title" },
+    "description": { "translate": "advancement.delvefold.seam_ledger.obtain.description" },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "criteria": {
+    "obtain": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [{ "items": "delvefold:seam_ledger" }]
+      }
+    }
+  },
+  "requirements": [["obtain"]]
+}

@@ -25,7 +25,8 @@ final class StrictConfigStructure {
             "discard_on_air_exposure");
     private static final Set<String> SETTINGS_DOCUMENT = Set.of(
             "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
-            "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal", "identity");
+            "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal", "identity",
+            "guide_visibility");
     private static final Set<String> REQUIRED_SETTINGS_DOCUMENT = Set.of(
             "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
             "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal");
@@ -33,6 +34,7 @@ final class StrictConfigStructure {
             "preset", "monsters", "creatures", "ambient", "water_creatures", "patrols", "phantoms");
     private static final Set<String> PORTAL = Set.of(
             "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale");
+    private static final Set<String> GUIDE_VISIBILITY = Set.of("public", "operators", "disabled");
     private static final Set<String> IDENTITY = Set.of(
             "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
             "fault_lines", "renewal");
@@ -117,6 +119,13 @@ final class StrictConfigStructure {
         string(settings.get("terrain_mode"), "$.terrain_mode", true);
         string(settings.get("ore_preset"), "$.ore_preset", false);
         string(settings.get("active_profile_id"), "$.active_profile_id", false);
+        if (settings.has("guide_visibility")) {
+            string(settings.get("guide_visibility"), "$.guide_visibility", false);
+            String visibility = settings.get("guide_visibility").getAsString();
+            if (!GUIDE_VISIBILITY.contains(visibility)) {
+                throw new JsonParseException("$.guide_visibility must be public, operators, or disabled");
+            }
+        }
         JsonObject gameplay = object(settings.get("gameplay"), "$.gameplay");
         fields(gameplay, GAMEPLAY, GAMEPLAY, "$.gameplay");
         string(gameplay.get("preset"), "$.gameplay.preset", false);

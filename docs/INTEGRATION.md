@@ -68,6 +68,28 @@ The integrated singleplayer owner keeps administrative access with cheats disabl
 
 `DelvefoldApi.activeWorld()` returns an optional immutable `MiningWorldView`. `DelvefoldApi.worldView(settings)` can convert a known settings snapshot. Never retain internal configuration services.
 
+`DelvefoldApi.activeGuide()` is an additive API-v1 method returning `Optional<GuideSnapshot>` for the current server state. It is empty while the live configuration service is unavailable; otherwise it can describe an initialized or not-yet-initialized Delvefold world. The snapshot is immutable and read-only:
+
+```java
+import com.nightsta69.delvefold.api.DelvefoldApi;
+import com.nightsta69.delvefold.guide.GuideSnapshot;
+
+DelvefoldApi.activeGuide().ifPresent(guide -> {
+    String worldName = guide.worldName();
+    for (GuideSnapshot.OreEntry ore : guide.ores()) {
+        // Publish or render the already-bounded player-facing data.
+    }
+});
+```
+
+The contract contains only whitelisted player-facing information: world display name, terrain and variant, active profile, coarse portal and renewal status, and enabled ore entries with output IDs or tags, representative block icons, terrain applicability, bounded biome include/exclude selectors, height summaries, vein sizes, and relative frequency. It deliberately excludes seeds, horizontal coordinates, filesystem paths, replacement-host details, world-operation confirmation data, permissions, validation reports, configuration hashes, and administration diagnostics.
+
+Every guide snapshot is independently bounded: format version 1, at most 96 ore entries, eight outputs and eight height bands per entry, three applicable terrains, 16 biome selectors per include list and 16 per exclude list, 64 characters for the world name, 128 characters for identifiers, and a conservative 24 KiB estimated network budget. The `truncated` flags tell consumers when a large profile was shortened. Consumers must tolerate future additive enum values and should display truncation rather than attempting to recover omitted internal data.
+
+`activeGuide()` has no player argument and returns content, not an authorization decision. Delvefold's built-in command and item enforce `guide_visibility` separately. An integration that republishes the snapshot to its own audience remains responsible for that audience decision.
+
+For the built-in player UI, the server issues a random, player-bound authorization with a ten-second lifetime alongside the snapshot. The client acknowledges only after installing the guide screen; the acknowledgement is single-use, and the server rechecks current visibility before awarding the consulting advancement. This short-lived acknowledgement is transport state and is not part of `GuideSnapshot` or `activeGuide()`.
+
 The NeoForge game bus posts:
 
 - `DelvefoldWorldLifecycleEvent` after initialization, recreation, or deletion commits;
