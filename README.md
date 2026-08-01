@@ -21,7 +21,7 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
 - Read-only ore profiles supplied by datapacks or startup scripts, including tag-driven outputs such as `c:ores/tin`.
 - Native NeoForge permission nodes, public lifecycle events, and a stable versioned integration API.
-- Optional JEI and EMI portal guidance with no required recipe-viewer dependency.
+- Optional JEI and EMI integration with a visual portal-construction guide, Flint and Steel catalyst, and no required recipe-viewer dependency.
 - Safe, Hostile, and Normal gameplay presets with individual spawn-category toggles.
 - Dedicated Delvefold creative tab with the Portal Frame and room for future content.
 - Iron-tier framed portal ignited with vanilla Flint and Steel.

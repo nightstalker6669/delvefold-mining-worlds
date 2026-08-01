@@ -32,6 +32,16 @@ sourceSets.main.resources {
     exclude('src/generated/**/.cache')
 }
 
+def requestedRecipeViewerTasks = gradle.startParameter.taskNames.collect { it.toLowerCase(Locale.ROOT) }
+def recipeViewerMode = providers.gradleProperty('delvefold_recipe_viewers')
+        .orElse('none')
+        .get()
+        .toLowerCase(Locale.ROOT)
+def includeJeiRuntime = recipeViewerMode in ['jei', 'both'] ||
+        requestedRecipeViewerTasks.any { it.contains('clientjei') || it.contains('clientrecipeviewers') }
+def includeEmiRuntime = recipeViewerMode in ['emi', 'both'] ||
+        requestedRecipeViewerTasks.any { it.contains('clientemi') || it.contains('clientrecipeviewers') }
+
 repositories {
     maven {
         name = 'BlameJared'
@@ -39,8 +49,8 @@ repositories {
         content { includeGroup 'mezz.jei' }
     }
     maven {
-        name = 'TerraformersMC'
-        url = 'https://maven.terraformersmc.com/releases/'
+        name = 'EMI'
+        url = 'https://repo.sleeping.town/'
         content { includeGroup 'dev.emi' }
     }
 }
@@ -56,6 +66,24 @@ neoForge {
     runs {
         client {
             client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        clientJei {
+            client()
+            gameDirectory = layout.projectDirectory.dir('run/jei')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        clientEmi {
+            client()
+            gameDirectory = layout.projectDirectory.dir('run/emi')
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        clientRecipeViewers {
+            client()
+            gameDirectory = layout.projectDirectory.dir('run/recipe-viewers')
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -101,6 +129,12 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     compileOnly "dev.emi:emi-neoforge:${emi_version}:api"
+    if (includeJeiRuntime) {
+        localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    }
+    if (includeEmiRuntime) {
+        localRuntime "dev.emi:emi-neoforge:${emi_version}"
+    }
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'com.google.code.gson:gson:2.10.1'
@@ -129,7 +163,9 @@ def generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             mod_license            : mod_license,
             mod_version            : mod_version,
             mod_authors            : mod_authors,
-            mod_description        : mod_description
+            mod_description        : mod_description,
+            jei_version_range      : jei_version_range,
+            emi_version_range      : emi_version_range
     ]
 
     inputs.properties(replaceProperties)

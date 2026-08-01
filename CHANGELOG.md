@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0 — The Surveying Update (in development)
+
+- Expanded optional JEI and EMI support with a visual Portal Construction category, minimum-frame diagram, Flint and Steel catalyst, initialization guidance, isolated development launch profiles, and client compatibility smoke tests.
+- Kept both recipe viewers out of the release JAR and all common/server code; Delvefold continues to run with neither viewer installed.
+- Prevented duplicate information entries when EMI and JEI are installed together.
+
 ## 1.0.1 — Stability and Correctness
 
 - Fixed overlapping descriptions in the setup wizard and added readable help for every landmark-density choice.

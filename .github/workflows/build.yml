@@ -88,3 +88,64 @@ jobs:
           if [[ "$status" -ne 0 && "$status" -ne 124 ]]; then
             exit "$status"
           fi
+
+  recipe-viewer-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      matrix:
+        task:
+          - runClient
+          - runClientJei
+          - runClientEmi
+          - runClientRecipeViewers
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Java 21
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+      - name: Install virtual display
+        run: sudo apt-get update && sudo apt-get install --yes xvfb xauth
+
+      - name: Start recipe-viewer client
+        shell: bash
+        env:
+          ALSOFT_DRIVERS: "null"
+        run: |
+          set +e
+          timeout 120s xvfb-run -a ./gradlew ${{ matrix.task }} --stacktrace > recipe-viewer.log 2>&1
+          status=$?
+          set -e
+          cat recipe-viewer.log
+          grep -q "Delvefold: Mining Worlds" recipe-viewer.log
+          grep -q "Minecraft]: Setting user" recipe-viewer.log
+          case "${{ matrix.task }}" in
+            runClient)
+              if grep -q "Just Enough Items" recipe-viewer.log || grep -q $'\t\tEMI ' recipe-viewer.log; then
+                echo "Base client unexpectedly loaded a recipe viewer" >&2
+                exit 1
+              fi
+              ;;
+            runClientJei)
+              grep -q "Just Enough Items" recipe-viewer.log
+              ;;
+            runClientEmi)
+              grep -q $'\t\tEMI ' recipe-viewer.log
+              ;;
+            runClientRecipeViewers)
+              grep -q "Just Enough Items" recipe-viewer.log
+              grep -q $'\t\tEMI ' recipe-viewer.log
+              ;;
+          esac
+          if [[ "$status" -ne 0 && "$status" -ne 124 ]]; then
+            exit "$status"
+          fi
