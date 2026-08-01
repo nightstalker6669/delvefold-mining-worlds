@@ -10,7 +10,6 @@ import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Items;
 
@@ -35,7 +34,7 @@ public final class DelvefoldEmiPortalRecipe extends BasicEmiRecipe {
     public DelvefoldEmiPortalRecipe(EmiRecipeCategory category, PortalConstructionGuide guide) {
         super(
                 category,
-                ResourceLocation.fromNamespaceAndPath(
+                DelvefoldEmiIds.syntheticRecipe(
                         PortalConstructionGuide.RECIPE_NAMESPACE, PortalConstructionGuide.RECIPE_PATH),
                 190,
                 100);

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.2 — Client Stability and Compatibility
+
+- Fixed a client crash when **Add Ore** built a picker entry for a modded ore. Registry IDs are now converted to supported text values before they are supplied to Minecraft's translation formatter.
+- Corrected the same unsafe translation-argument pattern in profile-export feedback and `/delvefold ore scan` result rows, preventing equivalent failures when those paths display filesystem names or registry IDs.
+- Fixed the Seam Ledger's unreadable text and icons by eliminating its second vanilla background/blur pass. Guide content now renders once, after the blur and before interactive widgets and tooltips.
+- Marked Delvefold's portal-construction and fallback information pages as synthetic EMI recipes. EMI no longer reports that `delvefold:portal_construction` is missing from Minecraft's recipe manager; normal EMI category and JEI identifiers remain unchanged.
+- Added regression checks for every corrected translation call and audited all production translation arguments for unsupported object types.
+- Added release-version, guide render-order, and EMI synthetic-ID regression guards so documentation, artifact naming, background ordering, and viewer compatibility cannot silently drift.
+- Verified the complete build and quality suite with 607 unit tests, 61 JSON resources, and 595 literal translation references. The modded-client acceptance instance includes JEI, EMI, Silent's Gems, Silent Lib, Applied Energistics 2, GuideME, and WorldEdit as test-only installations; none are bundled or made required dependencies.
+
+This patch does not change gameplay rules, saves, configuration schema 2, public API version 1, or network protocol 12. Clients and servers must use the identical 1.3.2 JAR. CurseForge publication remains a manual project-owner step.
+
 ## 1.3.1 — Code Quality and Maintainability
 
 - Completed a behavior-preserving internal cleanup of the 1.3 codebase. Public API version 1, network protocol 12, configuration and ore-profile schema 2, registry IDs, command paths, permission rules, and deterministic world-generation inputs remain unchanged.
