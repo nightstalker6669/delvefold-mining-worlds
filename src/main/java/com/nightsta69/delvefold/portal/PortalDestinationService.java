@@ -64,15 +64,19 @@ final class PortalDestinationService {
             return null;
         }
 
-        Optional<BlockPos> requested = requestedPosition(target, player, access);
-        if (requested.isEmpty()) {
-            fail(player, access);
-            return null;
-        }
-
         Direction.Axis sourcePortalAxis = sourceShape.get().axis();
-        Optional<PortalFrameShape> targetShape = findClosestPortal(target, requested.get())
-                .or(() -> createPortal(target, requested.get(), sourcePortalAxis));
+        Optional<PortalFrameShape> targetShape;
+        if (PortalRoutePolicy.usesCentralHub(access.settings(), access.returningToOverworld())) {
+            targetShape = CentralHubService.ensureHub(target, access.settings().hub());
+        } else {
+            Optional<BlockPos> requested = requestedPosition(target, player, access);
+            if (requested.isEmpty()) {
+                fail(player, access);
+                return null;
+            }
+            targetShape = findClosestPortal(target, requested.get())
+                    .or(() -> createPortal(target, requested.get(), sourcePortalAxis));
+        }
         if (targetShape.isEmpty()) {
             fail(player, access);
             return null;

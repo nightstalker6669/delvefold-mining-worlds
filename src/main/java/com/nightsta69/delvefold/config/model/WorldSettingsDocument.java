@@ -13,7 +13,8 @@ public record WorldSettingsDocument(
         PortalSettings portal,
         String activeProfileId,
         WorldIdentitySettings identity,
-        GuideVisibility guideVisibility
+        GuideVisibility guideVisibility,
+        BackupRetentionSettings backupRetention
 ) {
     public static final int CURRENT_SCHEMA_VERSION = 2;
     private static final long GENERATION_SALT_DOMAIN = 0x6A09E667F3BCC909L;
@@ -27,9 +28,31 @@ public record WorldSettingsDocument(
                 ? orePreset.serializedName() : activeProfileId.trim();
         identity = identity == null ? WorldIdentitySettings.defaults() : identity;
         guideVisibility = guideVisibility == null ? GuideVisibility.PUBLIC : guideVisibility;
+        backupRetention = backupRetention == null ? BackupRetentionSettings.defaults() : backupRetention;
         if (initialized && terrainMode == null) {
             throw new IllegalArgumentException("An initialized world requires a terrain mode");
         }
+    }
+
+    /** Source-compatible constructor for schema-2 callers predating backup retention. */
+    public WorldSettingsDocument(
+            int schemaVersion,
+            long revision,
+            long generationEpoch,
+            long generationSalt,
+            String lastWorldOperationId,
+            boolean initialized,
+            TerrainMode terrainMode,
+            OrePreset orePreset,
+            GameplaySettings gameplay,
+            PortalSettings portal,
+            String activeProfileId,
+            WorldIdentitySettings identity,
+            GuideVisibility guideVisibility
+    ) {
+        this(schemaVersion, revision, generationEpoch, generationSalt, lastWorldOperationId, initialized, terrainMode,
+                orePreset, gameplay, portal, activeProfileId, identity, guideVisibility,
+                BackupRetentionSettings.defaults());
     }
 
     /** Source- and binary-compatible constructor for schema-2 callers predating generation salts. */
@@ -48,7 +71,8 @@ public record WorldSettingsDocument(
             GuideVisibility guideVisibility
     ) {
         this(schemaVersion, revision, generationEpoch, 0L, lastWorldOperationId, initialized, terrainMode,
-                orePreset, gameplay, portal, activeProfileId, identity, guideVisibility);
+                orePreset, gameplay, portal, activeProfileId, identity, guideVisibility,
+                BackupRetentionSettings.defaults());
     }
 
     /** Source- and binary-compatible constructor for schema-2 callers predating guide visibility. */
@@ -66,7 +90,8 @@ public record WorldSettingsDocument(
             WorldIdentitySettings identity
     ) {
         this(schemaVersion, revision, generationEpoch, 0L, lastWorldOperationId, initialized, terrainMode,
-                orePreset, gameplay, portal, activeProfileId, identity, GuideVisibility.PUBLIC);
+                orePreset, gameplay, portal, activeProfileId, identity, GuideVisibility.PUBLIC,
+                BackupRetentionSettings.defaults());
     }
 
     public static WorldSettingsDocument uninitialized() {
@@ -83,7 +108,8 @@ public record WorldSettingsDocument(
                 PortalSettings.defaults(),
                 OrePreset.VANILLA_BALANCED.serializedName(),
                 WorldIdentitySettings.defaults(),
-                GuideVisibility.PUBLIC
+                GuideVisibility.PUBLIC,
+                BackupRetentionSettings.defaults()
         );
     }
 
@@ -111,7 +137,8 @@ public record WorldSettingsDocument(
                 portal,
                 preset.serializedName(),
                 selectedIdentity,
-                guideVisibility
+                guideVisibility,
+                backupRetention
         );
     }
 
@@ -133,7 +160,8 @@ public record WorldSettingsDocument(
                 portal,
                 activeProfileId,
                 identity,
-                guideVisibility
+                guideVisibility,
+                backupRetention
         );
     }
 
@@ -169,7 +197,8 @@ public record WorldSettingsDocument(
                 portal,
                 activeProfileId,
                 identity.withTerrainAndGeology(variant, geologyTheme),
-                guideVisibility
+                guideVisibility,
+                backupRetention
         );
     }
 
@@ -187,7 +216,8 @@ public record WorldSettingsDocument(
                 portal,
                 activeProfileId,
                 identity,
-                guideVisibility
+                guideVisibility,
+                backupRetention
         );
     }
 
@@ -205,26 +235,37 @@ public record WorldSettingsDocument(
                 replacement,
                 activeProfileId,
                 identity,
-                guideVisibility
+                guideVisibility,
+                backupRetention
         );
     }
 
     public WorldSettingsDocument withActiveProfile(String replacement) {
         return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
                 lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, replacement, identity, guideVisibility);
+                initialized, terrainMode, orePreset, gameplay, portal, replacement, identity, guideVisibility,
+                backupRetention);
     }
 
     public WorldSettingsDocument withIdentity(WorldIdentitySettings replacement) {
         return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
                 lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, replacement, guideVisibility);
+                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, replacement, guideVisibility,
+                backupRetention);
     }
 
     public WorldSettingsDocument withGuideVisibility(GuideVisibility replacement) {
         return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
                 lastWorldOperationId,
-                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, identity, replacement);
+                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, identity, replacement,
+                backupRetention);
+    }
+
+    public WorldSettingsDocument withBackupRetention(BackupRetentionSettings replacement) {
+        return new WorldSettingsDocument(CURRENT_SCHEMA_VERSION, revision, generationEpoch, generationSalt,
+                lastWorldOperationId,
+                initialized, terrainMode, orePreset, gameplay, portal, activeProfileId, identity, guideVisibility,
+                replacement);
     }
 
     private long nextGenerationEpoch() {

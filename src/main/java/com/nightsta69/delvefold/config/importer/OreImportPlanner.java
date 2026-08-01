@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.config.importer;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.OreRuleTemplates;
 import com.nightsta69.delvefold.config.analysis.OreWorkBudgetAnalysis;
 import com.nightsta69.delvefold.config.importer.OreImportModels.Candidate;
@@ -41,8 +42,8 @@ public final class OreImportPlanner {
         Objects.requireNonNull(registry, "registry");
         List<Group> safeSelected = selected == null ? List.of() : List.copyOf(selected);
         if (safeSelected.size() > OreImportModels.MAX_SELECTED_GROUPS) {
-            throw new IllegalArgumentException(
-                    "Selected ore groups exceed the limit of " + OreImportModels.MAX_SELECTED_GROUPS);
+            throw new IllegalArgumentException(localized(
+                    "message.delvefold.import.plan.selection_limit", OreImportModels.MAX_SELECTED_GROUPS));
         }
 
         // Reject input-order ambiguity and then plan in stable group-ID order.
@@ -50,7 +51,8 @@ public final class OreImportPlanner {
         for (Group group : safeSelected) {
             Group previous = groups.putIfAbsent(Objects.requireNonNull(group, "selected group").id(), group);
             if (previous != null && !previous.equals(group)) {
-                throw new IllegalArgumentException("Conflicting selected ore group: " + group.id());
+                throw new IllegalArgumentException(localized(
+                        "message.delvefold.import.plan.selection_conflict", group.id()));
             }
         }
 
@@ -80,10 +82,10 @@ public final class OreImportPlanner {
                         ? DiffStatus.SKIPPED_COVERED
                         : DiffStatus.SKIPPED_REVIEW_REQUIRED;
                 String message = reviewRequired.isEmpty()
-                        ? "Every discovered target is already covered by the base profile."
+                        ? localized("message.delvefold.import.diff_message.covered")
                         : covered.isEmpty()
-                                ? "Every discovered target needs an explicit replacement-host review."
-                                : "Covered targets were skipped and the remaining targets need host review.";
+                                ? localized("message.delvefold.import.diff_message.review_required")
+                                : localized("message.delvefold.import.diff_message.covered_and_review");
                 diff.add(new DiffEntry(group.id(), status, "", List.of(), skipped, message));
                 continue;
             }
@@ -100,8 +102,8 @@ public final class OreImportPlanner {
             List<String> skipped = sortedUnion(covered, reviewRequired);
             DiffStatus status = skipped.isEmpty() ? DiffStatus.ADDED : DiffStatus.PARTIALLY_ADDED;
             String message = skipped.isEmpty()
-                    ? "Added with the Uncommon preset."
-                    : "Added uncovered stone/deepslate targets; covered or review-required targets were skipped.";
+                    ? localized("message.delvefold.import.diff_message.added")
+                    : localized("message.delvefold.import.diff_message.partially_added");
             diff.add(new DiffEntry(group.id(), status, ruleId, added, skipped, message));
         }
 
@@ -169,7 +171,8 @@ public final class OreImportPlanner {
                 return candidate;
             }
         }
-        throw new IllegalStateException("Could not allocate a unique ore rule ID for " + group.id());
+        throw new IllegalStateException(localized(
+                "message.delvefold.import.plan.rule_id_failed", group.id()));
     }
 
     private static String boundedRuleId(String value, String suffix) {
@@ -185,5 +188,9 @@ public final class OreImportPlanner {
         Set<String> values = new TreeSet<>(first);
         values.addAll(second);
         return List.copyOf(values);
+    }
+
+    private static String localized(String translationKey, Object... arguments) {
+        return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 }

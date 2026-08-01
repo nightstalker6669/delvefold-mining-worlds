@@ -5,6 +5,7 @@ import com.nightsta69.delvefold.client.gui.DelvefoldBackupScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreRuleWizardScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldSetupScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldText;
 import com.nightsta69.delvefold.client.gui.DelvefoldGuideScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreForecastScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreImportScreen;
@@ -46,7 +47,7 @@ public final class DelvefoldClientPayloadHandler {
         if (minecraft.player == null) {
             return;
         }
-        Component message = Component.literal(payload.message());
+        Component message = DelvefoldText.serverMessage(payload.message());
         if (minecraft.screen instanceof DelvefoldScreen delvefoldScreen) {
             delvefoldScreen.handleActionResult(payload);
         }
@@ -58,7 +59,7 @@ public final class DelvefoldClientPayloadHandler {
         minecraft.keyboardHandler.setClipboard(payload.json());
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(
-                    Component.literal("Copied profile '" + payload.profileId() + "' JSON to the clipboard."), true);
+                    Component.translatable("message.delvefold.profile.copied", payload.profileId()), true);
         }
     }
 

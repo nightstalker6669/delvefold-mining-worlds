@@ -32,15 +32,22 @@ final class StrictConfigStructure {
     private static final Set<String> SETTINGS_DOCUMENT = Set.of(
             "schema_version", "revision", "generation_epoch", "generation_salt", "last_world_operation_id", "initialized",
             "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal", "identity",
-            "guide_visibility");
+            "guide_visibility", "backup_retention");
     private static final Set<String> REQUIRED_SETTINGS_DOCUMENT = Set.of(
             "schema_version", "revision", "generation_epoch", "last_world_operation_id", "initialized",
             "terrain_mode", "ore_preset", "active_profile_id", "gameplay", "portal");
     private static final Set<String> GAMEPLAY = Set.of(
             "preset", "monsters", "creatures", "ambient", "water_creatures", "patrols", "phantoms");
     private static final Set<String> PORTAL = Set.of(
+            "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale",
+            "routing_mode", "hub");
+    private static final Set<String> REQUIRED_PORTAL = Set.of(
             "enabled", "allow_from_overworld_only", "cooldown_seconds", "coordinate_scale");
+    private static final Set<String> PORTAL_ROUTING_MODE = Set.of("coordinate_linked", "central_hub");
+    private static final Set<String> PORTAL_HUB = Set.of("x", "z", "protection_radius");
     private static final Set<String> GUIDE_VISIBILITY = Set.of("public", "operators", "disabled");
+    private static final Set<String> BACKUP_RETENTION = Set.of(
+            "enabled", "max_count", "max_age_days", "max_total_bytes");
     private static final Set<String> IDENTITY = Set.of(
             "display_name", "terrain_variant", "landmark_preset", "survey_stations", "motherlodes",
             "fault_lines", "geology_theme", "renewal");
@@ -164,6 +171,14 @@ final class StrictConfigStructure {
                 throw new JsonParseException("$.guide_visibility must be public, operators, or disabled");
             }
         }
+        if (settings.has("backup_retention")) {
+            JsonObject retention = object(settings.get("backup_retention"), "$.backup_retention");
+            fields(retention, BACKUP_RETENTION, BACKUP_RETENTION, "$.backup_retention");
+            bool(retention.get("enabled"), "$.backup_retention.enabled");
+            boundedInteger(retention.get("max_count"), "$.backup_retention.max_count", 0, Integer.MAX_VALUE);
+            boundedLong(retention.get("max_age_days"), "$.backup_retention.max_age_days", 0L, Long.MAX_VALUE);
+            boundedLong(retention.get("max_total_bytes"), "$.backup_retention.max_total_bytes", 0L, Long.MAX_VALUE);
+        }
         JsonObject gameplay = object(settings.get("gameplay"), "$.gameplay");
         fields(gameplay, GAMEPLAY, GAMEPLAY, "$.gameplay");
         string(gameplay.get("preset"), "$.gameplay.preset", false);
@@ -174,12 +189,27 @@ final class StrictConfigStructure {
         bool(gameplay.get("patrols"), "$.gameplay.patrols");
         bool(gameplay.get("phantoms"), "$.gameplay.phantoms");
         JsonObject portal = object(settings.get("portal"), "$.portal");
-        fields(portal, PORTAL, PORTAL, "$.portal");
+        fields(portal, PORTAL, REQUIRED_PORTAL, "$.portal");
         bool(portal.get("enabled"), "$.portal.enabled");
         bool(portal.get("allow_from_overworld_only"), "$.portal.allow_from_overworld_only");
         boundedInteger(portal.get("cooldown_seconds"), "$.portal.cooldown_seconds",
                 Integer.MIN_VALUE, Integer.MAX_VALUE);
         number(portal.get("coordinate_scale"), "$.portal.coordinate_scale");
+        if (portal.has("routing_mode")) {
+            string(portal.get("routing_mode"), "$.portal.routing_mode", false);
+            String routingMode = portal.get("routing_mode").getAsString();
+            if (!PORTAL_ROUTING_MODE.contains(routingMode)) {
+                throw new JsonParseException(
+                        "$.portal.routing_mode must be coordinate_linked or central_hub");
+            }
+        }
+        if (portal.has("hub")) {
+            JsonObject hub = object(portal.get("hub"), "$.portal.hub");
+            fields(hub, PORTAL_HUB, PORTAL_HUB, "$.portal.hub");
+            boundedInteger(hub.get("x"), "$.portal.hub.x", -29_999_936, 29_999_936);
+            boundedInteger(hub.get("z"), "$.portal.hub.z", -29_999_936, 29_999_936);
+            boundedInteger(hub.get("protection_radius"), "$.portal.hub.protection_radius", 8, 256);
+        }
         if (settings.has("identity")) {
             JsonObject identity = object(settings.get("identity"), "$.identity");
             fields(identity, IDENTITY, REQUIRED_IDENTITY, "$.identity");

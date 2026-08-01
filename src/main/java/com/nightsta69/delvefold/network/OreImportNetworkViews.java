@@ -9,6 +9,7 @@ import com.nightsta69.delvefold.config.importer.OreImportSessionService.IssuedPr
 import com.nightsta69.delvefold.config.importer.OreImportSessionService.IssuedScan;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
+import com.nightsta69.delvefold.config.validation.ConfigIssueMessages;
 import com.nightsta69.delvefold.network.model.OreImportViews.CandidateView;
 import com.nightsta69.delvefold.network.model.OreImportViews.DiffView;
 import com.nightsta69.delvefold.network.model.OreImportViews.GroupView;
@@ -68,7 +69,7 @@ public final class OreImportNetworkViews {
                 .map(issue -> new ValidationIssueView(
                         issue.severity(), bounded(issue.code(), ProtocolLimits.ID_LENGTH),
                         bounded(issue.path(), ProtocolLimits.SHORT_TEXT_LENGTH),
-                        bounded(issue.message(), ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH)))
+                        bounded(ConfigIssueMessages.encode(issue), ProtocolLimits.MAX_IMPORT_MESSAGE_LENGTH)))
                 .toList();
         return new PreviewView(token, revision, plan.baseProfileId(), page, pages, total,
                 plan.valid(), plan.addedRuleCount(), diff, workloads, issues,

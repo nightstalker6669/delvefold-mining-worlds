@@ -29,7 +29,7 @@ class OreRuleDraftCodecTest {
                 "Weight must be decoded from the matching wire position");
         assertTrue(codec.contains("replaceTag, state, weight)"),
                 "The decoded weight must reach OreVariantDraft");
-        assertTrue(network.contains("PROTOCOL_VERSION = \"11\""),
-                "Geology themes and province bands require protocol 11");
+        assertTrue(network.contains("PROTOCOL_VERSION = \"12\""),
+                "Server-operations payloads require protocol 12");
     }
 }

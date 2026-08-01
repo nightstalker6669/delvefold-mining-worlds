@@ -125,6 +125,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
                 Component.translatable("gui.back"), Style.GHOST, button -> this.minecraft.setScreen(this.parent));
 
         updateGrid();
+        this.setInitialFocus(this.searchBox);
     }
 
     private void loadRegistryEntries() {
@@ -241,5 +242,16 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
         if (this.minecraft != null) {
             this.minecraft.setScreen(this.parent);
         }
+    }
+
+    @Override
+    public Component getNarrationMessage() {
+        int safePageSize = Math.max(1, this.pageSize);
+        int pageCount = Math.max(1, (this.filteredEntries.size() + safePageSize - 1) / safePageSize);
+        return Component.translatable("screen.delvefold.ore_picker.narration",
+                this.filteredEntries.size(), this.page + 1, pageCount,
+                Component.translatable(this.showAll
+                        ? "screen.delvefold.ore_picker.all_blocks"
+                        : "screen.delvefold.ore_picker.ores_only"));
     }
 }

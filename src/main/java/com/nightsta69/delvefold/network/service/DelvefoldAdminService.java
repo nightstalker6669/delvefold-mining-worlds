@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.network.service;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.PortalSettings;
@@ -75,12 +76,14 @@ public interface DelvefoldAdminService {
         public ServiceResult {
             status = status == null ? ActionStatus.ERROR : status;
             revision = Math.max(0L, revision);
-            message = message == null || message.isBlank() ? "Operation completed." : message;
+            message = message == null || message.isBlank()
+                    ? AdminLocalizedMessage.encode("message.delvefold.admin.operation_completed")
+                    : message;
         }
 
         public static ServiceResult unavailable(long revision) {
             return new ServiceResult(ActionStatus.REJECTED, revision,
-                    "Delvefold administration backend is not installed.", false);
+                    AdminLocalizedMessage.encode("message.delvefold.admin.backend_unavailable"), false);
         }
     }
 }

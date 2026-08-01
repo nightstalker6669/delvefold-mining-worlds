@@ -1,6 +1,8 @@
 package com.nightsta69.delvefold.network;
 
 import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
+import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.AdminAccess;
 import com.nightsta69.delvefold.admin.OreImportAdminService;
 import com.nightsta69.delvefold.network.model.ActionStatus;
@@ -48,7 +50,7 @@ import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
-    public static final String PROTOCOL_VERSION = "11";
+    public static final String PROTOCOL_VERSION = "12";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private static volatile Consumer<OpenGuiPayload> clientOpenHandler = payload -> {
@@ -192,7 +194,8 @@ public final class DelvefoldNetwork {
             finish(player, new DelvefoldAdminService.ServiceResult(
                     ActionStatus.REJECTED,
                     com.nightsta69.delvefold.config.DelvefoldConfigService.get().snapshot().ores().revision(),
-                    "Ore forecast failed: " + exception.getMessage(), false));
+                    AdminLocalizedMessage.encode("message.delvefold.network.forecast_failed",
+                            exception.getMessage()), false));
         }
     }
 
@@ -281,7 +284,8 @@ public final class DelvefoldNetwork {
         }
         if (!payload.lockConfirmed()) {
             finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.REJECTED,
-                    payload.expectedSettingsRevision(), "Initialization requires explicit lock confirmation.", false));
+                    payload.expectedSettingsRevision(), AdminLocalizedMessage.encode(
+                            "message.delvefold.network.initialize_confirmation"), false));
             return;
         }
         invoke(player, () -> DelvefoldAdminServices.get().initialize(
@@ -354,13 +358,14 @@ public final class DelvefoldNetwork {
             if (json.length() > ProtocolLimits.MAX_PROFILE_CLIPBOARD_CHARS) {
                 finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.REJECTED,
                         com.nightsta69.delvefold.config.DelvefoldConfigService.get().snapshot().ores().revision(),
-                        "Profile is too large for clipboard transfer; use /delvefold profile export instead.", false));
+                        AdminLocalizedMessage.encode("message.delvefold.network.profile_clipboard_large"), false));
                 return;
             }
             PacketDistributor.sendToPlayer(player, new ProfileExportPayload(payload.profileId(), json));
         } catch (IOException | IllegalArgumentException exception) {
             finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.ERROR, 0,
-                    "Profile export failed: " + exception.getMessage(), false));
+                    AdminLocalizedMessage.encode("message.delvefold.network.profile_export_failed",
+                            exception.getMessage()), false));
         }
     }
 
@@ -384,7 +389,8 @@ public final class DelvefoldNetwork {
         }
         if (!operation.confirmationMatches(payload.confirmation())) {
             finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.REJECTED,
-                    payload.expectedRevision(), "Confirmation text did not match the requested operation.", false));
+                    payload.expectedRevision(), AdminLocalizedMessage.encode(
+                            "message.delvefold.network.confirmation_mismatch"), false));
             return;
         }
         invoke(player, () -> DelvefoldAdminServices.get().perform(
@@ -395,13 +401,14 @@ public final class DelvefoldNetwork {
     }
 
     private static void invoke(ServerPlayer player, ServiceCall call) {
-        try {
+        try (DelvefoldAuditService.ActorScope ignored = DelvefoldAuditService.get()
+                .pushActor(player.getGameProfile().getName())) {
             DelvefoldAdminService.ServiceResult result = Objects.requireNonNull(call.run(), "service result");
             finish(player, result);
         } catch (RuntimeException exception) {
             LOGGER.error("Delvefold administration request failed for {}", player.getGameProfile().getName(), exception);
             finish(player, new DelvefoldAdminService.ServiceResult(ActionStatus.ERROR, 0L,
-                    "The server rejected the request due to an internal error. See the server log.", true));
+                    AdminLocalizedMessage.encode("message.delvefold.network.internal_error"), true));
         }
     }
 
@@ -412,6 +419,11 @@ public final class DelvefoldNetwork {
         }
     }
 
+    /** Completes a previously accepted background administration action on the server thread. */
+    public static void sendAsyncResult(ServerPlayer player, DelvefoldAdminService.ServiceResult result) {
+        finish(Objects.requireNonNull(player, "player"), Objects.requireNonNull(result, "result"));
+    }
+
     private static void sendSnapshot(ServerPlayer player, int orePage) {
         try {
             AdminSnapshot snapshot = Objects.requireNonNull(DelvefoldAdminServices.get().snapshot(
@@ -420,7 +432,7 @@ public final class DelvefoldNetwork {
         } catch (RuntimeException exception) {
             LOGGER.error("Could not create Delvefold GUI snapshot for {}", player.getGameProfile().getName(), exception);
             PacketDistributor.sendToPlayer(player, new ActionResultPayload(ActionStatus.ERROR, 0L,
-                    "The server could not create the Delvefold administration snapshot."));
+                    AdminLocalizedMessage.encode("message.delvefold.network.snapshot_failed")));
         }
     }
 

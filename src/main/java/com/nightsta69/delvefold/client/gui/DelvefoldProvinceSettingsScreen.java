@@ -19,7 +19,7 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
     private String verticalThickness;
     private String density;
     private String workCap;
-    private String error = "";
+    private Component error = Component.empty();
 
     public DelvefoldProvinceSettingsScreen(
             Screen parent,
@@ -103,11 +103,11 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
             if (!valid) {
                 throw new NumberFormatException();
             }
-            this.error = "";
+            this.error = Component.empty();
             this.onSave.accept(new ProvinceSettings(
                     parsedRegion, parsedRadius, parsedThickness, parsedDensity, parsedCap));
         } catch (NumberFormatException exception) {
-            this.error = Component.translatable("screen.delvefold.province.invalid").getString();
+            this.error = Component.translatable("screen.delvefold.province.invalid");
         }
     }
 
@@ -134,11 +134,11 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
             graphics.drawWordWrap(this.font, Component.translatable("screen.delvefold.province.help"),
                     x + 12, layout.helpY(), width - 24, DIM_TEXT);
         }
-        if (!this.error.isEmpty()) {
+        if (!this.error.getString().isEmpty()) {
             if (layout.compact()) {
                 graphics.enableScissor(x + 1, layout.errorY(), x + width - 1, layout.contentBottom());
             }
-            graphics.drawWordWrap(this.font, Component.literal(this.error),
+            graphics.drawWordWrap(this.font, this.error,
                     x + 12, layout.errorY(), width - 24, DANGER);
             if (layout.compact()) {
                 graphics.disableScissor();
@@ -151,6 +151,13 @@ public final class DelvefoldProvinceSettingsScreen extends DelvefoldScreen {
         if (this.minecraft != null) {
             this.minecraft.setScreen(this.parent);
         }
+    }
+
+    @Override
+    public Component getNarrationMessage() {
+        return this.error.getString().isEmpty()
+                ? Component.translatable("screen.delvefold.province.narration")
+                : Component.translatable("screen.delvefold.province.narration.error", this.error);
     }
 }
 

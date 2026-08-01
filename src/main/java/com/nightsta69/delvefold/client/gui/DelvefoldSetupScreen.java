@@ -46,7 +46,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     private boolean lockConfirmed;
     private Button confirmationButton;
     private Button initializeButton;
-    private String localStatus = "";
+    private Component localStatus = Component.empty();
     private int localStatusColor = ACCENT;
     private final List<AbstractWidget> bodyWidgets = new ArrayList<>();
     private final Map<AbstractWidget, Integer> bodyWidgetY = new IdentityHashMap<>();
@@ -154,7 +154,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         for (TerrainMode mode : TerrainMode.values()) {
             int optionX = x + mode.ordinal() * (optionWidth + gap);
             this.addBodyButton(optionX, y, optionWidth, 42,
-                    DelvefoldText.option("terrain", mode.serializedName()),
+                    DelvefoldText.choice(this.terrainMode == mode,
+                            DelvefoldText.option("terrain", mode.serializedName())),
                     this.terrainMode == mode ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.terrainMode = mode;
@@ -167,7 +168,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         for (TerrainVariant variant : TerrainVariant.values()) {
             int optionX = x + variant.ordinal() * (variantWidth + gap);
             this.addBodyButton(optionX, variantY, variantWidth, 24,
-                    DelvefoldText.option("terrain_variant", variant.serializedName()),
+                    DelvefoldText.choice(this.terrainVariant == variant,
+                            DelvefoldText.option("terrain_variant", variant.serializedName())),
                     this.terrainVariant == variant ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.terrainVariant = variant;
@@ -182,7 +184,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         for (GeologyTheme theme : GeologyTheme.values()) {
             int optionX = x + theme.ordinal() * (geologyWidth + geologyGap);
             this.addBodyButton(optionX, geologyY, geologyWidth, 24,
-                    DelvefoldText.option("geology_theme", theme.serializedName()),
+                    DelvefoldText.choice(this.geologyTheme == theme,
+                            DelvefoldText.option("geology_theme", theme.serializedName())),
                     this.geologyTheme == theme ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.geologyTheme = theme;
@@ -195,7 +198,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         for (RenewalSeedMode mode : RenewalSeedMode.values()) {
             int optionX = x + mode.ordinal() * (seedModeWidth + gap);
             this.addBodyButton(optionX, seedModeY, seedModeWidth, 24,
-                    DelvefoldText.option("renewal_seed_mode", mode.serializedName()),
+                    DelvefoldText.choice(this.renewalSeedMode == mode,
+                            DelvefoldText.option("renewal_seed_mode", mode.serializedName())),
                     this.renewalSeedMode == mode ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.renewalSeedMode = mode;
@@ -235,7 +239,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         for (OrePreset preset : OrePreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
             this.addBodyButton(optionX, y + RESOURCE_OPTIONS_TOP, optionWidth, 32,
-                    DelvefoldText.option("ore_preset", preset.serializedName()),
+                    DelvefoldText.choice(this.orePreset == preset,
+                            DelvefoldText.option("ore_preset", preset.serializedName())),
                     this.orePreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.orePreset = preset;
@@ -247,7 +252,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         for (GameplayPreset preset : GameplayPreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
             this.addBodyButton(optionX, gameplayY, optionWidth, 32,
-                    DelvefoldText.option("gameplay", preset.serializedName()),
+                    DelvefoldText.choice(this.gameplayPreset == preset,
+                            DelvefoldText.option("gameplay", preset.serializedName())),
                     this.gameplayPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.gameplayPreset = preset;
@@ -259,7 +265,8 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         for (LandmarkPreset preset : LandmarkPreset.values()) {
             int optionX = x + preset.ordinal() * (optionWidth + gap);
             this.addBodyButton(optionX, landmarkY, optionWidth, 28,
-                    DelvefoldText.option("landmark", preset.serializedName()),
+                    DelvefoldText.choice(this.landmarkPreset == preset,
+                            DelvefoldText.option("landmark", preset.serializedName())),
                     this.landmarkPreset == preset ? Style.TOGGLE_ON : Style.SECONDARY,
                     button -> {
                         this.landmarkPreset = preset;
@@ -301,7 +308,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
             return;
         }
         this.initializeButton.active = false;
-        this.localStatus = "Sending initialization request to the server…";
+        this.localStatus = Component.translatable("screen.delvefold.setup.initializing");
         this.localStatusColor = ACCENT;
         this.bodyVirtualBottom = reviewVirtualBottom();
         setBodyScrollOffset(this.bodyScrollOffset);
@@ -369,16 +376,9 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
     }
 
     private Component reviewStatus() {
-        return Component.literal(!this.snapshot.backendReady() ? this.snapshot.worldStatus() : this.localStatus);
-    }
-
-    private static String pretty(String enumName) {
-        String normalized = enumName.toLowerCase().replace('_', ' ');
-        return Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1);
-    }
-
-    private static String oreName(OrePreset preset) {
-        return preset == OrePreset.VANILLA_BALANCED ? "Vanilla-balanced" : pretty(preset.name());
+        return !this.snapshot.backendReady()
+                ? DelvefoldText.serverMessage(this.snapshot.worldStatus())
+                : this.localStatus;
     }
 
     @Override
@@ -521,10 +521,10 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         graphics.drawString(this.font, Component.translatable("screen.delvefold.setup.review.seed_mode"), x + 14, y + 125, MUTED_TEXT, false);
         graphics.drawString(this.font, DelvefoldText.option("renewal_seed_mode", this.renewalSeedMode.serializedName()), x + width / 2, y + 125, TEXT, false);
 
-        String status = reviewStatus().getString();
+        Component status = reviewStatus();
         int color = !this.snapshot.backendReady() ? DANGER : this.localStatusColor;
-        if (!status.isEmpty()) {
-            drawNotice(graphics, x + 10, y + 190, width - 20, Component.literal(status), color);
+        if (!status.getString().isEmpty()) {
+            drawNotice(graphics, x + 10, y + 190, width - 20, status, color);
         }
     }
 
@@ -561,7 +561,7 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
 
     @Override
     public void handleActionResult(ActionResultPayload payload) {
-        this.localStatus = payload.message();
+        this.localStatus = DelvefoldText.serverMessage(payload.message());
         this.localStatusColor = payload.status() == ActionStatus.ACCEPTED ? SUCCESS : DANGER;
         if (this.step == Step.REVIEW) {
             this.bodyVirtualBottom = reviewVirtualBottom();
@@ -570,6 +570,16 @@ public final class DelvefoldSetupScreen extends DelvefoldScreen {
         if (payload.status() != ActionStatus.ACCEPTED && this.initializeButton != null) {
             this.initializeButton.active = this.snapshot.backendReady() && this.lockConfirmed;
         }
+    }
+
+    @Override
+    public Component getNarrationMessage() {
+        Component status = reviewStatus();
+        if (status.getString().isEmpty()) {
+            status = Component.translatable("screen.delvefold.status.ready");
+        }
+        return Component.translatable("screen.delvefold.setup.narration",
+                Component.translatable(this.step.translationKey), status);
     }
 
     private enum Step {

@@ -1,9 +1,10 @@
 package com.nightsta69.delvefold.client.gui;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedComponents;
 import net.minecraft.network.chat.Component;
 
 /** Centralized translatable labels shared by the administration screens. */
-final class DelvefoldText {
+public final class DelvefoldText {
     private DelvefoldText() {
     }
 
@@ -13,5 +14,16 @@ final class DelvefoldText {
 
     static Component toggle(boolean enabled, Component label) {
         return Component.translatable(enabled ? "screen.delvefold.toggle.on" : "screen.delvefold.toggle.off", label);
+    }
+
+    static Component choice(boolean selected, Component label) {
+        return selected
+                ? Component.translatable("screen.delvefold.choice.selected", label)
+                : Component.translatable("screen.delvefold.choice.available", label);
+    }
+
+    /** Resolves the bounded translation representation sent by the server, retaining legacy text. */
+    public static Component serverMessage(String message) {
+        return AdminLocalizedComponents.resolve(message);
     }
 }

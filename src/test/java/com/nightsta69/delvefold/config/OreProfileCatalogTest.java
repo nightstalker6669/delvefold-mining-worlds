@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import java.nio.file.Files;
@@ -25,6 +26,8 @@ class OreProfileCatalogTest {
 
         var result = catalog.saveAs("my_pack", OrePresets.rich(), false);
         assertTrue(result.saved(), result::message);
+        assertEquals("message.delvefold.profile.saved",
+                AdminLocalizedMessage.decode(result.message()).orElseThrow().translationKey());
         assertEquals("my_pack", catalog.load("my_pack").profile());
         assertTrue(catalog.list().stream().anyMatch(profile -> profile.id().equals("my_pack") && profile.localOverride()));
     }
@@ -51,6 +54,8 @@ class OreProfileCatalogTest {
 
         var builtIn = catalog.createNew("empty", OrePresets.rich());
         assertFalse(builtIn.saved());
+        assertEquals("message.delvefold.profile.exists",
+                AdminLocalizedMessage.decode(builtIn.message()).orElseThrow().translationKey());
         assertFalse(Files.exists(directory.resolve("profiles/empty.json")));
 
         var first = catalog.createNew("detected_ores", OrePresets.empty());
@@ -93,6 +98,34 @@ class OreProfileCatalogTest {
         assertEquals(0L, result.profile().revision());
         assertEquals("source", source.profile());
         assertEquals(42L, source.revision());
+    }
+
+    @Test
+    void writesAndDeletesReportTheExactPriorLocalRevision() throws Exception {
+        OreProfileCatalog catalog = catalog();
+
+        var created = catalog.saveAs("audited", OrePresets.empty(), false);
+        assertTrue(created.saved(), created::message);
+        assertEquals(-1L, created.previousRevision());
+        assertEquals(0L, created.profile().revision());
+
+        var firstUpdate = catalog.saveAs("audited", OrePresets.rich(), true);
+        assertTrue(firstUpdate.saved(), firstUpdate::message);
+        assertEquals(0L, firstUpdate.previousRevision());
+        assertEquals(1L, firstUpdate.profile().revision());
+
+        var secondUpdate = catalog.saveAs("audited", OrePresets.empty(), true);
+        assertTrue(secondUpdate.saved(), secondUpdate::message);
+        assertEquals(1L, secondUpdate.previousRevision());
+        assertEquals(2L, secondUpdate.profile().revision());
+
+        var deleted = catalog.deleteLocalWithRevision("audited");
+        assertTrue(deleted.deleted());
+        assertEquals(2L, deleted.previousRevision());
+
+        var missing = catalog.deleteLocalWithRevision("audited");
+        assertFalse(missing.deleted());
+        assertEquals(-1L, missing.previousRevision());
     }
 
     private OreProfileCatalog catalog() {

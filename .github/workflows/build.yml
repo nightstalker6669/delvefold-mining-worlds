@@ -79,6 +79,8 @@ jobs:
       - name: Start dedicated server
         shell: bash
         run: |
+          mkdir -p run
+          printf 'eula=true\n' > run/eula.txt
           set +e
           timeout 90s ./gradlew runServer --stacktrace > dedicated-server.log 2>&1
           status=$?
@@ -137,9 +139,17 @@ jobs:
               ;;
             runClientJei)
               grep -q "Just Enough Items" recipe-viewer.log
+              if grep -q $'\t\tEMI ' recipe-viewer.log; then
+                echo "JEI-only client unexpectedly loaded EMI" >&2
+                exit 1
+              fi
               ;;
             runClientEmi)
               grep -q $'\t\tEMI ' recipe-viewer.log
+              if grep -q "Just Enough Items" recipe-viewer.log; then
+                echo "EMI-only client unexpectedly loaded JEI" >&2
+                exit 1
+              fi
               ;;
             runClientRecipeViewers)
               grep -q "Just Enough Items" recipe-viewer.log

@@ -9,6 +9,7 @@ import com.nightsta69.delvefold.config.DelvefoldPermissions;
 import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminServices;
 import com.nightsta69.delvefold.portal.PortalRegistries;
+import com.nightsta69.delvefold.portal.CentralHubProtectionEvents;
 import com.nightsta69.delvefold.reset.MiningPlayerSafety;
 import com.nightsta69.delvefold.server.DelvefoldServerLifecycle;
 import com.nightsta69.delvefold.world.DelvefoldWorldgen;
@@ -31,6 +32,7 @@ public final class Delvefold {
         DelvefoldWorldgen.register(modEventBus);
         LandmarkRegistries.register(modEventBus);
         PortalRegistries.register(modEventBus);
+        CentralHubProtectionEvents.register();
         DelvefoldNetwork.register(modEventBus);
         if (dist == Dist.CLIENT) {
             DelvefoldClientEvents.register(modEventBus);

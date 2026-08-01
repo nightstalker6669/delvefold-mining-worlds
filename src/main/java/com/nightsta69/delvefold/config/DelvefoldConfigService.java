@@ -1,6 +1,9 @@
 package com.nightsta69.delvefold.config;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.mojang.logging.LogUtils;
+import com.nightsta69.delvefold.audit.AuditMutation;
+import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
@@ -93,8 +96,9 @@ public final class DelvefoldConfigService {
             ConfigLoadResult result = enforceLiveLifecycleLocks(
                     before, repository.loadOrCreate(before));
             updateCompatibility(result);
-            if (!result.usedFallback() || current.get() == null) {
+            if (!result.usedFallback()) {
                 current.set(result.snapshot());
+                auditSavedConfiguration(before, result.snapshot());
             }
             logIssues("reload", result.issues());
             return result;
@@ -171,6 +175,7 @@ public final class DelvefoldConfigService {
                         terrain, orePreset, gameplayPreset, identity);
                 ConfigSnapshot saved = repository.save(ores, settings);
                 current.set(saved);
+                auditSavedConfiguration(before, saved);
                 NeoForge.EVENT_BUS.post(new DelvefoldWorldLifecycleEvent(
                         DelvefoldWorldLifecycleEvent.Action.INITIALIZED,
                         DelvefoldApi.worldView(before.settings()), DelvefoldApi.worldView(saved.settings()), ""));
@@ -204,6 +209,7 @@ public final class DelvefoldConfigService {
                 }
                 ConfigSnapshot saved = repository.save(candidate, before.settings());
                 current.set(saved);
+                auditSavedConfiguration(before, saved);
                 return new ConfigWriteResult(true, saved, report.issues());
             } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
                 LOGGER.error("Could not save Delvefold ore configuration", exception);
@@ -253,6 +259,7 @@ public final class DelvefoldConfigService {
                 }
                 ConfigSnapshot saved = repository.save(candidate, before.settings());
                 current.set(saved);
+                auditSavedConfiguration(before, saved);
                 return new ConfigWriteResult(true, saved, report.issues());
             } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
                 LOGGER.error("Could not save Delvefold ore rule", exception);
@@ -284,10 +291,12 @@ public final class DelvefoldConfigService {
                         candidate.portal(),
                         candidate.activeProfileId(),
                         candidate.identity(),
-                        candidate.guideVisibility()
+                        candidate.guideVisibility(),
+                        candidate.backupRetention()
                 );
                 ConfigSnapshot saved = repository.save(before.ores(), candidate);
                 current.set(saved);
+                auditSavedConfiguration(before, saved);
                 return new ConfigWriteResult(true, saved, List.of());
             } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
                 LOGGER.error("Could not save Delvefold settings", exception);
@@ -337,7 +346,9 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             ensureStarted();
             ensureWritable();
-            return profileCatalog.saveAs(id, snapshot().ores(), overwrite);
+            OreProfileCatalog.ProfileWriteResult result = profileCatalog.saveAs(id, snapshot().ores(), overwrite);
+            auditProfileWrite(result);
+            return result;
         }
     }
 
@@ -346,7 +357,9 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             ensureStarted();
             ensureWritable();
-            return profileCatalog.saveAs(id, OrePresets.create(preset), overwrite);
+            OreProfileCatalog.ProfileWriteResult result = profileCatalog.saveAs(id, OrePresets.create(preset), overwrite);
+            auditProfileWrite(result);
+            return result;
         }
     }
 
@@ -356,7 +369,9 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             ensureStarted();
             ensureWritable();
-            return profileCatalog.createNew(id, source);
+            OreProfileCatalog.ProfileWriteResult result = profileCatalog.createNew(id, source);
+            auditProfileWrite(result);
+            return result;
         }
     }
 
@@ -365,7 +380,10 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             ensureStarted();
             ensureWritable();
-            return profileCatalog.saveAs(targetId, profileCatalog.load(sourceId), overwrite);
+            OreProfileCatalog.ProfileWriteResult result =
+                    profileCatalog.saveAs(targetId, profileCatalog.load(sourceId), overwrite);
+            auditProfileWrite(result);
+            return result;
         }
     }
 
@@ -397,9 +415,11 @@ public final class DelvefoldConfigService {
                         before.settings().portal(),
                         selected.profile(),
                         before.settings().identity(),
-                        before.settings().guideVisibility());
+                        before.settings().guideVisibility(),
+                        before.settings().backupRetention());
                 ConfigSnapshot saved = repository.save(active, settings);
                 current.set(saved);
+                auditSavedConfiguration(before, saved);
                 NeoForge.EVENT_BUS.post(new DelvefoldOreProfileActivatedEvent(
                         before.settings().activeProfileId(), selected.profile()));
                 return new ConfigWriteResult(true, saved, List.of());
@@ -415,14 +435,22 @@ public final class DelvefoldConfigService {
             try {
                 ensureStarted();
                 ensureWritable();
-                if (snapshot().ores().profile().equals(id)) {
-                    return new ProfileDeleteResult(false, "The active profile cannot be deleted");
+                String normalizedId = id == null ? "" : id.trim();
+                if (snapshot().ores().profile().equals(normalizedId)) {
+                    return new ProfileDeleteResult(false, localized(
+                            "message.delvefold.profile.delete_active"));
                 }
-                boolean deleted = profileCatalog.deleteLocal(id);
-                return new ProfileDeleteResult(deleted,
-                        deleted ? "Deleted profile '" + id + "'" : "No local profile named '" + id + "' exists");
+                OreProfileCatalog.ProfileDeleteResult deletion = profileCatalog.deleteLocalWithRevision(normalizedId);
+                if (deletion.deleted()) {
+                    auditProfileDelete(normalizedId, deletion);
+                }
+                return new ProfileDeleteResult(deletion.deleted(),
+                        deletion.deleted()
+                                ? localized("message.delvefold.profile.deleted", normalizedId)
+                                : localized("message.delvefold.profile.delete_missing", normalizedId));
             } catch (IOException | IllegalArgumentException exception) {
-                return new ProfileDeleteResult(false, exception.getMessage());
+                return new ProfileDeleteResult(false, localized(
+                        "message.delvefold.profile.delete_failed", exception.getMessage()));
             }
         }
     }
@@ -432,7 +460,9 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             ensureStarted();
             ensureWritable();
-            return profileCatalog.importFile(fileName, id, overwrite);
+            OreProfileCatalog.ProfileWriteResult result = profileCatalog.importFile(fileName, id, overwrite);
+            auditProfileWrite(result);
+            return result;
         }
     }
 
@@ -441,7 +471,9 @@ public final class DelvefoldConfigService {
         synchronized (mutationLock) {
             ensureStarted();
             ensureWritable();
-            return profileCatalog.importJson(id, json, overwrite);
+            OreProfileCatalog.ProfileWriteResult result = profileCatalog.importJson(id, json, overwrite);
+            auditProfileWrite(result);
+            return result;
         }
     }
 
@@ -461,6 +493,11 @@ public final class DelvefoldConfigService {
     }
 
     public record ProfileDeleteResult(boolean deleted, String message) {
+        public ProfileDeleteResult {
+            message = message == null || message.isBlank()
+                    ? localized("message.delvefold.profile.delete_failed", "unknown")
+                    : message;
+        }
     }
 
     public boolean isReadOnlyIncompatible() {
@@ -471,9 +508,46 @@ public final class DelvefoldConfigService {
         return compatibilityMessage;
     }
 
+    private static String localized(String translationKey, Object... arguments) {
+        return AdminLocalizedMessage.encode(translationKey, arguments);
+    }
+
     private void ensureStarted() {
         if (repository == null || profileCatalog == null || server == null) {
             throw new IllegalStateException("Delvefold configuration is not loaded");
+        }
+    }
+
+    private static void auditSavedConfiguration(ConfigSnapshot before, ConfigSnapshot saved) {
+        try {
+            String actor = DelvefoldAuditService.get().currentActorOrServer();
+            for (AuditMutation mutation : ConfigAuditPlanner.plan(before, saved, actor)) {
+                DelvefoldAuditService.get().record(mutation);
+            }
+        } catch (IllegalArgumentException exception) {
+            LOGGER.warn("Delvefold could not describe an accepted configuration mutation for auditing", exception);
+        }
+    }
+
+    private static void auditProfileWrite(OreProfileCatalog.ProfileWriteResult result) {
+        try {
+            String actor = DelvefoldAuditService.get().currentActorOrServer();
+            for (AuditMutation mutation : ConfigAuditPlanner.profileWrite(result, actor)) {
+                DelvefoldAuditService.get().record(mutation);
+            }
+        } catch (IllegalArgumentException exception) {
+            // Auditing is failure-contained and cannot roll back an already accepted profile mutation.
+        }
+    }
+
+    private static void auditProfileDelete(String id, OreProfileCatalog.ProfileDeleteResult result) {
+        try {
+            String actor = DelvefoldAuditService.get().currentActorOrServer();
+            for (AuditMutation mutation : ConfigAuditPlanner.profileDelete(id, result, actor)) {
+                DelvefoldAuditService.get().record(mutation);
+            }
+        } catch (IllegalArgumentException exception) {
+            // Auditing is failure-contained and cannot roll back an already accepted profile mutation.
         }
     }
 
@@ -490,8 +564,7 @@ public final class DelvefoldConfigService {
                 .findFirst();
         readOnlyIncompatible = incompatible.isPresent();
         compatibilityMessage = incompatible
-                .map(issue -> "This save uses an incompatible pre-0.2 Delvefold schema. Its files and dimensions "
-                        + "were left untouched; use Delvefold 0.2+ in a new Minecraft save.")
+                .map(issue -> localized("message.delvefold.config.compatibility_incompatible"))
                 .orElse("");
     }
 
@@ -515,5 +588,95 @@ public final class DelvefoldConfigService {
                 case WARNING -> LOGGER.warn("Delvefold config {} [{} at {}]: {}", operation, issue.code(), issue.path(), issue.message());
             }
         }
+    }
+}
+
+/** Pure mutation planner kept separate from the Minecraft lifecycle facade for deterministic tests. */
+final class ConfigAuditPlanner {
+    private ConfigAuditPlanner() {
+    }
+
+    static List<AuditMutation> plan(ConfigSnapshot before, ConfigSnapshot saved, String actor) {
+        if (before == null || saved == null) {
+            return List.of();
+        }
+        List<AuditMutation> mutations = new ArrayList<>();
+        if (!before.settings().equals(saved.settings())) {
+            mutations.add(new AuditMutation(
+                    actor,
+                    AuditMutation.Operation.CONFIGURATION_ACCEPTED,
+                    AuditMutation.ObjectType.SETTINGS,
+                    "world_settings",
+                    before.settings().revision(),
+                    saved.settings().revision()));
+        }
+        if (!before.ores().equals(saved.ores())) {
+            mutations.add(new AuditMutation(
+                    actor,
+                    AuditMutation.Operation.CONFIGURATION_ACCEPTED,
+                    AuditMutation.ObjectType.PROFILE,
+                    saved.ores().profile(),
+                    before.ores().revision(),
+                    saved.ores().revision()));
+        }
+        if (!before.settings().activeProfileId().equals(saved.settings().activeProfileId())) {
+            mutations.add(new AuditMutation(
+                    actor,
+                    AuditMutation.Operation.PROFILE_ACTIVATED,
+                    AuditMutation.ObjectType.PROFILE,
+                    saved.settings().activeProfileId(),
+                    before.ores().revision(),
+                    saved.ores().revision()));
+        }
+        if (before.settings().portal().routingMode() != saved.settings().portal().routingMode()) {
+            mutations.add(new AuditMutation(
+                    actor,
+                    AuditMutation.Operation.PORTAL_ROUTING_CHANGED,
+                    AuditMutation.ObjectType.PORTAL,
+                    "routing",
+                    before.settings().revision(),
+                    saved.settings().revision()));
+        }
+        if (!before.settings().portal().hub().equals(saved.settings().portal().hub())) {
+            mutations.add(new AuditMutation(
+                    actor,
+                    AuditMutation.Operation.HUB_PROTECTION_CHANGED,
+                    AuditMutation.ObjectType.HUB,
+                    "central_hub",
+                    before.settings().revision(),
+                    saved.settings().revision()));
+        }
+        return List.copyOf(mutations);
+    }
+
+    static List<AuditMutation> profileWrite(
+            OreProfileCatalog.ProfileWriteResult result, String actor) {
+        if (result == null || !result.saved() || result.profile() == null) {
+            return List.of();
+        }
+        AuditMutation.Operation operation = result.previousRevision() < 0L
+                ? AuditMutation.Operation.PROFILE_CREATED
+                : AuditMutation.Operation.PROFILE_UPDATED;
+        return List.of(new AuditMutation(
+                actor,
+                operation,
+                AuditMutation.ObjectType.PROFILE,
+                result.profile().profile(),
+                result.previousRevision(),
+                result.profile().revision()));
+    }
+
+    static List<AuditMutation> profileDelete(
+            String id, OreProfileCatalog.ProfileDeleteResult result, String actor) {
+        if (result == null || !result.deleted()) {
+            return List.of();
+        }
+        return List.of(new AuditMutation(
+                actor,
+                AuditMutation.Operation.PROFILE_DELETED,
+                AuditMutation.ObjectType.PROFILE,
+                id,
+                result.previousRevision(),
+                -1L));
     }
 }

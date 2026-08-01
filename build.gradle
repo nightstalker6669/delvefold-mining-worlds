@@ -90,6 +90,13 @@ neoForge {
         server {
             server()
             programArgument '--nogui'
+            def isolatedWorld = providers.gradleProperty('delvefold_server_world').orNull
+            if (isolatedWorld != null) {
+                if (!(isolatedWorld ==~ /[A-Za-z0-9._-]{1,64}/)) {
+                    throw new GradleException('delvefold_server_world must be a safe 1-64 character world name')
+                }
+                programArguments.addAll('--world', isolatedWorld)
+            }
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
 
@@ -219,12 +226,22 @@ def validateTranslations = tasks.register('validateTranslations') {
     doLast {
         Map language = (Map) new groovy.json.JsonSlurper().parse(languageFile, 'UTF-8')
         Set<String> referenced = new TreeSet<>()
-        def pattern = ~/Component\.translatable\("([^"]+)"/
+        def patterns = [
+                ~/Component\.translatable\(\s*"([^"]+)"/,
+                ~/lines\.add\(\s*"([^"]*\.delvefold\.[^"]+)"/,
+                ~/\bmessage\(\s*"([^"]*\.delvefold\.[^"]+)"/,
+                ~/\blocalized\(\s*"([^"]*\.delvefold\.[^"]+)"/,
+                ~/\bvalidation\(\s*"([^"]*\.delvefold\.[^"]+)"/,
+                ~/AdminLocalizedMessage\.encode\(\s*"([^"]*\.delvefold\.[^"]+)"/
+        ]
         javaSources.files.each { source ->
-            (source.getText('UTF-8') =~ pattern).each { match ->
-                String key = match[1]
-                if (key.contains('.delvefold.') && !key.endsWith('.')) {
-                    referenced.add(key)
+            String text = source.getText('UTF-8')
+            patterns.each { pattern ->
+                (text =~ pattern).each { match ->
+                    String key = match[1]
+                    if (key.contains('.delvefold.') && !key.endsWith('.')) {
+                        referenced.add(key)
+                    }
                 }
             }
         }

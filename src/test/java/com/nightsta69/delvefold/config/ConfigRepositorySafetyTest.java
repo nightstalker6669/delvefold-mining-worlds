@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.nightsta69.delvefold.config.model.GeologyTheme;
+import com.nightsta69.delvefold.config.model.BackupRetentionSettings;
 import com.nightsta69.delvefold.config.model.GuideVisibility;
 import com.nightsta69.delvefold.config.model.OreTarget;
 import com.nightsta69.delvefold.config.model.RenewalSeedMode;
+import com.nightsta69.delvefold.config.model.PortalRoutingMode;
 import com.nightsta69.delvefold.config.validation.RegistryLookup;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -174,6 +176,52 @@ class ConfigRepositorySafetyTest {
         assertTrue(!loaded.usedFallback());
         assertEquals(GuideVisibility.PUBLIC, loaded.snapshot().settings().guideVisibility());
         assertEquals(legacySettings, Files.readString(paths.settings()));
+    }
+
+    @Test
+    void schemaTwoSettingsWithoutBackupRetentionStayDisabledWithoutByteRewrite() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        root.remove("backup_retention");
+        byte[] legacySettings = (ConfigJson.GSON.toJson(root) + System.lineSeparator())
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(paths.settings(), legacySettings);
+
+        ConfigLoadResult loaded = repository.loadOrCreate(null);
+
+        assertTrue(!loaded.usedFallback());
+        assertEquals(BackupRetentionSettings.defaults(), loaded.snapshot().settings().backupRetention());
+        assertArrayEquals(legacySettings, Files.readAllBytes(paths.settings()));
+    }
+
+    @Test
+    void schemaTwoSettingsWithoutPortalRoutingStayCoordinateLinkedWithoutByteRewrite() throws Exception {
+        ConfigPaths paths = new ConfigPaths(
+                temporaryDirectory,
+                temporaryDirectory.resolve("ores.json"),
+                temporaryDirectory.resolve("settings.json"));
+        FileConfigRepository repository = new FileConfigRepository(paths, RegistryLookup.SKIP);
+        repository.loadOrCreate(null);
+        var root = com.google.gson.JsonParser.parseString(Files.readString(paths.settings())).getAsJsonObject();
+        var portal = root.getAsJsonObject("portal");
+        portal.remove("routing_mode");
+        portal.remove("hub");
+        byte[] legacySettings = (ConfigJson.GSON.toJson(root) + System.lineSeparator())
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(paths.settings(), legacySettings);
+
+        ConfigLoadResult loaded = repository.loadOrCreate(null);
+
+        assertTrue(!loaded.usedFallback());
+        assertEquals(PortalRoutingMode.COORDINATE_LINKED,
+                loaded.snapshot().settings().portal().routingMode());
+        assertEquals(16, loaded.snapshot().settings().portal().hub().protectionRadius());
+        assertArrayEquals(legacySettings, Files.readAllBytes(paths.settings()));
     }
 
     @Test

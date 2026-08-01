@@ -1,5 +1,8 @@
 package com.nightsta69.delvefold.admin;
 
+import com.nightsta69.delvefold.audit.AsyncAuditMutationTracker;
+import com.nightsta69.delvefold.audit.AuditMutation;
+import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.AdminAccess;
 import com.nightsta69.delvefold.config.ConfigLoadResult;
 import com.nightsta69.delvefold.config.ConfigSnapshot;
@@ -17,15 +20,22 @@ import com.nightsta69.delvefold.config.model.PortalSettings;
 import com.nightsta69.delvefold.config.model.SpawnBand;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
+import com.nightsta69.delvefold.config.validation.ConfigIssueMessages;
 import com.nightsta69.delvefold.config.validation.ValidationReport;
+import com.nightsta69.delvefold.diagnostics.DelvefoldDoctorService;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.model.BackupOperation;
 import com.nightsta69.delvefold.network.model.ProfileOperation;
 import com.nightsta69.delvefold.network.ProtocolLimits;
+import com.nightsta69.delvefold.network.DelvefoldNetwork;
 import com.nightsta69.delvefold.network.service.DelvefoldAdminService;
 import com.nightsta69.delvefold.reset.BackupMode;
+import com.nightsta69.delvefold.reset.BackupCatalogCache;
+import com.nightsta69.delvefold.reset.BackupDeletionGuard;
+import com.nightsta69.delvefold.reset.BackupVerificationResult;
+import com.nightsta69.delvefold.reset.BackupVerificationService;
 import com.nightsta69.delvefold.reset.WorldOperationPreview;
 import com.nightsta69.delvefold.reset.WorldOperationRequest;
 import com.nightsta69.delvefold.reset.WorldOperationResult;
@@ -42,43 +52,80 @@ import net.minecraft.world.level.storage.LevelResource;
 
 /** Connects the bounded GUI protocol to the same config/reset services used by commands. */
 public final class DefaultDelvefoldAdminService implements DelvefoldAdminService {
+    private static final System.Logger LOGGER = System.getLogger(DefaultDelvefoldAdminService.class.getName());
+
     @Override
     public AdminSnapshot snapshot(ServerPlayer player, int requestedOrePage, int requestedOrePageSize) {
         requireConfigure(player);
         ConfigSnapshot snapshot = DelvefoldConfigService.get().snapshot();
         boolean compatible = !DelvefoldConfigService.get().isReadOnlyIncompatible();
         var settings = snapshot.settings();
+        var saveRoot = player.getServer().getWorldPath(LevelResource.ROOT);
+        BackupCatalogCache.Snapshot backupCatalog = BackupCatalogCache.get().snapshot(saveRoot);
         List<String> diagnostics = new ArrayList<>();
-        diagnostics.add("Config hash: " + snapshot.diskHash());
-        diagnostics.add("Loaded: " + snapshot.loadedAt());
-        diagnostics.add("Generation epoch: " + settings.generationEpoch());
+        diagnostics.add(message("message.delvefold.admin.diagnostic.config_hash", snapshot.diskHash()));
+        diagnostics.add(message("message.delvefold.admin.diagnostic.loaded", snapshot.loadedAt()));
+        diagnostics.add(message("message.delvefold.admin.diagnostic.generation_epoch",
+                settings.generationEpoch()));
         var landmarkCatalog = LandmarkCatalogService.get();
         var landmarkDiagnostics = landmarkCatalog.diagnostics();
-        diagnostics.add("Landmark catalog: revision " + landmarkCatalog.snapshot().revision()
-                + ", " + landmarkCatalog.snapshot().definitions().size() + " definition(s), last reload "
-                + (landmarkDiagnostics.lastReloadAccepted() ? "applied" : "rejected"));
+        diagnostics.add(message(landmarkDiagnostics.lastReloadAccepted()
+                        ? "message.delvefold.admin.diagnostic.landmarks.applied"
+                        : "message.delvefold.admin.diagnostic.landmarks.rejected",
+                landmarkCatalog.snapshot().revision(), landmarkCatalog.snapshot().definitions().size()));
         landmarkDiagnostics.errors().stream().limit(8)
-                .forEach(error -> diagnostics.add("Landmark catalog error: " + error));
+                .forEach(error -> diagnostics.add(message(
+                        "message.delvefold.admin.diagnostic.landmarks.error", error)));
         if (!compatible) {
             diagnostics.add(DelvefoldConfigService.get().compatibilityMessage());
         }
+        if (backupCatalog.refreshing()) {
+            diagnostics.add(message("message.delvefold.admin.diagnostic.backups.refreshing"));
+        }
+        if (!backupCatalog.lastError().isBlank()) {
+            diagnostics.add(message("message.delvefold.admin.diagnostic.backups.error",
+                    backupCatalog.lastError()));
+        }
         for (ConfigIssue issue : snapshot.validation().issues()) {
-            diagnostics.add(issue.severity() + " " + issue.path() + ": " + issue.message());
+            diagnostics.add(ConfigIssueMessages.encode(issue));
+        }
+        List<String> auxiliaryDiagnostics = List.copyOf(diagnostics);
+        diagnostics.clear();
+        try {
+            diagnostics.addAll(DelvefoldDoctorService.get().cachedRenderedLines(player.getServer()).stream()
+                    .limit(ProtocolLimits.MAX_DIAGNOSTICS)
+                    .toList());
+        } catch (RuntimeException exception) {
+            diagnostics.add(message("message.delvefold.admin.diagnostic.doctor_unavailable",
+                    exception.getMessage()));
+        }
+        for (String diagnostic : auxiliaryDiagnostics) {
+            if (diagnostics.size() >= ProtocolLimits.MAX_DIAGNOSTICS) {
+                break;
+            }
+            diagnostics.add(diagnostic);
         }
         String portalStatus;
         if (!settings.initialized()) {
-            portalStatus = "Inactive. Initialize Delvefold through this GUI or /delvefold initialize; portal use never initializes a world.";
+            portalStatus = message("message.delvefold.admin.portal.uninitialized");
         } else if (WorldOperationService.get().isEntryBlocked()) {
-            portalStatus = "Temporarily blocked because a world operation is pending.";
+            portalStatus = message("message.delvefold.admin.portal.blocked");
         } else if (!settings.portal().enabled()) {
-            portalStatus = "Disabled in settings.";
+            portalStatus = message("message.delvefold.admin.portal.disabled");
         } else {
-            portalStatus = "Ready for " + settings.terrainMode().serializedName() + " terrain; player-only, "
-                    + settings.portal().cooldownSeconds() + " second cooldown.";
+            portalStatus = settings.portal().routingMode()
+                    == com.nightsta69.delvefold.config.model.PortalRoutingMode.CENTRAL_HUB
+                    ? message("message.delvefold.admin.portal.ready.central_hub",
+                            settings.terrainMode().serializedName(), settings.portal().hub().x(),
+                            settings.portal().hub().z(), settings.portal().hub().protectionRadius(),
+                            settings.portal().cooldownSeconds())
+                    : message("message.delvefold.admin.portal.ready.coordinate_linked",
+                            settings.terrainMode().serializedName(), settings.portal().cooldownSeconds());
         }
         String worldStatus = settings.initialized()
-                ? "Terrain " + settings.terrainMode().serializedName() + ", generation epoch " + settings.generationEpoch()
-                : "No mining world is initialized. Existing portals are inactive.";
+                ? message("message.delvefold.admin.world.ready",
+                        settings.terrainMode().serializedName(), settings.generationEpoch())
+                : message("message.delvefold.admin.world.uninitialized");
         int pageSize = Math.max(1, Math.min(requestedOrePageSize, ProtocolLimits.MAX_ORE_RULES_PER_PAGE));
         int totalRules = snapshot.ores().rules().size();
         int maximumPage = Math.max(0, (totalRules - 1) / pageSize);
@@ -97,20 +144,17 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                                     == com.nightsta69.delvefold.config.validation.IssueSeverity.ERROR)))
                     .toList();
         } catch (IOException exception) {
-            diagnostics.add("Profile catalog: " + exception.getMessage());
+            diagnostics.add(message("message.delvefold.admin.diagnostic.profiles.error",
+                    exception.getMessage()));
             profiles = List.of();
         }
-        List<AdminSnapshot.BackupDraft> backups;
-        try {
-            backups = new WorldBackupCatalog(player.getServer().getWorldPath(LevelResource.ROOT)).list().stream()
-                    .map(backup -> new AdminSnapshot.BackupDraft(backup.id(), backup.createdAtEpochMillis(),
-                            backup.operation(), backup.terrain(), backup.sizeBytes(), backup.pinned(),
-                            backup.restorable(), backup.valid()))
-                    .toList();
-        } catch (IOException exception) {
-            diagnostics.add("Backup catalog: " + exception.getMessage());
-            backups = List.of();
-        }
+        List<AdminSnapshot.BackupDraft> backups = backupCatalog.backups().stream()
+                .limit(ProtocolLimits.MAX_BACKUPS)
+                .map(backup -> new AdminSnapshot.BackupDraft(backup.id(), backup.createdAtEpochMillis(),
+                        backup.operation(), backup.terrain(), backup.sizeBytes(), backup.pinned(),
+                        backup.restorable(), backup.valid(), backup.manifestPresent(),
+                        backup.verified(), backup.legacy()))
+                .toList();
         return new AdminSnapshot(
                 snapshot.ores().revision(),
                 settings.revision(),
@@ -132,7 +176,9 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 backups,
                 portalStatus,
                 worldStatus,
-                WorldOperationService.get().isEntryBlocked(),
+                AdminSnapshot.PendingOperation.resolve(
+                        WorldOperationService.get().hasPending(player.getServer()),
+                        WorldRestoreService.get().hasPending(player.getServer())),
                 diagnostics,
                 totalRules,
                 page,
@@ -171,7 +217,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 identity
         );
         if (!initialized.saved()) {
-            return fromWrite(initialized, "Initialization was rejected");
+            return fromWrite(initialized, message("message.delvefold.admin.initialize.rejected"));
         }
         ConfigSnapshot after = DelvefoldConfigService.get().snapshot();
         if (!after.settings().gameplay().equals(gameplay)) {
@@ -180,11 +226,12 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                     settings -> settings.withGameplay(gameplay)
             );
             if (!customized.saved()) {
-                return fromWrite(customized, "Initialized, but custom gameplay toggles were rejected");
+                return fromWrite(customized,
+                        message("message.delvefold.admin.initialize.gameplay_rejected"));
             }
         }
         return accepted(DelvefoldConfigService.get().snapshot().settings().revision(),
-                "Delvefold initialized. Portal activation is now enabled.", true);
+                message("message.delvefold.admin.initialize.accepted"), true);
     }
 
     @Override
@@ -197,7 +244,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         OreRule replacement = fromDraft(draft);
         ConfigWriteResult result = DelvefoldConfigService.get().saveOreRule(
                 expectedRevision, replacement, createOnly);
-        return fromWrite(result, "Saved ore rule " + replacement.id());
+        return fromWrite(result, message("message.delvefold.admin.ore.saved", replacement.id()));
     }
 
     @Override
@@ -205,12 +252,12 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         requireConfigure(player);
         ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
         if (before.ores().rules().stream().noneMatch(rule -> rule.id().equals(ruleId))) {
-            return rejected(expectedRevision, "Unknown ore rule: " + ruleId);
+            return rejected(expectedRevision, message("message.delvefold.admin.ore.unknown", ruleId));
         }
         ConfigWriteResult result = DelvefoldConfigService.get().updateOres(expectedRevision, document ->
                 document.nextRevision(document.rules().stream().filter(rule -> !rule.id().equals(ruleId)).toList(),
                         document.profile()));
-        return fromWrite(result, "Deleted ore rule " + ruleId);
+        return fromWrite(result, message("message.delvefold.admin.ore.deleted", ruleId));
     }
 
     @Override
@@ -220,17 +267,22 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                 expectedRevision,
                 settings -> settings.withGameplay(gameplay)
         );
-        return fromWrite(result, "Gameplay settings saved");
+        return fromWrite(result, message("message.delvefold.admin.gameplay.saved"));
     }
 
     @Override
     public ServiceResult updatePortal(ServerPlayer player, long expectedRevision, PortalSettings portal) {
         requireConfigure(player);
+        ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
+        if (!before.settings().portal().hub().equals(portal.hub())
+                && !AdminAccess.canManageWorld(player)) {
+            return rejected(expectedRevision, message("message.delvefold.admin.portal.hub_permission"));
+        }
         ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(
                 expectedRevision,
                 settings -> settings.withPortal(portal)
         );
-        return fromWrite(result, "Portal settings saved");
+        return fromWrite(result, message("message.delvefold.admin.portal.saved"));
     }
 
     @Override
@@ -240,22 +292,19 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         ConfigSnapshot before = DelvefoldConfigService.get().snapshot();
         if (before.settings().initialized()
                 && before.settings().identity().terrainVariant() != identity.terrainVariant()) {
-            return rejected(expectedRevision,
-                    "Terrain scale is locked for the active world; change it through world recreation.");
+            return rejected(expectedRevision, message("message.delvefold.admin.identity.terrain_locked"));
         }
         if (before.settings().initialized()
                 && before.settings().identity().geologyTheme() != identity.geologyTheme()) {
-            return rejected(expectedRevision,
-                    "Geology theme is locked for the active world; change it through world recreation.");
+            return rejected(expectedRevision, message("message.delvefold.admin.identity.geology_locked"));
         }
         if (!before.settings().identity().renewal().equals(identity.renewal())
                 && !AdminAccess.canManageWorld(player)) {
-            return rejected(expectedRevision,
-                    "World-management permission is required to change renewal settings or recreation layout.");
+            return rejected(expectedRevision, message("message.delvefold.admin.identity.renewal_permission"));
         }
         ConfigWriteResult result = DelvefoldConfigService.get().updateSettings(expectedRevision,
                 settings -> settings.withIdentity(identity));
-        return fromWrite(result, "World identity and renewal settings saved");
+        return fromWrite(result, message("message.delvefold.admin.identity.saved"));
     }
 
     @Override
@@ -265,7 +314,7 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         try {
             return switch (operation) {
                 case SELECT -> fromWrite(DelvefoldConfigService.get().activateProfile(expectedOreRevision, sourceId),
-                        "Activated profile '" + sourceId + "'. Existing chunks are unchanged.");
+                        message("message.delvefold.admin.profile.activated", sourceId));
                 case SAVE_CURRENT -> fromProfileWrite(
                         DelvefoldConfigService.get().saveCurrentProfileAs(targetId, overwrite));
                 case DUPLICATE -> fromProfileWrite(
@@ -280,14 +329,16 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             };
         } catch (IOException | IllegalArgumentException exception) {
             return new ServiceResult(ActionStatus.ERROR, expectedOreRevision,
-                    "Profile operation failed: " + exception.getMessage(), false);
+                    message("message.delvefold.admin.profile.failed", exception.getMessage()), false);
         }
     }
 
     private static ServiceResult fromProfileWrite(
             com.nightsta69.delvefold.config.OreProfileCatalog.ProfileWriteResult result) {
-        String issues = result.issues().stream().map(issue -> issue.message()).findFirst().orElse("");
-        String message = issues.isBlank() ? result.message() : result.message() + ": " + issues;
+        String issues = result.issues().stream().map(ConfigIssueMessages::encode).findFirst().orElse("");
+        String message = issues.isBlank()
+                ? result.message()
+                : message("message.delvefold.admin.profile.result_with_issue", result.message(), issues);
         return new ServiceResult(result.saved() ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
                 DelvefoldConfigService.get().snapshot().ores().revision(), message, result.saved());
     }
@@ -301,42 +352,165 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return stale(snapshot.settings().revision());
         }
         try {
+            var server = player.getServer();
+            var saveRoot = server.getWorldPath(LevelResource.ROOT);
+            BackupCatalogCache backupCache = BackupCatalogCache.get();
+            BackupCatalogCache.Snapshot cachedCatalog = backupCache.snapshot(saveRoot);
             if (operation == BackupOperation.RESTORE) {
-                WorldOperationPreview preview = WorldRestoreService.get().request(
-                        player.getServer(), backupId, player.getGameProfile().getName());
+                WorldBackupCatalog.BackupSummary summary = cachedCatalog.backups().stream()
+                        .filter(candidate -> candidate.id().equals(backupId))
+                        .findFirst()
+                        .orElse(null);
+                if (summary == null) {
+                    return rejected(expectedSettingsRevision, cachedCatalog.refreshing()
+                            ? message("message.delvefold.admin.backup.catalog_refreshing")
+                            : message("message.delvefold.admin.backup.unknown", backupId));
+                }
+                WorldOperationPreview preview = WorldRestoreService.get().requestCached(
+                        server, backupId, player.getGameProfile().getName(), summary);
                 if (!preview.accepted()) {
                     return rejected(expectedSettingsRevision, preview.message());
                 }
                 WorldOperationResult confirmed = WorldRestoreService.get().confirm(
-                        player.getServer(), preview.confirmationToken());
+                        server, preview.confirmationToken());
+                if (confirmed.success()) {
+                    audit(player, AuditMutation.Operation.BACKUP_RESTORE_ACCEPTED,
+                            AuditMutation.ObjectType.BACKUP, backupId, -1L, -1L);
+                    backupCache.invalidateAndRefresh(saveRoot);
+                }
                 return new ServiceResult(confirmed.success() ? ActionStatus.ACCEPTED : ActionStatus.ERROR,
                         expectedSettingsRevision, confirmed.message(), true);
             }
             if (operation == BackupOperation.CANCEL_RESTORE) {
-                WorldOperationResult cancelled = WorldRestoreService.get().cancel(player.getServer());
+                String selectedBackupId = WorldRestoreService.get().selectedBackupId(server);
+                WorldOperationResult cancelled = WorldRestoreService.get().cancel(server);
+                if (cancelled.success()) {
+                    backupCache.invalidateAndRefresh(saveRoot);
+                    audit(player, AuditMutation.Operation.BACKUP_RESTORE_CANCELLED,
+                            AuditMutation.ObjectType.BACKUP, selectedBackupId, -1L, -1L);
+                }
                 return new ServiceResult(cancelled.success() ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
                         expectedSettingsRevision, cancelled.message(), true);
             }
-            WorldBackupCatalog catalog = new WorldBackupCatalog(
-                    player.getServer().getWorldPath(LevelResource.ROOT));
+            if (operation == BackupOperation.VERIFY) {
+                WorldBackupCatalog.BackupSummary summary = cachedCatalog.backups().stream()
+                        .filter(candidate -> candidate.id().equals(backupId))
+                        .findFirst()
+                        .orElse(null);
+                if (summary == null) {
+                    return rejected(expectedSettingsRevision, cachedCatalog.refreshing()
+                            ? message("message.delvefold.admin.backup.catalog_refreshing")
+                            : message("message.delvefold.admin.backup.unknown", backupId));
+                }
+                var playerId = player.getUUID();
+                var auditActor = player.getGameProfile().getName();
+                BackupVerificationService verification = BackupVerificationService.forSave(
+                        saveRoot);
+                if (verification.isInFlight(backupId)) {
+                    return accepted(expectedSettingsRevision,
+                            message("message.delvefold.admin.backup.verification_running"), false);
+                }
+                var future = summary.legacy()
+                        ? AsyncAuditMutationTracker.get().startTracked(saveRoot,
+                                () -> verification.validateLegacyAndCreateManifestAsync(backupId),
+                                (result, failure) -> {
+                                    if (failure == null
+                                            && result.status() == BackupVerificationResult.Status.LEGACY_UPGRADED) {
+                                        audit(auditActor, AuditMutation.Operation.BACKUP_MANIFEST_CREATED,
+                                                AuditMutation.ObjectType.BACKUP, backupId, -1L, -1L);
+                                    }
+                                })
+                        : verification.verifyAsync(backupId);
+                future.whenComplete((result, failure) -> server.execute(() -> {
+                    backupCache.invalidateAndRefresh(saveRoot);
+                    if (failure != null) {
+                        LOGGER.log(System.Logger.Level.ERROR,
+                                "Backup verification worker failed for " + backupId, failure);
+                    }
+                    ServerPlayer online = server.getPlayerList().getPlayer(playerId);
+                    if (online == null) {
+                        return;
+                    }
+                    long currentRevision;
+                    try {
+                        currentRevision = DelvefoldConfigService.get().snapshot().settings().revision();
+                    } catch (IllegalStateException ignored) {
+                        currentRevision = expectedSettingsRevision;
+                    }
+                    boolean successful = failure == null && result.successful();
+                    String resultMessage = failure == null
+                            ? result.message()
+                            : message("message.delvefold.backup_verification.internal_error", backupId);
+                    DelvefoldNetwork.sendAsyncResult(online, new ServiceResult(
+                            successful ? ActionStatus.ACCEPTED : ActionStatus.ERROR,
+                            currentRevision,
+                            resultMessage,
+                            true));
+                }));
+                return accepted(expectedSettingsRevision,
+                        summary.legacy()
+                                ? message("message.delvefold.admin.backup.legacy_validation_started")
+                                : message("message.delvefold.admin.backup.verification_started"),
+                        false);
+            }
+            if (operation == BackupOperation.DELETE) {
+                var playerId = player.getUUID();
+                var auditActor = player.getGameProfile().getName();
+                var deletion = AsyncAuditMutationTracker.get().startTracked(saveRoot,
+                        () -> backupCache.deleteAndRefreshAsync(server, backupId),
+                        (deleted, failure) -> {
+                            if (failure == null && Boolean.TRUE.equals(deleted)) {
+                                audit(auditActor, AuditMutation.Operation.BACKUP_DELETED,
+                                        AuditMutation.ObjectType.BACKUP, backupId, -1L, -1L);
+                            }
+                        });
+                deletion.whenComplete((deleted, failure) ->
+                        server.execute(() -> {
+                            boolean success = failure == null && Boolean.TRUE.equals(deleted);
+                            if (failure != null) {
+                                LOGGER.log(System.Logger.Level.ERROR,
+                                        "Could not delete Delvefold backup " + backupId, failure);
+                            }
+                            ServerPlayer online = server.getPlayerList().getPlayer(playerId);
+                            if (online != null) {
+                                String message = success
+                                        ? message("message.delvefold.admin.backup.deleted", backupId)
+                                        : backupDeleteFailure(backupId, failure);
+                                DelvefoldNetwork.sendAsyncResult(online, new ServiceResult(
+                                        success ? ActionStatus.ACCEPTED : ActionStatus.ERROR,
+                                        expectedSettingsRevision, message, true));
+                            }
+                        }));
+                return accepted(expectedSettingsRevision,
+                        message("message.delvefold.admin.backup.delete_started"), false);
+            }
+            WorldBackupCatalog catalog = new WorldBackupCatalog(saveRoot);
             return switch (operation) {
                 case PIN -> {
-                    catalog.setPinned(backupId, true);
-                    yield accepted(expectedSettingsRevision, "Pinned backup " + backupId, true);
+                    boolean changed = catalog.setPinned(backupId, true);
+                    backupCache.invalidateAndRefresh(saveRoot);
+                    if (changed) {
+                        audit(player, AuditMutation.Operation.BACKUP_PINNED,
+                                AuditMutation.ObjectType.BACKUP, backupId, -1L, -1L);
+                    }
+                    yield accepted(expectedSettingsRevision,
+                            message("message.delvefold.admin.backup.pinned", backupId), true);
                 }
                 case UNPIN -> {
-                    catalog.setPinned(backupId, false);
-                    yield accepted(expectedSettingsRevision, "Unpinned backup " + backupId, true);
+                    boolean changed = catalog.setPinned(backupId, false);
+                    backupCache.invalidateAndRefresh(saveRoot);
+                    if (changed) {
+                        audit(player, AuditMutation.Operation.BACKUP_UNPINNED,
+                                AuditMutation.ObjectType.BACKUP, backupId, -1L, -1L);
+                    }
+                    yield accepted(expectedSettingsRevision,
+                            message("message.delvefold.admin.backup.unpinned", backupId), true);
                 }
-                case DELETE -> {
-                    catalog.delete(backupId);
-                    yield accepted(expectedSettingsRevision, "Permanently deleted backup " + backupId, true);
-                }
-                case RESTORE, CANCEL_RESTORE -> throw new IllegalStateException("Handled above");
+                case RESTORE, DELETE, VERIFY, CANCEL_RESTORE -> throw new IllegalStateException("Handled above");
             };
         } catch (IOException | IllegalArgumentException exception) {
             return new ServiceResult(ActionStatus.ERROR, expectedSettingsRevision,
-                    "Backup operation failed: " + exception.getMessage(), false);
+                    message("message.delvefold.admin.backup.failed", exception.getMessage()), false);
         }
     }
 
@@ -358,7 +532,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return stale(snapshot.settings().revision());
         }
         return switch (operation) {
-            case REFRESH -> accepted(snapshot.settings().revision(), "Refreshed", true);
+            case REFRESH -> accepted(snapshot.settings().revision(),
+                    message("message.delvefold.admin.refreshed"), true);
             case VALIDATE_CONFIG -> validate(snapshot);
             case RELOAD_CONFIG -> reload(snapshot);
             case DELETE_WORLD -> scheduleAndConfirm(player, WorldOperationRequest.delete());
@@ -367,12 +542,12 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
                             recreateTerrain(confirmation, snapshot.settings().terrainMode()),
                             recreateVariant(confirmation, snapshot.settings().identity().terrainVariant()),
                             recreateGeologyTheme(confirmation, snapshot.settings().identity().geologyTheme())));
-            case CANCEL_PENDING_RESET -> fromOperation(
-                    WorldOperationService.get().cancelConfirmed(player.getServer()), snapshot.settings().revision());
+            case CANCEL_PENDING_RESET -> cancelPendingWorldOperation(player, snapshot.settings().revision());
         };
     }
 
     private static ServiceResult scheduleAndConfirm(ServerPlayer player, WorldOperationRequest request) {
+        long beforeRevision = DelvefoldConfigService.get().snapshot().settings().revision();
         WorldOperationPreview preview = WorldOperationService.get().request(
                 player.getServer(),
                 new WorldOperationRequest(
@@ -385,14 +560,65 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             return rejected(DelvefoldConfigService.get().snapshot().settings().revision(), preview.message());
         }
         WorldOperationResult result = WorldOperationService.get().confirm(player.getServer(), preview.confirmationToken());
-        String message = result.message() + " A recoverable timestamped backup is enabled (estimated old data: "
-                + preview.estimatedBytes() + " bytes).";
+        if (result.success()) {
+            audit(player, AuditMutation.Operation.WORLD_OPERATION_ACCEPTED,
+                    AuditMutation.ObjectType.WORLD, "mining_world", beforeRevision, beforeRevision);
+        }
+        String message = message("message.delvefold.admin.world_operation.scheduled",
+                result.message(), preview.estimatedBytes());
         return new ServiceResult(
                 result.success() ? ActionStatus.ACCEPTED : ActionStatus.ERROR,
                 DelvefoldConfigService.get().snapshot().settings().revision(),
                 message,
                 true
         );
+    }
+
+    private static ServiceResult cancelPendingWorldOperation(ServerPlayer player, long revision) {
+        WorldOperationResult result = WorldOperationService.get().cancelConfirmed(player.getServer());
+        if (result.success()) {
+            audit(player, AuditMutation.Operation.WORLD_OPERATION_CANCELLED,
+                    AuditMutation.ObjectType.WORLD, "mining_world", revision, revision);
+        }
+        return fromOperation(result, revision);
+    }
+
+    private static void audit(ServerPlayer player, AuditMutation.Operation operation,
+            AuditMutation.ObjectType objectType, String objectId, long oldRevision, long newRevision) {
+        audit(player.getGameProfile().getName(), operation, objectType, objectId, oldRevision, newRevision);
+    }
+
+    private static void audit(String actor, AuditMutation.Operation operation,
+            AuditMutation.ObjectType objectType, String objectId, long oldRevision, long newRevision) {
+        DelvefoldAuditService.get().record(new AuditMutation(
+                actor, operation, objectType, objectId, oldRevision, newRevision));
+    }
+
+    private static String backupDeleteFailure(String backupId, Throwable failure) {
+        BackupDeletionGuard.DeletionRejectedException rejection = deletionRejection(failure);
+        if (rejection == null) {
+            return message("message.delvefold.admin.backup.delete_failed", backupId);
+        }
+        String key = switch (rejection.reason()) {
+            case REFERENCED -> "message.delvefold.backup_delete.referenced";
+            case IN_PROGRESS -> "message.delvefold.backup_delete.in_progress";
+            case SESSION_CLOSED -> "message.delvefold.backup_delete.session_closed";
+        };
+        return message(key, backupId);
+    }
+
+    private static BackupDeletionGuard.DeletionRejectedException deletionRejection(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof BackupDeletionGuard.DeletionRejectedException rejection) {
+                return rejection;
+            }
+            if (current.getCause() == current) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private static TerrainMode recreateTerrain(String confirmation, TerrainMode fallback) {
@@ -448,13 +674,13 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
             ConfigLoadResult result = DelvefoldConfigService.get().validateDisk();
             ValidationReport report = new ValidationReport(result.issues());
             boolean valid = report.valid() && !result.usedFallback();
-            String message = "Disk validation found " + report.errorCount() + " error(s) and "
-                    + report.warningCount() + " warning(s).";
+            String message = message("message.delvefold.admin.validation.result",
+                    report.errorCount(), report.warningCount());
             return new ServiceResult(valid ? ActionStatus.ACCEPTED : ActionStatus.REJECTED,
                     snapshot.settings().revision(), message, true);
         } catch (IOException exception) {
             return new ServiceResult(ActionStatus.ERROR, snapshot.settings().revision(),
-                    "Disk validation failed: " + exception.getMessage(), false);
+                    message("message.delvefold.admin.validation.failed", exception.getMessage()), false);
         }
     }
 
@@ -462,12 +688,14 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         try {
             ConfigLoadResult result = DelvefoldConfigService.get().reload();
             if (result.usedFallback()) {
-                return rejected(snapshot.settings().revision(), "Rejected disk changes; the last known-good snapshot remains active.");
+                return rejected(snapshot.settings().revision(),
+                        message("message.delvefold.admin.reload.rejected"));
             }
-            return accepted(result.snapshot().settings().revision(), "JSON configuration reloaded.", true);
+            return accepted(result.snapshot().settings().revision(),
+                    message("message.delvefold.admin.reload.accepted"), true);
         } catch (IOException exception) {
             return new ServiceResult(ActionStatus.ERROR, snapshot.settings().revision(),
-                    "Reload failed: " + exception.getMessage(), false);
+                    message("message.delvefold.admin.reload.failed", exception.getMessage()), false);
         }
     }
 
@@ -544,8 +772,8 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
         }
         boolean stale = result.issues().stream().anyMatch(issue -> "revision.stale".equals(issue.code()));
         String message = result.issues().isEmpty()
-                ? successMessage + " was rejected"
-                : result.issues().getFirst().message();
+                ? message("message.delvefold.admin.change_rejected")
+                : ConfigIssueMessages.encode(result.issues().getFirst());
         long revision = result.snapshot() == null ? 0L : result.snapshot().settings().revision();
         return new ServiceResult(stale ? ActionStatus.STALE : ActionStatus.REJECTED, revision, message, stale);
     }
@@ -565,7 +793,11 @@ public final class DefaultDelvefoldAdminService implements DelvefoldAdminService
 
     private static ServiceResult stale(long currentRevision) {
         return new ServiceResult(ActionStatus.STALE, currentRevision,
-                "The configuration changed while this screen was open. It has been refreshed.", true);
+                message("message.delvefold.admin.stale"), true);
+    }
+
+    private static String message(String translationKey, Object... arguments) {
+        return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 
     private static String stripHash(String value) {

@@ -40,7 +40,13 @@ Visibility controls only guide content. It does not change portal access, ore ge
 ```text
 /delvefold config validate
 /delvefold config reload
+/delvefold doctor
+/delvefold doctor export
 ```
+
+`doctor` prepares the same bounded operational report used by the Diagnostics GUI on a deduplicated background worker: Delvefold, Minecraft, NeoForge, public API, network protocol, and schema versions; all six mining-dimension states; active-profile health and ineffective targets; pending lifecycle operations; backup integrity; retention preview/last-run state; and disk-space estimates. `doctor export` writes a redacted JSON copy under `serverconfig/delvefold/exports/` for attaching to a support report. Neither form includes world seeds, filesystem paths, confirmation tokens, server addresses, complete profile JSON, or unrelated player records.
+
+Configuration validation, Doctor viewing, and Doctor export are administration operations. The integrated owner has access; dedicated servers use Delvefold's permission handler or operator fallback.
 
 ## World identity and renewal
 
@@ -58,6 +64,20 @@ Visibility controls only guide content. It does not change portal access, ore ge
 ```
 
 `identity variant` and `identity geology-theme` set recreation-locked choices only while the world is uninitialized. Once initialized, select the terrain scale and geology theme as part of a confirmed recreation in the World GUI or command below. Omitting them from a recreation preserves the current values. Landmark policy changes apply only to newly generated chunks. Renewal is opt-in, always retains a backup, warns online players, evacuates the mining dimensions when due, and waits for a restart before replacing terrain. Every renewal setting, including `seed-mode`, requires `delvefold.manage_world` (operator level 4 fallback); configure-only users may still edit the name and landmark policy in the GUI, but its renewal controls are read-only. `renewal seed-mode` reports or selects the layout policy for the next initialization or recreation: `stable` repeats the established ore, province, themed geology, and landmark layout, while `rotate_on_recreate` installs a new deterministic layout. Changing the selection never alters existing chunks, and a normal restart never rotates the layout.
+
+## Portal routing and central hub
+
+```text
+/delvefold portal
+/delvefold portal routing <coordinate_linked|central_hub>
+/delvefold portal hub <x> <z> <protection_radius>
+```
+
+`portal` reports the active routing mode, hub coordinates, protection radius, and player-only transport policy. `coordinate_linked` is the compatibility default and retains the configured coordinate scale. `central_hub` routes players entering a mining dimension to the configured hub, where Delvefold idempotently creates a safe vanilla-block platform and filled return portal.
+
+Changing the routing mode requires configuration access. Changing hub coordinates or its radius requires `delvefold.manage_world` (operator level 4 fallback). Coordinates must remain inside Minecraft's safe world boundary. The radius accepts 8–256 blocks and defaults to 16. Inside the protected horizontal column, only a player with world-management permission can place, break, interact with, or otherwise modify blocks; explosions, pistons, fluids, trampling, and mob griefing are also prevented from damaging it.
+
+The guaranteed return route cannot be denied by a portal permission change. Delvefold 1.3 portals transport players only; mobs, dropped items, boats, and minecarts remain unsupported.
 
 ## Named ore profiles
 
@@ -150,12 +170,30 @@ Landmark catalog datapacks use Minecraft's standard `/reload` command rather tha
 
 ```text
 /delvefold backup list
+/delvefold backup verify <backup>
 /delvefold backup pin <backup>
 /delvefold backup unpin <backup>
 /delvefold backup delete <backup> confirm
+/delvefold backup retention
+/delvefold backup retention configure <max_count> <max_age_days> <max_total_bytes>
+/delvefold backup retention disable
 /delvefold backup restore request <backup>
 /delvefold backup restore confirm <token>
 /delvefold backup restore cancel
 ```
 
-Only backups created by versions that capture both dimension and configuration data are restorable; older entries remain visible as archive-only. Restore preserves the selected backup, creates a pre-restore backup of the current mining world, evacuates players, and applies during the next restart. Pinned backups must be unpinned before deletion.
+`backup verify` performs SHA-256 hashing on a dedicated worker rather than the server tick thread and reports completion asynchronously. New backups contain a manifest of normalized relative paths, sizes, and hashes. A legacy backup remains visible but archive-only until an administrator explicitly verifies it; successful legacy validation creates the manifest without overwriting active world data. Failed verification removes restore eligibility. Restore requires a current successful verification receipt and repeats the complete check during startup before staging or replacing anything.
+
+Restore preserves the selected backup, creates and verifies a transactional pre-restore backup of the current mining world, evacuates players, and applies during the next restart. Backup and restore cover all six Delvefold save folders: Classic and Expansive Flat, Cavern, and Wild. If a pre-restore move or manifest step fails, Delvefold rolls back that attempt and stops startup before partial folders can regenerate. Pinned backups must be unpinned before manual deletion.
+
+Retention is disabled by default. `backup retention` reports its state. `configure` enables it with optional count, age-in-days, and total-byte limits; `0` means that particular limit is unbounded. Retention is evaluated deterministically during startup. Before deletion, Delvefold previews the proposed IDs and reasons, then rechecks every candidate. It never prunes pinned backups, the newest two backups, backups referenced by a pending delete, recreation, or restore, or any legacy, invalid, unverified, non-restorable, or incompletely measured backup. Invalid pending journals cause the automatic pass to be skipped conservatively. The preview and result are included in Doctor diagnostics and the mutation audit trail.
+
+## Mutation audit log
+
+Accepted configuration and lifecycle mutations are appended to:
+
+```text
+<save>/serverconfig/delvefold/audit/delvefold-audit.jsonl
+```
+
+Each JSON line contains a format version, timestamp, actor, operation, affected logical object, and old/new revisions. At 10 MiB the active file rotates; Delvefold retains five files total, including the active file. The log never records world-operation confirmation tokens, complete profile JSON, server addresses, or unrelated player data. There is no command that disables or clears the audit trail.

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.OrePresets;
 import com.nightsta69.delvefold.config.OreRuleTemplates;
 import com.nightsta69.delvefold.config.importer.OreImportModels.Candidate;
@@ -91,9 +92,13 @@ class OreImportPlannerTest {
 
         assertEquals(3, plan.proposedProfile().rules().size());
         assertEquals(DiffStatus.SKIPPED_COVERED, diff.get("example:copper").status());
+        assertEquals("message.delvefold.import.diff_message.covered",
+                translationKey(diff.get("example:copper").message()));
         assertEquals(List.of("example:copper_ore", "example:deepslate_copper_ore"),
                 diff.get("example:copper").skippedBlocks());
         assertEquals(DiffStatus.PARTIALLY_ADDED, diff.get("example:tin").status());
+        assertEquals("message.delvefold.import.diff_message.partially_added",
+                translationKey(diff.get("example:tin").message()));
         assertEquals(List.of("example:deepslate_tin_ore"), diff.get("example:tin").addedBlocks());
         assertEquals(List.of("example:tin_ore"), diff.get("example:tin").skippedBlocks());
         OreRule imported = plan.proposedProfile().rules().getLast();
@@ -118,9 +123,15 @@ class OreImportPlannerTest {
 
         assertEquals(1, plan.proposedProfile().rules().size());
         assertEquals(DiffStatus.SKIPPED_REVIEW_REQUIRED, diff.get("example:lead").status());
+        assertEquals("message.delvefold.import.diff_message.review_required",
+                translationKey(diff.get("example:lead").message()));
         assertEquals(DiffStatus.PARTIALLY_ADDED, diff.get("example:tin").status());
         assertEquals(List.of("example:tin_ore"), diff.get("example:tin").addedBlocks());
         assertEquals(List.of("example:nether_tin_ore"), diff.get("example:tin").skippedBlocks());
+    }
+
+    private static String translationKey(String message) {
+        return AdminLocalizedMessage.decode(message).orElseThrow().translationKey();
     }
 
     @Test

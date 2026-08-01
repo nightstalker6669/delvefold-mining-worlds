@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.network.model;
 
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.model.GameplayPreset;
 import com.nightsta69.delvefold.config.model.GameplaySettings;
 import com.nightsta69.delvefold.config.model.HeightDistribution;
@@ -34,7 +35,7 @@ public record AdminSnapshot(
         List<BackupDraft> backups,
         String portalStatus,
         String worldStatus,
-        boolean resetPending,
+        PendingOperation pendingOperation,
         List<String> diagnostics,
         int oreRuleTotal,
         int orePage,
@@ -52,12 +53,48 @@ public record AdminSnapshot(
         activeProfileId = cleanId(activeProfileId, "vanilla_balanced");
         profiles = limitedCopy(profiles, ProtocolLimits.MAX_PROFILES);
         backups = limitedCopy(backups, ProtocolLimits.MAX_BACKUPS);
-        portalStatus = clean(portalStatus, "Portal is not available yet.");
-        worldStatus = clean(worldStatus, initialized ? "Mining world ready." : "Mining world is not initialized.");
+        portalStatus = clean(portalStatus, AdminLocalizedMessage.encode(
+                "message.delvefold.admin.snapshot.portal_unavailable"));
+        worldStatus = clean(worldStatus, initialized
+                ? AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.world_ready")
+                : AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.world_uninitialized"));
+        pendingOperation = pendingOperation == null ? PendingOperation.NONE : pendingOperation;
         diagnostics = limitedStrings(diagnostics, ProtocolLimits.MAX_DIAGNOSTICS, ProtocolLimits.MESSAGE_LENGTH);
         oreRules = limitedCopy(oreRules, ProtocolLimits.MAX_ORE_RULES_PER_PAGE);
         oreRuleTotal = Math.max(oreRules.size(), Math.min(oreRuleTotal, ProtocolLimits.MAX_ORE_RULES));
         orePage = Math.min(ProtocolLimits.MAX_ORE_RULES, Math.max(0, orePage));
+    }
+
+    /**
+     * Source-compatible constructor for protocol-11 callers that only knew whether
+     * some mining-world reset was pending. Legacy {@code true} values represent the established
+     * delete/recreate operation; protocol 12 carries the explicit operation kind.
+     */
+    public AdminSnapshot(
+            long oreRevision,
+            long settingsRevision,
+            boolean backendReady,
+            boolean initialized,
+            TerrainMode terrainMode,
+            OrePreset orePreset,
+            GameplaySettings gameplay,
+            PortalSettings portal,
+            WorldIdentitySettings identity,
+            AdminCapabilities capabilities,
+            String activeProfileId,
+            List<ProfileDraft> profiles,
+            List<BackupDraft> backups,
+            String portalStatus,
+            String worldStatus,
+            boolean resetPending,
+            List<String> diagnostics,
+            int oreRuleTotal,
+            int orePage,
+            List<OreRuleDraft> oreRules) {
+        this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal,
+                identity, capabilities, activeProfileId, profiles, backups, portalStatus, worldStatus,
+                resetPending ? PendingOperation.WORLD_OPERATION : PendingOperation.NONE,
+                diagnostics, oreRuleTotal, orePage, oreRules);
     }
 
     public AdminSnapshot(
@@ -82,7 +119,8 @@ public record AdminSnapshot(
         this(oreRevision, settingsRevision, backendReady, initialized, terrainMode, orePreset, gameplay, portal, identity, capabilities,
                 activeProfileId, profiles,
                 backups,
-                portalStatus, worldStatus, resetPending, diagnostics,
+                portalStatus, worldStatus,
+                resetPending ? PendingOperation.WORLD_OPERATION : PendingOperation.NONE, diagnostics,
                 oreRules == null ? 0 : oreRules.size(), 0, oreRules);
     }
 
@@ -101,10 +139,11 @@ public record AdminSnapshot(
                 "vanilla_balanced",
                 List.of(),
                 List.of(),
-                "Portal disabled until the administration backend is installed.",
-                "Administration backend is not installed.",
-                false,
-                List.of("Delvefold GUI networking is active, but no DelvefoldAdminService has been installed."),
+                AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.backend_portal_disabled"),
+                AdminLocalizedMessage.encode("message.delvefold.admin.snapshot.backend_unavailable"),
+                PendingOperation.NONE,
+                List.of(AdminLocalizedMessage.encode(
+                        "message.delvefold.admin.snapshot.backend_diagnostic")),
                 0,
                 0,
                 List.of());
@@ -113,6 +152,42 @@ public record AdminSnapshot(
     /** A compact display-only revision; writes use the domain-specific values. */
     public long revision() {
         return Math.max(this.oreRevision, this.settingsRevision);
+    }
+
+    /** Compatibility view retained for existing GUI and integration callers. */
+    public boolean resetPending() {
+        return pendingOperation != PendingOperation.NONE;
+    }
+
+    public boolean worldOperationPending() {
+        return pendingOperation == PendingOperation.WORLD_OPERATION || pendingOperation == PendingOperation.BOTH;
+    }
+
+    public boolean restorePending() {
+        return pendingOperation == PendingOperation.RESTORE || pendingOperation == PendingOperation.BOTH;
+    }
+
+    /** The server-authoritative kind of restart-time mining-world mutation awaiting completion. */
+    public enum PendingOperation {
+        NONE,
+        WORLD_OPERATION,
+        RESTORE,
+        BOTH;
+
+        /**
+         * Resolves the two lifecycle services without losing either cancellation path. BOTH is a
+         * defensive representation for legacy or externally-corrupted saves containing both
+         * journals; each administration screen can then expose its matching recovery action.
+         */
+        public static PendingOperation resolve(boolean worldOperationPending, boolean restorePending) {
+            if (worldOperationPending && restorePending) {
+                return BOTH;
+            }
+            if (restorePending) {
+                return RESTORE;
+            }
+            return worldOperationPending ? WORLD_OPERATION : NONE;
+        }
     }
 
     public record AdminCapabilities(
@@ -143,13 +218,43 @@ public record AdminSnapshot(
             long sizeBytes,
             boolean pinned,
             boolean restorable,
-            boolean valid) {
+            boolean valid,
+            boolean manifestPresent,
+            boolean verified,
+            boolean legacy) {
         public BackupDraft {
             id = cleanId(id, "invalid");
             operation = clean(operation, "unknown");
             terrain = clean(terrain, "unknown");
             createdAtEpochMillis = Math.max(0, createdAtEpochMillis);
             sizeBytes = Math.max(-1, sizeBytes);
+        }
+
+        /** Source-compatible constructor for callers predating backup manifests. */
+        public BackupDraft(
+                String id,
+                long createdAtEpochMillis,
+                String operation,
+                String terrain,
+                long sizeBytes,
+                boolean pinned,
+                boolean restorable,
+                boolean valid) {
+            this(id, createdAtEpochMillis, operation, terrain, sizeBytes, pinned, restorable, valid,
+                    false, false, true);
+        }
+
+        public String integrityState() {
+            if (!valid) {
+                return "invalid";
+            }
+            if (legacy) {
+                return "legacy";
+            }
+            if (verified && restorable) {
+                return "verified";
+            }
+            return manifestPresent ? "unverified" : "legacy";
         }
     }
 

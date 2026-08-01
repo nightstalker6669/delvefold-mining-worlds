@@ -26,10 +26,13 @@ public final class OreIconButton extends AbstractButton {
         this.active = entry != null;
         this.setMessage(entry == null
                 ? Component.empty()
-                : Component.literal(entry.translatedName() + " (" + entry.id() + ")"));
-        this.setTooltip(entry == null ? null : Tooltip.create(Component.literal(
-                entry.translatedName() + "\n" + entry.id()
-                        + (entry.commonTagged() ? "\nTagged c:ores" : ""))));
+                : Component.translatable("screen.delvefold.ore_picker.entry",
+                        entry.translatedName(), entry.id()));
+        this.setTooltip(entry == null ? null : Tooltip.create(Component.translatable(
+                entry.commonTagged()
+                        ? "screen.delvefold.ore_picker.entry.tooltip.common"
+                        : "screen.delvefold.ore_picker.entry.tooltip",
+                entry.translatedName(), entry.id())));
         this.setTooltipDelay(Duration.ofMillis(250));
     }
 

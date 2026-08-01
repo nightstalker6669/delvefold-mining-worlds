@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.config;
 
 import com.google.gson.JsonElement;
+import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreProfileDocument;
 import com.nightsta69.delvefold.config.validation.ConfigIssue;
@@ -106,18 +107,23 @@ public final class OreProfileCatalog {
     public ProfileWriteResult saveAs(String id, OreProfileDocument source, boolean overwrite) throws IOException {
         String safeId = validateLocalId(id);
         Path target = localPath(safeId);
-        if (!overwrite && Files.exists(target)) {
-            return ProfileWriteResult.rejected("A local profile named '" + safeId + "' already exists");
+        boolean exists = Files.exists(target, LinkOption.NOFOLLOW_LINKS);
+        if (!overwrite && exists) {
+            return ProfileWriteResult.rejected(localized(
+                    "message.delvefold.profile.local_exists", safeId));
         }
-        long revision = Files.exists(target) ? Math.max(0, read(target).revision()) + 1 : 0;
+        long previousRevision = exists ? Math.max(0, read(target).revision()) : -1L;
+        long revision = previousRevision < 0L ? 0L : previousRevision + 1L;
         OreProfileDocument replacement = new OreProfileDocument(
                 OreProfileDocument.CURRENT_SCHEMA_VERSION, revision, safeId, source.rules());
         ValidationReport report = OreConfigValidator.validate(replacement, registryLookup);
         if (!report.valid()) {
-            return new ProfileWriteResult(false, null, report.issues(), "Profile validation failed");
+            return new ProfileWriteResult(false, null, report.issues(), localized(
+                    "message.delvefold.profile.validation_failed"), previousRevision);
         }
         write(target, replacement);
-        return new ProfileWriteResult(true, replacement, report.issues(), "Saved profile '" + safeId + "'");
+        return new ProfileWriteResult(true, replacement, report.issues(), localized(
+                "message.delvefold.profile.saved", safeId), previousRevision);
     }
 
     /**
@@ -132,33 +138,39 @@ public final class OreProfileCatalog {
         if (BUILT_INS.containsKey(safeId)
                 || EcosystemProfileRegistry.find(safeId) != null
                 || Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            return ProfileWriteResult.rejected("A profile named '" + safeId + "' already exists");
+            return ProfileWriteResult.rejected(localized(
+                    "message.delvefold.profile.exists", safeId));
         }
         OreProfileDocument replacement = new OreProfileDocument(
                 OreProfileDocument.CURRENT_SCHEMA_VERSION, 0, safeId, source.rules());
         ValidationReport report = OreConfigValidator.validate(replacement, registryLookup);
         if (!report.valid()) {
-            return new ProfileWriteResult(false, null, report.issues(), "Profile validation failed");
+            return new ProfileWriteResult(false, null, report.issues(), localized(
+                    "message.delvefold.profile.validation_failed"), -1L);
         }
         try {
             writeNew(target, replacement);
         } catch (java.nio.file.FileAlreadyExistsException exception) {
-            return ProfileWriteResult.rejected("A profile named '" + safeId + "' already exists");
+            return ProfileWriteResult.rejected(localized(
+                    "message.delvefold.profile.exists", safeId));
         }
-        return new ProfileWriteResult(true, replacement, report.issues(), "Created profile '" + safeId + "'");
+        return new ProfileWriteResult(true, replacement, report.issues(), localized(
+                "message.delvefold.profile.created", safeId), -1L);
     }
 
     public ProfileWriteResult importJson(String id, String json, boolean overwrite) throws IOException {
         byte[] bytes = (json == null ? "" : json).getBytes(StandardCharsets.UTF_8);
         if (bytes.length == 0 || bytes.length > MAX_TRANSFER_BYTES) {
-            return ProfileWriteResult.rejected("Profile JSON must be between 1 and " + MAX_TRANSFER_BYTES + " bytes");
+            return ProfileWriteResult.rejected(localized(
+                    "message.delvefold.profile.json_size", MAX_TRANSFER_BYTES));
         }
         try {
             JsonElement parsed = StrictConfigStructure.parseAndValidate(json, OreProfileDocument.class);
             OreProfileDocument source = ConfigJson.GSON.fromJson(parsed, OreProfileDocument.class);
             return saveAs(id, source, overwrite);
         } catch (RuntimeException exception) {
-            return ProfileWriteResult.rejected("Invalid profile JSON: " + exception.getMessage());
+            return ProfileWriteResult.rejected(localized(
+                    "message.delvefold.profile.invalid_json", exception.getMessage()));
         }
     }
 
@@ -166,7 +178,8 @@ public final class OreProfileCatalog {
         Path source = transferPath(paths.imports(), fileName);
         ensureSafeFile(source);
         if (Files.size(source) > MAX_TRANSFER_BYTES) {
-            return ProfileWriteResult.rejected("Import exceeds the " + MAX_TRANSFER_BYTES + " byte limit");
+            return ProfileWriteResult.rejected(localized(
+                    "message.delvefold.profile.import_size", MAX_TRANSFER_BYTES));
         }
         return importJson(id, Files.readString(source, StandardCharsets.UTF_8), overwrite);
     }
@@ -182,12 +195,18 @@ public final class OreProfileCatalog {
     }
 
     public boolean deleteLocal(String id) throws IOException {
+        return deleteLocalWithRevision(id).deleted();
+    }
+
+    /** Deletes one local profile and reports the revision that actually existed on disk. */
+    public ProfileDeleteResult deleteLocalWithRevision(String id) throws IOException {
         Path target = localPath(validateLocalId(id));
-        if (Files.notExists(target)) {
-            return false;
+        if (Files.notExists(target, LinkOption.NOFOLLOW_LINKS)) {
+            return new ProfileDeleteResult(false, -1L);
         }
         ensureSafeFile(target);
-        return Files.deleteIfExists(target);
+        long previousRevision = Math.max(0L, read(target).revision());
+        return new ProfileDeleteResult(Files.deleteIfExists(target), previousRevision);
     }
 
     private void createDirectories() throws IOException {
@@ -329,13 +348,41 @@ public final class OreProfileCatalog {
     }
 
     public record ProfileWriteResult(
-            boolean saved, OreProfileDocument profile, List<ConfigIssue> issues, String message) {
+            boolean saved,
+            OreProfileDocument profile,
+            List<ConfigIssue> issues,
+            String message,
+            long previousRevision) {
         public ProfileWriteResult {
             issues = issues == null ? List.of() : List.copyOf(issues);
+            message = message == null || message.isBlank()
+                    ? localized("message.delvefold.profile.operation_failed")
+                    : message;
+            if (previousRevision < -1L) {
+                throw new IllegalArgumentException("Previous profile revision must be non-negative or -1");
+            }
+        }
+
+        /** Source-compatible constructor for callers predating mutation-kind audit metadata. */
+        public ProfileWriteResult(
+                boolean saved, OreProfileDocument profile, List<ConfigIssue> issues, String message) {
+            this(saved, profile, issues, message, -1L);
         }
 
         public static ProfileWriteResult rejected(String message) {
-            return new ProfileWriteResult(false, null, List.of(), message);
+            return new ProfileWriteResult(false, null, List.of(), message, -1L);
         }
+    }
+
+    public record ProfileDeleteResult(boolean deleted, long previousRevision) {
+        public ProfileDeleteResult {
+            if (previousRevision < -1L) {
+                throw new IllegalArgumentException("Previous profile revision must be non-negative or -1");
+            }
+        }
+    }
+
+    private static String localized(String translationKey, Object... arguments) {
+        return AdminLocalizedMessage.encode(translationKey, arguments);
     }
 }

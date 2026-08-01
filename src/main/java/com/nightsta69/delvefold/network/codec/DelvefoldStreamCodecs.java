@@ -7,6 +7,8 @@ import com.nightsta69.delvefold.config.model.HeightDistribution;
 import com.nightsta69.delvefold.config.model.OrePreset;
 import com.nightsta69.delvefold.config.model.OreBandPlacement;
 import com.nightsta69.delvefold.config.model.PortalSettings;
+import com.nightsta69.delvefold.config.model.PortalHubSettings;
+import com.nightsta69.delvefold.config.model.PortalRoutingMode;
 import com.nightsta69.delvefold.config.model.ProvinceSettings;
 import com.nightsta69.delvefold.config.model.TerrainMode;
 import com.nightsta69.delvefold.config.model.TerrainVariant;
@@ -56,10 +58,13 @@ public final class DelvefoldStreamCodecs {
             buffer.writeBoolean(backup.pinned());
             buffer.writeBoolean(backup.restorable());
             buffer.writeBoolean(backup.valid());
+            buffer.writeBoolean(backup.manifestPresent());
+            buffer.writeBoolean(backup.verified());
+            buffer.writeBoolean(backup.legacy());
         }
         writeString(buffer, snapshot.portalStatus(), ProtocolLimits.MESSAGE_LENGTH);
         writeString(buffer, snapshot.worldStatus(), ProtocolLimits.MESSAGE_LENGTH);
-        buffer.writeBoolean(snapshot.resetPending());
+        writeEnum(buffer, snapshot.pendingOperation());
         writeStringList(buffer, snapshot.diagnostics(), ProtocolLimits.MAX_DIAGNOSTICS,
                 ProtocolLimits.MESSAGE_LENGTH);
         buffer.writeVarInt(snapshot.oreRuleTotal());
@@ -95,11 +100,12 @@ public final class DelvefoldStreamCodecs {
             backups.add(new AdminSnapshot.BackupDraft(
                     readString(buffer, ProtocolLimits.SHORT_TEXT_LENGTH), buffer.readLong(),
                     readString(buffer, ProtocolLimits.ID_LENGTH), readString(buffer, ProtocolLimits.ID_LENGTH),
-                    buffer.readLong(), buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean()));
+                    buffer.readLong(), buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean(),
+                    buffer.readBoolean(), buffer.readBoolean(), buffer.readBoolean()));
         }
         String portalStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
         String worldStatus = readString(buffer, ProtocolLimits.MESSAGE_LENGTH);
-        boolean resetPending = buffer.readBoolean();
+        AdminSnapshot.PendingOperation pendingOperation = readEnum(buffer, AdminSnapshot.PendingOperation.class);
         List<String> diagnostics = readStringList(buffer, ProtocolLimits.MAX_DIAGNOSTICS,
                 ProtocolLimits.MESSAGE_LENGTH);
         int oreRuleTotal = buffer.readVarInt();
@@ -118,7 +124,7 @@ public final class DelvefoldStreamCodecs {
         return new AdminSnapshot(oreRevision, settingsRevision, backendReady, initialized, terrain, orePreset, gameplay, portal, identity, capabilities,
                 activeProfileId, profiles,
                 backups,
-                portalStatus, worldStatus, resetPending, diagnostics, oreRuleTotal, orePage, rules);
+                portalStatus, worldStatus, pendingOperation, diagnostics, oreRuleTotal, orePage, rules);
     }
 
     public static void writeCapabilities(RegistryFriendlyByteBuf buffer, AdminSnapshot.AdminCapabilities capabilities) {
@@ -139,11 +145,17 @@ public final class DelvefoldStreamCodecs {
         buffer.writeBoolean(portal.allowFromOverworldOnly());
         buffer.writeVarInt(portal.cooldownSeconds());
         writeFiniteDouble(buffer, portal.coordinateScale(), "portal coordinate scale");
+        writeEnum(buffer, portal.routingMode());
+        buffer.writeInt(portal.hub().x());
+        buffer.writeInt(portal.hub().z());
+        buffer.writeVarInt(portal.hub().protectionRadius());
     }
 
     public static PortalSettings readPortal(RegistryFriendlyByteBuf buffer) {
         return new PortalSettings(buffer.readBoolean(), buffer.readBoolean(), buffer.readVarInt(),
-                readFiniteDouble(buffer, "portal coordinate scale"));
+                readFiniteDouble(buffer, "portal coordinate scale"),
+                readEnum(buffer, PortalRoutingMode.class),
+                new PortalHubSettings(buffer.readInt(), buffer.readInt(), buffer.readVarInt()));
     }
 
     public static void writeIdentity(RegistryFriendlyByteBuf buffer, WorldIdentitySettings identity) {

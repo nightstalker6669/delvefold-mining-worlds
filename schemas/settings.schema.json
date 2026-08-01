@@ -40,6 +40,24 @@
       "enum": ["public", "operators", "disabled"],
       "default": "public"
     },
+    "backup_retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "max_count", "max_age_days", "max_total_bytes"],
+      "default": {
+        "enabled": false,
+        "max_count": 0,
+        "max_age_days": 0,
+        "max_total_bytes": 0
+      },
+      "description": "Optional automatic retention. Zero limits are unbounded and no pruning occurs unless enabled is true.",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "max_count": { "type": "integer", "minimum": 0, "maximum": 2147483647 },
+        "max_age_days": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 },
+        "max_total_bytes": { "type": "integer", "minimum": 0, "maximum": 9223372036854775807 }
+      }
+    },
     "identity": {
       "type": "object",
       "additionalProperties": false,
@@ -95,7 +113,22 @@
         "enabled": { "type": "boolean" },
         "allow_from_overworld_only": { "type": "boolean" },
         "cooldown_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
-        "coordinate_scale": { "type": "number", "minimum": 0.01, "maximum": 100 }
+        "coordinate_scale": { "type": "number", "minimum": 0.01, "maximum": 100 },
+        "routing_mode": {
+          "enum": ["coordinate_linked", "central_hub"],
+          "default": "coordinate_linked"
+        },
+        "hub": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "z", "protection_radius"],
+          "default": { "x": 0, "z": 0, "protection_radius": 16 },
+          "properties": {
+            "x": { "type": "integer", "minimum": -29999936, "maximum": 29999936 },
+            "z": { "type": "integer", "minimum": -29999936, "maximum": 29999936 },
+            "protection_radius": { "type": "integer", "minimum": 8, "maximum": 256 }
+          }
+        }
       }
     }
   },
