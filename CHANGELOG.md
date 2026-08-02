@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.3 — Cavern Visibility and Generation
+
+- Raised the shared Classic and Expansive Cavern ambient-light floor from `0.0` to `0.1`, matching the conservative visual baseline used by the vanilla Nether.
+- Improved visibility in completely unlit cavern areas without adding block light, enabling skylight, changing F3 light values, or altering ordinary hostile-mob spawn checks.
+- Rebuilt Classic and Expansive Cavern generation around continuous solid stone hosts with a compact, vertically bounded custom cave carver. This removes the enormous terrain-density voids and detached floating-island shelves produced by the previous shape.
+- Kept Expansive Cavern taller and deeper than Classic while giving it the same solid-host underground topology instead of amplified terrain.
+- Kept exposed Cavern surfaces stone/deepslate instead of painting them with Overworld grass and dirt.
+- Removed the inherited global water table, aquifers, underground lava-lake feature, water springs, and lava springs from Cavern generation.
+- Added sparse one-block-deep water pockets that probe from Y 32 through Y 112 and scan downward by at most 32 blocks for an exposed stone floor. Each candidate averages one half-attempt per chunk before floor checks, uses a radius of one or two blocks, and cannot replace enclosed walls.
+- Retained natural bottom lava from cave carving only at Y −56 and below, producing localized low-level pockets without the former free-flowing spring pass.
+- Enforced solid floor and roof safety bands around both carving ranges so Caverns stay enclosed.
+- Applied the brighter visual floor to existing Cavern chunks after a full restart. Topology, material, and fluid changes apply only to newly generated Cavern chunks; recreation is strongly recommended for a uniform result.
+- Added JSON contract tests and live NeoForge GameTests for the ambient-light contract, continuous stone hosts, bounded cave carving, dry stone defaults, generator ranges, enclosed floor/roof bands, bounded water-pocket codecs, and removal of the broad vanilla fluid features.
+
+This patch does not change save formats, dimension IDs, configuration schema 2, public API version 1, or network protocol 12. Stable generation salts remain persisted, but Cavern block placement is intentionally not bit-for-bit identical because the generator's topology, surface, and fluid contracts changed. Clients and servers must use the identical 1.3.3 JAR. CurseForge publication remains a manual project-owner step.
+
 ## 1.3.2 — Client Stability and Compatibility
 
 - Fixed a client crash when **Add Ore** built a picker entry for a modded ore. Registry IDs are now converted to supported text values before they are supplied to Minecraft's translation formatter.

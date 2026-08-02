@@ -16,6 +16,10 @@ Run `/delvefold config validate`. Confirm the block ID exists or that the output
 
 Changes affect new chunks only. Travel beyond previously generated mining-world chunks or recreate the world after making a backup.
 
+## A Cavern still has grass, large lakes, giant voids, or floating shelves after updating
+
+Delvefold 1.3.3 changes Cavern generation only for new chunks. Existing grass, dirt, lakes, waterfalls, enormous terrain-density voids, floating shelves, and fluid updates are not removed or retrogened. Mixed old and new chunks can also expose sharp terrain seams or allow old water to flow across their border. For a uniform compact stone Cavern, request a confirmed recreation, allow Delvefold to create its default timestamped backup, then restart the dedicated server or return to the title screen and reopen the singleplayer save. The recreated Cavern begins as continuous stone, uses a bounded cave carver, has sparse shallow water pockets, and retains natural lava only in the lowest cave-carver band. Expansive remains taller and deeper than Classic without using amplified terrain.
+
 ## JSON reload was rejected
 
 Delvefold uses strict schema-2 JSON: misspelled, misplaced, and unknown fields are errors. Validate against the files in `schemas/`, keep files below documented size limits, and use `/delvefold config validate` before `/delvefold config reload`. A rejected edit is not written over and the last-known-good runtime snapshot remains active.

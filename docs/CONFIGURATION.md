@@ -221,7 +221,7 @@ The optional `identity` object is additive to schema 2. A schema-2 settings file
 }
 ```
 
-`terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat adds substantially more mineable depth while keeping its surface safely below the cloud layer, Expansive Cavern creates amplified subterranean ranges, and Expansive Wild uses amplified Overworld terrain.
+`terrain_variant` is `classic` or `expansive`; it is chosen during initialization or confirmed recreation. Expansive Flat adds substantially more mineable depth while keeping its surface safely below the cloud layer, Expansive Cavern uses a taller and deeper carving range, and Expansive Wild uses amplified Overworld terrain. Both Cavern scales begin as continuous solid stone hosts and use a compact, vertically bounded custom cave carver, producing underground passages without giant density voids or detached floating shelves. They use exposed stone/deepslate instead of grass, solid floor and roof safety bands, no global water table or springs, sparse shallow water pockets, and cave-carver lava only at Y −56 and below.
 
 `geology_theme` is additive to schema 2 and is locked to initialization or confirmed recreation. Accepted values are `classic`, `volcanic`, `dripstone`, `lush`, and `crystal`. Classic preserves the established stone composition. The other themes add bounded vanilla-block strata, decorations and sealed fluids plus client-visible particles, sounds, and ambience; they do not change registered dimension IDs or replace the terrain generator. Existing settings that omit the field load as `classic` and are not rewritten merely by loading.
 

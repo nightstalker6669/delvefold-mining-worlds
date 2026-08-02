@@ -14,6 +14,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.dimension.LevelStem;
+import net.minecraft.world.level.levelgen.NoiseGeneratorSettings;
+import net.minecraft.world.level.levelgen.carver.ConfiguredWorldCarver;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
 import net.minecraft.world.level.levelgen.feature.Feature;
 import net.minecraft.world.level.levelgen.placement.PlacedFeature;
@@ -84,6 +86,16 @@ public final class DelvefoldWorldgen {
     public static final ResourceKey<Biome> MINING_CAVERN_BIOME = biomeKey("mining_cavern");
     /** Biome key identifying overworld-like terrain during generation and filtering. */
     public static final ResourceKey<Biome> MINING_WILD_BIOME = biomeKey("mining_wild");
+    /** Noise settings for the enclosed, stone-surfaced Classic Cavern generator. */
+    public static final ResourceKey<NoiseGeneratorSettings> CAVERN_NOISE_SETTINGS =
+            ResourceKey.create(Registries.NOISE_SETTINGS, id("delve_cavern"));
+    /** Noise settings for the taller enclosed, stone-surfaced Expansive Cavern generator. */
+    public static final ResourceKey<NoiseGeneratorSettings> CAVERN_EXPANSIVE_NOISE_SETTINGS =
+            ResourceKey.create(Registries.NOISE_SETTINGS, id("delve_cavern_expansive"));
+
+    /** Compact cave carver shared by Classic and Expansive Cavern generators. */
+    public static final ResourceKey<ConfiguredWorldCarver<?>> COMPACT_CAVE_CARVER =
+            ResourceKey.create(Registries.CONFIGURED_CARVER, id("compact_cave"));
 
     /** Configured-feature key for runtime-profile ore placement. */
     public static final ResourceKey<ConfiguredFeature<?, ?>> MINING_ORES_CONFIGURED =
@@ -91,6 +103,12 @@ public final class DelvefoldWorldgen {
     /** Placed-feature key that invokes {@link #MINING_ORES_CONFIGURED}. */
     public static final ResourceKey<PlacedFeature> MINING_ORES_PLACED =
             ResourceKey.create(Registries.PLACED_FEATURE, id("mining_ores"));
+    /** Configured-feature key for sparse shallow water pockets on Cavern floors. */
+    public static final ResourceKey<ConfiguredFeature<?, ?>> CAVERN_WATER_POCKET_CONFIGURED =
+            ResourceKey.create(Registries.CONFIGURED_FEATURE, id("cavern_water_pocket"));
+    /** Placed-feature key for sparse shallow water pockets on Cavern floors. */
+    public static final ResourceKey<PlacedFeature> CAVERN_WATER_POCKET_PLACED =
+            ResourceKey.create(Registries.PLACED_FEATURE, id("cavern_water_pocket"));
     /** Configured-feature key for geology strata. */
     public static final ResourceKey<ConfiguredFeature<?, ?>> GEOLOGY_STRATA_CONFIGURED =
             ResourceKey.create(Registries.CONFIGURED_FEATURE, id("geology_strata"));
