@@ -5,6 +5,7 @@ import com.nightsta69.delvefold.client.gui.DelvefoldDashboardScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldGuideScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreForecastScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreImportScreen;
+import com.nightsta69.delvefold.client.gui.DelvefoldOrePickerScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldOreRuleWizardScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldScreen;
 import com.nightsta69.delvefold.client.gui.DelvefoldSetupScreen;
@@ -16,8 +17,10 @@ import com.nightsta69.delvefold.network.payload.OpenGuiPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuidePayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportPreviewPayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportScanPayload;
+import com.nightsta69.delvefold.network.payload.OpenOreLibraryPayload;
 import com.nightsta69.delvefold.network.payload.ProfileExportPayload;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -38,10 +41,18 @@ public final class DelvefoldClientPayloadHandler {
     public static void open(OpenGuiPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (payload.snapshot().initialized()) {
-            if (minecraft.screen instanceof DelvefoldOreRuleWizardScreen wizard && !wizard.closeOnNextSnapshot()) {
-                minecraft.setScreen(wizard.refreshed(payload.snapshot()));
+            if (minecraft.screen instanceof DelvefoldOreRuleWizardScreen wizard) {
+                if (!wizard.closeOnNextSnapshot()) {
+                    minecraft.setScreen(wizard.refreshed(payload.snapshot()));
+                } else {
+                    Screen acceptedReturn = wizard.acceptedReturnScreen(payload.snapshot());
+                    minecraft.setScreen(
+                            acceptedReturn == null ? new DelvefoldDashboardScreen(payload.snapshot()) : acceptedReturn);
+                }
             } else if (minecraft.screen instanceof DelvefoldBackupScreen backups) {
                 minecraft.setScreen(backups.refreshed(payload.snapshot()));
+            } else if (minecraft.screen instanceof DelvefoldOrePickerScreen picker) {
+                minecraft.setScreen(picker.refreshed(payload.snapshot()));
             } else {
                 minecraft.setScreen(
                         minecraft.screen instanceof DelvefoldDashboardScreen dashboard
@@ -147,6 +158,21 @@ public final class DelvefoldClientPayloadHandler {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.screen instanceof DelvefoldOreImportScreen importer) {
             importer.acceptPreview(payload.view());
+        }
+    }
+
+    /**
+     * Accepts a server-authoritative Unified Ores library page.
+     *
+     * <p>The picker installs the concrete page-routing behavior; retaining this bounded terminal hook keeps common
+     * network registration dedicated-server safe while the client screen owns presentation state.
+     *
+     * @param payload immutable bounded library page
+     */
+    public static void openOreLibrary(OpenOreLibraryPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.screen instanceof DelvefoldOrePickerScreen picker) {
+            picker.acceptLibrary(payload.view());
         }
     }
 }

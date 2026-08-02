@@ -14,10 +14,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/** Characterizes the protocol-12 payload directions, payload codecs, and codec inventory. */
+/** Characterizes the protocol-13 payload directions, payload codecs, and codec inventory. */
 class NetworkSurfaceCompatibilityTest {
     private static final Path NETWORK = Path.of("src/main/java/com/nightsta69/delvefold/network");
     private static final Set<String> TO_SERVER = Set.of(
+            "AddOreFamiliesPayload",
             "AdminActionPayload",
             "BackupActionPayload",
             "DeleteOreRulePayload",
@@ -32,6 +33,7 @@ class NetworkSurfaceCompatibilityTest {
             "OreImportPreviewRequestPayload",
             "OreImportScanPageRequestPayload",
             "OreImportScanRequestPayload",
+            "OreLibraryRequestPayload",
             "OrePageRequestPayload",
             "PortalUpdatePayload",
             "ProfileActionPayload",
@@ -44,17 +46,22 @@ class NetworkSurfaceCompatibilityTest {
             "OpenGuidePayload",
             "OpenOreImportPreviewPayload",
             "OpenOreImportScanPayload",
+            "OpenOreLibraryPayload",
             "ProfileExportPayload");
-    private static final Set<String> CODEC_FILES =
-            Set.of("DelvefoldStreamCodecs", "GuideStreamCodecs", "OreForecastStreamCodecs", "OreImportStreamCodecs");
+    private static final Set<String> CODEC_FILES = Set.of(
+            "DelvefoldStreamCodecs",
+            "GuideStreamCodecs",
+            "OreForecastStreamCodecs",
+            "OreImportStreamCodecs",
+            "OreLibraryStreamCodec");
     private static final Pattern REGISTRATION = Pattern.compile(
             "registrar\\.playTo(Server|Client)\\(\\s*(\\w+)\\.TYPE\\s*,\\s*\\2\\.STREAM_CODEC\\s*,", Pattern.DOTALL);
 
     @Test
-    void protocolTwelveRegistersTheExactVersion130PayloadInventory() throws Exception {
+    void protocolThirteenRegistersTheExactUnifiedOresPayloadInventory() throws Exception {
         String source = Files.readString(NETWORK.resolve("DelvefoldNetwork.java"));
         assertTrue(
-                source.matches("(?s).*public\\s+static\\s+final\\s+String\\s+PROTOCOL_VERSION\\s*=\\s*\"12\"\\s*;.*"));
+                source.matches("(?s).*public\\s+static\\s+final\\s+String\\s+PROTOCOL_VERSION\\s*=\\s*\"13\"\\s*;.*"));
 
         Map<String, Set<String>> actual = new TreeMap<>();
         actual.put("Server", new TreeSet<>());

@@ -24,9 +24,11 @@ Create the world explicitly through `/delvefold gui` or `/delvefold initialize`�
 
 Delvefold includes an in-game ore picker and rule editor built for both vanilla and modded blocks.
 
-- Pick blocks using their real item icons.
-- Search by name or namespace, browse ore candidates, or show every registered block.
-- Add modded ores by icon, registry ID, exact block, or conventional tag such as `c:ores/tin`.
+- Browse ores as material families, so copper, tin, silver, and other variants from different mods appear together instead of as hundreds of unrelated blocks.
+- Search and page through the server's installed ore catalog, hide families already configured, select across pages, and add up to 128 families atomically.
+- Use conventional `c:ores/<material>` tags for authoritative grouping. Conservative registry-name fallback keeps untagged ores discoverable and marks uncertain matches for review.
+- Start with Minecraft's provider when available, otherwise the first installed provider, then open the rule to enable or disable other provider-specific stone/deepslate variants.
+- Add unusual ores by exact registry ID when they should not be grouped.
 - Configure stone/deepslate variants and other output block states.
 - Select replacement blocks or block tags.
 - Control vein size, attempts per chunk, height ranges, and air-exposure discard.
@@ -35,7 +37,7 @@ Delvefold includes an in-game ore picker and rule editor built for both vanilla 
 - Use uniform, triangle, or trapezoid distributions with visual height and workload previews.
 - Restrict rules by biome or terrain type and give one ore multiple spawn bands.
 - Forecast a complete profile and detect missing, shadowed, biome-filtered, or ineffective rules before generating chunks.
-- Use the guided **Detect ores…** wizard to discover conventional tags and probable modded stone/deepslate variants without overwriting or activating a profile automatically.
+- Use the guided **Detect ores…** wizard to build a new inactive profile from the same material families without overwriting or activating it automatically.
 
 Ore rules can be managed through the GUI, `/delvefold` commands, or canonical per-save JSON. Changes apply to newly generated chunks; Delvefold never silently retrogenerates existing terrain.
 
@@ -51,7 +53,7 @@ Players can craft the **Seam Ledger** or run `/delvefold guide` for a bounded, s
 
 Craft the iron-tier **Delvefold Portal Frame**, build a complete rectangular frame, and ignite it with vanilla Flint and Steel. If the mining world has not been initialized—or the frame is incomplete—activation is rejected without consuming durability.
 
-Portal access, cooldown, coordinate scaling, and Overworld-only entry can be configured by the server. Coordinate-linked routing remains the default, while optional central-hub routing creates a protected vanilla-block arrival platform and guaranteed return portal. Activation has its own reverse-fold particles and crystalline sound effects. Portal transport is player-only in 1.3.
+Portal access, cooldown, coordinate scaling, and Overworld-only entry can be configured by the server. Coordinate-linked routing remains the default, while optional central-hub routing creates a protected vanilla-block arrival platform and guaranteed return portal. Activation has its own reverse-fold particles and crystalline sound effects. Portal transport is player-only throughout the 1.x series.
 
 ## Safe recreation and backups
 
@@ -98,4 +100,4 @@ Choose **Safe**, **Hostile**, or **Normal** natural mob spawning, then fine-tune
 - Java **21**
 - Installed on both client and server
 
-Delvefold stores its settings per save and keeps configuration schema 2 and public API version 1 stable for the 1.x series. Schema-2 worlds from Delvefold 0.2–1.2 upgrade directly to 1.3 with disabled retention and coordinate-linked routing as compatibility defaults. Schema-1 saves remain available through non-destructive read-only compatibility handling. JEI and EMI remain optional and unchanged.
+Delvefold stores its settings per save and keeps configuration schema 2 and public API version 1 stable for the 1.x series. Schema-2 worlds from Delvefold 0.2–1.3 upgrade directly to 1.4 without rewriting existing exact/tag ore rules. Schema-1 saves remain available through non-destructive read-only compatibility handling. Delvefold 1.4.0 uses network protocol 13 and requires the identical JAR on every client and server. JEI and EMI remain optional and unchanged.

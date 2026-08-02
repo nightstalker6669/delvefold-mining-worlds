@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
@@ -71,10 +72,11 @@ class OreImportPlannerTest {
     }
 
     @Test
-    void exactAndExpandedTagCoverageSkipOnlyCoveredMembers() {
+    void exactAndExpandedTagCoverageSuppressTheWholeLogicalFamily() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
                 block("example:tin_ore"),
                 block("example:deepslate_tin_ore"),
+                block("other:tin_ore"),
                 block("example:copper_ore", "c:ores/copper"),
                 block("example:deepslate_copper_ore", "c:ores/copper"));
         OreRule exact = rule("existing_tin", List.of(OreTarget.of("example:tin_ore", HostKind.STONE.replaceTag())));
@@ -85,7 +87,8 @@ class OreImportPlannerTest {
                 "example",
                 "tin",
                 candidate("example:tin_ore", HostKind.STONE),
-                candidate("example:deepslate_tin_ore", HostKind.DEEPSLATE));
+                candidate("example:deepslate_tin_ore", HostKind.DEEPSLATE),
+                candidate("other:tin_ore", HostKind.STONE));
         Group copper = group(
                 "example",
                 "copper",
@@ -98,18 +101,84 @@ class OreImportPlannerTest {
         DiffEntry copperDiff = requireNonNull(diff.get("example:copper"));
         DiffEntry tinDiff = requireNonNull(diff.get("example:tin"));
 
-        assertEquals(3, plan.proposedProfile().rules().size());
+        assertEquals(2, plan.proposedProfile().rules().size());
         assertEquals(DiffStatus.SKIPPED_COVERED, copperDiff.status());
         assertEquals("message.delvefold.import.diff_message.covered", translationKey(copperDiff.message()));
         assertEquals(List.of("example:copper_ore", "example:deepslate_copper_ore"), copperDiff.skippedBlocks());
-        assertEquals(DiffStatus.PARTIALLY_ADDED, tinDiff.status());
-        assertEquals("message.delvefold.import.diff_message.partially_added", translationKey(tinDiff.message()));
-        assertEquals(List.of("example:deepslate_tin_ore"), tinDiff.addedBlocks());
-        assertEquals(List.of("example:tin_ore"), tinDiff.skippedBlocks());
-        OreRule imported = plan.proposedProfile().rules().getLast();
+        assertEquals(DiffStatus.SKIPPED_COVERED, tinDiff.status());
+        assertEquals("message.delvefold.import.diff_message.covered", translationKey(tinDiff.message()));
+        assertEquals(List.of(), tinDiff.addedBlocks());
+        assertEquals(List.of("example:deepslate_tin_ore", "example:tin_ore", "other:tin_ore"), tinDiff.skippedBlocks());
+    }
+
+    @Test
+    void defaultSelectionPrefersVanillaAndKeepsBothSafeHostVariants() {
+        Group copper = groupWithId(
+                "delvefold:ores/copper",
+                "delvefold",
+                "copper",
+                candidate("alpha:copper_ore", HostKind.STONE),
+                candidate("minecraft:copper_ore", HostKind.STONE),
+                candidate("minecraft:deepslate_copper_ore", HostKind.DEEPSLATE),
+                candidate("zeta:copper_ore", HostKind.STONE));
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("alpha:copper_ore"),
+                block("minecraft:copper_ore"),
+                block("minecraft:deepslate_copper_ore"),
+                block("zeta:copper_ore"));
+
+        var preferred = OreImportPlanner.preferredCandidates(copper);
+        var plan = OreImportPlanner.plan(OrePresets.empty(), List.of(copper), registry, RegistryLookup.SKIP);
+
         assertEquals(
-                List.of("example:deepslate_tin_ore"),
+                List.of("minecraft:copper_ore", "minecraft:deepslate_copper_ore"),
+                preferred.stream().map(Candidate::blockId).toList());
+        OreRule imported = plan.proposedProfile().rules().getFirst();
+        assertEquals(
+                List.of("minecraft:copper_ore", "minecraft:deepslate_copper_ore"),
                 imported.targets().stream().map(OreTarget::block).toList());
+        assertEquals(DiffStatus.PARTIALLY_ADDED, plan.diff().getFirst().status());
+        assertEquals(
+                List.of("alpha:copper_ore", "zeta:copper_ore"),
+                plan.diff().getFirst().skippedBlocks());
+    }
+
+    @Test
+    void defaultSelectionUsesLexicalProviderWhenVanillaIsUnavailable() {
+        Group silver = groupWithId(
+                "delvefold:ores/silver",
+                "delvefold",
+                "silver",
+                candidate("zeta:silver_ore", HostKind.STONE),
+                candidate("alpha:silver_ore", HostKind.STONE),
+                candidate("alpha:deepslate_silver_ore", HostKind.DEEPSLATE),
+                candidate("aardvark:nether_silver_ore", HostKind.REVIEW_REQUIRED));
+
+        assertEquals(
+                List.of("alpha:deepslate_silver_ore", "alpha:silver_ore"),
+                OreImportPlanner.preferredCandidates(silver).stream()
+                        .map(Candidate::blockId)
+                        .toList());
+    }
+
+    @Test
+    void preferredProviderTargetsAreBoundedWithoutDiscardingDiscoveryMetadata() {
+        List<Candidate> candidates = new ArrayList<>();
+        for (int index = 0; index < OreImportModels.MAX_ENABLED_CANDIDATES_PER_RULE + 3; index++) {
+            candidates.add(candidate("alpha:variant_" + index + "_ore", HostKind.STONE));
+        }
+        Group family =
+                new Group("delvefold:ores/copper", "delvefold", "copper", Evidence.CONVENTIONAL_TAG, candidates, false);
+
+        List<Candidate> preferred = OreImportPlanner.preferredCandidates(family);
+
+        assertEquals(
+                OreImportModels.MAX_ENABLED_CANDIDATES_PER_RULE + 3,
+                family.candidates().size());
+        assertEquals(OreImportModels.MAX_ENABLED_CANDIDATES_PER_RULE, preferred.size());
+        assertEquals(
+                preferred.stream().map(Candidate::blockId).sorted().toList(),
+                preferred.stream().map(Candidate::blockId).toList());
     }
 
     @Test
@@ -169,6 +238,24 @@ class OreImportPlannerTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> OreImportPlanner.plan(base, List.of(tin, conflicting), registry, RegistryLookup.SKIP));
+    }
+
+    @Test
+    void uniqueRuleIdKeepsLongCollisionSuffixesBoundedAndValid() {
+        Group longFamily =
+                group("example", "material_" + "x".repeat(111), candidate("example:long_material_ore", HostKind.STONE));
+
+        String first = OreImportPlanner.uniqueRuleId(longFamily, Set.of());
+        String second = OreImportPlanner.uniqueRuleId(longFamily, Set.of(first));
+        String third = OreImportPlanner.uniqueRuleId(longFamily, Set.of(first, second));
+
+        assertEquals(128, first.length());
+        assertTrue(second.endsWith("_2"));
+        assertTrue(third.endsWith("_3"));
+        assertTrue(second.length() <= 128 && third.length() <= 128);
+        assertTrue(first.matches("[a-z0-9_.-]+"));
+        assertTrue(second.matches("[a-z0-9_.-]+"));
+        assertTrue(third.matches("[a-z0-9_.-]+"));
     }
 
     @Test

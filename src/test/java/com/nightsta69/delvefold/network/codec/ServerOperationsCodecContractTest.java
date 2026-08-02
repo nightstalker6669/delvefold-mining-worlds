@@ -10,11 +10,11 @@ import org.junit.jupiter.api.Test;
 /** Wire-shape regression checks for the NeoForge-only codec implementation. */
 class ServerOperationsCodecContractTest {
     @Test
-    void protocolTwelveCarriesPortalRoutingAndHubInSymmetricOrder() throws IOException {
+    void currentProtocolCarriesPortalRoutingAndHubInSymmetricOrder() throws IOException {
         String codec = compact(source("network/codec/DelvefoldStreamCodecs.java"));
         String network = compact(source("network/DelvefoldNetwork.java"));
 
-        assertTrue(network.contains("PROTOCOL_VERSION=\"12\""));
+        assertTrue(network.contains("PROTOCOL_VERSION=\"13\""));
         assertTrue(codec.contains("writeEnum(buffer,portal.routingMode());"
                 + "buffer.writeInt(portal.hub().x());"
                 + "buffer.writeInt(portal.hub().z());"
@@ -26,7 +26,7 @@ class ServerOperationsCodecContractTest {
     }
 
     @Test
-    void protocolTwelveCarriesAllBackupIntegrityFlagsInSymmetricOrder() throws IOException {
+    void currentProtocolCarriesAllBackupIntegrityFlagsInSymmetricOrder() throws IOException {
         String codec = compact(source("network/codec/DelvefoldStreamCodecs.java"));
 
         assertTrue(codec.contains("buffer.writeBoolean(backup.valid());"
@@ -40,11 +40,11 @@ class ServerOperationsCodecContractTest {
     }
 
     @Test
-    void protocolTwelveCarriesTheTypedPendingOperationSymmetrically() throws IOException {
+    void currentProtocolCarriesTheTypedPendingOperationSymmetrically() throws IOException {
         String codec = compact(source("network/codec/DelvefoldStreamCodecs.java"));
         String network = compact(source("network/DelvefoldNetwork.java"));
 
-        assertTrue(network.contains("PROTOCOL_VERSION=\"12\""));
+        assertTrue(network.contains("PROTOCOL_VERSION=\"13\""));
         assertTrue(codec.contains("writeEnum(buffer,snapshot.pendingOperation());"));
         assertTrue(codec.contains("readEnum(buffer,AdminSnapshot.PendingOperation.class)"));
         assertTrue(

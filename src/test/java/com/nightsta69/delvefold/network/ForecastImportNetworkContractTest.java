@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
-/** Source-contract checks for NeoForge-only forecast and ore-import network wiring. */
+/** Source-contract checks for NeoForge-only forecast, import, and Unified Ores network wiring. */
 class ForecastImportNetworkContractTest {
     private static final Path MAIN = Path.of("src/main/java/com/nightsta69/delvefold");
 
@@ -16,20 +16,25 @@ class ForecastImportNetworkContractTest {
     void currentProtocolRegistersEveryForecastAndImportPayloadInTheCorrectDirection() throws Exception {
         String network = compact(read("network/DelvefoldNetwork.java"));
 
-        assertTrue(network.contains("PROTOCOL_VERSION=\"12\""));
+        assertTrue(network.contains("PROTOCOL_VERSION=\"13\""));
         for (String payload : List.of(
                 "ForecastRequestPayload",
                 "OreImportScanRequestPayload",
                 "OreImportScanPageRequestPayload",
                 "OreImportPreviewRequestPayload",
                 "OreImportPreviewPageRequestPayload",
-                "OreImportCreatePayload")) {
+                "OreImportCreatePayload",
+                "OreLibraryRequestPayload",
+                "AddOreFamiliesPayload")) {
             assertTrue(
                     network.contains("registrar.playToServer(" + payload + ".TYPE,"),
                     payload + " must be registered as a client-to-server request");
         }
-        for (String payload :
-                List.of("OpenForecastPayload", "OpenOreImportScanPayload", "OpenOreImportPreviewPayload")) {
+        for (String payload : List.of(
+                "OpenForecastPayload",
+                "OpenOreImportScanPayload",
+                "OpenOreImportPreviewPayload",
+                "OpenOreLibraryPayload")) {
             assertTrue(
                     network.contains("registrar.playToClient(" + payload + ".TYPE,"),
                     payload + " must be registered as a server-to-client view");
@@ -46,7 +51,9 @@ class ForecastImportNetworkContractTest {
                 "handleImportScanPage",
                 "handleImportPreview",
                 "handleImportPreviewPage",
-                "handleImportCreate")) {
+                "handleImportCreate",
+                "handleOreLibraryRequest",
+                "handleAddOreFamilies")) {
             String body = privateMethod(network, handler);
             assertTrue(
                     body.contains("authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION)"),
@@ -67,7 +74,7 @@ class ForecastImportNetworkContractTest {
         String bootstrap = read("client/DelvefoldClientEvents.java");
         String handler = read("client/DelvefoldClientPayloadHandler.java");
 
-        for (String method : List.of("openForecast", "openOreImportScan", "openOreImportPreview")) {
+        for (String method : List.of("openForecast", "openOreImportScan", "openOreImportPreview", "openOreLibrary")) {
             assertTrue(
                     bootstrap.contains("DelvefoldClientPayloadHandler::" + method),
                     method + " must be installed during client setup");

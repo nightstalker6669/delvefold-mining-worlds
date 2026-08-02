@@ -1,11 +1,12 @@
 # Delvefold Architecture
 
-This document records the final Delvefold 1.3.1 architecture after the
-behavior-preserving code-quality refactor. It is both a map for maintainers and
-a compatibility contract for subsequent maintenance. The released 1.3.0
-architecture remains the behavioral baseline: 1.3.1 narrows ownership, makes
-contracts explicit, and removes repeated client presentation work without
-changing gameplay, save data, generation identity, or public interfaces.
+This document records the Delvefold 1.4.0 architecture. It retains the
+responsibility boundaries established by the 1.3.1 code-quality refactor and
+adds a bounded, server-authoritative material-family catalog for Unified Ores.
+It is both a map for maintainers and a compatibility contract for subsequent
+maintenance. Save schema, public API, registry identity, and generation identity
+remain unchanged; only the matching client/server protocol advances for the new
+catalog and atomic batch requests.
 
 ## Architectural goals
 
@@ -35,13 +36,12 @@ The architecture is built around five invariants:
 
 ## Compatibility boundary
 
-The 1.3.1 cleanup is behavior-preserving. These identifiers and formats remain
-frozen against the 1.3.0 release:
+These identifiers and formats define the 1.4.0 compatibility boundary:
 
 | Contract | Baseline | Compatibility requirement |
 | --- | ---: | --- |
 | Public API | `DelvefoldApi.API_VERSION = 1` | Preserve public descriptors and event semantics. Add no breaking signatures. |
-| Client/server protocol | `DelvefoldNetwork.PROTOCOL_VERSION = "12"` | Preserve payload IDs, field order, bounds, and matching-version behavior. |
+| Client/server protocol | `DelvefoldNetwork.PROTOCOL_VERSION = "13"` | Require identical 1.4.0 clients/servers; preserve payload IDs, field order, bounds, and matching-version behavior within protocol 13. |
 | Settings JSON | schema `2` | Preserve field names, defaults, validation, and canonical serialization. |
 | Ore-profile JSON | schema `2` | Preserve rule IDs, target semantics, defaults, weights, and canonical serialization. |
 | Guide snapshot | format `2` | Preserve the bounded public guide view and legacy-constructor behavior. |
@@ -61,7 +61,7 @@ operation IDs.
 
 - world-generation, landmark, and portal registries are attached to the mod
   event bus;
-- network payloads are registered at protocol 12;
+- network payloads are registered at protocol 13;
 - client event handlers are registered only on `Dist.CLIENT`;
 - `DefaultDelvefoldAdminService` is installed behind the
   `DelvefoldAdminService` interface;
@@ -88,24 +88,24 @@ still completing.
 
 ## Package and subsystem map
 
-The final 1.3.1 source tree contains 317 production Java files and 51,673 lines,
+The 1.4.0 source tree contains 326 production Java files and 54,074 lines,
 compared with 246 files and 36,043 lines in the 1.3.0 baseline. The increase is
-primarily 35 documented `package-info.java` nullness contracts, focused
-collaborators, and exhaustive Javadocs. Counts below are final, include nested
+primarily documented `package-info.java` nullness contracts, focused
+collaborators, exhaustive Javadocs, and the bounded Unified Ores catalog. Counts below include nested
 packages and package contracts, and are useful for locating responsibility—not
 as size targets.
 
 | Package | Files | Responsibility and allowed dependency direction |
 | --- | ---: | --- |
 | `config` | 73 | Immutable settings/ore models, strict JSON, validation, profile catalogs, forecasting, import planning, permissions, and the runtime snapshot. Models and pure analysis do not depend on GUI or command code. |
-| `network` | 46 | Bounded wire models, codecs, payloads, registration, and the admin-service interface. Payloads depend on immutable views/models; domain services do not depend on client screens. |
-| `client` | 43 | Client payload handling, requests, screens, pure draft/presentation/layout models, and widgets. It consumes bounded network snapshots and has no authority to mutate server state directly. |
-| `world` | 43 | Feature registration, deterministic ore/province/geology generation, structure-backed landmarks, catalog snapshots, and discovery. Generation consumes published config/catalog views and registries, never editor state or filesystem services. |
+| `network` | 52 | Bounded wire models, codecs, payloads, registration, and the admin-service interface. Payloads depend on immutable views/models; domain services do not depend on client screens. |
+| `client` | 42 | Client payload handling, requests, screens, pure draft/presentation/layout models, and widgets. It consumes bounded network snapshots and has no authority to mutate server state directly. |
+| `world` | 44 | Feature registration, deterministic ore/province/geology generation, structure-backed landmarks, catalog snapshots, and discovery. Generation consumes published config/catalog views and registries, never editor state or filesystem services. |
 | `reset` | 29 | Backups, manifests, verification, retention, delete/recreate, restore, renewal, shared lifecycle file/journal operations, evacuation, and cross-operation coordination. This subsystem owns destructive save-tree transitions. |
 | `portal` | 12 | Frame recognition, ignition, POI registration, access policy, destination construction, hub routing, and hub protection. It reads active settings through server-side access services. |
 | `guide` | 12 | Visibility policy, authorization, bounded read-only snapshots, icons, and console summaries. It exposes resource guidance without seeds, coordinates, paths, or administrative secrets. |
-| `compat` | 9 | Dependency-free portal-construction description plus isolated JEI and EMI adapters. Common/server packages do not reference viewer implementation classes. |
-| `admin` | 8 | Stable server-side adapter plus focused backup dispatch, snapshot assembly, ore mapping/import administration, and localized result encoding. |
+| `compat` | 10 | Dependency-free portal-construction description plus isolated JEI and EMI adapters. Common/server packages do not reference viewer implementation classes. |
+| `admin` | 9 | Stable server-side adapter plus focused backup dispatch, snapshot assembly, ore mapping/import/library administration, and localized result encoding. |
 | `api` | 8 | API-v1 immutable world view and public events for lifecycle, profile activation, portal travel, and landmark discovery. This is the strongest binary-compatibility boundary. |
 | `audit` | 8 | Actor scoping, accepted-mutation tracking, bounded asynchronous writes, JSON-lines serialization, rotation, and lifecycle ownership. Audit failure is contained and cannot undo an accepted gameplay mutation. |
 | `diagnostics` | 8 | Bounded Doctor collection, filesystem analysis, caching, rendering, redaction, and export. Expensive disk inspection runs away from the server tick thread. |
@@ -141,6 +141,29 @@ running client or server:
 These boundaries are deliberately package-private. They improve testability and
 reviewability without expanding API version 1 or making private implementation
 layout a downstream contract.
+
+### 1.4.0 Unified Ores boundaries
+
+`OreImportDiscovery` owns the pure, deterministic classification shared by the
+material library and guided profile import. A material-specific
+`c:ores/<material>` tag is authoritative; conservative registry-name fallback
+is explicitly marked for review. Logical family IDs are transient runtime
+identifiers and never enter schema-2 JSON.
+
+`OreImportSessionService` retains a bounded discovery snapshot behind an opaque,
+expiring token bound to the player, ore revision, registry fingerprint, profile
+fingerprint, and server session. `OreLibraryNetworkViews` searches and pages
+that retained snapshot on the server. Clients receive only bounded family
+summaries; they do not submit candidate blocks or manufacture catalog entries.
+
+`OreLibraryAdminService` re-resolves up to 128 selected family IDs against the
+retained catalog, computes existing exact/tag-expanded coverage, selects one
+default provider deterministically, and delegates one complete profile mutation
+to `DelvefoldConfigService`. Minecraft is preferred when present, otherwise the
+lexically first provider is used. Any stale revision, unknown family, invalid
+target, or safety-budget failure rejects the whole batch. Accepted rules remain
+ordinary exact-target schema-2 rules with at most 16 enabled targets; existing
+rules are never consolidated automatically.
 
 ### Intended dependency flow
 
@@ -206,6 +229,15 @@ the server. The ore import flow additionally uses random, expiring,
 player-bound, state-bound tokens; previewing does not activate or overwrite a
 profile, and a commit capability is single-use.
 
+The Unified Ores picker follows the same trust boundary. Its query, page, and
+show-configured flag are request hints; the server computes membership,
+configured coverage, review state, counts, and preferred icon. Client selections
+may persist across pages, but a batch contains only bounded family IDs. The
+server revalidates them against the retained catalog and commits either one ore
+revision or no change. Opening one family for detailed editing uses the same pure
+discovery rules for presentation, while the normal save path revalidates every
+resulting exact target and the complete profile.
+
 ### World generation
 
 `DelvefoldWorldgen` registers six stable level keys: Classic and Expansive
@@ -241,7 +273,7 @@ existing structures.
 ### Portal travel
 
 Portal ignition validates a complete frame before filling it or awarding the
-activation advancement. Travel is deliberately player-only in 1.3. Access
+activation advancement. Travel is deliberately player-only throughout 1.x. Access
 policy selects the active mining dimension, checks permissions and pending-world
 blocks, and posts the cancellable API event. Destination logic either links
 coordinates or ensures the configured central hub and guaranteed return portal.
@@ -327,9 +359,9 @@ must never be admitted to a newer save with the same process.
   world-management permission. NeoForge permission providers may override the
   documented operator fallbacks.
 - Payload sizes, list counts, identifiers, text, pages, and aggregate forecast,
-  guide, import, backup, and diagnostics views are bounded before allocation or
+  guide, import, ore-library, backup, and diagnostics views are bounded before allocation or
   publication.
-- Confirmation and import tokens never appear in audit logs, Doctor exports, or
+- Confirmation, import, and ore-library catalog tokens never appear in audit logs, Doctor exports, or
   ordinary snapshots.
 - Guide and API views exclude world seeds, exact resource coordinates, file
   paths, confirmation data, and administrative diagnostics.

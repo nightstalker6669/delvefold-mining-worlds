@@ -25,7 +25,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Shared protocol 12 codecs for administration snapshots and nested configuration drafts.
+ * Shared protocol 13 codecs for administration snapshots and nested configuration drafts.
  *
  * <p>Methods write fields in declaration order, reject counts before allocation, and encode enums by declaration
  * ordinal; callers must use identical client and server versions.
@@ -34,7 +34,7 @@ public final class DelvefoldStreamCodecs {
     private DelvefoldStreamCodecs() {}
 
     /**
-     * Writes a complete bounded administration snapshot in protocol 12 field order.
+     * Writes a complete bounded administration snapshot in protocol 13 field order.
      *
      * @param buffer destination registry-aware network buffer
      * @param snapshot immutable server-authoritative snapshot
@@ -204,7 +204,7 @@ public final class DelvefoldStreamCodecs {
     }
 
     /**
-     * Writes portal and hub settings in protocol 12 field order.
+     * Writes portal and hub settings in protocol 13 field order.
      *
      * @param buffer destination network buffer
      * @param portal immutable normalized portal settings
@@ -221,7 +221,7 @@ public final class DelvefoldStreamCodecs {
     }
 
     /**
-     * Reads portal and hub settings in protocol 12 field order.
+     * Reads portal and hub settings in protocol 13 field order.
      *
      * @param buffer source network buffer
      * @return immutable portal settings
@@ -422,7 +422,7 @@ public final class DelvefoldStreamCodecs {
     }
 
     /**
-     * Writes one ore band and its optional province settings in protocol 12 order.
+     * Writes one ore band and its optional province settings in protocol 13 order.
      *
      * @param buffer destination registry-aware network buffer
      * @param band immutable ore-band draft supplied by the server
@@ -452,7 +452,7 @@ public final class DelvefoldStreamCodecs {
     }
 
     /**
-     * Reads one ore band and its optional province settings in protocol 12 order.
+     * Reads one ore band and its optional province settings in protocol 13 order.
      *
      * @param buffer source registry-aware network buffer
      * @return immutable ore-band draft; province settings are absent when the encoded presence flag is false
@@ -557,7 +557,7 @@ public final class DelvefoldStreamCodecs {
     }
 
     /**
-     * Writes an enum by declaration ordinal for protocol 12.
+     * Writes an enum by declaration ordinal for protocol 13.
      *
      * <p>Reordering an enum used by this codec is wire-incompatible and requires a protocol-version change.
      *
@@ -569,7 +569,7 @@ public final class DelvefoldStreamCodecs {
         writeEnumOrdinal(buffer, value);
     }
 
-    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    // The network protocol encodes enum declaration order; changing this value would break wire compatibility.
     @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnumOrdinal(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());

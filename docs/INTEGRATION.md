@@ -1,6 +1,6 @@
 # Modpack and Mod Integration
 
-Delvefold 1.3 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is stable for the 1.x line; `DelvefoldApi.API_VERSION` is `1`. Additive methods and independent event types may appear in later 1.x releases, while existing public signatures retain source and binary compatibility.
+Delvefold 1.4 exposes deterministic, server-authoritative integration points without requiring optional mods. The Java API is stable for the 1.x line; `DelvefoldApi.API_VERSION` is `1`. Additive methods and independent event types may appear in later 1.x releases, while existing public signatures retain source and binary compatibility.
 
 ## Datapack ore profiles
 
@@ -35,9 +35,15 @@ Use `block_tag` instead of `block` to support any installed mod that contributes
 
 Exactly one output source is required. Members are expanded in registry-ID order. `weight` is optional, accepts 1 through 1000, and defaults to `1`. Exact targets use their configured weight directly. A tag target's total weight is divided equally among its installed members, with fractional member weights supported internally, and only outputs sharing the same replacement-host tag compete during per-vein selection. For compatibility, a host group whose configured weights are all `1` retains the earlier member-uniform selection and exact random sequence; tag-total weighting begins when any target in that group has a non-default weight. If multiple sources resolve to the same block state, the first deterministically ordered candidate wins; later overlaps are ineffective, ignored, and warned rather than contributing more weight. Mark a cross-mod rule `required: false` if a pack should remain valid when no provider is installed.
 
-These additions do not change configuration schema 2 or `DelvefoldApi.API_VERSION` 1. Datapack and script producers should treat an omitted weight as `1`; profiles whose configured target weights are all `1` retain the earlier member-uniform deterministic output-selection sequence. The 1.3 client/server protocol is version 12. It retains guide format 2 and adds bounded backup-integrity, retention, Doctor, and portal-routing administration data. Clients and servers must use the same Delvefold version. Derived generation salts, import fingerprints, filesystem paths, confirmation tokens, and administrative backup hashes are intentionally excluded from public API and player-facing guide views.
+These additions do not change configuration schema 2 or `DelvefoldApi.API_VERSION` 1. Datapack and script producers should treat an omitted weight as `1`; profiles whose configured target weights are all `1` retain the earlier member-uniform deterministic output-selection sequence. The 1.4.0 client/server protocol is version 13 and requires the identical 1.4.0 JAR. It retains guide format 2 and the bounded 1.3 operations views while adding Unified Ores catalog paging and atomic family-selection requests. Derived generation salts, catalog/scan tokens, registry fingerprints, filesystem paths, confirmation tokens, and administrative backup hashes are intentionally excluded from public API and player-facing guide views.
 
-The 1.1 guided importer recognizes conventional block tags shaped like `c:ores/<material>` and may also suggest strictly ore-like registered block names. Integrations get the best automatic grouping by contributing stone and deepslate variants to the matching conventional tag and by using ordinary `<material>_ore` / `deepslate_<material>_ore` registry names. Ambiguous aggregate blocks and unknown hosts are shown as review-required and are never silently assigned a replacement host. Suggestions are previews only: Delvefold creates a new local inactive profile and never mutates a datapack/script profile or activates a result automatically.
+Unified Ores treats membership in a material-specific block tag shaped like `c:ores/<material>` as authoritative family metadata. Integrations get the best automatic grouping by contributing every provider-specific stone/deepslate variant to the matching tag. A conventional tag can group `example:copper_ore`, `other:copper_ore`, and their deepslate variants into one Copper family without changing any registry ID or saved target.
+
+When a provider omits a material-specific tag, Delvefold may use conservative `<material>_ore`, `deepslate_<material>_ore`, `stone_<material>_ore`, or `ore_<material>` names as a fallback. Name-derived identity, ambiguous tag assignments, aggregate blocks, and unknown hosts are marked for review and are never silently trusted as an equivalent provider or replacement host. Pack authors should supply `c:ores/<material>` rather than depend on fallback heuristics.
+
+The Unified Ores library hides a family by default when an existing exact target or expanded tag target already covers any installed member. It never rewrites, merges, or auto-consolidates those existing rules. New family additions default to safe stone/deepslate candidates from Minecraft when present, otherwise the lexically first provider namespace; administrators may edit the resulting ordinary exact targets to enable or disable other providers. Each rule remains limited to 16 targets. Direct exact-ID commands and JSON remain available for blocks that intentionally should not share a family.
+
+The guided profile importer uses the same discovery model. Suggestions remain previews only: Delvefold creates a new local inactive profile and never mutates a datapack/script profile or activates a result automatically. Material family IDs, catalog pages, and selections are transient administration data and are never serialized into schema-2 profiles.
 
 Commands expose the same model:
 
@@ -123,7 +129,7 @@ Delvefold 1.3 backup manifests, verification receipts, Doctor exports, retention
 
 Legacy backup migration is intentionally explicit: invoke `/delvefold backup verify <id>` or the Backup GUI action. Verification and SHA-256 hashing run off the tick thread. A successful legacy check creates a manifest but never activates or consumes that backup. Retention is disabled unless configured, always preserves pinned/pending/newest-two backups, and exposes its preview and last result through Doctor diagnostics before/after automatic deletion.
 
-Portal routing remains `coordinate_linked` unless the server opts into `central_hub`. The hub uses only vanilla blocks plus Delvefold's existing portal blocks, creates a guaranteed return portal, and guards its configured horizontal radius from users without `delvefold.manage_world` and from environmental mutation. This does not add an entity-transport API: 1.3 portal travel remains player-only.
+Portal routing remains `coordinate_linked` unless the server opts into `central_hub`. The hub uses only vanilla blocks plus Delvefold's existing portal blocks, creates a guaranteed return portal, and guards its configured horizontal radius from users without `delvefold.manage_world` and from environmental mutation. This does not add an entity-transport API: portal travel remains player-only throughout 1.x.
 
 CurseForge publication is deliberately outside repository automation. GitHub tag releases may publish the JAR and checksum, while the project owner uploads the verified artifact and prepared changelog to CurseForge manually.
 
@@ -148,9 +154,9 @@ DelvefoldApi.activeGuide().ifPresent(guide -> {
 
 The contract contains only whitelisted player-facing information: world display name, terrain, terrain variant, geology theme, active profile, coarse portal and renewal status, and enabled ore entries with output IDs or tags, representative block icons, terrain applicability, bounded biome include/exclude selectors, height summaries, vein sizes or province distributions, and relative frequency. It deliberately excludes seeds, horizontal coordinates, filesystem paths, replacement-host details, world-operation confirmation data, permissions, validation reports, configuration hashes, and administration diagnostics.
 
-The active 1.3 guide remains format version 2. It includes the bounded `geologyTheme()` identifier and keeps the same limits: at most 96 ore entries, eight outputs and eight height bands per entry, three applicable terrains, 16 biome selectors per include list and 16 per exclude list, 64 characters for the world name, 128 characters for identifiers, and a conservative 24 KiB estimated network budget. The `truncated` flags tell consumers when a large profile was shortened. Consumers must tolerate future additive enum values and should display truncation rather than attempting to recover omitted internal data.
+The active 1.4 guide remains format version 2. It includes the bounded `geologyTheme()` identifier and keeps the same limits: at most 96 ore entries, eight outputs and eight height bands per entry, three applicable terrains, 16 biome selectors per include list and 16 per exclude list, 64 characters for the world name, 128 characters for identifiers, and a conservative 24 KiB estimated network budget. The `truncated` flags tell consumers when a large profile was shortened. Consumers must tolerate future additive enum values and should display truncation rather than attempting to recover omitted internal data.
 
-For API-v1 source and binary compatibility, `GuideSnapshot` retains the 1.1 constructor signature; it supplies `classic` geology when that legacy constructor is used, and the class still recognizes legacy format version 1 objects. `activeGuide()` returns current format 2, and protocol 12 transmits format 2 snapshots so the geology field cannot be silently omitted between a matching 1.3 client and server.
+For API-v1 source and binary compatibility, `GuideSnapshot` retains the 1.1 constructor signature; it supplies `classic` geology when that legacy constructor is used, and the class still recognizes legacy format version 1 objects. `activeGuide()` returns current format 2, and protocol 13 transmits format 2 snapshots so the geology field cannot be silently omitted between a matching 1.4 client and server.
 
 `activeGuide()` has no player argument and returns content, not an authorization decision. Delvefold's built-in command and item enforce `guide_visibility` separately. An integration that republishes the snapshot to its own audience remains responsible for that audience decision.
 
@@ -167,7 +173,7 @@ The landmark event is an additive API-v1 independent type; it does not change `D
 
 ## JEI and EMI
 
-JEI and EMI behavior is unchanged in 1.3.
+JEI and EMI behavior is unchanged in 1.4.
 
 When JEI or EMI is installed, the Portal Frame receives both an information page and a visual **Portal Construction** category. The category shows the minimum 2x3-interior frame, identifies Flint and Steel as the ignition catalyst, documents the supported 2x3 through 21x21 interior range, and reminds players that `/delvefold gui` initialization must happen first. The ordinary frame crafting recipe is discovered from vanilla recipe data and is not registered twice.
 

@@ -1,54 +1,69 @@
 package com.nightsta69.delvefold.client.gui;
 
+import com.nightsta69.delvefold.client.DelvefoldClientRequests;
 import com.nightsta69.delvefold.client.gui.widget.DelvefoldButton.Style;
-import com.nightsta69.delvefold.client.gui.widget.OreIconButton;
+import com.nightsta69.delvefold.config.importer.OreImportModels.Group;
+import com.nightsta69.delvefold.network.ProtocolLimits;
+import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
+import com.nightsta69.delvefold.network.model.OreLibraryView;
+import com.nightsta69.delvefold.network.payload.ActionResultPayload;
+import com.nightsta69.delvefold.network.payload.AddOreFamiliesPayload;
+import com.nightsta69.delvefold.network.payload.OreLibraryRequestPayload;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import org.jspecify.annotations.Nullable;
 
-/** Searchable client-registry picker for selecting exact ore or block outputs. */
+/** Server-paged material-family picker with batch selection and exact-ID fallback. */
 public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
-    private static final TagKey<Block> COMMON_ORES =
-            TagKey.create(Registries.BLOCK, ResourceLocation.fromNamespaceAndPath("c", "ores"));
+    private static final int SEARCH_DELAY_TICKS = 6;
+    private static final int ROW_HEIGHT = 26;
+    private static final int ROW_GAP = 2;
 
     private final Screen parent;
-    private final List<OrePickerEntry> allEntries = new ArrayList<>();
-    private final List<OrePickerEntry> filteredEntries = new ArrayList<>();
-    private final List<OreIconButton> iconButtons = new ArrayList<>();
+    private final OreLibraryPickerState state = new OreLibraryPickerState();
+    private final List<RenderedFamily> renderedFamilies = new ArrayList<>();
+    private final List<Button> variantButtons = new ArrayList<>();
+    private Map<String, Group> localGroups = Map.of();
+    private @Nullable OreLibraryView library;
     private @Nullable EditBox searchBox;
-    private @Nullable Button previousButton;
-    private @Nullable Button nextButton;
-    private boolean showAll;
-    private int page;
-    private int columns;
-    private int rows;
-    private int pageSize;
-    private int gridLeft;
-    private int gridTop;
-    private int gridWidth;
-    private String searchQuery = "";
+    private @Nullable Button addSelectedButton;
+    private @Nullable Button exactIdButton;
+    private boolean initialRequestSent;
+    private boolean applyingServerView;
+    private boolean loading;
+    private boolean catalogRequestPending;
+    private boolean catalogRecoveryAttempted;
+    private boolean retainSelectionsAcrossCatalogRefresh;
+    private boolean enterRequestedPageAtEnd;
+    private boolean queuedEnterAtEnd;
+    private boolean restoreInitialLocalOffset;
+    private int searchDelay;
+    private int localOffset;
+    private int queuedPage = -1;
+    private int visibleRows = 1;
+    private int requestedInitialPage;
+    private int requestedInitialLocalOffset;
     private Component localStatus = Component.empty();
 
     /**
-     * Creates a picker whose registry entries are loaded lazily during client initialization.
+     * Creates a picker that requests its first authoritative family page after responsive initialization.
      *
-     * @param parent screen restored when no selection is made
-     * @param snapshot immutable administration state used by the rule editor opened after selection
+     * @param parent screen restored when the player leaves the picker
+     * @param snapshot immutable administration state and expected ore revision
      */
     public DelvefoldOrePickerScreen(Screen parent, AdminSnapshot snapshot) {
         super(Component.translatable("screen.delvefold.ore_picker.title"), snapshot);
@@ -56,192 +71,479 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     }
 
     @Override
-    protected void initPanel() {
-        if (this.allEntries.isEmpty()) {
-            loadRegistryEntries();
-        }
+    protected int preferredPanelWidth() {
+        return 720;
+    }
 
+    @Override
+    protected int preferredPanelHeight() {
+        return 430;
+    }
+
+    @Override
+    protected void initPanel() {
+        this.renderedFamilies.clear();
+        this.variantButtons.clear();
         int x = this.contentLeft();
-        int y = this.contentTop() + 22;
+        int y = this.contentTop() + 12;
         int width = this.contentWidth();
-        boolean compact = width < 430;
-        int controlGap = 6;
-        int showAllWidth = compact ? (width - controlGap) / 2 : 122;
-        int idWidth = compact ? width - showAllWidth - controlGap : 94;
-        int searchWidth = compact ? width : width - showAllWidth - idWidth - controlGap * 2;
+        boolean compact = width < 500 || this.contentBottom() - this.contentTop() < 260;
+        int gap = 6;
+        int exactWidth = compact ? 88 : 104;
+        int configuredWidth = compact ? width - exactWidth - gap : 154;
+        int searchWidth = compact ? width : width - configuredWidth - exactWidth - gap * 2;
+
         EditBox search = this.addRenderableWidget(new EditBox(
                 this.font, x, y, searchWidth, 20, Component.translatable("screen.delvefold.ore_picker.search")));
         this.searchBox = search;
-        search.setMaxLength(128);
+        search.setMaxLength(ProtocolLimits.MAX_ORE_LIBRARY_QUERY_LENGTH);
         search.setHint(Component.translatable("screen.delvefold.ore_picker.search_hint"));
-        search.setValue(this.searchQuery);
+        search.setValue(this.state.searchQuery());
         search.setResponder(value -> {
-            this.searchQuery = value;
+            if (this.applyingServerView) {
+                return;
+            }
+            this.state.setSearchQuery(value);
+            this.searchDelay = SEARCH_DELAY_TICKS;
             this.localStatus = Component.empty();
-            this.page = 0;
-            updateGrid();
         });
 
-        int controlsY = compact ? y + 26 : y;
-        int showAllX = compact ? x : x + searchWidth + controlGap;
+        int toggleY = compact ? y + 22 : y;
+        int toggleX = compact ? x : x + searchWidth + gap;
         this.addButton(
-                showAllX,
-                controlsY,
-                showAllWidth,
+                toggleX,
+                toggleY,
+                configuredWidth,
                 20,
-                showAllLabel(),
-                this.showAll ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                showConfiguredLabel(),
+                this.state.showConfigured() ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                 button -> {
-                    this.showAll = !this.showAll;
-                    this.page = 0;
-                    button.setMessage(showAllLabel());
-                    setButtonStyle(button, this.showAll ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
-                    updateGrid();
+                    this.state.toggleShowConfigured();
+                    button.setMessage(showConfiguredLabel());
+                    setButtonStyle(button, this.state.showConfigured() ? Style.TOGGLE_ON : Style.TOGGLE_OFF);
+                    requestLibrary(0);
                 });
-        int idX = showAllX + showAllWidth + controlGap;
-        this.addButton(
-                idX,
-                controlsY,
-                idWidth,
+        this.exactIdButton = this.addButton(
+                toggleX + configuredWidth + gap,
+                toggleY,
+                exactWidth,
                 20,
                 Component.translatable("screen.delvefold.ore_picker.exact_id"),
                 Style.SECONDARY,
                 button -> chooseTypedId());
+        this.exactIdButton.active = !this.loading;
 
-        OrePickerLayout layout =
-                OrePickerLayout.calculate(this.panelLeft, this.panelWidth, width, controlsY + 34, this.footerButtonY());
-        this.columns = layout.columns();
-        this.rows = layout.rows();
-        this.pageSize = layout.pageSize();
-        this.gridWidth = layout.gridWidth();
-        this.gridLeft = layout.gridLeft();
-        this.gridTop = layout.gridTop();
-        this.iconButtons.clear();
-        for (int row = 0; row < this.rows; row++) {
-            for (int column = 0; column < this.columns; column++) {
-                OreIconButton button = this.addRenderableWidget(new OreIconButton(
-                        this.gridLeft + column * OrePickerLayout.TILE_STEP + 1,
-                        this.gridTop + row * OrePickerLayout.TILE_STEP + 1,
-                        25,
-                        25,
-                        this::choose));
-                this.iconButtons.add(button);
-            }
+        int selectionY = toggleY + (compact ? 22 : 26);
+        int selectionWidth = Math.max(72, (width - gap) / 2);
+        this.addButton(
+                x,
+                selectionY,
+                selectionWidth,
+                20,
+                Component.translatable("screen.delvefold.ore_picker.select_visible"),
+                Style.SECONDARY,
+                button -> {
+                    this.state.selectVisible(visiblePageFamilies());
+                    rebuildWidgets();
+                });
+        this.addButton(
+                x + selectionWidth + gap,
+                selectionY,
+                width - selectionWidth - gap,
+                20,
+                Component.translatable("screen.delvefold.ore_picker.clear"),
+                Style.GHOST,
+                button -> {
+                    this.state.clearSelection();
+                    rebuildWidgets();
+                });
+
+        int rowsTop = selectionY + (compact ? 23 : 27);
+        int pagerY = this.footerButtonY() - 24;
+        int availableRows = Math.max(ROW_HEIGHT, pagerY - rowsTop - 2);
+        this.visibleRows = Math.max(1, availableRows / (ROW_HEIGHT + ROW_GAP));
+        List<OreLibraryPickerState.Family> pageFamilies = this.state.pageFamilies();
+        this.localOffset = Math.clamp(
+                this.localOffset,
+                0,
+                OreLibraryPickerState.lastLocalWindowOffset(pageFamilies.size(), this.visibleRows));
+        int end = Math.min(pageFamilies.size(), this.localOffset + this.visibleRows);
+        for (int index = this.localOffset; index < end; index++) {
+            addFamilyRow(pageFamilies.get(index), rowsTop + (index - this.localOffset) * (ROW_HEIGHT + ROW_GAP));
         }
 
-        int pagerY = layout.pagerY();
-        this.previousButton = this.addButton(
-                this.gridLeft,
+        int pagerWidth = Math.min(84, Math.max(56, width / 4));
+        Button previous = this.addButton(
+                x,
                 pagerY,
-                68,
+                pagerWidth,
                 20,
                 Component.translatable("screen.delvefold.previous"),
                 Style.GHOST,
-                button -> {
-                    this.page--;
-                    updateGrid();
-                });
-        this.nextButton = this.addButton(
-                this.gridLeft + this.gridWidth - 68,
+                button -> previousPage());
+        Button next = this.addButton(
+                x + width - pagerWidth,
                 pagerY,
-                68,
+                pagerWidth,
                 20,
                 Component.translatable("screen.delvefold.next"),
                 Style.GHOST,
-                button -> {
-                    this.page++;
-                    updateGrid();
-                });
+                button -> nextPage());
+        OreLibraryView active = this.library;
+        previous.active = active != null && (this.localOffset > 0 || active.page() > 0) && !this.loading;
+        next.active = active != null
+                && (end < pageFamilies.size() || active.page() + 1 < active.pageCount())
+                && !this.loading;
+
         this.addButton(
-                this.contentLeft(),
+                x,
                 this.footerButtonY(),
                 76,
                 22,
                 Component.translatable("gui.back"),
                 Style.GHOST,
                 button -> this.minecraft.setScreen(this.parent));
+        this.addSelectedButton = this.addButton(
+                this.contentRight() - 148,
+                this.footerButtonY(),
+                148,
+                22,
+                addSelectedLabel(),
+                Style.PRIMARY,
+                button -> addSelected());
+        this.addSelectedButton.active = active != null && this.state.selectedCount() > 0 && !this.loading;
 
-        updateGrid();
+        if (!this.initialRequestSent) {
+            this.initialRequestSent = true;
+            requestLibrary(this.requestedInitialPage);
+        }
         this.setInitialFocus(search);
     }
 
-    private void loadRegistryEntries() {
-        for (Block block : BuiltInRegistries.BLOCK) {
-            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
-            if (id == null || Items.AIR.equals(block.asItem())) {
-                continue;
-            }
-            ItemStack icon = new ItemStack(block.asItem());
-            boolean common = block.defaultBlockState().is(COMMON_ORES);
-            boolean oreLike = common || id.getPath().contains("ore");
-            this.allEntries.add(
-                    new OrePickerEntry(id, block, icon, icon.getHoverName().getString(), common, oreLike));
-        }
-        this.allEntries.sort(Comparator.comparing(OrePickerEntry::commonTagged)
-                .reversed()
-                .thenComparing(entry -> entry.translatedName().toLowerCase(Locale.ROOT))
-                .thenComparing(entry -> entry.id().toString()));
-    }
-
-    private void updateGrid() {
-        EditBox search = this.searchBox;
-        Button previous = this.previousButton;
-        Button next = this.nextButton;
-        if (search == null || previous == null || next == null || this.iconButtons.isEmpty()) {
+    /**
+     * Installs a validated server page while retaining selections from other pages of the same catalog.
+     *
+     * @param replacement authoritative bounded family page
+     */
+    public void acceptLibrary(OreLibraryView replacement) {
+        this.library = replacement;
+        this.loading = false;
+        this.catalogRequestPending = false;
+        this.catalogRecoveryAttempted = false;
+        boolean enterAtEnd = this.enterRequestedPageAtEnd;
+        this.enterRequestedPageAtEnd = false;
+        int deferredPage = this.queuedPage;
+        boolean deferredEnterAtEnd = this.queuedEnterAtEnd;
+        this.queuedPage = -1;
+        this.queuedEnterAtEnd = false;
+        if (!OreLibraryPickerState.responseMatchesFilters(
+                this.state.searchQuery(),
+                this.state.showConfigured(),
+                replacement.query(),
+                replacement.showConfigured())) {
+            this.searchDelay = 0;
+            requestLibrary(0);
             return;
         }
-        String query = search.getValue().trim().toLowerCase(Locale.ROOT);
-        this.filteredEntries.clear();
-        for (OrePickerEntry entry : this.allEntries) {
-            if (!this.showAll && !entry.oreLike()) {
-                continue;
-            }
-            String id = entry.id().toString().toLowerCase(Locale.ROOT);
-            String name = entry.translatedName().toLowerCase(Locale.ROOT);
-            if (!query.isEmpty()
-                    && !id.contains(query)
-                    && !entry.id().getNamespace().contains(query)
-                    && !entry.id().getPath().contains(query)
-                    && !name.contains(query)) {
-                continue;
-            }
-            this.filteredEntries.add(entry);
+        if (deferredPage >= 0
+                && replacement.page() != OreLibraryPickerState.clampServerPage(deferredPage, replacement.pageCount())) {
+            requestLibrary(deferredPage, deferredEnterAtEnd);
+            return;
         }
-
-        int pageCount = Math.max(1, (this.filteredEntries.size() + this.pageSize - 1) / this.pageSize);
-        this.page = Math.max(0, Math.min(this.page, pageCount - 1));
-        int start = this.page * this.pageSize;
-        for (int index = 0; index < this.iconButtons.size(); index++) {
-            int entryIndex = start + index;
-            this.iconButtons
-                    .get(index)
-                    .setEntry(entryIndex < this.filteredEntries.size() ? this.filteredEntries.get(entryIndex) : null);
+        if (deferredPage >= 0) {
+            enterAtEnd = deferredEnterAtEnd;
         }
-        previous.active = this.page > 0;
-        next.active = this.page + 1 < pageCount;
+        if (this.localGroups.isEmpty()) {
+            this.localGroups = OreFamilyCatalog.discoverInstalled();
+        }
+        List<OreLibraryPickerState.Family> presented = replacement.families().stream()
+                .map(summary -> OreFamilyCatalog.present(summary, this.localGroups.get(summary.id())))
+                .toList();
+        this.state.acceptPage(replacement.catalogToken(), presented, this.retainSelectionsAcrossCatalogRefresh);
+        this.retainSelectionsAcrossCatalogRefresh = false;
+        if (this.restoreInitialLocalOffset) {
+            this.localOffset = OreLibraryPickerState.clampLocalWindowOffset(
+                    this.requestedInitialLocalOffset, presented.size(), this.visibleRows);
+            this.restoreInitialLocalOffset = false;
+        } else {
+            this.localOffset =
+                    enterAtEnd ? OreLibraryPickerState.lastLocalWindowOffset(presented.size(), this.visibleRows) : 0;
+        }
+        this.applyingServerView = true;
+        this.state.setSearchQuery(replacement.query());
+        this.state.setPage(replacement.page(), replacement.pageCount());
+        if (this.state.showConfigured() != replacement.showConfigured()) {
+            this.state.toggleShowConfigured();
+        }
+        EditBox search = this.searchBox;
+        if (search != null) {
+            search.setValue(replacement.query());
+        }
+        this.applyingServerView = false;
+        this.localStatus = replacement.truncated()
+                ? Component.translatable("screen.delvefold.ore_picker.truncated")
+                : Component.empty();
+        if (this.minecraft != null) {
+            this.rebuildWidgets();
+        }
     }
 
-    private Component showAllLabel() {
-        return Component.translatable(
-                this.showAll ? "screen.delvefold.ore_picker.all_blocks" : "screen.delvefold.ore_picker.ores_only");
+    /**
+     * Returns a replacement picker after a configuration refresh while retaining search, filter, and page context.
+     *
+     * @param updatedSnapshot authoritative post-mutation administration snapshot
+     * @return replacement picker ready to request the corresponding refreshed catalog page
+     */
+    public DelvefoldOrePickerScreen refreshed(AdminSnapshot updatedSnapshot) {
+        Screen refreshedParent = this.parent instanceof DelvefoldDashboardScreen dashboard
+                ? dashboard.refreshed(updatedSnapshot)
+                : this.parent;
+        DelvefoldOrePickerScreen refreshed = new DelvefoldOrePickerScreen(refreshedParent, updatedSnapshot);
+        refreshed.state.setSearchQuery(this.state.searchQuery());
+        if (this.state.showConfigured()) {
+            refreshed.state.toggleShowConfigured();
+        }
+        OreLibraryView active = this.library;
+        refreshed.requestedInitialPage = active == null ? 0 : active.page();
+        refreshed.requestedInitialLocalOffset = this.localOffset;
+        refreshed.restoreInitialLocalOffset = true;
+        return refreshed;
     }
 
-    private void choose(OrePickerEntry entry) {
-        chooseBlock(entry.id());
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.searchDelay > 0 && --this.searchDelay == 0) {
+            requestLibrary(0);
+        }
+    }
+
+    @Override
+    public void handleActionResult(ActionResultPayload payload) {
+        OreLibraryPickerState.CatalogRecovery recovery = this.catalogRequestPending
+                        && payload.status() != ActionStatus.ACCEPTED
+                        && !this.catalogRecoveryAttempted
+                ? OreLibraryPickerState.catalogRecovery(payload.message())
+                : OreLibraryPickerState.CatalogRecovery.NONE;
+        this.catalogRequestPending = false;
+        this.loading = false;
+        this.enterRequestedPageAtEnd = false;
+        this.localStatus = DelvefoldText.serverMessage(payload.message());
+        if (recovery.recoverable()) {
+            restartCatalog(recovery.retainSelections());
+            return;
+        }
+        if (payload.status() != ActionStatus.ACCEPTED) {
+            this.retainSelectionsAcrossCatalogRefresh = false;
+            this.queuedPage = -1;
+            this.queuedEnterAtEnd = false;
+            if (this.minecraft != null) {
+                this.rebuildWidgets();
+            }
+        }
+    }
+
+    private void addFamilyRow(OreLibraryPickerState.Family family, int y) {
+        int x = this.contentLeft();
+        int width = this.contentWidth();
+        int iconWidth = 24;
+        int detailsWidth = Math.min(96, Math.max(66, width / 5));
+        int gap = 4;
+        boolean selected = this.state.selected(family.id());
+        Component marker = Component.translatable(
+                selected ? "screen.delvefold.status.selected" : "screen.delvefold.status.not_selected");
+        Component label = Component.translatable(
+                "screen.delvefold.ore_picker.family_row",
+                marker,
+                family.displayName(),
+                family.providerNamespaces().size(),
+                family.candidates().size());
+        Button familyButton = this.addButton(
+                x + iconWidth,
+                y,
+                width - iconWidth - detailsWidth - gap,
+                ROW_HEIGHT,
+                label,
+                family.configured() ? Style.GHOST : selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                button -> {
+                    if (this.state.toggleFamily(family.id())) {
+                        rebuildWidgets();
+                    }
+                });
+        familyButton.active = !family.configured();
+        OreLibraryView.Family summary = summary(family.id());
+        if (summary != null) {
+            familyButton.setTooltip(Tooltip.create(Component.translatable(
+                    "screen.delvefold.ore_picker.family_tooltip",
+                    summary.preferredBlockId(),
+                    summary.providerCount(),
+                    summary.candidateCount(),
+                    summary.importableCandidateCount(),
+                    Component.translatable(
+                            summary.reviewRequired()
+                                    ? "screen.delvefold.status.review_required"
+                                    : "screen.delvefold.status.ready"),
+                    Component.translatable(
+                            summary.overflow()
+                                    ? "screen.delvefold.status.overflow"
+                                    : "screen.delvefold.status.complete"))));
+            familyButton.setTooltipDelay(Duration.ofMillis(250));
+        }
+        Button details = this.addButton(
+                x + width - detailsWidth,
+                y,
+                detailsWidth,
+                ROW_HEIGHT,
+                Component.translatable("screen.delvefold.ore_picker.edit_variants"),
+                Style.SECONDARY,
+                button -> editFamily(family));
+        details.active = !this.loading && !family.configured() && this.state.draft(family.id()) != null;
+        this.variantButtons.add(details);
+        this.renderedFamilies.add(new RenderedFamily(icon(family), x + 3, y + 5));
+    }
+
+    private void editFamily(OreLibraryPickerState.Family family) {
+        AdminSnapshot.@Nullable OreRuleDraft draft = this.state.draft(family.id());
+        if (draft == null) {
+            this.localStatus = Component.translatable("screen.delvefold.ore_picker.no_importable_variants");
+            return;
+        }
+        this.minecraft.setScreen(new DelvefoldOreRuleWizardScreen(this, this.snapshot, draft, family.candidates()));
+    }
+
+    private void addSelected() {
+        OreLibraryView active = this.library;
+        List<String> selected = this.state.selectedFamilyIds();
+        if (active == null || selected.isEmpty()) {
+            return;
+        }
+        this.loading = true;
+        this.catalogRequestPending = true;
+        this.localStatus = Component.translatable("screen.delvefold.ore_picker.adding", selected.size());
+        if (this.addSelectedButton != null) {
+            this.addSelectedButton.active = false;
+        }
+        DelvefoldClientRequests.send(
+                new AddOreFamiliesPayload(active.expectedOreRevision(), active.catalogToken(), selected));
     }
 
     private void chooseTypedId() {
-        ResourceLocation id = ResourceLocation.tryParse(this.searchQuery.trim());
+        EditBox search = this.searchBox;
+        ResourceLocation id = ResourceLocation.tryParse(
+                search == null ? "" : search.getValue().trim());
         if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
             this.localStatus = Component.translatable("screen.delvefold.ore_picker.no_exact_match");
             return;
         }
-        chooseBlock(id);
-    }
-
-    private void chooseBlock(ResourceLocation id) {
         AdminSnapshot.OreRuleDraft draft = AdminSnapshot.OreRuleDraft.createDefault(id.toString(), inferredHost(id));
         this.minecraft.setScreen(new DelvefoldOreRuleWizardScreen(this, this.snapshot, draft));
+    }
+
+    private void previousPage() {
+        if (this.loading) {
+            return;
+        }
+        if (this.localOffset > 0) {
+            this.localOffset = Math.max(0, this.localOffset - this.visibleRows);
+            rebuildWidgets();
+            return;
+        }
+        OreLibraryView active = this.library;
+        if (active != null && active.page() > 0) {
+            requestLibrary(active.page() - 1, true);
+        }
+    }
+
+    private void nextPage() {
+        if (this.loading) {
+            return;
+        }
+        List<OreLibraryPickerState.Family> pageFamilies = this.state.pageFamilies();
+        if (this.localOffset + this.visibleRows < pageFamilies.size()) {
+            this.localOffset += this.visibleRows;
+            rebuildWidgets();
+            return;
+        }
+        OreLibraryView active = this.library;
+        if (active != null && active.page() + 1 < active.pageCount()) {
+            requestLibrary(active.page() + 1);
+        }
+    }
+
+    private void requestLibrary(int page) {
+        requestLibrary(page, false);
+    }
+
+    private void requestLibrary(int page, boolean enterAtEnd) {
+        if (this.loading) {
+            this.queuedPage = Math.max(0, page);
+            this.queuedEnterAtEnd = enterAtEnd;
+            return;
+        }
+        OreLibraryView active = this.library;
+        this.loading = true;
+        this.catalogRequestPending = true;
+        this.enterRequestedPageAtEnd = enterAtEnd;
+        this.localStatus = Component.translatable("screen.delvefold.ore_picker.loading");
+        if (this.exactIdButton != null) {
+            this.exactIdButton.active = false;
+        }
+        this.variantButtons.forEach(button -> button.active = false);
+        DelvefoldClientRequests.requestOreLibrary(new OreLibraryRequestPayload(
+                this.snapshot.oreRevision(),
+                active == null ? "" : active.catalogToken(),
+                Math.max(0, page),
+                this.state.searchQuery(),
+                this.state.showConfigured()));
+    }
+
+    private void restartCatalog(boolean retainSelections) {
+        OreLibraryView active = this.library;
+        int restartPage = active == null ? this.state.page() : active.page();
+        this.catalogRecoveryAttempted = true;
+        this.retainSelectionsAcrossCatalogRefresh = retainSelections;
+        this.library = null;
+        this.localGroups = Map.of();
+        this.queuedPage = -1;
+        this.queuedEnterAtEnd = false;
+        this.requestedInitialLocalOffset = this.localOffset;
+        this.restoreInitialLocalOffset = true;
+        requestLibrary(restartPage);
+    }
+
+    private List<OreLibraryPickerState.Family> visiblePageFamilies() {
+        List<OreLibraryPickerState.Family> pageFamilies = this.state.pageFamilies();
+        int end = Math.min(pageFamilies.size(), this.localOffset + this.visibleRows);
+        return pageFamilies.subList(Math.min(this.localOffset, end), end);
+    }
+
+    private OreLibraryView.@Nullable Family summary(String familyId) {
+        OreLibraryView active = this.library;
+        return active == null
+                ? null
+                : active.families().stream()
+                        .filter(family -> family.id().equals(familyId))
+                        .findFirst()
+                        .orElse(null);
+    }
+
+    private ItemStack icon(OreLibraryPickerState.Family family) {
+        OreLibraryView.Family summary = summary(family.id());
+        ResourceLocation id = ResourceLocation.tryParse(
+                summary == null ? family.candidates().getFirst().blockId() : summary.preferredBlockId());
+        Block block = id == null ? null : BuiltInRegistries.BLOCK.get(id);
+        return block == null || Items.AIR.equals(block.asItem()) ? new ItemStack(Items.IRON_ORE) : new ItemStack(block);
+    }
+
+    private Component showConfiguredLabel() {
+        return Component.translatable(
+                "screen.delvefold.ore_picker.show_configured",
+                Component.translatable(
+                        this.state.showConfigured() ? "screen.delvefold.status.on" : "screen.delvefold.status.off"));
+    }
+
+    private Component addSelectedLabel() {
+        return Component.translatable("screen.delvefold.ore_picker.add_selected", this.state.selectedCount());
     }
 
     private static String inferredHost(ResourceLocation blockId) {
@@ -254,36 +556,44 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
     protected void renderPanelContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.drawString(
                 this.font,
-                Component.translatable("screen.delvefold.ore_picker.registry"),
+                Component.translatable("screen.delvefold.ore_picker.material_families"),
                 this.contentLeft(),
                 this.contentTop(),
                 MUTED_TEXT,
                 false);
-        int gridCardY = this.gridTop - 7;
-        this.drawCard(
-                graphics,
-                this.gridLeft - 7,
-                gridCardY,
-                this.gridWidth + 14,
-                this.rows * OrePickerLayout.TILE_STEP + 14);
-        int pageCount = Math.max(1, (this.filteredEntries.size() + this.pageSize - 1) / this.pageSize);
-        Component resultText = Component.translatable(
-                "screen.delvefold.ore_picker.results", this.filteredEntries.size(), this.page + 1, pageCount);
-        graphics.drawCenteredString(
-                this.font,
-                resultText,
-                this.panelLeft + this.panelWidth / 2,
-                this.gridTop + this.rows * OrePickerLayout.TILE_STEP + 14,
-                MUTED_TEXT);
-        if (!this.localStatus.getString().isEmpty()) {
-            graphics.drawString(
-                    this.font,
-                    this.localStatus,
-                    this.contentLeft() + 88,
-                    this.panelTop + this.panelHeight - 22,
-                    DANGER,
-                    false);
+        for (RenderedFamily rendered : this.renderedFamilies) {
+            graphics.renderItem(rendered.icon(), rendered.x(), rendered.y());
         }
+        OreLibraryView active = this.library;
+        List<OreLibraryPickerState.Family> pageFamilies = this.state.pageFamilies();
+        int visibleStart = pageFamilies.isEmpty()
+                ? 0
+                : active == null
+                        ? this.localOffset + 1
+                        : active.page() * ProtocolLimits.MAX_ORE_LIBRARY_FAMILIES_PER_PAGE + this.localOffset + 1;
+        int visibleEnd = active == null
+                ? Math.min(pageFamilies.size(), this.localOffset + this.visibleRows)
+                : active.page() * ProtocolLimits.MAX_ORE_LIBRARY_FAMILIES_PER_PAGE
+                        + Math.min(pageFamilies.size(), this.localOffset + this.visibleRows);
+        Component page = active == null
+                ? Component.translatable("screen.delvefold.ore_picker.loading")
+                : Component.translatable(
+                        "screen.delvefold.ore_picker.family_results",
+                        active.totalFamilies(),
+                        visibleStart,
+                        visibleEnd,
+                        this.state.selectedCount());
+        Component footerLine = this.localStatus.getString().isEmpty() ? page : this.localStatus;
+        var clipped = this.font
+                .split(footerLine, Math.max(1, this.contentWidth() - 8))
+                .getFirst();
+        graphics.drawString(
+                this.font,
+                clipped,
+                this.panelLeft + (this.panelWidth - this.font.width(clipped)) / 2,
+                this.footerButtonY() - 19,
+                this.localStatus.getString().isEmpty() ? MUTED_TEXT : this.loading ? ACCENT : WARNING,
+                false);
     }
 
     @Override
@@ -295,16 +605,16 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
 
     @Override
     public Component getNarrationMessage() {
-        int safePageSize = Math.max(1, this.pageSize);
-        int pageCount = Math.max(1, (this.filteredEntries.size() + safePageSize - 1) / safePageSize);
+        OreLibraryView active = this.library;
         return Component.translatable(
-                "screen.delvefold.ore_picker.narration",
-                this.filteredEntries.size(),
-                this.page + 1,
-                pageCount,
+                "screen.delvefold.ore_picker.family_narration",
+                active == null ? 0 : active.totalFamilies(),
+                active == null ? 1 : active.page() + 1,
+                active == null ? 1 : active.pageCount(),
+                this.state.selectedCount(),
                 Component.translatable(
-                        this.showAll
-                                ? "screen.delvefold.ore_picker.all_blocks"
-                                : "screen.delvefold.ore_picker.ores_only"));
+                        this.state.showConfigured() ? "screen.delvefold.status.on" : "screen.delvefold.status.off"));
     }
+
+    private record RenderedFamily(ItemStack icon, int x, int y) {}
 }

@@ -3,12 +3,14 @@ package com.nightsta69.delvefold.network;
 import com.mojang.logging.LogUtils;
 import com.nightsta69.delvefold.admin.AdminLocalizedMessage;
 import com.nightsta69.delvefold.admin.OreImportAdminService;
+import com.nightsta69.delvefold.admin.OreLibraryAdminService;
 import com.nightsta69.delvefold.audit.DelvefoldAuditService;
 import com.nightsta69.delvefold.config.AdminAccess;
 import com.nightsta69.delvefold.network.model.ActionStatus;
 import com.nightsta69.delvefold.network.model.AdminOperation;
 import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
+import com.nightsta69.delvefold.network.payload.AddOreFamiliesPayload;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
@@ -23,11 +25,13 @@ import com.nightsta69.delvefold.network.payload.OpenGuiRequestPayload;
 import com.nightsta69.delvefold.network.payload.OpenGuidePayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportPreviewPayload;
 import com.nightsta69.delvefold.network.payload.OpenOreImportScanPayload;
+import com.nightsta69.delvefold.network.payload.OpenOreLibraryPayload;
 import com.nightsta69.delvefold.network.payload.OreImportCreatePayload;
 import com.nightsta69.delvefold.network.payload.OreImportPreviewPageRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportPreviewRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanPageRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanRequestPayload;
+import com.nightsta69.delvefold.network.payload.OreLibraryRequestPayload;
 import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
@@ -51,8 +55,8 @@ import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
-    /** Exact client/server payload compatibility version; protocol 12 field order and enum ordinals are immutable. */
-    public static final String PROTOCOL_VERSION = "12";
+    /** Exact client/server payload compatibility version; protocol 13 field order and enum ordinals are immutable. */
+    public static final String PROTOCOL_VERSION = "13";
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -63,6 +67,7 @@ public final class DelvefoldNetwork {
     private static volatile Consumer<OpenForecastPayload> clientForecastHandler = payload -> {};
     private static volatile Consumer<OpenOreImportScanPayload> clientImportScanHandler = payload -> {};
     private static volatile Consumer<OpenOreImportPreviewPayload> clientImportPreviewHandler = payload -> {};
+    private static volatile Consumer<OpenOreLibraryPayload> clientOreLibraryHandler = payload -> {};
 
     private DelvefoldNetwork() {}
 
@@ -86,6 +91,7 @@ public final class DelvefoldNetwork {
      * @param forecastHandler administrative forecast screen handler
      * @param importScanHandler ore-import scan page handler
      * @param importPreviewHandler ore-import preview page handler
+     * @param oreLibraryHandler Unified Ores library page handler
      */
     public static void installClientHandlers(
             Consumer<OpenGuiPayload> openHandler,
@@ -94,7 +100,8 @@ public final class DelvefoldNetwork {
             Consumer<OpenGuidePayload> guideHandler,
             Consumer<OpenForecastPayload> forecastHandler,
             Consumer<OpenOreImportScanPayload> importScanHandler,
-            Consumer<OpenOreImportPreviewPayload> importPreviewHandler) {
+            Consumer<OpenOreImportPreviewPayload> importPreviewHandler,
+            Consumer<OpenOreLibraryPayload> oreLibraryHandler) {
         clientOpenHandler = Objects.requireNonNull(openHandler, "openHandler");
         clientResultHandler = Objects.requireNonNull(resultHandler, "resultHandler");
         clientProfileExportHandler = Objects.requireNonNull(profileExportHandler, "profileExportHandler");
@@ -102,6 +109,7 @@ public final class DelvefoldNetwork {
         clientForecastHandler = Objects.requireNonNull(forecastHandler, "forecastHandler");
         clientImportScanHandler = Objects.requireNonNull(importScanHandler, "importScanHandler");
         clientImportPreviewHandler = Objects.requireNonNull(importPreviewHandler, "importPreviewHandler");
+        clientOreLibraryHandler = Objects.requireNonNull(oreLibraryHandler, "oreLibraryHandler");
     }
 
     /**
@@ -170,6 +178,12 @@ public final class DelvefoldNetwork {
                 DelvefoldNetwork::handleImportPreviewPage);
         registrar.playToServer(
                 OreImportCreatePayload.TYPE, OreImportCreatePayload.STREAM_CODEC, DelvefoldNetwork::handleImportCreate);
+        registrar.playToServer(
+                OreLibraryRequestPayload.TYPE,
+                OreLibraryRequestPayload.STREAM_CODEC,
+                DelvefoldNetwork::handleOreLibraryRequest);
+        registrar.playToServer(
+                AddOreFamiliesPayload.TYPE, AddOreFamiliesPayload.STREAM_CODEC, DelvefoldNetwork::handleAddOreFamilies);
 
         registrar.playToClient(
                 OpenGuiPayload.TYPE,
@@ -199,6 +213,10 @@ public final class DelvefoldNetwork {
                 OpenOreImportPreviewPayload.TYPE,
                 OpenOreImportPreviewPayload.STREAM_CODEC,
                 (payload, context) -> clientImportPreviewHandler.accept(payload));
+        registrar.playToClient(
+                OpenOreLibraryPayload.TYPE,
+                OpenOreLibraryPayload.STREAM_CODEC,
+                (payload, context) -> clientOreLibraryHandler.accept(payload));
     }
 
     private static void handleOpenRequest(OpenGuiRequestPayload payload, IPayloadContext context) {
@@ -295,6 +313,24 @@ public final class DelvefoldNetwork {
         }
     }
 
+    private static void handleOreLibraryRequest(OreLibraryRequestPayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION);
+        if (player == null) return;
+        var result = OreLibraryAdminService.get().page(player, payload);
+        if (result.accepted()) {
+            PacketDistributor.sendToPlayer(player, new OpenOreLibraryPayload(acceptedImportView(result)));
+        } else {
+            finishImportFailure(player, result.status(), result.message());
+        }
+    }
+
+    private static void handleAddOreFamilies(AddOreFamiliesPayload payload, IPayloadContext context) {
+        ServerPlayer player = authorizedPlayer(context, AdminAccess.CONFIGURE_PERMISSION);
+        if (player != null) {
+            invoke(player, () -> OreLibraryAdminService.get().addFamilies(player, payload));
+        }
+    }
+
     private static void finishImportFailure(ServerPlayer player, ActionStatus status, String message) {
         long revision;
         try {
@@ -352,10 +388,15 @@ public final class DelvefoldNetwork {
     private static void handleSaveOreRule(SaveOreRulePayload payload, IPayloadContext context) {
         ServerPlayer player = authorizedPlayer(context, 2);
         if (player != null) {
-            invoke(
-                    player,
-                    () -> DelvefoldAdminServices.get()
-                            .saveOreRule(player, payload.expectedRevision(), payload.rule(), payload.createOnly()));
+            invoke(player, () -> {
+                DelvefoldAdminService.ServiceResult result = DelvefoldAdminServices.get()
+                        .saveOreRule(player, payload.expectedRevision(), payload.rule(), payload.createOnly());
+                if (result.status() == ActionStatus.ACCEPTED) {
+                    com.nightsta69.delvefold.config.importer.OreImportSessionService.get()
+                            .invalidatePlayer(player.getUUID());
+                }
+                return result;
+            });
         }
     }
 
