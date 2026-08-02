@@ -5,6 +5,8 @@ package com.nightsta69.delvefold.network;
  * ceiling.
  */
 public final class ProtocolLimits {
+    /** Maximum bytes permitted for one serverbound custom-payload body. */
+    public static final int MAX_SERVERBOUND_CUSTOM_PAYLOAD_BYTES = 32 * 1024;
     /** Maximum generic identifier length in UTF-16 code units. */
     public static final int ID_LENGTH = 128;
     /** Maximum short free-text field length in UTF-16 code units. */
@@ -56,6 +58,21 @@ public final class ProtocolLimits {
 
     /** Aggregate import scan or preview payload budget in bytes. */
     public static final int MAX_IMPORT_NETWORK_BYTES = 24 * 1024;
+
+    /** Maximum logical ore-family summaries encoded in one Unified Ores library page. */
+    public static final int MAX_ORE_LIBRARY_FAMILIES_PER_PAGE = 15;
+
+    /** Maximum logical ore families accepted by one atomic library-add request. */
+    public static final int MAX_ORE_LIBRARY_SELECTIONS = 128;
+
+    /** Maximum installed candidates counted for one logical family summary. */
+    public static final int MAX_ORE_LIBRARY_CANDIDATES_PER_FAMILY = 256;
+
+    /** Maximum search-query length accepted by the server-owned Unified Ores library. */
+    public static final int MAX_ORE_LIBRARY_QUERY_LENGTH = 64;
+
+    /** Aggregate Unified Ores library page or atomic request payload budget in bytes. */
+    public static final int MAX_ORE_LIBRARY_NETWORK_BYTES = 24 * 1024;
 
     private ProtocolLimits() {}
 }

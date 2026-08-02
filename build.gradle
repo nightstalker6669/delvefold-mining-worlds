@@ -73,6 +73,10 @@ def includeJeiRuntime = recipeViewerMode in ['jei', 'both'] ||
         requestedRecipeViewerTasks.any { it.contains('clientjei') || it.contains('clientrecipeviewers') }
 def includeEmiRuntime = recipeViewerMode in ['emi', 'both'] ||
         requestedRecipeViewerTasks.any { it.contains('clientemi') || it.contains('clientrecipeviewers') }
+// Keep large compatibility fixtures out of the ordinary client, server, and release classpaths.
+// The combined profile exercises Delvefold against several real third-party ore registries.
+def includeCombinedTestModsRuntime = recipeViewerMode == 'both' ||
+        requestedRecipeViewerTasks.any { it.contains('clientrecipeviewers') }
 
 repositories {
     maven {
@@ -84,6 +88,16 @@ repositories {
         name = 'EMI'
         url = 'https://repo.sleeping.town/'
         content { includeGroup 'dev.emi' }
+    }
+    maven {
+        name = 'ModMaven'
+        url = 'https://modmaven.dev/'
+        content { includeGroup 'mekanism' }
+    }
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
     }
 }
 
@@ -174,6 +188,11 @@ dependencies {
     }
     if (includeEmiRuntime) {
         localRuntime "dev.emi:emi-neoforge:${emi_version}"
+    }
+    if (includeCombinedTestModsRuntime) {
+        localRuntime "mekanism:Mekanism:${mekanism_test_version}"
+        localRuntime "maven.modrinth:enderio:${enderio_test_version}"
+        localRuntime "maven.modrinth:athena-ctm:${athena_test_version}"
     }
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'

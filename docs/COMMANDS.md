@@ -77,7 +77,7 @@ Configuration validation, Doctor viewing, and Doctor export are administration o
 
 Changing the routing mode requires configuration access. Changing hub coordinates or its radius requires `delvefold.manage_world` (operator level 4 fallback). Coordinates must remain inside Minecraft's safe world boundary. The radius accepts 8–256 blocks and defaults to 16. Inside the protected horizontal column, only a player with world-management permission can place, break, interact with, or otherwise modify blocks; explosions, pistons, fluids, trampling, and mob griefing are also prevented from damaging it.
 
-The guaranteed return route cannot be denied by a portal permission change. Delvefold 1.3 portals transport players only; mobs, dropped items, boats, and minecarts remain unsupported.
+The guaranteed return route cannot be denied by a portal permission change. Delvefold 1.x portals transport players only; mobs, dropped items, boats, and minecarts remain unsupported.
 
 ## Named ore profiles
 
@@ -94,7 +94,7 @@ The guaranteed return route cannot be denied by a portal permission change. Delv
 
 Local profiles are stored per save. Datapack and scripted profiles appear as namespaced read-only entries. Selecting one changes generation in future chunks only. Import reads only from `serverconfig/delvefold/imports/`, and export writes only to `serverconfig/delvefold/exports/`. Built-in profiles remain available even when a local override is removed; the active profile cannot be deleted.
 
-The Profiles GUI also provides **Detect ores…**. This guided registry scan is intentionally GUI-only: it shows block icons, groups probable stone/deepslate variants, flags uncertain hosts for review, and requires an explicit diff/workload preview. The result is written under a new local profile ID without overwriting or activating it. Existing command-line workflows remain available through `ore scan`, `ore add`, and canonical profile import for administrators who do not use a graphical client.
+The Profiles GUI also provides **Detect ores…**. This guided registry scan is intentionally GUI-only: it shows block icons, groups material families and their provider-specific stone/deepslate variants, flags uncertain identity or hosts for review, and requires an explicit diff/workload preview. The result is written under a new local profile ID without overwriting or activating it. Existing command-line workflows remain available through `ore scan`, `ore add`, exact target commands, and canonical profile import for administrators who do not use a graphical client.
 
 ## Ore rules
 
@@ -109,6 +109,8 @@ The Profiles GUI also provides **Detect ores…**. This guided registry scan is 
 ```
 
 `detected` looks for matching normal/deepslate variants in the same namespace. The four rarity values are convenient starting templates; every value can then be refined in the GUI, JSON, or band commands.
+
+The Ores GUI's **Add ores** action opens the Unified Ores library. It groups equivalent ores across provider namespaces by material, using `c:ores/<material>` as authoritative metadata and conservative registry-name fallback when a mod does not supply that tag. Server-side search and paging keep large modpacks bounded; families already covered by an exact target or expanded output tag are hidden by default. Select across pages and add up to 128 families in one atomic request. Each new rule defaults to Minecraft's safe stone/deepslate variants when available, otherwise the lexically first provider. Edit the rule afterward to enable or disable other provider variants. The ordinary `/delvefold ore add <block_id> ...` command remains the exact-ID escape hatch.
 
 The administration GUI's Ores tab also provides a whole-profile **Forecast**. It reports effective versus configured attempts/work for every terrain, the active height overlay, and missing, shadowed, biome-filtered, or terrain-ineffective rules. It is a read-only server calculation and does not change chunks or configuration.
 

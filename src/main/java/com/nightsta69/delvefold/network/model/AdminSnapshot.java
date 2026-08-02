@@ -156,7 +156,7 @@ public record AdminSnapshot(
 
     /**
      * Source-compatible constructor for protocol-11 callers that only knew whether some mining-world reset was pending.
-     * Legacy {@code true} values represent the established delete/recreate operation; protocol 12 carries the explicit
+     * Legacy {@code true} values represent the established delete/recreate operation; protocol 13 carries the explicit
      * operation kind.
      *
      * @param oreRevision authoritative ore-configuration revision

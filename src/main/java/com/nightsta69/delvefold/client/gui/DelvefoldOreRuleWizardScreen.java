@@ -14,6 +14,7 @@ import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.SaveOreRulePayload;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -27,8 +28,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
 import org.jspecify.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
@@ -40,7 +39,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     private final boolean existingRule;
     private final String originalRuleId;
     private final OreRuleWizardDraftState draftState;
-    private final List<String> candidateVariants;
+    private final List<OreLibraryPickerState.Candidate> candidateVariants;
     private final ScrollableWidgetGroup bodyScroll = new ScrollableWidgetGroup();
     private final Page page;
     private int bandIndex;
@@ -89,6 +88,38 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                         ? draft.primaryBlockId()
                         : draft.variants().get(0).sourceId(),
                 null,
+                null,
+                0,
+                0,
+                OreRuleWizardDraftState.hasDuplicateSources(draft));
+    }
+
+    /**
+     * Creates a new family editor with every locally discovered provider/host candidate available for toggling.
+     *
+     * @param parent material picker restored on cancellation or accepted save
+     * @param snapshot immutable administration state and expected ore revision
+     * @param draft preferred-provider rule enabled by default
+     * @param candidateVariants all exact family candidates, including initially disabled duplicate providers
+     */
+    DelvefoldOreRuleWizardScreen(
+            Screen parent,
+            AdminSnapshot snapshot,
+            AdminSnapshot.OreRuleDraft draft,
+            List<OreLibraryPickerState.Candidate> candidateVariants) {
+        this(
+                parent,
+                snapshot,
+                draft,
+                Page.TARGETS,
+                0,
+                false,
+                draft.id(),
+                draft.variants().isEmpty()
+                        ? draft.primaryBlockId()
+                        : draft.variants().getFirst().sourceId(),
+                candidateVariants,
+                initialFamilyReplacementTags(draft, candidateVariants),
                 0,
                 0,
                 OreRuleWizardDraftState.hasDuplicateSources(draft));
@@ -103,7 +134,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             boolean existingRule,
             String originalRuleId,
             @Nullable String focusedVariant,
-            @Nullable List<String> inheritedCandidates,
+            @Nullable List<OreLibraryPickerState.Candidate> inheritedCandidates,
+            @Nullable Map<String, String> inheritedReplacementTags,
             int variantPage,
             int bodyScrollOffset,
             boolean unsupportedDuplicateSources) {
@@ -118,8 +150,15 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         this.originalRuleId = originalRuleId;
         this.bandPreview = OreBandPreviewModel.from(this.draftState.bands.get(this.bandIndex));
         this.candidateVariants = inheritedCandidates == null
-                ? detectVariants(this.draftState.primaryBlockId, this.draftState.selectedVariants.keySet())
+                ? detectVariants(this.draftState.primaryBlockId, this.draftState.selectedVariants)
                 : new ArrayList<>(inheritedCandidates);
+        if (inheritedReplacementTags != null) {
+            inheritedReplacementTags.forEach((blockId, replacementTag) -> {
+                if (this.draftState.selectedVariants.containsKey(blockId)) {
+                    this.draftState.selectedVariants.put(blockId, replacementTag);
+                }
+            });
+        }
         resetValidationMessage();
     }
 
@@ -280,7 +319,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int candidateStart = variantLayout.start();
         int candidateEnd = variantLayout.end();
         for (int index = candidateStart; index < candidateEnd; index++) {
-            String blockId = this.candidateVariants.get(index);
+            OreLibraryPickerState.Candidate candidate = this.candidateVariants.get(index);
+            String blockId = candidate.blockId();
             int pageIndex = index - candidateStart;
             int column = pageIndex % variantColumns;
             int row = pageIndex / variantColumns;
@@ -296,10 +336,18 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                                     .isEmpty()
                     : registryId == null
                             || BuiltInRegistries.BLOCK.getOptional(registryId).isEmpty();
+            boolean unresolvedReview = candidate.reviewRequired()
+                    && (!selected
+                            || this.draftState
+                                    .selectedVariants
+                                    .getOrDefault(blockId, "")
+                                    .isBlank());
             Component status = Component.translatable(
                     missing
                             ? "screen.delvefold.status.missing"
-                            : selected ? "screen.delvefold.status.on" : "screen.delvefold.status.off");
+                            : unresolvedReview
+                                    ? "screen.delvefold.status.review_required"
+                                    : selected ? "screen.delvefold.status.on" : "screen.delvefold.status.off");
             Component label = Component.translatable(
                     blockId.equals(this.draftState.focusedVariant)
                             ? "screen.delvefold.ore_wizard.variant.focused"
@@ -312,8 +360,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                     variantWidth,
                     20,
                     label,
-                    missing ? Style.DANGER : selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
-                    ignored -> toggleVariant(blockId));
+                    missing || unresolvedReview ? Style.DANGER : selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
+                    ignored -> toggleVariant(candidate));
         }
         if (pageCount > 1) {
             int pagerY = variantY - 16;
@@ -346,8 +394,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 hostY,
                 hostWidth,
                 this.draftState.selectedVariants.getOrDefault(
-                        this.draftState.focusedVariant,
-                        OreRuleWizardDraftState.inferredHost(this.draftState.focusedVariant)),
+                        this.draftState.focusedVariant, candidateReplacementTag(this.draftState.focusedVariant)),
                 Component.translatable("screen.delvefold.ore_wizard.hint.replacement_tag")));
         this.hostTagBox.setResponder(value -> {
             if (this.draftState.selectedVariants.containsKey(this.draftState.focusedVariant)) {
@@ -644,7 +691,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         airDiscard.setResponder(this.draftState.bandInputs::setAirDiscard);
     }
 
-    private void toggleVariant(String blockId) {
+    private void toggleVariant(OreLibraryPickerState.Candidate candidate) {
+        String blockId = candidate.blockId();
         boolean removesFocusedVariant = blockId.equals(this.draftState.focusedVariant)
                 && this.draftState.selectedVariants.containsKey(blockId)
                 && this.draftState.selectedVariants.size() > 1;
@@ -664,9 +712,14 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 resetValidationMessage();
             }
         } else if (this.draftState.selectedVariants.size() < ProtocolLimits.MAX_VARIANTS) {
-            this.draftState.selectedVariants.put(blockId, OreRuleWizardDraftState.inferredHost(blockId));
+            this.draftState.selectedVariants.put(blockId, candidate.replaceTag());
             this.draftState.variantStates.put(blockId, Map.of());
             this.draftState.variantWeights.put(blockId, AdminSnapshot.OreVariantDraft.MIN_WEIGHT);
+        } else {
+            this.validationMessage = Component.translatable(
+                    "screen.delvefold.ore_wizard.validation.variant_limit", ProtocolLimits.MAX_VARIANTS);
+            this.validationColor = WARNING;
+            return;
         }
         this.draftState.focusedVariant = this.draftState.selectedVariants.containsKey(blockId)
                 ? blockId
@@ -858,6 +911,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                     this.originalRuleId,
                     this.draftState.focusedVariant,
                     this.candidateVariants,
+                    this.draftState.selectedVariants,
                     this.variantPage,
                     requestedPage == this.page ? this.bodyScroll.scrollOffset() : 0,
                     this.draftState.unsupportedDuplicateSources));
@@ -909,6 +963,12 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
             String replacementTag = entry.getValue().trim();
             if (replacementTag.startsWith("#")) {
                 replacementTag = replacementTag.substring(1);
+            }
+            if (replacementTag.isBlank() && candidateNeedsReview(entry.getKey())) {
+                this.validationMessage =
+                        Component.translatable("screen.delvefold.ore_wizard.validation.replacement_tag_required");
+                this.validationColor = DANGER;
+                return false;
             }
             String outputId = entry.getKey().startsWith("#") ? entry.getKey().substring(1) : entry.getKey();
             if (ResourceLocation.tryParse(outputId) == null || ResourceLocation.tryParse(replacementTag) == null) {
@@ -1327,6 +1387,18 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
     }
 
     /**
+     * Returns a refreshed family picker after an accepted create that originated in the ore library.
+     *
+     * @param updatedSnapshot authoritative post-save administration snapshot
+     * @return refreshed picker, or {@code null} when the editor originated elsewhere
+     */
+    public @Nullable Screen acceptedReturnScreen(AdminSnapshot updatedSnapshot) {
+        return this.closeOnNextSnapshot && this.parent instanceof DelvefoldOrePickerScreen picker
+                ? picker.refreshed(updatedSnapshot)
+                : null;
+    }
+
+    /**
      * Creates a replacement editor retaining unsaved local page and field state.
      *
      * @param updatedSnapshot newer immutable server snapshot
@@ -1346,6 +1418,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 this.originalRuleId,
                 this.draftState.focusedVariant,
                 this.candidateVariants,
+                this.draftState.selectedVariants,
                 this.variantPage,
                 this.bodyScroll.scrollOffset(),
                 this.draftState.unsupportedDuplicateSources);
@@ -1355,44 +1428,32 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         return refreshed;
     }
 
-    private static List<String> detectVariants(String primaryBlockId, Iterable<String> selected) {
-        List<String> result = new ArrayList<>();
-        for (String blockId : selected) {
-            if (!result.contains(blockId)) {
-                result.add(blockId);
-            }
+    private static List<OreLibraryPickerState.Candidate> detectVariants(
+            String primaryBlockId, Map<String, String> selected) {
+        Map<String, OreLibraryPickerState.Candidate> result = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : selected.entrySet()) {
+            result.putIfAbsent(entry.getKey(), configuredCandidate(entry.getKey(), entry.getValue()));
         }
         ResourceLocation primary = ResourceLocation.tryParse(primaryBlockId);
         if (primary == null) {
-            return result;
+            return List.copyOf(result.values());
         }
-        String family = family(primary.getPath());
-        for (Block block : BuiltInRegistries.BLOCK) {
-            ResourceLocation candidate = BuiltInRegistries.BLOCK.getKey(block);
-            if (candidate == null
-                    || !candidate.getNamespace().equals(primary.getNamespace())
-                    || Items.AIR.equals(block.asItem())
-                    || !family(candidate.getPath()).equals(family)) {
-                continue;
+        Map<String, com.nightsta69.delvefold.config.importer.OreImportModels.Group> families =
+                OreFamilyCatalog.discoverInstalled();
+        com.nightsta69.delvefold.config.importer.OreImportModels.Group matched = families.values().stream()
+                .filter(group -> group.candidates().stream()
+                        .anyMatch(candidate -> candidate.blockId().equals(primaryBlockId)))
+                .findFirst()
+                .orElse(null);
+        if (matched != null) {
+            for (OreLibraryPickerState.Candidate candidate : OreFamilyCatalog.candidatesForWizard(matched)) {
+                result.putIfAbsent(candidate.blockId(), candidate);
+                if (result.size() >= ProtocolLimits.MAX_ORE_LIBRARY_CANDIDATES_PER_FAMILY) {
+                    break;
+                }
             }
-            if (!result.contains(candidate.toString())) {
-                result.add(candidate.toString());
-            }
-            if (result.size() >= ProtocolLimits.MAX_VARIANTS) {
-                break;
-            }
         }
-        return result;
-    }
-
-    private static String family(String path) {
-        if (path.startsWith("deepslate_")) {
-            return path.substring("deepslate_".length());
-        }
-        if (path.startsWith("stone_")) {
-            return path.substring("stone_".length());
-        }
-        return path;
+        return List.copyOf(result.values());
     }
 
     private static Component toggleLabel(Component label, boolean value) {
@@ -1403,11 +1464,11 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         OreRuleWizardLayout layout = OreRuleWizardLayout.calculate(
                 this.panelWidth, compactLayout(), this.candidateVariants.size(), this.variantPage);
         for (int index = layout.start(); index < layout.end(); index++) {
-            String candidate = this.candidateVariants.get(index);
-            if (this.draftState.selectedVariants.containsKey(candidate)) {
-                this.draftState.focusedVariant = candidate;
-                this.draftState.rawWeight = Integer.toString(this.draftState.variantWeights.getOrDefault(
-                        candidate, AdminSnapshot.OreVariantDraft.MIN_WEIGHT));
+            String blockId = this.candidateVariants.get(index).blockId();
+            if (this.draftState.selectedVariants.containsKey(blockId)) {
+                this.draftState.focusedVariant = blockId;
+                this.draftState.rawWeight = Integer.toString(
+                        this.draftState.variantWeights.getOrDefault(blockId, AdminSnapshot.OreVariantDraft.MIN_WEIGHT));
                 return;
             }
         }
@@ -1417,11 +1478,55 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
         int start = Math.max(0, candidateStart);
         int end = Math.min(candidateEnd, this.candidateVariants.size());
         for (int index = start; index < end; index++) {
-            if (this.draftState.focusedVariant.equals(this.candidateVariants.get(index))) {
+            if (this.draftState.focusedVariant.equals(
+                    this.candidateVariants.get(index).blockId())) {
                 return true;
             }
         }
         return false;
+    }
+
+    private String candidateReplacementTag(String blockId) {
+        return this.candidateVariants.stream()
+                .filter(candidate -> candidate.blockId().equals(blockId))
+                .map(OreLibraryPickerState.Candidate::replaceTag)
+                .findFirst()
+                .orElseGet(() -> OreRuleWizardDraftState.inferredHost(blockId));
+    }
+
+    private boolean candidateNeedsReview(String blockId) {
+        return this.candidateVariants.stream()
+                .filter(candidate -> candidate.blockId().equals(blockId))
+                .anyMatch(OreLibraryPickerState.Candidate::reviewRequired);
+    }
+
+    private static OreLibraryPickerState.Candidate configuredCandidate(String blockId, String replaceTag) {
+        String normalizedId = blockId.startsWith("#") ? blockId.substring(1) : blockId;
+        ResourceLocation id = ResourceLocation.tryParse(normalizedId);
+        String provider = id == null ? "minecraft" : id.getNamespace();
+        String normalizedHost = replaceTag == null ? "" : replaceTag.trim();
+        String hostVariant =
+                switch (normalizedHost) {
+                    case "minecraft:stone_ore_replaceables" -> "stone";
+                    case "minecraft:deepslate_ore_replaceables" -> "deepslate";
+                    default -> normalizedHost.isBlank() ? "review_required" : "custom";
+                };
+        return new OreLibraryPickerState.Candidate(
+                blockId, provider, hostVariant, normalizedHost, normalizedHost.isBlank());
+    }
+
+    private static Map<String, String> initialFamilyReplacementTags(
+            AdminSnapshot.OreRuleDraft draft, List<OreLibraryPickerState.Candidate> candidates) {
+        Map<String, String> result = new LinkedHashMap<>();
+        draft.variants().forEach(variant -> result.putIfAbsent(variant.sourceId(), variant.replaceTag()));
+        for (OreLibraryPickerState.Candidate candidate : candidates) {
+            if (candidate.reviewRequired()
+                    && candidate.replaceTag().isBlank()
+                    && result.containsKey(candidate.blockId())) {
+                result.put(candidate.blockId(), "");
+            }
+        }
+        return Map.copyOf(result);
     }
 
     private VerticalScrollLayout bodyScrollLayout() {

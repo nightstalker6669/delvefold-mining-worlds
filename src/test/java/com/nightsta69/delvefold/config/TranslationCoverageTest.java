@@ -105,7 +105,7 @@ class TranslationCoverageTest {
             assertKey(language, "screen.delvefold.ore_wizard.variant.focused");
             assertKey(language, "screen.delvefold.ore_wizard.narration");
             assertKey(language, "screen.delvefold.setup.narration");
-            assertKey(language, "screen.delvefold.ore_picker.narration");
+            assertKey(language, "screen.delvefold.ore_picker.family_narration");
             assertKey(language, "screen.delvefold.province.narration");
             assertKey(language, "screen.delvefold.backup.verify");
             assertKey(language, "screen.delvefold.backup.integrity.verified");

@@ -55,16 +55,11 @@ public final class OreImportNetworkViews {
         List<GroupView> groups = discovery.groups().subList(start, end).stream()
                 .map(OreImportNetworkViews::group)
                 .toList();
+        boolean detailTruncated = discovery.truncated()
+                || discovery.groups().stream()
+                        .anyMatch(group -> group.candidates().size() > ProtocolLimits.MAX_VARIANTS);
         return new ScanView(
-                token,
-                revision,
-                baseProfileId,
-                page,
-                pages,
-                total,
-                discovery.scannedBlocks(),
-                discovery.truncated(),
-                groups);
+                token, revision, baseProfileId, page, pages, total, discovery.scannedBlocks(), detailTruncated, groups);
     }
 
     /**
@@ -132,6 +127,7 @@ public final class OreImportNetworkViews {
 
     private static GroupView group(Group group) {
         List<CandidateView> candidates = group.candidates().stream()
+                .limit(ProtocolLimits.MAX_VARIANTS)
                 .map(candidate -> new CandidateView(
                         candidate.blockId(), candidate.replaceTag(), candidate.hostKind(), candidate.evidence()))
                 .toList();

@@ -29,7 +29,7 @@ public final class OreForecastStreamCodecs {
     private OreForecastStreamCodecs() {}
 
     /**
-     * Writes one forecast in protocol 12 declaration order and enforces the aggregate byte budget.
+     * Writes one forecast in protocol 13 declaration order and enforces the aggregate byte budget.
      *
      * @param buffer destination registry-aware network buffer
      * @param forecast immutable bounded forecast
@@ -74,7 +74,7 @@ public final class OreForecastStreamCodecs {
     }
 
     /**
-     * Reads and validates one protocol 12 forecast without allocating collections beyond declared bounds.
+     * Reads and validates one protocol 13 forecast without allocating collections beyond declared bounds.
      *
      * @param buffer source registry-aware network buffer positioned at the forecast's first byte
      * @return immutable validated forecast
@@ -308,7 +308,7 @@ public final class OreForecastStreamCodecs {
         return value;
     }
 
-    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    // The network protocol encodes enum declaration order; changing this value would break wire compatibility.
     @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());

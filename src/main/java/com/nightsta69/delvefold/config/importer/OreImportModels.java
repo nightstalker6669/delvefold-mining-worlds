@@ -18,8 +18,10 @@ public final class OreImportModels {
     public static final int MAX_GROUPS = 256;
     /** Maximum distinct ore-family groups accepted by one preview request. */
     public static final int MAX_SELECTED_GROUPS = 128;
-    /** Maximum candidate block variants retained in one ore-family group. */
-    public static final int MAX_CANDIDATES_PER_GROUP = 16;
+    /** Maximum exact targets enabled in one generated rule and retained in one preview-detail list. */
+    public static final int MAX_ENABLED_CANDIDATES_PER_RULE = 16;
+    /** Maximum installed block variants retained for one logical material family during discovery. */
+    public static final int MAX_DISCOVERED_CANDIDATES_PER_GROUP = 256;
     /** Maximum evidence tag IDs retained for one discovered candidate. */
     public static final int MAX_SOURCE_TAGS_PER_CANDIDATE = 8;
     /** Maximum diff rows retained in one import plan. */
@@ -79,14 +81,14 @@ public final class OreImportModels {
     }
 
     /**
-     * Probable variants of one ore material within one namespace.
+     * Probable variants of one logical ore material across all installed providers.
      *
-     * @param id resource-form group ID composed from namespace and normalized material
-     * @param namespace source mod namespace
+     * @param id resource-form, provider-independent family ID
+     * @param namespace namespace of the family ID, not an ore provider namespace
      * @param material normalized material path
      * @param evidence strongest discovery evidence among retained candidates
      * @param candidates candidate block variants sorted by registry ID
-     * @param reviewRequired whether the family contains an ambiguous host that must be reviewed before import
+     * @param reviewRequired whether the family contains an uncertain identity or ambiguous host that should be reviewed
      */
     public record Group(
             String id,
@@ -99,7 +101,7 @@ public final class OreImportModels {
          * Validates identifiers, copies and sorts candidates, and propagates candidate review requirements.
          *
          * @param id group resource ID
-         * @param namespace source mod namespace
+         * @param namespace namespace of the provider-independent family ID
          * @param material normalized material path
          * @param evidence strongest discovery evidence
          * @param candidates one or more bounded candidate variants
@@ -110,14 +112,50 @@ public final class OreImportModels {
             namespace = matching(namespace, NAMESPACE, "namespace");
             material = matching(material, MATERIAL, "material");
             Objects.requireNonNull(evidence, "evidence");
-            candidates = bounded(candidates, MAX_CANDIDATES_PER_GROUP, "ore import candidates").stream()
+            candidates = bounded(candidates, MAX_DISCOVERED_CANDIDATES_PER_GROUP, "ore import candidates").stream()
                     .sorted(Comparator.comparing(Candidate::blockId))
                     .toList();
             if (candidates.isEmpty()) {
                 throw new IllegalArgumentException("An ore import group needs at least one candidate");
             }
             reviewRequired = reviewRequired
-                    || candidates.stream().anyMatch(candidate -> candidate.hostKind() == HostKind.REVIEW_REQUIRED);
+                    || candidates.stream().anyMatch(Candidate::reviewRequired)
+                    || candidates.stream().anyMatch(Candidate::identifiedByFallback);
+        }
+
+        /**
+         * Returns the provider namespaces represented by this material family.
+         *
+         * @return distinct provider namespaces in lexical order
+         */
+        public List<String> providerNamespaces() {
+            return candidates.stream()
+                    .map(Candidate::providerNamespace)
+                    .distinct()
+                    .sorted()
+                    .toList();
+        }
+
+        /**
+         * Returns the block variants contributed by one provider.
+         *
+         * @param providerNamespace exact provider namespace to select
+         * @return immutable candidate list in lexical block-ID order
+         */
+        public List<Candidate> candidatesForProvider(String providerNamespace) {
+            String provider = matching(providerNamespace, NAMESPACE, "provider namespace");
+            return candidates.stream()
+                    .filter(candidate -> candidate.providerNamespace().equals(provider))
+                    .toList();
+        }
+
+        /**
+         * Reports whether any candidate used a non-material-specific fallback during discovery.
+         *
+         * @return {@code true} when the family should be checked before accepting inferred material identity
+         */
+        public boolean hasFallbackCandidates() {
+            return candidates.stream().anyMatch(Candidate::identifiedByFallback);
         }
     }
 
@@ -170,6 +208,27 @@ public final class OreImportModels {
          */
         public boolean reviewRequired() {
             return hostKind == HostKind.REVIEW_REQUIRED;
+        }
+
+        /**
+         * Returns the namespace of the mod that registered this exact block variant.
+         *
+         * @return validated registry namespace parsed from {@link #blockId()}
+         */
+        public String providerNamespace() {
+            return blockId.substring(0, blockId.indexOf(':'));
+        }
+
+        /**
+         * Reports whether material identity came from broad tags or registry-path inference.
+         *
+         * <p>The inferred host remains available separately through {@link #hostKind()}, allowing clients to present
+         * provider and stone/deepslate variants without conflating them with identification confidence.
+         *
+         * @return {@code true} unless a material-specific {@code c:ores/*} tag supplied the identity
+         */
+        public boolean identifiedByFallback() {
+            return evidence != Evidence.CONVENTIONAL_TAG;
         }
     }
 
@@ -286,7 +345,7 @@ public final class OreImportModels {
         }
 
         private static List<String> blockIds(@Nullable List<String> values, String label) {
-            return bounded(values, MAX_CANDIDATES_PER_GROUP, label).stream()
+            return bounded(values, MAX_ENABLED_CANDIDATES_PER_RULE, label).stream()
                     .map(value -> resourceId(value, label))
                     .distinct()
                     .sorted()

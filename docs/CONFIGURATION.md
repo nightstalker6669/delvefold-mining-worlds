@@ -68,13 +68,19 @@ If exact targets, tag targets, or repeated tag membership resolve to the same bl
 
 Profiles written before 1.1.0 have no `weight` field and continue to behave as weight `1`. Profiles whose configured weights are all `1` retain the existing member-uniform deterministic per-vein output-selection sequence. Weighted targets are an additive schema-2 feature and require no schema migration. A missing optional output tag warns and skips; a missing required output tag rejects the profile.
 
-### Forecast and guided import
+### Forecast, Unified Ores, and guided import
 
 The Ores GUI forecast is derived at request time from a named profile and the server's current block/tag registry. It does not add fields to schema 2 or write files. Its configured totals include the profile's declared work; effective totals additionally account for enabled state, active terrain, biome applicability, resolved output blocks/tags, valid block states, and deduplicated host-specific outputs. The height overlay is available only after a terrain has been initialized.
 
-The Profiles GUI's guided importer scans conventional `c:ores/*` membership and conservative ore-like registry names. It creates optional, all-terrain exact-output rules using the existing Uncommon band template, skips targets already covered by the base profile, and refuses to guess a replacement tag for ambiguous hosts. A preview validates the complete proposal and compares its per-terrain safety workload before any write. Saving uses create-new semantics in `profiles/`: built-in, datapack, scripted, or local collisions are rejected, symlinks are not followed, and the active profile and ore revision are unchanged until the administrator explicitly selects the new profile.
+The Ores GUI's **Add ores** library discovers logical material families across installed providers. Membership in `c:ores/<material>` is the authoritative identity signal. Blocks without a material-specific conventional tag may be grouped through a conservative `<material>_ore`, `deepslate_<material>_ore`, `stone_<material>_ore`, or `ore_<material>` name fallback; fallback identity and uncertain host variants are marked for review instead of being silently trusted. Ambiguous material-tag assignments are never forced into one family.
 
-No forecast, scan token, registry fingerprint, diff, or import-session state is serialized into `ores.json` or `settings.json`.
+Family search and paging run on the server's current registry snapshot. A family is considered configured when any of its installed members is already covered by an exact target or by an expanded block-tag target in the active profile. Configured families are hidden by default and can be displayed with **Show configured**. Selections persist across pages, and one request may add up to 128 families atomically. The server re-resolves every family, checks the expected ore revision and complete profile, validates the normal work budget, and either commits one new revision or adds nothing.
+
+For each new family, Delvefold enables safe stone/deepslate variants from one provider: Minecraft when available, otherwise the lexically first provider namespace. Other installed providers remain available in the family editor but are off by default, preventing duplicate copper, tin, or similar output unless an administrator deliberately enables it. Added rules use the existing Uncommon template. Each saved rule still has the schema-2 maximum of 16 enabled targets. Use the ore-rule wizard afterward to toggle provider and host variants, or use direct registry-ID entry for an unusual block that cannot be grouped safely.
+
+Material families are transient discovery and GUI views, not a new JSON field. Existing exact targets, output tags, rules, and profiles are never automatically merged or rewritten. The Profiles GUI's guided importer uses the same family discovery while retaining its create-new workflow: it skips families covered by the base profile, previews the complete diff and per-terrain workload, creates a new inactive local profile, and never overwrites or activates a result automatically. Built-in, datapack, scripted, or local ID collisions are rejected and symlinks are not followed.
+
+No forecast, family ID, catalog page, selection, scan token, registry fingerprint, diff, or import-session state is serialized into `ores.json` or `settings.json`.
 
 Common host tags are:
 
@@ -315,7 +321,7 @@ Portal settings remain additive inside schema 2:
 
 Cooldown is 1–3600 seconds, and coordinate scale must be finite and between 0.01 and 100. The one-second minimum prevents immediate partner-portal bounce loops. `routing_mode` accepts `coordinate_linked` or `central_hub`; omission defaults to `coordinate_linked`, preserving established 1:1 or configured-scale links. Hub X/Z coordinates must stay within ±29,999,936 and `protection_radius` accepts 8–256 blocks, defaulting to 16.
 
-In `central_hub` mode, incoming players are routed to the configured horizontal location at a safe terrain-specific height. Delvefold creates an idempotent 11×11 vanilla-block platform with a filled return portal and protects the configured horizontal radius through the mining world's vertical column. Only users with `delvefold.manage_world` may modify protected positions. Explosions, pistons, fluids, trampling, and mob griefing are prevented from altering the protected area. Return travel remains guaranteed. Portal transport is player-only in 1.3.
+In `central_hub` mode, incoming players are routed to the configured horizontal location at a safe terrain-specific height. Delvefold creates an idempotent 11×11 vanilla-block platform with a filled return portal and protects the configured horizontal radius through the mining world's vertical column. Only users with `delvefold.manage_world` may modify protected positions. Explosions, pistons, fluids, trampling, and mob griefing are prevented from altering the protected area. Return travel remains guaranteed. Portal transport is player-only throughout 1.x.
 
 ### Backup manifests and operational files
 

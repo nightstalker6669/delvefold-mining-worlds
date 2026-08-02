@@ -16,6 +16,14 @@ Run `/delvefold config validate`. Confirm the block ID exists or that the output
 
 Changes affect new chunks only. Travel beyond previously generated mining-world chunks or recreate the world after making a backup.
 
+## An ore is missing from, or grouped unexpectedly in, Add ores
+
+Turn on **Show configured** first. Unified Ores hides a material family by default when any installed member is already covered by an exact target or an expanded block-tag target in the active profile. Search matches run on the server, so the server's installed block/tag registry—not a client-only mod list—determines the results.
+
+For reliable cross-mod grouping, every provider should contribute its variants to `c:ores/<material>`. Without that tag, Delvefold uses conservative ore-like registry names and marks the result for review; unusual names, ambiguous material tags, or unknown hosts may remain separate. Use direct registry-ID entry or `/delvefold ore add <block_id> exact <rarity>` when a block should be added independently.
+
+Adding a family enables Minecraft's safe stone/deepslate variants when available, otherwise those from the lexically first provider. Other providers are deliberately off by default to avoid duplicate output. Open the added rule to enable the desired provider variants, keeping the maximum of 16 targets per rule. Existing rules are never auto-consolidated.
+
 ## A Cavern still has grass, large lakes, giant voids, or floating shelves after updating
 
 Delvefold 1.3.3 changes Cavern generation only for new chunks. Existing grass, dirt, lakes, waterfalls, enormous terrain-density voids, floating shelves, and fluid updates are not removed or retrogened. Mixed old and new chunks can also expose sharp terrain seams or allow old water to flow across their border. For a uniform compact stone Cavern, request a confirmed recreation, allow Delvefold to create its default timestamped backup, then restart the dedicated server or return to the title screen and reopen the singleplayer save. The recreated Cavern begins as continuous stone, uses a bounded cave carver, has sparse shallow water pockets, and retains natural lava only in the lowest cave-carver band. Expansive remains taller and deeper than Classic without using amplified terrain.
@@ -55,11 +63,11 @@ Run `/delvefold backup retention` and `/delvefold doctor`. Doctor reports the pr
 
 Run `/delvefold portal` and confirm the mode is `central_hub`. Hub coordinates must be inside the world border with room for the platform, and the configured radius must be 8–256 blocks. The hub is constructed when a player enters the mining dimension; it is not a general structure-generation feature.
 
-Players without `delvefold.manage_world` cannot change blocks inside the protected horizontal radius. Explosions, pistons, fluids, trampling, and mob griefing are also blocked there. This is intentional. Delvefold portals transport players only in 1.3, so mobs, items, boats, and minecarts remaining behind is expected behavior.
+Players without `delvefold.manage_world` cannot change blocks inside the protected horizontal radius. Explosions, pistons, fluids, trampling, and mob griefing are also blocked there. This is intentional. Delvefold portals transport players only throughout 1.x, so mobs, items, boats, and minecarts remaining behind is expected behavior.
 
 ## Client and server report a protocol mismatch
 
-Delvefold 1.3 uses network protocol 12 and requires the identical Delvefold version on the client and server. Configuration schema 2 and public API version 1 do not make mismatched JARs network-compatible. Update every client and the server to the same file; optional JEI and EMI may still be installed independently and are not bundled.
+Delvefold 1.4.0 uses network protocol 13 and requires the identical 1.4.0 JAR on the client and server. Configuration schema 2 and public API version 1 do not make mismatched JARs network-compatible. Update every client and the server to the same file; optional JEI and EMI may still be installed independently and are not bundled.
 
 ## Getting useful diagnostics
 

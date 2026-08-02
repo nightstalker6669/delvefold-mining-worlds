@@ -1,5 +1,6 @@
 package com.nightsta69.delvefold.client;
 
+import com.nightsta69.delvefold.network.payload.AddOreFamiliesPayload;
 import com.nightsta69.delvefold.network.payload.AdminActionPayload;
 import com.nightsta69.delvefold.network.payload.BackupActionPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
@@ -14,6 +15,7 @@ import com.nightsta69.delvefold.network.payload.OreImportPreviewPageRequestPaylo
 import com.nightsta69.delvefold.network.payload.OreImportPreviewRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanPageRequestPayload;
 import com.nightsta69.delvefold.network.payload.OreImportScanRequestPayload;
+import com.nightsta69.delvefold.network.payload.OreLibraryRequestPayload;
 import com.nightsta69.delvefold.network.payload.OrePageRequestPayload;
 import com.nightsta69.delvefold.network.payload.PortalUpdatePayload;
 import com.nightsta69.delvefold.network.payload.ProfileActionPayload;
@@ -57,6 +59,24 @@ public final class DelvefoldClientRequests {
      * @param payload ore-rule mutation guarded by its expected ore revision
      */
     public static void send(SaveOreRulePayload payload) {
+        send((CustomPacketPayload) payload);
+    }
+
+    /**
+     * Sends one atomic logical-family addition guarded by its catalog token and ore revision.
+     *
+     * @param payload bounded family selection and retained-catalog capability
+     */
+    public static void send(AddOreFamiliesPayload payload) {
+        send((CustomPacketPayload) payload);
+    }
+
+    /**
+     * Requests one globally filtered server-authoritative Unified Ores library page.
+     *
+     * @param payload bounded page, filter, revision, and optional retained-catalog token
+     */
+    public static void requestOreLibrary(OreLibraryRequestPayload payload) {
         send((CustomPacketPayload) payload);
     }
 

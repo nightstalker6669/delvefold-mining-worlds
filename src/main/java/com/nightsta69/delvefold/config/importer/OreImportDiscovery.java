@@ -17,8 +17,10 @@ import java.util.TreeSet;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
-/** Deterministic discovery and conservative stone/deepslate family grouping. */
+/** Deterministic, material-first discovery with conservative provider and host-variant inference. */
 public final class OreImportDiscovery {
+    private static final String FAMILY_NAMESPACE = "delvefold";
+    private static final String FAMILY_PATH_PREFIX = "ores/";
     private static final String COMMON_ORES_TAG = "c:ores";
     private static final String CONVENTIONAL_PREFIX = "c:ores/";
     private static final Pattern RESOURCE_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
@@ -41,12 +43,14 @@ public final class OreImportDiscovery {
     private OreImportDiscovery() {}
 
     /**
-     * Discovers conventional and ore-like blocks, then groups probable host variants by namespace and material.
+     * Discovers conventional and ore-like blocks, then groups probable variants by logical material across providers.
      *
      * <p>Duplicate registry entries are merged, candidates and groups are returned in lexical ID order, and every
      * public discovery bound is applied deterministically. Unsupported IDs or omitted entries set the result's
-     * truncation flag. Host inference is conservative: ambiguous Nether, End, decorative, or nonstandard variants are
-     * marked for explicit review and receive no guessed replacement tag.
+     * truncation flag. Material-specific common tags take priority over registry names. Name-only families remain
+     * available but are marked for review, and ambiguous common-tag assignments never force unrelated materials into
+     * one family. Host inference is likewise conservative: ambiguous Nether, End, decorative, or nonstandard variants
+     * receive no guessed replacement tag.
      *
      * @param registry deterministic installed-block and tag snapshot
      * @param options discovery options, or {@code null} for modded namespaces only
@@ -96,33 +100,35 @@ public final class OreImportDiscovery {
             }
 
             String nameMaterial = materialFromName(path);
-            String conventionalTag = bestConventionalTag(conventionalTags, nameMaterial);
-            String material = conventionalTag.isEmpty() ? nameMaterial : materialFromTag(conventionalTag);
-            material = boundedMaterial(namespace, material);
+            TagResolution tagResolution = resolveConventionalTag(conventionalTags, nameMaterial);
+            String material = tagResolution.tag().isEmpty() ? nameMaterial : materialFromTag(tagResolution.tag());
+            material = boundedMaterial(material);
             if (material.isEmpty()) {
                 truncated = true;
                 continue;
             }
 
-            Evidence evidence = !conventionalTag.isEmpty()
+            Evidence evidence = !tagResolution.tag().isEmpty()
                     ? Evidence.CONVENTIONAL_TAG
                     : commonTagged ? Evidence.COMMON_ORES_TAG : Evidence.ORE_LIKE_NAME;
-            HostKind hostKind = classifyHost(path, material, !conventionalTag.isEmpty(), oreLikeName);
+            HostKind hostKind =
+                    classifyHost(path, material, !tagResolution.tag().isEmpty(), oreLikeName);
             List<String> sourceTags = new ArrayList<>();
             if (commonTagged) {
                 sourceTags.add(COMMON_ORES_TAG);
             }
             sourceTags.addAll(conventionalTags);
             if (sourceTags.size() > OreImportModels.MAX_SOURCE_TAGS_PER_CANDIDATE) {
-                sourceTags = sourceTags.subList(0, OreImportModels.MAX_SOURCE_TAGS_PER_CANDIDATE);
+                sourceTags = retainedSourceTags(sourceTags, tagResolution.tag());
                 truncated = true;
             }
 
             Candidate candidate = new Candidate(blockId, hostKind.replaceTag(), hostKind, evidence, sourceTags);
-            String groupId = namespace + ':' + material;
+            String groupId = familyId(material);
             String groupMaterial = material;
-            groups.computeIfAbsent(groupId, ignored -> new GroupBuilder(namespace, groupMaterial))
-                    .add(candidate);
+            boolean identityReviewRequired = tagResolution.ambiguous() || evidence != Evidence.CONVENTIONAL_TAG;
+            groups.computeIfAbsent(groupId, ignored -> new GroupBuilder(groupMaterial))
+                    .add(candidate, identityReviewRequired);
         }
 
         List<Group> result = new ArrayList<>();
@@ -133,7 +139,7 @@ public final class OreImportDiscovery {
             }
             GroupBuilder builder = entry.getValue();
             List<Candidate> candidates = builder.candidates.values().stream()
-                    .limit(OreImportModels.MAX_CANDIDATES_PER_GROUP)
+                    .limit(OreImportModels.MAX_DISCOVERED_CANDIDATES_PER_GROUP)
                     .toList();
             if (builder.candidates.size() > candidates.size()) {
                 truncated = true;
@@ -143,28 +149,46 @@ public final class OreImportDiscovery {
                     .max(Comparator.comparingInt(Evidence::strength))
                     .orElse(Evidence.ORE_LIKE_NAME);
             result.add(new Group(
-                    entry.getKey(),
-                    builder.namespace,
-                    builder.material,
-                    evidence,
-                    candidates,
-                    candidates.stream().anyMatch(Candidate::reviewRequired)));
+                    entry.getKey(), FAMILY_NAMESPACE, builder.material, evidence, candidates, builder.reviewRequired));
         }
         return new DiscoveryResult(result, truncated, scannedBlocks);
     }
 
-    private static String bestConventionalTag(List<String> tags, String nameMaterial) {
-        return tags.stream()
-                .sorted(Comparator.comparing(
-                                (String tag) -> !materialFromTag(tag).equals(nameMaterial))
-                        .thenComparingInt(tag -> materialFromTag(tag).length())
-                        .thenComparing(tag -> tag))
-                .findFirst()
-                .orElse("");
+    private static TagResolution resolveConventionalTag(List<String> tags, String nameMaterial) {
+        TreeMap<String, String> tagByMaterial = new TreeMap<>();
+        for (String tag : tags) {
+            String material = materialFromTag(tag);
+            if (!material.isEmpty()) {
+                tagByMaterial.putIfAbsent(material, tag);
+            }
+        }
+        String exact = tagByMaterial.get(nameMaterial);
+        if (exact != null) {
+            return new TagResolution(exact, false);
+        }
+        if (tagByMaterial.size() == 1) {
+            return new TagResolution(tagByMaterial.firstEntry().getValue(), false);
+        }
+        return new TagResolution("", !tagByMaterial.isEmpty());
     }
 
     private static boolean isConventionalOreTag(String tag) {
         return tag != null && tag.startsWith(CONVENTIONAL_PREFIX) && tag.length() > CONVENTIONAL_PREFIX.length();
+    }
+
+    private static List<String> retainedSourceTags(List<String> sourceTags, String identityTag) {
+        TreeSet<String> retained = new TreeSet<>(sourceTags);
+        while (retained.size() > OreImportModels.MAX_SOURCE_TAGS_PER_CANDIDATE) {
+            String removable = retained.last();
+            if (removable.equals(identityTag)) {
+                removable = retained.lower(removable);
+            }
+            if (removable == null) {
+                break;
+            }
+            retained.remove(removable);
+        }
+        return List.copyOf(retained);
     }
 
     private static boolean oreLike(String path) {
@@ -210,8 +234,8 @@ public final class OreImportDiscovery {
         return normalized;
     }
 
-    private static String boundedMaterial(String namespace, String material) {
-        int available = OreImportModels.MAX_ID_LENGTH - namespace.length() - 1;
+    private static String boundedMaterial(String material) {
+        int available = OreImportModels.MAX_ID_LENGTH - FAMILY_NAMESPACE.length() - 1 - FAMILY_PATH_PREFIX.length();
         if (available <= 0 || material.isEmpty() || material.length() > available) {
             return "";
         }
@@ -220,6 +244,10 @@ public final class OreImportDiscovery {
             bounded = bounded.substring(0, bounded.length() - 1);
         }
         return bounded;
+    }
+
+    private static String familyId(String material) {
+        return FAMILY_NAMESPACE + ':' + FAMILY_PATH_PREFIX + material;
     }
 
     private static HostKind classifyHost(String path, String material, boolean conventionNamed, boolean oreLikeName) {
@@ -249,18 +277,20 @@ public final class OreImportDiscovery {
                 && RESOURCE_ID.matcher(id).matches();
     }
 
+    private record TagResolution(String tag, boolean ambiguous) {}
+
     private static final class GroupBuilder {
-        private final String namespace;
         private final String material;
         private final TreeMap<String, Candidate> candidates = new TreeMap<>();
+        private boolean reviewRequired;
 
-        private GroupBuilder(String namespace, String material) {
-            this.namespace = namespace;
+        private GroupBuilder(String material) {
             this.material = material;
         }
 
-        private void add(Candidate candidate) {
+        private void add(Candidate candidate, boolean identityReviewRequired) {
             candidates.merge(candidate.blockId(), candidate, GroupBuilder::mergeCandidate);
+            reviewRequired |= identityReviewRequired;
         }
 
         private static Candidate mergeCandidate(Candidate left, Candidate right) {

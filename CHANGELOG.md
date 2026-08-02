@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.4.0 — Unified Ores
+
+### Added
+
+- Replaced the one-block-at-a-time ore browser with a server-authoritative material library that groups equivalent ores across installed providers, such as multiple mods' copper ores, under one logical family.
+- Made conventional `c:ores/<material>` block tags the authoritative family signal. Conservative ore-like registry-name fallback keeps untagged ores discoverable while marking uncertain identity or replacement-host inference for review.
+- Added bounded server-side family search and paging. Families already represented by an exact target or an expanded block-tag target in the active profile are hidden by default and can be revealed with **Show configured**.
+- Made **Previous** and **Next** move through adjacent visible result windows in both directions, including across server-page boundaries. Search filters, selections, and the current local window survive asynchronous refreshes and returns from the variant editor.
+- Added persistent multi-selection across result pages and atomic batch addition of up to 128 material families in one accepted configuration mutation. The entire request is re-resolved and validated by the server before one revision is committed; stale, unknown, invalid, or over-budget requests add nothing.
+- Added deterministic provider defaults that enable Minecraft's safe stone/deepslate variants when available, or the lexically first installed provider otherwise. Other providers remain visible for later editing instead of creating duplicate output by default.
+- Expanded the ore-rule wizard so a material family exposes provider-specific stone, deepslate, and review-required variants. A rule may enable up to 16 exact targets, preserving the existing schema-2 safety bound.
+- Retained direct registry-ID entry for unusual, ambiguous, or intentionally separate blocks that should not use material grouping.
+
+### Compatibility and behavior
+
+- Existing exact-block targets, block-tag targets, rule IDs, profiles, dimension IDs, and generation settings remain valid and are never automatically consolidated into material families.
+- Material families exist only in discovery, network, and GUI views. Saved targets remain ordinary exact blocks or block tags in configuration schema 2, so no migration or load-time rewrite occurs.
+- Ore edits affect newly generated mining-world chunks only. Existing chunks are never silently retrogened; recreate the mining world if a uniform result is required.
+- Configuration schema remains **2** and `DelvefoldApi.API_VERSION` remains **1**.
+- Client/server network protocol is now **13** for the bounded Unified Ores catalog and batch requests. Install the identical Delvefold 1.4.0 JAR on every client and the server.
+- JEI and EMI remain optional client integrations and are not bundled or required.
+- Verified 665 JUnit tests, all 40 required NeoForge GameTests, JSON and translation validation, strict static analysis and Javadocs, and a fresh dedicated-server startup with orderly saves for all six Delvefold dimensions. The acceptance client combined JEI, EMI, Mekanism, Ender IO with Athena, Silent's Gems, Applied Energistics 2, GuideME, and WorldEdit as test-only installations; none are bundled or required.
+- The release artifact is `delvefold-1.21.1-1.4.0.jar`. GitHub tag automation publishes the JAR and checksum; CurseForge upload remains a manual project-owner step.
+
 ## 1.3.3 — Cavern Visibility and Generation
 
 - Raised the shared Classic and Expansive Cavern ambient-light floor from `0.0` to `0.1`, matching the conservative visual baseline used by the vanilla Nether.

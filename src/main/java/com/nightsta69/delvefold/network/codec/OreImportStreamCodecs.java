@@ -22,7 +22,7 @@ public final class OreImportStreamCodecs {
     private OreImportStreamCodecs() {}
 
     /**
-     * Writes one bounded scan page in protocol 12 field order.
+     * Writes one bounded scan page in protocol 13 field order.
      *
      * @param buffer destination registry-aware network buffer
      * @param view immutable display-only scan page
@@ -95,7 +95,7 @@ public final class OreImportStreamCodecs {
     }
 
     /**
-     * Writes one bounded non-mutating preview page in protocol 12 field order.
+     * Writes one bounded non-mutating preview page in protocol 13 field order.
      *
      * @param buffer destination registry-aware network buffer
      * @param view immutable diff, workload, and validation preview
@@ -282,7 +282,7 @@ public final class OreImportStreamCodecs {
         return value;
     }
 
-    // Protocol 12 encodes enum declaration order; changing this value would break wire compatibility.
+    // The network protocol encodes enum declaration order; changing this value would break wire compatibility.
     @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());
