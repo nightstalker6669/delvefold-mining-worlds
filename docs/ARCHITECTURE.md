@@ -211,7 +211,14 @@ profile, and a commit capability is single-use.
 `DelvefoldWorldgen` registers six stable level keys: Classic and Expansive
 variants of Flat, Cavern, and Wild. Terrain resources and dimension IDs are data
 driven, while custom features provide ores, geology decorations/strata, and
-legacy feature integration.
+legacy feature integration. Both Cavern variants use dedicated noise-setting
+resources whose base density is a continuous solid stone host. Compact,
+vertically bounded custom cave carving creates the playable space
+without terrain-density voids or detached surface shelves. Expansive uses a
+taller and deeper generator range than Classic, but deliberately does not use
+amplified terrain. Solid safety bands keep the floor and roof enclosed, while a
+bounded disk feature supplies sparse exposed-floor water pockets and cave
+carving remains the only source of bottom lava.
 
 At chunk generation time:
 

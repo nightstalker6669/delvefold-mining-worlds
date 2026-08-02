@@ -6,6 +6,6 @@
       "type": "minecraft:fixed",
       "biome": "delvefold:mining_cavern"
     },
-    "settings": "minecraft:amplified"
+    "settings": "delvefold:delve_cavern_expansive"
   }
 }

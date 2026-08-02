@@ -2,14 +2,14 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
-> **1.x compatibility:** Delvefold keeps configuration schema 2 and public API version 1. The 1.1 surveying, 1.2 living-geology, and 1.3 server-operations fields are additive with compatibility-preserving defaults. Existing 0.2–1.3 schema-2 saves and exact-block ore targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode. Delvefold 1.3 uses network protocol 12 and requires the identical 1.3.2 JAR on each client and the server.
+> **1.x compatibility:** Delvefold keeps configuration schema 2 and public API version 1. The 1.1 surveying, 1.2 living-geology, and 1.3 server-operations fields are additive with compatibility-preserving defaults. Existing 0.2–1.3 schema-2 saves and exact-block ore targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode. Delvefold 1.3 uses network protocol 12 and requires the identical 1.3.3 JAR on each client and the server.
 
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
 ## Core features
 
 - Explicit initialization through `/delvefold gui` or `/delvefold initialize`; portal activation never chooses settings.
-- Flat, roofed cavern, and overworld-shaped mining terrain, each with Classic and Expansive scale variants.
+- Flat, roofed stone cavern, and overworld-shaped mining terrain, each with Classic and Expansive scale variants. Both Cavern scales begin as continuous stone hosts and use a compact, vertically bounded cave carver, avoiding giant terrain-density voids and detached floating shelves. Caverns have no global water table or grass surface, use sparse shallow water pockets, and retain natural lava only near the bottom; Expansive stays taller and deeper without using amplified terrain.
 - Five recreation-locked geology themes—Classic, Volcanic, Dripstone, Lush, and Crystal—with bounded vanilla-block strata, decorations, fluids, particles, and ambience.
 - A reloadable structure-system landmark catalog with six bundled discoveries: survey camp, collapsed mine entrance, lift station, geode vault, motherlode chamber, and fault-line grotto.
 - Pure Mining, Balanced, and Abundant landmark density presets, plus individual category toggles and one-time landmark loot.
@@ -256,7 +256,7 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-1.3.2.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, static analysis, documentation checks, and optional recipe-viewer client smoke tests. Version tags publish the GitHub JAR and SHA-256 checksum automatically. CurseForge upload remains a manual project-owner step; no workflow publishes there.
+The release JAR is written to `build/libs/delvefold-1.21.1-1.3.3.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, static analysis, documentation checks, and optional recipe-viewer client smoke tests. Version tags publish the GitHub JAR and SHA-256 checksum automatically. CurseForge upload remains a manual project-owner step; no workflow publishes there.
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
 
