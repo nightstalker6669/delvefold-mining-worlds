@@ -29,7 +29,7 @@ public final class OreForecastStreamCodecs {
     private OreForecastStreamCodecs() {}
 
     /**
-     * Writes one forecast in protocol 13 declaration order and enforces the aggregate byte budget.
+     * Writes one forecast in protocol 14 declaration order and enforces the aggregate byte budget.
      *
      * @param buffer destination registry-aware network buffer
      * @param forecast immutable bounded forecast
@@ -74,7 +74,7 @@ public final class OreForecastStreamCodecs {
     }
 
     /**
-     * Reads and validates one protocol 13 forecast without allocating collections beyond declared bounds.
+     * Reads and validates one protocol 14 forecast without allocating collections beyond declared bounds.
      *
      * @param buffer source registry-aware network buffer positioned at the forecast's first byte
      * @return immutable validated forecast

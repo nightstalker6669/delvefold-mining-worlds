@@ -13,6 +13,7 @@ import com.nightsta69.delvefold.network.model.AdminSnapshot;
 import com.nightsta69.delvefold.network.payload.ActionResultPayload;
 import com.nightsta69.delvefold.network.payload.DeleteOreRulePayload;
 import com.nightsta69.delvefold.network.payload.SaveOreRulePayload;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +24,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -354,7 +356,7 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                             : "screen.delvefold.ore_wizard.variant.label",
                     status,
                     blockId);
-            this.addBodyButton(
+            Button variantButton = this.addBodyButton(
                     x + column * (variantWidth + variantGap),
                     variantY + row * 22,
                     variantWidth,
@@ -362,6 +364,14 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                     label,
                     missing || unresolvedReview ? Style.DANGER : selected ? Style.TOGGLE_ON : Style.TOGGLE_OFF,
                     ignored -> toggleVariant(candidate));
+            Component variantTooltip = candidate.reviewRequired()
+                    ? Component.translatable("screen.delvefold.ore_wizard.variant.review_tooltip")
+                    : Component.translatable(
+                            "screen.delvefold.ore_wizard.variant.detected_tooltip",
+                            Component.translatable("screen.delvefold.ore_wizard.host." + candidate.hostVariant()),
+                            candidate.replaceTag());
+            variantButton.setTooltip(Tooltip.create(variantTooltip));
+            variantButton.setTooltipDelay(Duration.ofMillis(250));
         }
         if (pageCount > 1) {
             int pagerY = variantY - 16;
@@ -1509,6 +1519,8 @@ public final class DelvefoldOreRuleWizardScreen extends DelvefoldScreen {
                 switch (normalizedHost) {
                     case "minecraft:stone_ore_replaceables" -> "stone";
                     case "minecraft:deepslate_ore_replaceables" -> "deepslate";
+                    case "c:netherracks" -> "nether";
+                    case "c:end_stones" -> "end";
                     default -> normalizedHost.isBlank() ? "review_required" : "custom";
                 };
         return new OreLibraryPickerState.Candidate(

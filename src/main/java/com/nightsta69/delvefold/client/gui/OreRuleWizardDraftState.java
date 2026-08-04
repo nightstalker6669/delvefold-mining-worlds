@@ -151,14 +151,22 @@ final class OreRuleWizardDraftState {
     /**
      * Infers the established default replacement host for a block source.
      *
+     * <p>Exact-ID entry has no material-tag evidence, so only the established deepslate prefix is inferred. Nether and
+     * End names remain on the editable stone default instead of risking a material-name collision such as End Steel.
+     * Server-discovered families carry authoritative host metadata separately.
+     *
      * @param blockId source block identifier or tag selector
-     * @return deepslate replacement tag for deepslate blocks, otherwise stone replacement tag
+     * @return deepslate replacement tag for a deepslate prefix; otherwise the editable stone default
      */
     static String inferredHost(String blockId) {
         String path = ResourceIdentifierText.path(blockId);
-        return path != null && path.startsWith("deepslate_")
-                ? "minecraft:deepslate_ore_replaceables"
-                : "minecraft:stone_ore_replaceables";
+        if (path == null) {
+            return "minecraft:stone_ore_replaceables";
+        }
+        if (path.startsWith("deepslate_")) {
+            return "minecraft:deepslate_ore_replaceables";
+        }
+        return "minecraft:stone_ore_replaceables";
     }
 
     private static String formatState(Map<String, String> state) {

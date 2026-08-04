@@ -16,7 +16,7 @@ class ForecastImportNetworkContractTest {
     void currentProtocolRegistersEveryForecastAndImportPayloadInTheCorrectDirection() throws Exception {
         String network = compact(read("network/DelvefoldNetwork.java"));
 
-        assertTrue(network.contains("PROTOCOL_VERSION=\"13\""));
+        assertTrue(network.contains("PROTOCOL_VERSION=\"14\""));
         for (String payload : List.of(
                 "ForecastRequestPayload",
                 "OreImportScanRequestPayload",

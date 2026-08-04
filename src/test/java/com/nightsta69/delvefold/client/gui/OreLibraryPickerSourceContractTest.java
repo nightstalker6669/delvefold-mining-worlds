@@ -22,6 +22,7 @@ class OreLibraryPickerSourceContractTest {
         assertTrue(picker.contains("this.state.clearSelection()"));
         assertTrue(picker.contains("screen.delvefold.ore_picker.show_configured"));
         assertTrue(picker.contains("screen.delvefold.ore_picker.exact_id"));
+        assertTrue(picker.contains("OreRuleWizardDraftState.inferredHost(id.toString())"));
         assertTrue(picker.contains("requestLibrary(active.page() - 1, true)"));
         assertTrue(picker.contains("OreLibraryPickerState.lastLocalWindowOffset(presented.size(), this.visibleRows)"));
         assertFalse(picker.contains("new SaveOreRulePayload"));
@@ -56,9 +57,22 @@ class OreLibraryPickerSourceContractTest {
         assertTrue(wizard.contains("this.draftState.selectedVariants,"));
         assertTrue(wizard.contains("result.put(candidate.blockId(), \"\")"));
         assertTrue(wizard.contains("screen.delvefold.status.review_required"));
+        assertTrue(wizard.contains("screen.delvefold.ore_wizard.variant.review_tooltip"));
+        assertTrue(wizard.contains("screen.delvefold.ore_wizard.variant.detected_tooltip"));
+        assertTrue(wizard.contains("case \"c:netherracks\" -> \"nether\""));
+        assertTrue(wizard.contains("case \"c:end_stones\" -> \"end\""));
         assertTrue(wizard.contains("screen.delvefold.ore_wizard.validation.replacement_tag_required"));
         assertFalse(wizard.contains(
                 "this.draftState.selectedVariants.put(blockId, OreRuleWizardDraftState.inferredHost(blockId))"));
+    }
+
+    @Test
+    void familyStatusSeparatesUnusableFamiliesFromIndividualReviewVariants() throws Exception {
+        String picker = Files.readString(ROOT.resolve("client/gui/DelvefoldOrePickerScreen.java"));
+
+        assertTrue(picker.contains("private static Component familyReviewStatus(OreLibraryView.Family family)"));
+        assertTrue(picker.contains("family.importableCandidateCount() < family.candidateCount()"));
+        assertTrue(picker.contains("screen.delvefold.status.variants_need_review"));
     }
 
     @Test

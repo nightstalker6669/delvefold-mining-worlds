@@ -379,10 +379,7 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
                     summary.providerCount(),
                     summary.candidateCount(),
                     summary.importableCandidateCount(),
-                    Component.translatable(
-                            summary.reviewRequired()
-                                    ? "screen.delvefold.status.review_required"
-                                    : "screen.delvefold.status.ready"),
+                    familyReviewStatus(summary),
                     Component.translatable(
                             summary.overflow()
                                     ? "screen.delvefold.status.overflow"
@@ -400,6 +397,16 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
         details.active = !this.loading && !family.configured() && this.state.draft(family.id()) != null;
         this.variantButtons.add(details);
         this.renderedFamilies.add(new RenderedFamily(icon(family), x + 3, y + 5));
+    }
+
+    private static Component familyReviewStatus(OreLibraryView.Family family) {
+        if (family.reviewRequired()) {
+            return Component.translatable("screen.delvefold.status.review_required");
+        }
+        if (family.importableCandidateCount() < family.candidateCount()) {
+            return Component.translatable("screen.delvefold.status.variants_need_review");
+        }
+        return Component.translatable("screen.delvefold.status.ready");
     }
 
     private void editFamily(OreLibraryPickerState.Family family) {
@@ -435,7 +442,8 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
             this.localStatus = Component.translatable("screen.delvefold.ore_picker.no_exact_match");
             return;
         }
-        AdminSnapshot.OreRuleDraft draft = AdminSnapshot.OreRuleDraft.createDefault(id.toString(), inferredHost(id));
+        AdminSnapshot.OreRuleDraft draft = AdminSnapshot.OreRuleDraft.createDefault(
+                id.toString(), OreRuleWizardDraftState.inferredHost(id.toString()));
         this.minecraft.setScreen(new DelvefoldOreRuleWizardScreen(this, this.snapshot, draft));
     }
 
@@ -544,12 +552,6 @@ public final class DelvefoldOrePickerScreen extends DelvefoldScreen {
 
     private Component addSelectedLabel() {
         return Component.translatable("screen.delvefold.ore_picker.add_selected", this.state.selectedCount());
-    }
-
-    private static String inferredHost(ResourceLocation blockId) {
-        return blockId.getPath().startsWith("deepslate_")
-                ? "minecraft:deepslate_ore_replaceables"
-                : "minecraft:stone_ore_replaceables";
     }
 
     @Override

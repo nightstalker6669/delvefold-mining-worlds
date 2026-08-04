@@ -41,7 +41,7 @@ public final class OreImportPlanner {
      * Builds a deterministic, validated profile-copy preview without saving, activating, or overwriting a profile.
      *
      * <p>Selections are deduplicated and processed in lexical group-ID order. Any existing exact or expanded-tag target
-     * suppresses its whole logical family. For a new family, only the preferred provider's safe stone/deepslate
+     * suppresses its whole logical family. For a new family, only the preferred provider's safe recognized-host
      * variants are enabled by default: {@code minecraft} when available, otherwise the lexically first provider. Other
      * providers remain in discovery for later toggling, avoiding duplicate ore output by default. Accepted candidates
      * use the existing Uncommon rule template. The proposed document retains the base revision and profile ID; only a
@@ -213,7 +213,7 @@ public final class OreImportPlanner {
      * Selects the provider variants enabled by default for one logical material family.
      *
      * <p>Review-required hosts are never selected. Vanilla is preferred when it contributes at least one safe variant;
-     * otherwise the lexically first provider with a safe variant wins. Safe stone/deepslate candidates belonging to
+     * otherwise the lexically first provider with a safe variant wins. Safe recognized-host candidates belonging to
      * that provider are retained in deterministic block-ID order up to the saved-rule target limit.
      *
      * @param group discovered logical material family

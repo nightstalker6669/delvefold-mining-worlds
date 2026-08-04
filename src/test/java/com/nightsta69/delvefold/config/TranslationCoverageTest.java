@@ -103,6 +103,13 @@ class TranslationCoverageTest {
             assertKey(language, "screen.delvefold.ore_wizard.validation.duplicate_sources");
             assertKey(language, "screen.delvefold.ore_wizard.variant.label");
             assertKey(language, "screen.delvefold.ore_wizard.variant.focused");
+            assertKey(language, "screen.delvefold.ore_wizard.variant.review_tooltip");
+            assertKey(language, "screen.delvefold.ore_wizard.variant.detected_tooltip");
+            assertKey(language, "screen.delvefold.ore_wizard.host.stone");
+            assertKey(language, "screen.delvefold.ore_wizard.host.deepslate");
+            assertKey(language, "screen.delvefold.ore_wizard.host.nether");
+            assertKey(language, "screen.delvefold.ore_wizard.host.end");
+            assertKey(language, "screen.delvefold.ore_wizard.host.custom");
             assertKey(language, "screen.delvefold.ore_wizard.narration");
             assertKey(language, "screen.delvefold.setup.narration");
             assertKey(language, "screen.delvefold.ore_picker.family_narration");

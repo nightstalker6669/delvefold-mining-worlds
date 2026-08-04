@@ -93,6 +93,12 @@ repositories {
         name = 'ModMaven'
         url = 'https://modmaven.dev/'
         content { includeGroup 'mekanism' }
+        // Mekanism's Gradle module metadata lists only the base artifact. Maven metadata keeps
+        // its Generators, Tools, and Additions classifier JARs addressable for the test client.
+        metadataSources {
+            mavenPom()
+            artifact()
+        }
     }
     maven {
         name = 'Modrinth'
@@ -175,6 +181,21 @@ neoForge {
 }
 
 configurations {
+    mekanismGeneratorsTestRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    mekanismToolsTestRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    mekanismAdditionsTestRuntime {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
     runtimeClasspath.extendsFrom localRuntime
 }
 
@@ -183,6 +204,15 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
     compileOnly "dev.emi:emi-neoforge:${emi_version}:api"
+    mekanismGeneratorsTestRuntime("mekanism:Mekanism:${mekanism_test_version}") {
+        artifact { classifier = 'generators' }
+    }
+    mekanismToolsTestRuntime("mekanism:Mekanism:${mekanism_test_version}") {
+        artifact { classifier = 'tools' }
+    }
+    mekanismAdditionsTestRuntime("mekanism:Mekanism:${mekanism_test_version}") {
+        artifact { classifier = 'additions' }
+    }
     if (includeJeiRuntime) {
         localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     }
@@ -191,6 +221,12 @@ dependencies {
     }
     if (includeCombinedTestModsRuntime) {
         localRuntime "mekanism:Mekanism:${mekanism_test_version}"
+        // Resolve classifiers independently so Gradle cannot collapse them into the base module.
+        localRuntime files(
+                configurations.mekanismGeneratorsTestRuntime,
+                configurations.mekanismToolsTestRuntime,
+                configurations.mekanismAdditionsTestRuntime
+        )
         localRuntime "maven.modrinth:enderio:${enderio_test_version}"
         localRuntime "maven.modrinth:athena-ctm:${athena_test_version}"
     }

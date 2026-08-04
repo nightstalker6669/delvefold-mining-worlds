@@ -2,7 +2,7 @@
 
 Delvefold is a NeoForge 1.21.1 mod that creates a renewable, configurable mining dimension. Each save can be initialized as a **Flat**, **Cavern**, or **Wild** mining world, with ore generation controlled through an in-game GUI, commands, or canonical JSON.
 
-> **1.x compatibility:** Delvefold keeps configuration schema 2 and public API version 1. Unified Ores in 1.4 is a server-authoritative discovery and editing workflow layered over the existing schema-2 target model; it does not rewrite or consolidate existing rules. Existing 0.2–1.3 schema-2 saves, exact-block targets, and block-tag targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode. Delvefold 1.4 uses network protocol 13 and requires the identical 1.4.0 JAR on each client and the server.
+> **1.x compatibility:** Delvefold keeps configuration schema 2 and public API version 1. Unified Ores in 1.4 is a server-authoritative discovery and editing workflow layered over the existing schema-2 target model; it does not rewrite or consolidate existing rules. Existing 0.2–1.3 schema-2 saves, exact-block targets, and block-tag targets remain compatible. Schema-1 saves remain in non-destructive read-only compatibility mode. Delvefold 1.4.1 uses network protocol 14 and requires the identical 1.4.1 JAR on each client and the server.
 
 The same JAR supports singleplayer, LAN, and dedicated servers. Configuration remains server-authoritative even in singleplayer, and the integrated-world owner may administer Delvefold with cheats disabled.
 
@@ -20,11 +20,11 @@ The same JAR supports singleplayer, LAN, and dedicated servers. Configuration re
 - Named per-save ore profiles with safe duplication, selection, and JSON import/export.
 - Visual height-distribution and generation-workload previews in the ore editor.
 - A whole-profile forecast with per-terrain attempts/work, an active-height graph, and missing, shadowed, or ineffective-rule diagnostics.
-- A Unified Ores library that groups equivalent copper, tin, silver, and other ores across installed providers. Conventional `c:ores/<material>` tags are authoritative; conservative name fallback remains available with review warnings.
+- A Unified Ores library that groups equivalent copper, tin, silver, and other ores across installed providers. Conventional `c:ores/<material>` tags are authoritative; clear conventional ore names remain usable when a mod omits them, while only ambiguous identities or hosts require review.
 - Server-side material search and paging, configured families hidden by default, persistent multi-selection, and atomic batch addition of up to 128 families. Minecraft is the default provider when present; otherwise the lexically first provider is selected.
-- Inventory-style editing with real item icons. Open a family to enable or disable provider-specific stone/deepslate variants, or use exact registry-ID entry when a block cannot be grouped safely.
+- Inventory-style editing with real item icons. Open a family to enable or disable provider-specific stone, deepslate, netherrack, and end-stone variants, or use exact registry-ID entry when a block cannot be grouped safely.
 - A guided profile importer that uses the same material families, previews the diff and workload, and creates a new inactive profile without overwriting anything.
-- Three-page ore-rule wizard for stone/deepslate or other variants, weighted output selection, replacement hosts, block-state properties, biome include/exclude selectors, vein or regional-province placement, height distribution, terrain filters, and air-exposure discard.
+- Three-page ore-rule wizard for recognized and custom host variants, weighted output selection, replacement hosts, block-state properties, biome include/exclude selectors, vein or regional-province placement, height distribution, terrain filters, and air-exposure discard.
 - Modded ores selected by icon or registry ID without hard dependencies on their mods.
 - Read-only ore profiles supplied by datapacks or startup scripts, including tag-driven outputs such as `c:ores/tin`.
 - Native NeoForge permission nodes, public lifecycle events, and a stable versioned integration API.
@@ -145,9 +145,9 @@ Ore targets may carry an optional relative `weight` from 1 through 1000 in the G
 
 Open the **Ores** dashboard tab and choose **Forecast** to inspect the complete active or named profile before generating new chunks. The server calculates configured and effective attempts and work units for Flat, Cavern, and Wild terrain, plots the active terrain's height overlay, and marks disabled, biome-filtered, terrain-mismatched, missing, invalid, and shadowed rules. Pages and diagnostic details are bounded; forecasts never contain the world seed, coordinates, filesystem paths, or lifecycle confirmation data.
 
-Choose **Add ores** to open the Unified Ores library. It groups installed blocks by logical material across provider mods—every tagged Copper variant appears under Copper—using `c:ores/<material>` as authoritative metadata and conservative ore-like registry names as a review-marked fallback. Search and paging happen on the server. Configured families are hidden by default, selections persist across pages, and up to 128 families can be added in one atomic profile mutation.
+Choose **Add ores** to open the Unified Ores library. It groups installed blocks by logical material across provider mods—every tagged Copper variant appears under Copper—using `c:ores/<material>` as authoritative metadata. Clear conventional ore names remain a safe fallback when a mod omits that tag; conflicting material tags, aggregate blocks, and unknown replacement hosts are marked for review. Search and paging happen on the server. Configured families are hidden by default, selections persist across pages, and up to 128 families can be added in one atomic profile mutation.
 
-A new family enables safe stone/deepslate variants from Minecraft when available, otherwise from the lexically first provider. Other providers remain visible but off by default so duplicate copper, tin, or similar output is intentional rather than automatic. Open the resulting rule to toggle provider variants, up to the existing 16-target limit. Exact registry-ID entry and `/delvefold ore add` remain available for unusual blocks that should not share a family. Existing exact/tag rules are never auto-consolidated.
+A new family enables safe host variants from Minecraft when available, otherwise from the lexically first provider. Tagged `nether_<material>_ore` and `end_<material>_ore` variants are mapped automatically to `#c:netherracks` and `#c:end_stones`; every detected replacement tag remains editable. Other providers remain visible but off by default so duplicate copper, tin, or similar output is intentional rather than automatic. Open the resulting rule to toggle provider variants, up to the existing 16-target limit. Exact registry-ID entry and `/delvefold ore add` remain available for unusual blocks that should not share a family. Existing exact/tag rules are never auto-consolidated.
 
 Open the **Profiles** tab and choose **Detect ores…** to use the same family discovery for a new profile. Select groups by their real block icons, preview the exact rule diff and added workload for every terrain, then provide a new profile ID. Suggested rules use the Uncommon template. Creation is strict: it neither overwrites an existing profile nor activates the result, so an administrator must explicitly select it afterward.
 
@@ -259,10 +259,13 @@ Deleting the world returns Delvefold to the uninitialized state while retaining 
 ```bash
 ./gradlew build
 ./gradlew runClient
+./gradlew runClientRecipeViewers
 ./gradlew runServer
 ```
 
-The release JAR is written to `build/libs/delvefold-1.21.1-1.4.0.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, static analysis, documentation checks, and optional recipe-viewer client smoke tests. Version tags publish the GitHub JAR and SHA-256 checksum automatically. CurseForge upload remains a manual project-owner step; no workflow publishes there.
+`runClientRecipeViewers` reproducibly resolves JEI, EMI, Mekanism plus Generators, Tools, and Additions, Ender IO, and Athena. Local full-pack acceptance testing additionally covered Silent's Gems, Applied Energistics 2, GuideME, WorldEdit, and hundreds of other mods from an external pack installation. All such fixtures are test-only: they are neither bundled in Delvefold nor declared as player/server dependencies.
+
+The release JAR is written to `build/libs/delvefold-1.21.1-1.4.1.jar`. Pull requests run a clean Java 21 build, unit tests, NeoForge GameTests, JSON validation, translation-key validation, dedicated-server startup, static analysis, documentation checks, and optional recipe-viewer client smoke tests. Version tags publish the GitHub JAR and SHA-256 checksum automatically. CurseForge upload remains a manual project-owner step; no workflow publishes there.
 
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Security reports should follow [SECURITY.md](SECURITY.md).
 

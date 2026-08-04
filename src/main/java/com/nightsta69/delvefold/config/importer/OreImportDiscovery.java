@@ -24,21 +24,13 @@ public final class OreImportDiscovery {
     private static final String COMMON_ORES_TAG = "c:ores";
     private static final String CONVENTIONAL_PREFIX = "c:ores/";
     private static final Pattern RESOURCE_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
-    private static final List<String> REVIEW_HOST_PREFIXES = List.of(
-            "nether_",
-            "netherrack_",
-            "end_",
-            "endstone_",
-            "end_stone_",
-            "blackstone_",
-            "basalt_",
-            "soul_",
-            "sand_",
-            "gravel_",
-            "tuff_",
-            "granite_",
-            "diorite_",
-            "andesite_");
+    private static final List<String> BASE_HOST_ALIASES = List.of("deepslate", "stone");
+    private static final List<String> MATERIAL_HOST_ALIASES =
+            List.of("deepslate", "netherrack", "end_stone", "endstone", "stone", "nether", "end");
+    private static final List<String> NETHER_HOST_ALIASES = List.of("netherrack", "nether");
+    private static final List<String> END_HOST_ALIASES = List.of("end_stone", "endstone", "end");
+    private static final List<String> REVIEW_HOST_ALIASES =
+            List.of("blackstone", "basalt", "soul", "sand", "gravel", "tuff", "granite", "diorite", "andesite");
 
     private OreImportDiscovery() {}
 
@@ -47,10 +39,12 @@ public final class OreImportDiscovery {
      *
      * <p>Duplicate registry entries are merged, candidates and groups are returned in lexical ID order, and every
      * public discovery bound is applied deterministically. Unsupported IDs or omitted entries set the result's
-     * truncation flag. Material-specific common tags take priority over registry names. Name-only families remain
-     * available but are marked for review, and ambiguous common-tag assignments never force unrelated materials into
-     * one family. Host inference is likewise conservative: ambiguous Nether, End, decorative, or nonstandard variants
-     * receive no guessed replacement tag.
+     * truncation flag. Material-specific common tags take priority over registry names. Clear {@code *_ore} and
+     * {@code ore_*} names remain safe identity evidence when material tags are absent, while ambiguous common-tag
+     * assignments never force unrelated materials into one family. Material-tag-corroborated Nether/netherrack and
+     * End/end-stone variants use their precise NeoForge common host tags. Untagged dimension aliases, decorative hosts,
+     * and otherwise nonstandard variants remain subject to manual review when no equally precise portable mapping
+     * exists.
      *
      * @param registry deterministic installed-block and tag snapshot
      * @param options discovery options, or {@code null} for modded namespaces only
@@ -100,7 +94,8 @@ public final class OreImportDiscovery {
             }
 
             String nameMaterial = materialFromName(path);
-            TagResolution tagResolution = resolveConventionalTag(conventionalTags, nameMaterial);
+            String hostedNameMaterial = hostedMaterialFromName(path);
+            TagResolution tagResolution = resolveConventionalTag(conventionalTags, nameMaterial, hostedNameMaterial);
             String material = tagResolution.tag().isEmpty() ? nameMaterial : materialFromTag(tagResolution.tag());
             material = boundedMaterial(material);
             if (material.isEmpty()) {
@@ -111,8 +106,9 @@ public final class OreImportDiscovery {
             Evidence evidence = !tagResolution.tag().isEmpty()
                     ? Evidence.CONVENTIONAL_TAG
                     : commonTagged ? Evidence.COMMON_ORES_TAG : Evidence.ORE_LIKE_NAME;
-            HostKind hostKind =
-                    classifyHost(path, material, !tagResolution.tag().isEmpty(), oreLikeName);
+            HostKind hostKind = tagResolution.ambiguous()
+                    ? HostKind.REVIEW_REQUIRED
+                    : classifyHost(path, material, !tagResolution.tag().isEmpty(), oreLikeName);
             List<String> sourceTags = new ArrayList<>();
             if (commonTagged) {
                 sourceTags.add(COMMON_ORES_TAG);
@@ -126,9 +122,8 @@ public final class OreImportDiscovery {
             Candidate candidate = new Candidate(blockId, hostKind.replaceTag(), hostKind, evidence, sourceTags);
             String groupId = familyId(material);
             String groupMaterial = material;
-            boolean identityReviewRequired = tagResolution.ambiguous() || evidence != Evidence.CONVENTIONAL_TAG;
             groups.computeIfAbsent(groupId, ignored -> new GroupBuilder(groupMaterial))
-                    .add(candidate, identityReviewRequired);
+                    .add(candidate);
         }
 
         List<Group> result = new ArrayList<>();
@@ -148,13 +143,13 @@ public final class OreImportDiscovery {
                     .map(Candidate::evidence)
                     .max(Comparator.comparingInt(Evidence::strength))
                     .orElse(Evidence.ORE_LIKE_NAME);
-            result.add(new Group(
-                    entry.getKey(), FAMILY_NAMESPACE, builder.material, evidence, candidates, builder.reviewRequired));
+            result.add(new Group(entry.getKey(), FAMILY_NAMESPACE, builder.material, evidence, candidates, false));
         }
         return new DiscoveryResult(result, truncated, scannedBlocks);
     }
 
-    private static TagResolution resolveConventionalTag(List<String> tags, String nameMaterial) {
+    private static TagResolution resolveConventionalTag(
+            List<String> tags, String nameMaterial, String hostedNameMaterial) {
         TreeMap<String, String> tagByMaterial = new TreeMap<>();
         for (String tag : tags) {
             String material = materialFromTag(tag);
@@ -163,6 +158,10 @@ public final class OreImportDiscovery {
             }
         }
         String exact = tagByMaterial.get(nameMaterial);
+        if (exact != null) {
+            return new TagResolution(exact, false);
+        }
+        exact = tagByMaterial.get(hostedNameMaterial);
         if (exact != null) {
             return new TagResolution(exact, false);
         }
@@ -196,22 +195,29 @@ public final class OreImportDiscovery {
     }
 
     private static String materialFromName(String path) {
+        String normalized = orePathCore(path);
+        if (hasAnyHostAffix(normalized, NETHER_HOST_ALIASES) || hasAnyHostAffix(normalized, END_HOST_ALIASES)) {
+            return sanitizeMaterial(normalized);
+        }
+        return sanitizeMaterial(stripHostAffix(normalized, BASE_HOST_ALIASES));
+    }
+
+    private static String hostedMaterialFromName(String path) {
+        return sanitizeMaterial(stripHostAffix(orePathCore(path), MATERIAL_HOST_ALIASES));
+    }
+
+    private static String orePathCore(String path) {
         String normalized = path.toLowerCase(Locale.ROOT);
         int slash = normalized.lastIndexOf('/');
         if (slash >= 0 && slash + 1 < normalized.length()) {
             normalized = normalized.substring(slash + 1);
-        }
-        if (normalized.startsWith("deepslate_")) {
-            normalized = normalized.substring("deepslate_".length());
-        } else if (normalized.startsWith("stone_")) {
-            normalized = normalized.substring("stone_".length());
         }
         if (normalized.endsWith("_ore")) {
             normalized = normalized.substring(0, normalized.length() - "_ore".length());
         } else if (normalized.startsWith("ore_")) {
             normalized = normalized.substring("ore_".length());
         }
-        return sanitizeMaterial(normalized);
+        return normalized;
     }
 
     private static String materialFromTag(String tag) {
@@ -252,23 +258,69 @@ public final class OreImportDiscovery {
 
     private static HostKind classifyHost(String path, String material, boolean conventionNamed, boolean oreLikeName) {
         String simplePath = path.substring(path.lastIndexOf('/') + 1);
-        if (simplePath.startsWith("deepslate_")) {
-            return HostKind.DEEPSLATE;
-        }
-        if (simplePath.startsWith("stone_")) {
-            return HostKind.STONE;
-        }
-        if (REVIEW_HOST_PREFIXES.stream().anyMatch(simplePath::startsWith)) {
+        String simpleMaterial = material.substring(material.lastIndexOf('/') + 1);
+        if (!conventionNamed
+                && (hasAnyHostAffix(simplePath, NETHER_HOST_ALIASES)
+                        || hasAnyHostAffix(simplePath, END_HOST_ALIASES))) {
             return HostKind.REVIEW_REQUIRED;
         }
+        if (REVIEW_HOST_ALIASES.stream().anyMatch(alias -> hasHostAffix(simplePath, alias))) {
+            return HostKind.REVIEW_REQUIRED;
+        }
+        if (simplePath.equals(simpleMaterial + "_ore") || simplePath.equals("ore_" + simpleMaterial)) {
+            return HostKind.STONE;
+        }
+        if (matchesHostedOre(simplePath, "deepslate", simpleMaterial)) {
+            return HostKind.DEEPSLATE;
+        }
+        if (matchesHostedOre(simplePath, "stone", simpleMaterial)) {
+            return HostKind.STONE;
+        }
+        if (NETHER_HOST_ALIASES.stream().anyMatch(alias -> matchesHostedOre(simplePath, alias, simpleMaterial))) {
+            return conventionNamed ? HostKind.NETHERRACK : HostKind.REVIEW_REQUIRED;
+        }
+        if (END_HOST_ALIASES.stream().anyMatch(alias -> matchesHostedOre(simplePath, alias, simpleMaterial))) {
+            return conventionNamed ? HostKind.END_STONE : HostKind.REVIEW_REQUIRED;
+        }
         if (conventionNamed) {
-            String simpleMaterial = material.substring(material.lastIndexOf('/') + 1);
-            if (simplePath.equals(simpleMaterial + "_ore") || simplePath.equals("ore_" + simpleMaterial)) {
-                return HostKind.STONE;
-            }
             return HostKind.REVIEW_REQUIRED;
         }
         return oreLikeName ? HostKind.STONE : HostKind.REVIEW_REQUIRED;
+    }
+
+    private static boolean matchesHostedOre(String path, String hostAlias, String material) {
+        String core = oreNameCore(path);
+        return core.equals(hostAlias + '_' + material) || core.equals(material + '_' + hostAlias);
+    }
+
+    private static boolean hasHostAffix(String path, String hostAlias) {
+        String core = oreNameCore(path);
+        return core.startsWith(hostAlias + '_') || core.endsWith('_' + hostAlias);
+    }
+
+    private static boolean hasAnyHostAffix(String path, List<String> aliases) {
+        return aliases.stream().anyMatch(alias -> hasHostAffix(path, alias));
+    }
+
+    private static String stripHostAffix(String material, List<String> aliases) {
+        for (String alias : aliases) {
+            String prefix = alias + '_';
+            if (material.startsWith(prefix) && material.length() > prefix.length()) {
+                return material.substring(prefix.length());
+            }
+            String suffix = '_' + alias;
+            if (material.endsWith(suffix) && material.length() > suffix.length()) {
+                return material.substring(0, material.length() - suffix.length());
+            }
+        }
+        return material;
+    }
+
+    private static String oreNameCore(String path) {
+        if (path.endsWith("_ore")) {
+            return path.substring(0, path.length() - "_ore".length());
+        }
+        return path.startsWith("ore_") ? path.substring("ore_".length()) : path;
     }
 
     private static boolean supportedResourceId(String id) {
@@ -282,15 +334,13 @@ public final class OreImportDiscovery {
     private static final class GroupBuilder {
         private final String material;
         private final TreeMap<String, Candidate> candidates = new TreeMap<>();
-        private boolean reviewRequired;
 
         private GroupBuilder(String material) {
             this.material = material;
         }
 
-        private void add(Candidate candidate, boolean identityReviewRequired) {
+        private void add(Candidate candidate) {
             candidates.merge(candidate.blockId(), candidate, GroupBuilder::mergeCandidate);
-            reviewRequired |= identityReviewRequired;
         }
 
         private static Candidate mergeCandidate(Candidate left, Candidate right) {

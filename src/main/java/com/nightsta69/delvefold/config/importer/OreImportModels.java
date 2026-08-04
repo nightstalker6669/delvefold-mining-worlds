@@ -88,7 +88,7 @@ public final class OreImportModels {
      * @param material normalized material path
      * @param evidence strongest discovery evidence among retained candidates
      * @param candidates candidate block variants sorted by registry ID
-     * @param reviewRequired whether the family contains an uncertain identity or ambiguous host that should be reviewed
+     * @param reviewRequired whether material identity is ambiguous or no candidate has a safe inferred host
      */
     public record Group(
             String id,
@@ -98,14 +98,14 @@ public final class OreImportModels {
             List<Candidate> candidates,
             boolean reviewRequired) {
         /**
-         * Validates identifiers, copies and sorts candidates, and propagates candidate review requirements.
+         * Validates identifiers, copies and sorts candidates, and preserves family-level identity review requirements.
          *
          * @param id group resource ID
          * @param namespace namespace of the provider-independent family ID
          * @param material normalized material path
          * @param evidence strongest discovery evidence
          * @param candidates one or more bounded candidate variants
-         * @param reviewRequired explicit upstream review requirement
+         * @param reviewRequired explicit material-identity review requirement
          */
         public Group {
             id = resourceId(id, "group id");
@@ -118,9 +118,7 @@ public final class OreImportModels {
             if (candidates.isEmpty()) {
                 throw new IllegalArgumentException("An ore import group needs at least one candidate");
             }
-            reviewRequired = reviewRequired
-                    || candidates.stream().anyMatch(Candidate::reviewRequired)
-                    || candidates.stream().anyMatch(Candidate::identifiedByFallback);
+            reviewRequired = reviewRequired || candidates.stream().allMatch(Candidate::reviewRequired);
         }
 
         /**
@@ -150,9 +148,11 @@ public final class OreImportModels {
         }
 
         /**
-         * Reports whether any candidate used a non-material-specific fallback during discovery.
+         * Reports whether any candidate used non-material-specific discovery evidence.
          *
-         * @return {@code true} when the family should be checked before accepting inferred material identity
+         * <p>This provenance flag is informational. A clear ore registry name does not by itself require manual review.
+         *
+         * @return {@code true} when at least one candidate lacks a material-specific common tag
          */
         public boolean hasFallbackCandidates() {
             return candidates.stream().anyMatch(Candidate::identifiedByFallback);
@@ -222,8 +222,8 @@ public final class OreImportModels {
         /**
          * Reports whether material identity came from broad tags or registry-path inference.
          *
-         * <p>The inferred host remains available separately through {@link #hostKind()}, allowing clients to present
-         * provider and stone/deepslate variants without conflating them with identification confidence.
+         * <p>The inferred host remains available separately through {@link #hostKind()}. Clear ore registry names are
+         * safe material evidence even though this method retains their fallback provenance for diagnostics.
          *
          * @return {@code true} unless a material-specific {@code c:ores/*} tag supplied the identity
          */
@@ -274,6 +274,10 @@ public final class OreImportModels {
         STONE("minecraft:stone_ore_replaceables"),
         /** Conventional deepslate-hosted variant. */
         DEEPSLATE("minecraft:deepslate_ore_replaceables"),
+        /** Explicit Nether or netherrack variant hosted by common-tag-compatible netherrack. */
+        NETHERRACK("c:netherracks"),
+        /** Explicit End or end-stone variant hosted by common-tag-compatible end stone. */
+        END_STONE("c:end_stones"),
         /** Ambiguous or unsupported host that cannot be imported automatically. */
         REVIEW_REQUIRED("");
 
@@ -286,10 +290,43 @@ public final class OreImportModels {
         /**
          * Returns the inferred replacement block tag without a leading {@code #}.
          *
-         * @return vanilla replacement tag, or an empty string when explicit review is required
+         * @return replacement tag, or an empty string when explicit review is required
          */
         public String replaceTag() {
             return replaceTag;
+        }
+
+        /**
+         * Returns the immutable protocol-14 wire identifier for this host kind.
+         *
+         * @return integer wire value from 0 through 4
+         */
+        public int wireId() {
+            return switch (this) {
+                case STONE -> 0;
+                case DEEPSLATE -> 1;
+                case NETHERRACK -> 2;
+                case END_STONE -> 3;
+                case REVIEW_REQUIRED -> 4;
+            };
+        }
+
+        /**
+         * Decodes one immutable protocol-14 host-kind wire identifier.
+         *
+         * @param wireId encoded integer value
+         * @return matching host kind
+         * @throws IllegalArgumentException when the value is outside the protocol-14 domain
+         */
+        public static HostKind fromWireId(int wireId) {
+            return switch (wireId) {
+                case 0 -> STONE;
+                case 1 -> DEEPSLATE;
+                case 2 -> NETHERRACK;
+                case 3 -> END_STONE;
+                case 4 -> REVIEW_REQUIRED;
+                default -> throw new IllegalArgumentException("Invalid ore host value: " + wireId);
+            };
         }
     }
 

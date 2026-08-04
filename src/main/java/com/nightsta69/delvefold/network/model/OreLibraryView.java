@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.network.model;
 
 import com.nightsta69.delvefold.config.importer.OreImportModels.Evidence;
+import com.nightsta69.delvefold.config.importer.OreImportModels.HostKind;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import java.util.List;
 import java.util.Objects;
@@ -103,12 +104,13 @@ public record OreLibraryView(
      * @param material normalized logical material name
      * @param suggestedRuleId collision-free rule identifier reserved against the complete active profile and catalog
      * @param preferredBlockId exact block used as the family icon and default provider representative
+     * @param preferredHostKind authoritative host classification for the preferred representative
      * @param providerCount number of distinct installed mod namespaces represented
      * @param candidateCount number of retained exact registered blocks
      * @param importableCandidateCount number of candidates with a safe inferred replacement host
      * @param evidence strongest evidence supporting the material identity
      * @param configured whether the active profile already targets any member of this family
-     * @param reviewRequired whether any retained candidate needs explicit host review
+     * @param reviewRequired whether material identity is ambiguous or no candidate has a safe inferred host
      * @param overflow whether installed candidates exceed one saved rule's 16-target limit
      */
     public record Family(
@@ -116,6 +118,7 @@ public record OreLibraryView(
             String material,
             String suggestedRuleId,
             String preferredBlockId,
+            HostKind preferredHostKind,
             int providerCount,
             int candidateCount,
             int importableCandidateCount,
@@ -134,6 +137,7 @@ public record OreLibraryView(
                 throw new IllegalArgumentException("Invalid ore library suggested rule ID");
             }
             preferredBlockId = boundedId(preferredBlockId, "preferred block ID");
+            Objects.requireNonNull(preferredHostKind, "preferredHostKind");
             if (providerCount < 1
                     || providerCount > ProtocolLimits.MAX_ORE_LIBRARY_CANDIDATES_PER_FAMILY
                     || candidateCount < 1
@@ -144,6 +148,10 @@ public record OreLibraryView(
                 throw new IllegalArgumentException("Invalid ore library family counts");
             }
             Objects.requireNonNull(evidence, "evidence");
+            if ((importableCandidateCount == 0) != reviewRequired
+                    || (importableCandidateCount == 0) != (preferredHostKind == HostKind.REVIEW_REQUIRED)) {
+                throw new IllegalArgumentException("Ore library family review state is inconsistent");
+            }
         }
 
         private static String boundedId(@Nullable String value, String label) {

@@ -97,6 +97,44 @@ class OreLibraryNetworkViewsTest {
     }
 
     @Test
+    void providerSearchFindsTheUnifiedMekanismTinFamily() {
+        Group tin = new Group(
+                "delvefold:ores/tin",
+                "delvefold",
+                "tin",
+                Evidence.CONVENTIONAL_TAG,
+                List.of(
+                        new Candidate(
+                                "mekanism:deepslate_tin_ore",
+                                "minecraft:deepslate_ore_replaceables",
+                                HostKind.DEEPSLATE,
+                                Evidence.CONVENTIONAL_TAG,
+                                List.of("c:ores/tin")),
+                        new Candidate(
+                                "mekanism:tin_ore",
+                                STONE_REPLACEABLES,
+                                HostKind.STONE,
+                                Evidence.CONVENTIONAL_TAG,
+                                List.of("c:ores/tin"))),
+                false);
+
+        OreLibraryView view = OreLibraryNetworkViews.page(
+                "token",
+                new DiscoveryResult(List.of(tin), false, 2),
+                profile(),
+                new FakeRegistry(Map.of()),
+                "mekanism",
+                false,
+                0);
+
+        assertEquals(1, view.totalFamilies());
+        assertEquals("delvefold:ores/tin", view.families().getFirst().id());
+        assertEquals(2, view.families().getFirst().candidateCount());
+        assertEquals(2, view.families().getFirst().importableCandidateCount());
+        assertFalse(view.families().getFirst().reviewRequired());
+    }
+
+    @Test
     void familySummaryCountsProvidersImportableCandidatesAndOverflow() {
         List<Candidate> candidates = new ArrayList<>();
         for (int index = 0; index < ProtocolLimits.MAX_VARIANTS + 1; index++) {
@@ -118,8 +156,41 @@ class OreLibraryNetworkViewsTest {
         assertEquals(ProtocolLimits.MAX_VARIANTS + 1, family.providerCount());
         assertEquals(ProtocolLimits.MAX_VARIANTS + 1, family.candidateCount());
         assertEquals(ProtocolLimits.MAX_VARIANTS, family.importableCandidateCount());
-        assertTrue(family.reviewRequired());
+        assertFalse(family.reviewRequired(), "Only the unusual variant should require review");
         assertTrue(family.overflow());
+    }
+
+    @Test
+    void familyNeedsReviewWhenNoCandidateHasASafeHost() {
+        Group reviewOnly = group(
+                0,
+                List.of(
+                        new Candidate(
+                                "example:nether_material_0_ore",
+                                "",
+                                HostKind.REVIEW_REQUIRED,
+                                Evidence.CONVENTIONAL_TAG,
+                                List.of("c:ores/material_0")),
+                        new Candidate(
+                                "other:end_material_0_ore",
+                                "",
+                                HostKind.REVIEW_REQUIRED,
+                                Evidence.CONVENTIONAL_TAG,
+                                List.of("c:ores/material_0"))));
+
+        OreLibraryView.Family family = OreLibraryNetworkViews.page(
+                        "token",
+                        new DiscoveryResult(List.of(reviewOnly), false, 2),
+                        profile(),
+                        new FakeRegistry(Map.of()),
+                        "",
+                        false,
+                        0)
+                .families()
+                .getFirst();
+
+        assertEquals(0, family.importableCandidateCount());
+        assertTrue(family.reviewRequired());
     }
 
     @Test

@@ -72,6 +72,35 @@ class OreImportPlannerTest {
     }
 
     @Test
+    void explicitNetherAndEndVariantsAreImportedWithTheirDetectedHosts() {
+        Group garnet = group(
+                "example",
+                "garnet",
+                candidate("example:garnet_ore", HostKind.STONE),
+                candidate("example:deepslate_garnet_ore", HostKind.DEEPSLATE),
+                candidate("example:nether_garnet_ore", HostKind.NETHERRACK),
+                candidate("example:end_garnet_ore", HostKind.END_STONE));
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("example:garnet_ore"),
+                block("example:deepslate_garnet_ore"),
+                block("example:nether_garnet_ore"),
+                block("example:end_garnet_ore"));
+
+        var plan = OreImportPlanner.plan(OrePresets.empty(), List.of(garnet), registry, RegistryLookup.SKIP);
+        OreRule imported = plan.proposedProfile().rules().getFirst();
+        Map<String, String> hosts =
+                imported.targets().stream().collect(Collectors.toMap(OreTarget::block, OreTarget::replaceTag));
+
+        assertEquals(4, imported.targets().size());
+        assertEquals("minecraft:stone_ore_replaceables", hosts.get("example:garnet_ore"));
+        assertEquals("minecraft:deepslate_ore_replaceables", hosts.get("example:deepslate_garnet_ore"));
+        assertEquals("c:netherracks", hosts.get("example:nether_garnet_ore"));
+        assertEquals("c:end_stones", hosts.get("example:end_garnet_ore"));
+        assertEquals(DiffStatus.ADDED, plan.diff().getFirst().status());
+        assertEquals(List.of(), plan.diff().getFirst().skippedBlocks());
+    }
+
+    @Test
     void exactAndExpandedTagCoverageSuppressTheWholeLogicalFamily() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
                 block("example:tin_ore"),
@@ -184,12 +213,12 @@ class OreImportPlannerTest {
     @Test
     void reviewRequiredCandidatesNeverReceiveAGuessedHost() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
-                block("example:tin_ore"), block("example:nether_tin_ore"), block("example:lead_cluster"));
+                block("example:tin_ore"), block("example:basalt_tin_ore"), block("example:lead_cluster"));
         Group mixed = group(
                 "example",
                 "tin",
                 candidate("example:tin_ore", HostKind.STONE),
-                candidate("example:nether_tin_ore", HostKind.REVIEW_REQUIRED));
+                candidate("example:basalt_tin_ore", HostKind.REVIEW_REQUIRED));
         Group reviewOnly = group("example", "lead", candidate("example:lead_cluster", HostKind.REVIEW_REQUIRED));
 
         var plan = OreImportPlanner.plan(OrePresets.empty(), List.of(reviewOnly, mixed), registry, RegistryLookup.SKIP);
@@ -203,7 +232,7 @@ class OreImportPlannerTest {
         assertEquals("message.delvefold.import.diff_message.review_required", translationKey(leadDiff.message()));
         assertEquals(DiffStatus.PARTIALLY_ADDED, tinDiff.status());
         assertEquals(List.of("example:tin_ore"), tinDiff.addedBlocks());
-        assertEquals(List.of("example:nether_tin_ore"), tinDiff.skippedBlocks());
+        assertEquals(List.of("example:basalt_tin_ore"), tinDiff.skippedBlocks());
     }
 
     private static String translationKey(String message) {

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.4.1 — Host-Aware Unified Ores
+
+### Fixed
+
+- Stopped marking every registry-name fallback as unsafe. Clear conventional ore names now form usable material families even when a mod omits `c:ores/<material>`; conflicting material tags, aggregate blocks, and unknown hosts still require review.
+- Corrected family confidence so one unusual variant no longer labels an otherwise safe family as entirely review-required. Mixed families now identify only the variants that actually need attention.
+- Recognized tagged Nether and End variants, including prefix and suffix forms, and mapped them automatically to `#c:netherracks` and `#c:end_stones`. Material identity is checked first, so names such as End Steel are not misclassified as End-hosted Steel.
+- Added detected-host and replacement-tag tooltips to safe variants and clarified that every automatically selected replacement tag remains editable.
+
+### Development and compatibility
+
+- Expanded deterministic tests across tagged and untagged host aliases, material-name collisions, ambiguous tags, four-host import planning, configuration validation, wizard fallback inference, and the serialized host-kind order.
+- Expanded the reproducible combined development client with Mekanism Generators, Tools, and Additions alongside Mekanism, JEI, EMI, Ender IO, and Athena. Local full-pack acceptance testing additionally covered Silent's Gems, Applied Energistics 2, GuideME, WorldEdit, and hundreds of other optional mods.
+- All compatibility mods remain development-only. Delvefold does not bundle them or declare a required player/server dependency on them.
+- Configuration schema remains **2** and `DelvefoldApi.API_VERSION` remains **1**. Existing profiles and saves require no migration or load-time rewrite.
+- Client/server network protocol is now **14** because the bounded ore-library host enum gained netherrack and end-stone values. Install the identical Delvefold 1.4.1 JAR on every client and the server.
+- Verified 683 JUnit tests, all 40 required NeoForge GameTests, 66 JSON resources, 613 literal translation references, a clean release build, fixture-free JAR contents, and a fresh dedicated-server startup with orderly saves for all six Delvefold dimensions.
+- The release artifact is `delvefold-1.21.1-1.4.1.jar`. GitHub tag automation publishes the JAR and checksum; CurseForge upload remains a manual project-owner step.
+
 ## 1.4.0 — Unified Ores
 
 ### Added
