@@ -47,6 +47,28 @@ class OreRuleWizardDraftStateTest {
     }
 
     @Test
+    void exactIdFallbackInfersOnlyDeepslateWithoutMaterialTagEvidence() {
+        assertAll(
+                () -> assertEquals(
+                        "minecraft:stone_ore_replaceables", OreRuleWizardDraftState.inferredHost("example:garnet_ore")),
+                () -> assertEquals(
+                        "minecraft:deepslate_ore_replaceables",
+                        OreRuleWizardDraftState.inferredHost("example:deepslate_garnet_ore")),
+                () -> assertEquals(
+                        "minecraft:stone_ore_replaceables",
+                        OreRuleWizardDraftState.inferredHost("example:nether_garnet_ore")),
+                () -> assertEquals(
+                        "minecraft:stone_ore_replaceables",
+                        OreRuleWizardDraftState.inferredHost("example:garnet_netherrack_ore")),
+                () -> assertEquals(
+                        "minecraft:stone_ore_replaceables",
+                        OreRuleWizardDraftState.inferredHost("example:end_garnet_ore")),
+                () -> assertEquals(
+                        "minecraft:stone_ore_replaceables",
+                        OreRuleWizardDraftState.inferredHost("example:end_steel_ore")));
+    }
+
+    @Test
     void duplicateSourcesRetainTheFirstVariantAndBlockUnsafeSaving() {
         AdminSnapshot.OreVariantDraft first = new AdminSnapshot.OreVariantDraft(
                 "example:tin_ore", "", "minecraft:stone_ore_replaceables", Map.of("facing", "north"), 3);

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.nightsta69.delvefold.config.importer.OreImportModels.Evidence;
+import com.nightsta69.delvefold.config.importer.OreImportModels.HostKind;
 import com.nightsta69.delvefold.network.model.OreLibraryView;
 import com.nightsta69.delvefold.network.model.OreLibraryView.Family;
 import java.util.ArrayList;
@@ -96,6 +97,7 @@ class OreLibraryViewTest {
                         "copper",
                         "delvefold_copper",
                         "example:copper_ore",
+                        HostKind.STONE,
                         1,
                         1,
                         1,
@@ -110,6 +112,7 @@ class OreLibraryViewTest {
                         "copper",
                         "Invalid:Rule",
                         "example:copper_ore",
+                        HostKind.STONE,
                         1,
                         1,
                         1,
@@ -124,6 +127,7 @@ class OreLibraryViewTest {
                         "copper",
                         "delvefold_copper",
                         "example:copper_ore",
+                        HostKind.STONE,
                         2,
                         1,
                         1,
@@ -138,6 +142,7 @@ class OreLibraryViewTest {
                         "copper",
                         "delvefold_copper",
                         "example:copper_ore",
+                        HostKind.STONE,
                         1,
                         1,
                         2,
@@ -159,6 +164,7 @@ class OreLibraryViewTest {
                 "material_" + index,
                 "delvefold_material_" + index,
                 "example:material_" + index + "_ore",
+                HostKind.STONE,
                 1,
                 1,
                 1,

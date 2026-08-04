@@ -1,6 +1,6 @@
 # Delvefold Architecture
 
-This document records the Delvefold 1.4.0 architecture. It retains the
+This document records the Delvefold 1.4.1 architecture. It retains the
 responsibility boundaries established by the 1.3.1 code-quality refactor and
 adds a bounded, server-authoritative material-family catalog for Unified Ores.
 It is both a map for maintainers and a compatibility contract for subsequent
@@ -36,12 +36,12 @@ The architecture is built around five invariants:
 
 ## Compatibility boundary
 
-These identifiers and formats define the 1.4.0 compatibility boundary:
+These identifiers and formats define the 1.4.1 compatibility boundary:
 
 | Contract | Baseline | Compatibility requirement |
 | --- | ---: | --- |
 | Public API | `DelvefoldApi.API_VERSION = 1` | Preserve public descriptors and event semantics. Add no breaking signatures. |
-| Client/server protocol | `DelvefoldNetwork.PROTOCOL_VERSION = "13"` | Require identical 1.4.0 clients/servers; preserve payload IDs, field order, bounds, and matching-version behavior within protocol 13. |
+| Client/server protocol | `DelvefoldNetwork.PROTOCOL_VERSION = "14"` | Require identical 1.4.1 clients/servers; preserve payload IDs, field order, bounds, and matching-version behavior within protocol 14. |
 | Settings JSON | schema `2` | Preserve field names, defaults, validation, and canonical serialization. |
 | Ore-profile JSON | schema `2` | Preserve rule IDs, target semantics, defaults, weights, and canonical serialization. |
 | Guide snapshot | format `2` | Preserve the bounded public guide view and legacy-constructor behavior. |
@@ -61,7 +61,7 @@ operation IDs.
 
 - world-generation, landmark, and portal registries are attached to the mod
   event bus;
-- network payloads are registered at protocol 13;
+- network payloads are registered at protocol 14;
 - client event handlers are registered only on `Dist.CLIENT`;
 - `DefaultDelvefoldAdminService` is installed behind the
   `DelvefoldAdminService` interface;
@@ -88,7 +88,7 @@ still completing.
 
 ## Package and subsystem map
 
-The 1.4.0 source tree contains 326 production Java files and 54,074 lines,
+The 1.4.1 source tree contains 326 production Java files and 54,210 lines,
 compared with 246 files and 36,043 lines in the 1.3.0 baseline. The increase is
 primarily documented `package-info.java` nullness contracts, focused
 collaborators, exhaustive Javadocs, and the bounded Unified Ores catalog. Counts below include nested
@@ -142,13 +142,16 @@ These boundaries are deliberately package-private. They improve testability and
 reviewability without expanding API version 1 or making private implementation
 layout a downstream contract.
 
-### 1.4.0 Unified Ores boundaries
+### 1.4.x Unified Ores boundaries
 
 `OreImportDiscovery` owns the pure, deterministic classification shared by the
 material library and guided profile import. A material-specific
-`c:ores/<material>` tag is authoritative; conservative registry-name fallback
-is explicitly marked for review. Logical family IDs are transient runtime
-identifiers and never enter schema-2 JSON.
+`c:ores/<material>` tag is authoritative; a clear conventional ore name may be
+used as a safe identity fallback, while conflicting tags, aggregate blocks, and
+unknown hosts remain review-required. Material-aware host-affix matching maps
+recognized Nether and End variants to `c:netherracks` and `c:end_stones`
+without misclassifying material names such as `end_steel`. Logical family IDs
+are transient runtime identifiers and never enter schema-2 JSON.
 
 `OreImportSessionService` retains a bounded discovery snapshot behind an opaque,
 expiring token bound to the player, ore revision, registry fingerprint, profile

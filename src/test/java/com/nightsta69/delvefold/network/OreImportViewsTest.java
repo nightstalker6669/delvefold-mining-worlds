@@ -1,6 +1,8 @@
 package com.nightsta69.delvefold.network;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.nightsta69.delvefold.config.importer.OreImportModels.Evidence;
@@ -13,6 +15,24 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class OreImportViewsTest {
+    @Test
+    void protocolFourteenLocksTheExpandedHostKindOrdinalOrder() {
+        assertArrayEquals(
+                new HostKind[] {
+                    HostKind.STONE,
+                    HostKind.DEEPSLATE,
+                    HostKind.NETHERRACK,
+                    HostKind.END_STONE,
+                    HostKind.REVIEW_REQUIRED
+                },
+                HostKind.values());
+        for (HostKind hostKind : HostKind.values()) {
+            assertEquals(hostKind, HostKind.fromWireId(hostKind.wireId()));
+        }
+        assertThrows(IllegalArgumentException.class, () -> HostKind.fromWireId(-1));
+        assertThrows(IllegalArgumentException.class, () -> HostKind.fromWireId(5));
+    }
+
     @Test
     void emptyViewsUseOneCompletePage() {
         assertDoesNotThrow(() -> new ScanView("token", 0L, "base", 0, 1, 0, 0, false, List.of()));

@@ -79,6 +79,7 @@ public final class OreLibraryNetworkViews {
                     group.material(),
                     Objects.requireNonNull(suggestedRuleIds.get(group.id()), "suggested rule ID"),
                     representative.blockId(),
+                    representative.hostKind(),
                     Math.toIntExact(Math.min(providerCount, ProtocolLimits.MAX_ORE_LIBRARY_CANDIDATES_PER_FAMILY)),
                     candidateCount,
                     importableCount,
@@ -127,7 +128,9 @@ public final class OreLibraryNetworkViews {
         return switch (candidate.hostKind()) {
             case STONE -> 0;
             case DEEPSLATE -> 1;
-            case REVIEW_REQUIRED -> 2;
+            case NETHERRACK -> 2;
+            case END_STONE -> 3;
+            case REVIEW_REQUIRED -> 4;
         };
     }
 

@@ -20,7 +20,7 @@ class VersioningInvariantTest {
         assertEquals(1, DelvefoldApi.API_VERSION);
         assertEquals(2, OreProfileDocument.CURRENT_SCHEMA_VERSION);
         assertEquals(2, WorldSettingsDocument.CURRENT_SCHEMA_VERSION);
-        assertEquals("13", DelvefoldNetwork.PROTOCOL_VERSION);
+        assertEquals("14", DelvefoldNetwork.PROTOCOL_VERSION);
     }
 
     @Test

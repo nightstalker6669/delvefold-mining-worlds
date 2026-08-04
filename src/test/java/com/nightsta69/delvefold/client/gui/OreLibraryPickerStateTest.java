@@ -32,7 +32,7 @@ class OreLibraryPickerStateTest {
                 "Silver",
                 "delvefold_silver",
                 false,
-                true,
+                false,
                 List.of(
                         new OreLibraryPickerState.Candidate(
                                 "aardvark:nether_silver_ore", "aardvark", "review_required", "", true),
@@ -249,7 +249,7 @@ class OreLibraryPickerStateTest {
                 "Tin",
                 "delvefold_tin",
                 configured,
-                true,
+                false,
                 List.of(candidate("example:tin_ore", "example", "stone")));
     }
 

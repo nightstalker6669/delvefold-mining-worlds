@@ -26,10 +26,10 @@ Delvefold includes an in-game ore picker and rule editor built for both vanilla 
 
 - Browse ores as material families, so copper, tin, silver, and other variants from different mods appear together instead of as hundreds of unrelated blocks.
 - Search and page through the server's installed ore catalog, hide families already configured, select across pages, and add up to 128 families atomically.
-- Use conventional `c:ores/<material>` tags for authoritative grouping. Conservative registry-name fallback keeps untagged ores discoverable and marks uncertain matches for review.
-- Start with Minecraft's provider when available, otherwise the first installed provider, then open the rule to enable or disable other provider-specific stone/deepslate variants.
+- Use conventional `c:ores/<material>` tags for authoritative grouping. Clear conventional registry names keep untagged ores safely discoverable; only ambiguous identities or replacement hosts require review.
+- Start with Minecraft's provider when available, otherwise the first installed provider, then open the rule to enable or disable other provider-specific stone, deepslate, netherrack, and end-stone variants.
 - Add unusual ores by exact registry ID when they should not be grouped.
-- Configure stone/deepslate variants and other output block states.
+- Configure automatically detected replacement tags and output block states, including `#c:netherracks` and `#c:end_stones` for recognized Nether and End variants.
 - Select replacement blocks or block tags.
 - Control vein size, attempts per chunk, height ranges, and air-exposure discard.
 - Choose classic veins or deterministic regional ore provinces with bounded per-chunk work.
@@ -100,4 +100,4 @@ Choose **Safe**, **Hostile**, or **Normal** natural mob spawning, then fine-tune
 - Java **21**
 - Installed on both client and server
 
-Delvefold stores its settings per save and keeps configuration schema 2 and public API version 1 stable for the 1.x series. Schema-2 worlds from Delvefold 0.2–1.3 upgrade directly to 1.4 without rewriting existing exact/tag ore rules. Schema-1 saves remain available through non-destructive read-only compatibility handling. Delvefold 1.4.0 uses network protocol 13 and requires the identical JAR on every client and server. JEI and EMI remain optional and unchanged.
+Delvefold stores its settings per save and keeps configuration schema 2 and public API version 1 stable for the 1.x series. Schema-2 worlds from Delvefold 0.2–1.3 upgrade directly to 1.4.1 without rewriting existing exact/tag ore rules. Schema-1 saves remain available through non-destructive read-only compatibility handling. Delvefold 1.4.1 uses network protocol 14 and requires the identical JAR on every client and server. JEI and EMI remain optional and unchanged.

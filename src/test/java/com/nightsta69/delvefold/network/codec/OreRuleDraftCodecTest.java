@@ -32,6 +32,7 @@ class OreRuleDraftCodecTest {
                 "Weight must be encoded immediately after the host tag and before block state");
         assertTrue(codec.contains(readSequence), "Weight must be decoded from the matching wire position");
         assertTrue(codec.contains("replaceTag, state, weight)"), "The decoded weight must reach OreVariantDraft");
-        assertTrue(network.contains("PROTOCOL_VERSION = \"13\""), "Unified Ores payloads require protocol 13");
+        assertTrue(
+                network.contains("PROTOCOL_VERSION = \"14\""), "Host-aware Unified Ores payloads require protocol 14");
     }
 }

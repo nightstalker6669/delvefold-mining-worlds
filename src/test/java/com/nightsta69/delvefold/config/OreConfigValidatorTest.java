@@ -130,6 +130,54 @@ class OreConfigValidatorTest {
     }
 
     @Test
+    void validatesDetectedNetherAndEndHostTagsAgainstTheLiveRegistryBoundary() {
+        var original = OrePresets.balanced().rules().getFirst();
+        var hostAware = new com.nightsta69.delvefold.config.model.OreRule(
+                "host_aware_garnet",
+                true,
+                false,
+                original.terrainModes(),
+                List.of(
+                        OreTarget.of("example:nether_garnet_ore", "c:netherracks"),
+                        OreTarget.of("example:end_garnet_ore", "c:end_stones")),
+                original.biomes(),
+                original.bands());
+        RegistryLookup complete = new RegistryLookup() {
+            @Override
+            public boolean blockExists(String id) {
+                return true;
+            }
+
+            @Override
+            public boolean blockTagExists(String id) {
+                return Set.of("c:netherracks", "c:end_stones").contains(id);
+            }
+        };
+        RegistryLookup missingEnd = new RegistryLookup() {
+            @Override
+            public boolean blockExists(String id) {
+                return true;
+            }
+
+            @Override
+            public boolean blockTagExists(String id) {
+                return "c:netherracks".equals(id);
+            }
+        };
+
+        var accepted =
+                OreConfigValidator.validate(new OreProfileDocument(2, 0, "host_aware", List.of(hostAware)), complete);
+        var rejected =
+                OreConfigValidator.validate(new OreProfileDocument(2, 0, "host_aware", List.of(hostAware)), missingEnd);
+
+        assertTrue(accepted.valid(), () -> accepted.issues().toString());
+        assertFalse(rejected.valid());
+        assertTrue(rejected.issues().stream()
+                .anyMatch(issue -> "target.missing_replace_tag".equals(issue.code())
+                        && issue.path().endsWith("targets[1].replace_tag")));
+    }
+
+    @Test
     void validatesTargetWeightBoundsAndWarnsAboutWeightedOverlaps() {
         var original = OrePresets.balanced().rules().getFirst();
         String host = "minecraft:stone_ore_replaceables";

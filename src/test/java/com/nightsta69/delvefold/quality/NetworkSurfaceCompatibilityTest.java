@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
-/** Characterizes the protocol-13 payload directions, payload codecs, and codec inventory. */
+/** Characterizes the protocol-14 payload directions, payload codecs, and codec inventory. */
 class NetworkSurfaceCompatibilityTest {
     private static final Path NETWORK = Path.of("src/main/java/com/nightsta69/delvefold/network");
     private static final Set<String> TO_SERVER = Set.of(
@@ -58,10 +58,10 @@ class NetworkSurfaceCompatibilityTest {
             "registrar\\.playTo(Server|Client)\\(\\s*(\\w+)\\.TYPE\\s*,\\s*\\2\\.STREAM_CODEC\\s*,", Pattern.DOTALL);
 
     @Test
-    void protocolThirteenRegistersTheExactUnifiedOresPayloadInventory() throws Exception {
+    void protocolFourteenRegistersTheExactUnifiedOresPayloadInventory() throws Exception {
         String source = Files.readString(NETWORK.resolve("DelvefoldNetwork.java"));
         assertTrue(
-                source.matches("(?s).*public\\s+static\\s+final\\s+String\\s+PROTOCOL_VERSION\\s*=\\s*\"13\"\\s*;.*"));
+                source.matches("(?s).*public\\s+static\\s+final\\s+String\\s+PROTOCOL_VERSION\\s*=\\s*\"14\"\\s*;.*"));
 
         Map<String, Set<String>> actual = new TreeMap<>();
         actual.put("Server", new TreeSet<>());

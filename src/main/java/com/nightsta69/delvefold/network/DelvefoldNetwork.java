@@ -55,8 +55,8 @@ import org.slf4j.Logger;
 
 /** Common payload registration and server-authoritative request handlers. */
 public final class DelvefoldNetwork {
-    /** Exact client/server payload compatibility version; protocol 13 field order and enum ordinals are immutable. */
-    public static final String PROTOCOL_VERSION = "13";
+    /** Exact client/server payload compatibility version; protocol 14 field order and enum ordinals are immutable. */
+    public static final String PROTOCOL_VERSION = "14";
 
     private static final Logger LOGGER = LogUtils.getLogger();
 

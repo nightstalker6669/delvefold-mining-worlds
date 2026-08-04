@@ -41,7 +41,7 @@ final class OreFamilyCatalog {
         List<OreLibraryPickerState.Candidate> candidates =
                 localGroup == null ? List.of() : candidatesForWizard(localGroup);
         if (candidates.isEmpty()) {
-            candidates = List.of(fallbackCandidate(summary.preferredBlockId(), summary.reviewRequired()));
+            candidates = List.of(fallbackCandidate(summary));
         }
         return new OreLibraryPickerState.Family(
                 summary.id(),
@@ -96,27 +96,23 @@ final class OreFamilyCatalog {
                 candidate.reviewRequired());
     }
 
-    private static OreLibraryPickerState.Candidate fallbackCandidate(String blockId, boolean reviewRequired) {
+    private static OreLibraryPickerState.Candidate fallbackCandidate(OreLibraryView.Family summary) {
+        String blockId = summary.preferredBlockId();
         String provider = blockId.substring(0, Math.max(0, blockId.indexOf(':')));
         if (provider.isBlank()) {
             provider = "minecraft";
         }
-        String path = blockId.substring(Math.max(0, blockId.indexOf(':') + 1));
-        boolean deepslate = path.startsWith("deepslate_");
+        HostKind hostKind = summary.preferredHostKind();
         return new OreLibraryPickerState.Candidate(
-                blockId,
-                provider,
-                deepslate ? "deepslate" : reviewRequired ? "review_required" : "stone",
-                reviewRequired
-                        ? ""
-                        : deepslate ? "minecraft:deepslate_ore_replaceables" : "minecraft:stone_ore_replaceables",
-                reviewRequired);
+                blockId, provider, hostVariant(hostKind), hostKind.replaceTag(), hostKind == HostKind.REVIEW_REQUIRED);
     }
 
     private static String hostVariant(HostKind hostKind) {
         return switch (hostKind) {
             case STONE -> "stone";
             case DEEPSLATE -> "deepslate";
+            case NETHERRACK -> "nether";
+            case END_STONE -> "end";
             case REVIEW_REQUIRED -> "review_required";
         };
     }

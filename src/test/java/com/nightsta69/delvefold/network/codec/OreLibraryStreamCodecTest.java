@@ -35,6 +35,7 @@ class OreLibraryStreamCodecTest {
                         "family.material()",
                         "family.suggestedRuleId()",
                         "family.preferredBlockId()",
+                        "writeHostKind(family.preferredHostKind())",
                         "family.providerCount()",
                         "family.candidateCount()",
                         "family.importableCandidateCount()",
@@ -58,6 +59,7 @@ class OreLibraryStreamCodecTest {
                         "Stringmaterial=readId(buffer)",
                         "StringsuggestedRuleId=readId(buffer)",
                         "StringpreferredBlock=readId(buffer)",
+                        "HostKindpreferredHost=readHostKind(buffer.readVarInt())",
                         "intproviders=buffer.readVarInt()",
                         "intcandidates=buffer.readVarInt()",
                         "intimportable=buffer.readVarInt()",
@@ -83,6 +85,8 @@ class OreLibraryStreamCodecTest {
         }
         assertTrue(
                 source.contains("default -> throw new IllegalArgumentException(\"Invalid ore library evidence value:"));
+        assertTrue(source.contains("return hostKind.wireId()"));
+        assertTrue(source.contains("return HostKind.fromWireId(encoded)"));
     }
 
     @Test
@@ -104,7 +108,7 @@ class OreLibraryStreamCodecTest {
                 + maximumUtf8Text(ProtocolLimits.MAX_ORE_LIBRARY_QUERY_LENGTH)
                 + 2
                 + 5;
-        int family = 4 * maximumUtf8Text(ProtocolLimits.ID_LENGTH) + 4 * 5 + 3;
+        int family = 4 * maximumUtf8Text(ProtocolLimits.ID_LENGTH) + 5 * 5 + 3;
         int maximum = header + ProtocolLimits.MAX_ORE_LIBRARY_FAMILIES_PER_PAGE * family;
 
         assertTrue(

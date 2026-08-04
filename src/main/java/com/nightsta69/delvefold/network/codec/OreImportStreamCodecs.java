@@ -22,7 +22,7 @@ public final class OreImportStreamCodecs {
     private OreImportStreamCodecs() {}
 
     /**
-     * Writes one bounded scan page in protocol 13 field order.
+     * Writes one bounded scan page in protocol 14 field order.
      *
      * @param buffer destination registry-aware network buffer
      * @param view immutable display-only scan page
@@ -49,7 +49,7 @@ public final class OreImportStreamCodecs {
             for (CandidateView candidate : group.candidates()) {
                 writeId(buffer, candidate.blockId());
                 writeOptionalId(buffer, candidate.replaceTag());
-                writeEnum(buffer, candidate.hostKind());
+                writeHostKind(buffer, candidate.hostKind());
                 writeEnum(buffer, candidate.evidence());
             }
         }
@@ -86,7 +86,7 @@ public final class OreImportStreamCodecs {
             for (int candidate = 0; candidate < candidates; candidate++) {
                 candidateViews.add(new CandidateView(
                         readId(buffer), readOptionalId(buffer),
-                        readEnum(buffer, HostKind.class), readEnum(buffer, Evidence.class)));
+                        readHostKind(buffer), readEnum(buffer, Evidence.class)));
             }
             groups.add(new GroupView(id, namespace, material, evidence, review, candidateViews));
             ensureBudget(buffer.readerIndex() - start);
@@ -95,7 +95,7 @@ public final class OreImportStreamCodecs {
     }
 
     /**
-     * Writes one bounded non-mutating preview page in protocol 13 field order.
+     * Writes one bounded non-mutating preview page in protocol 14 field order.
      *
      * @param buffer destination registry-aware network buffer
      * @param view immutable diff, workload, and validation preview
@@ -286,6 +286,14 @@ public final class OreImportStreamCodecs {
     @SuppressWarnings("EnumOrdinal")
     private static <E extends Enum<E>> void writeEnum(RegistryFriendlyByteBuf buffer, E value) {
         buffer.writeVarInt(value.ordinal());
+    }
+
+    private static void writeHostKind(RegistryFriendlyByteBuf buffer, HostKind hostKind) {
+        buffer.writeVarInt(hostKind.wireId());
+    }
+
+    private static HostKind readHostKind(RegistryFriendlyByteBuf buffer) {
+        return HostKind.fromWireId(buffer.readVarInt());
     }
 
     private static <E extends Enum<E>> E readEnum(RegistryFriendlyByteBuf buffer, Class<E> type) {

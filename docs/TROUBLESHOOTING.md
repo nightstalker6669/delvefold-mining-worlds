@@ -20,9 +20,9 @@ Changes affect new chunks only. Travel beyond previously generated mining-world 
 
 Turn on **Show configured** first. Unified Ores hides a material family by default when any installed member is already covered by an exact target or an expanded block-tag target in the active profile. Search matches run on the server, so the server's installed block/tag registry—not a client-only mod list—determines the results.
 
-For reliable cross-mod grouping, every provider should contribute its variants to `c:ores/<material>`. Without that tag, Delvefold uses conservative ore-like registry names and marks the result for review; unusual names, ambiguous material tags, or unknown hosts may remain separate. Use direct registry-ID entry or `/delvefold ore add <block_id> exact <rarity>` when a block should be added independently.
+For reliable cross-mod grouping, every provider should contribute its variants to `c:ores/<material>`. Without that tag, Delvefold can safely group a clear conventional ore name, but unusual names, ambiguous material tags, aggregate blocks, or unknown hosts require review and may remain separate. A tagged Nether or End variant whose affix agrees with its resolved material automatically uses `#c:netherracks` or `#c:end_stones`. Use direct registry-ID entry or `/delvefold ore add <block_id> exact <rarity>` when a block should be added independently.
 
-Adding a family enables Minecraft's safe stone/deepslate variants when available, otherwise those from the lexically first provider. Other providers are deliberately off by default to avoid duplicate output. Open the added rule to enable the desired provider variants, keeping the maximum of 16 targets per rule. Existing rules are never auto-consolidated.
+Adding a family enables Minecraft's safe host variants when available, otherwise those from the lexically first provider. Other providers are deliberately off by default to avoid duplicate output. Open the added rule to enable the desired provider variants, keeping the maximum of 16 targets per rule. A Nether or End output is ineffective in a Delvefold terrain that contains no matching netherrack or end-stone host; the Forecast reports that condition. Existing rules are never auto-consolidated.
 
 ## A Cavern still has grass, large lakes, giant voids, or floating shelves after updating
 
@@ -67,7 +67,7 @@ Players without `delvefold.manage_world` cannot change blocks inside the protect
 
 ## Client and server report a protocol mismatch
 
-Delvefold 1.4.0 uses network protocol 13 and requires the identical 1.4.0 JAR on the client and server. Configuration schema 2 and public API version 1 do not make mismatched JARs network-compatible. Update every client and the server to the same file; optional JEI and EMI may still be installed independently and are not bundled.
+Delvefold 1.4.1 uses network protocol 14 and requires the identical 1.4.1 JAR on the client and server. Configuration schema 2 and public API version 1 do not make mismatched JARs network-compatible. Update every client and the server to the same file; optional JEI and EMI may still be installed independently and are not bundled.
 
 ## Getting useful diagnostics
 

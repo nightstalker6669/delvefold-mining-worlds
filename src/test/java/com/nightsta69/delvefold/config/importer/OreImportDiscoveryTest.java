@@ -99,6 +99,26 @@ class OreImportDiscoveryTest {
     }
 
     @Test
+    void mekanismBaseTinVariantsFormOneReadyStoneAndDeepslateFamily() {
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("mekanism:tin_ore", "c:ores", "c:ores/tin"),
+                block("mekanism:deepslate_tin_ore", "c:ores", "c:ores/tin"));
+
+        Group tin = OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY)
+                .groups()
+                .getFirst();
+
+        assertEquals("delvefold:ores/tin", tin.id());
+        assertEquals(List.of("mekanism"), tin.providerNamespaces());
+        assertEquals(
+                List.of("mekanism:deepslate_tin_ore", "mekanism:tin_ore"),
+                tin.candidates().stream().map(Candidate::blockId).toList());
+        assertEquals(HostKind.DEEPSLATE, tin.candidates().get(0).hostKind());
+        assertEquals(HostKind.STONE, tin.candidates().get(1).hostKind());
+        assertFalse(tin.reviewRequired());
+    }
+
+    @Test
     void nameFallbackIsStrictEnoughToAvoidContainsOreFalsePositives() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
                 block("example:lead_ore"),
@@ -112,7 +132,7 @@ class OreImportDiscoveryTest {
         Group lead = result.groups().getFirst();
         assertEquals("delvefold:ores/lead", lead.id());
         assertEquals(Evidence.ORE_LIKE_NAME, lead.evidence());
-        assertTrue(lead.reviewRequired());
+        assertFalse(lead.reviewRequired());
         assertTrue(lead.hasFallbackCandidates());
         assertEquals(
                 List.of("example:lead_ore", "example:ore_lead"),
@@ -120,7 +140,7 @@ class OreImportDiscoveryTest {
     }
 
     @Test
-    void conventionalEvidenceWinsAndUnknownHostsRequireReview() {
+    void conventionalEvidenceWinsAndExplicitNetherHostsImportWithoutReview() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
                 block("example:tin_ore", "c:ores/copper", "c:ores/tin"),
                 block("example:stone_tin_ore", "c:ores/tin"),
@@ -138,10 +158,11 @@ class OreImportDiscoveryTest {
         Candidate tinCluster = requireNonNull(candidates.get("example:tin_cluster"));
 
         assertEquals("delvefold:ores/tin", group.id());
-        assertTrue(group.reviewRequired());
+        assertFalse(group.reviewRequired());
         assertEquals(HostKind.STONE, tinOre.hostKind());
         assertEquals(HostKind.STONE, stoneTinOre.hostKind());
-        assertEquals(HostKind.REVIEW_REQUIRED, netherTinOre.hostKind());
+        assertEquals(HostKind.NETHERRACK, netherTinOre.hostKind());
+        assertEquals("c:netherracks", netherTinOre.replaceTag());
         assertEquals(HostKind.REVIEW_REQUIRED, tinCluster.hostKind());
         assertEquals("", tinCluster.replaceTag());
     }
@@ -161,7 +182,7 @@ class OreImportDiscoveryTest {
                 HostKind.REVIEW_REQUIRED, tinCluster.candidates().getFirst().hostKind());
         assertEquals(HostKind.STONE, lead.candidates().getFirst().hostKind());
         assertTrue(tinCluster.reviewRequired());
-        assertTrue(lead.reviewRequired());
+        assertFalse(lead.reviewRequired());
     }
 
     @Test
@@ -183,7 +204,7 @@ class OreImportDiscoveryTest {
     @Test
     void materialSpecificTagsTakePriorityAndAbsorbMatchingFallbackProviders() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
-                block("oddity:radioactive_crystal_ore", "c:ores/uranium"),
+                block("oddity:nether_radioactive_crystal_ore", "c:ores/uranium"),
                 block("fallback:uranium_ore"),
                 block("other:copper_ore", "c:ores/copper"));
 
@@ -194,11 +215,13 @@ class OreImportDiscoveryTest {
 
         assertEquals(List.of("fallback", "oddity"), uranium.providerNamespaces());
         assertEquals(
-                List.of("fallback:uranium_ore", "oddity:radioactive_crystal_ore"),
+                List.of("fallback:uranium_ore", "oddity:nether_radioactive_crystal_ore"),
                 uranium.candidates().stream().map(Candidate::blockId).toList());
         assertEquals(Evidence.CONVENTIONAL_TAG, uranium.evidence());
-        assertTrue(uranium.reviewRequired(), "The untagged provider and unusual tagged path both need review");
+        assertFalse(uranium.reviewRequired(), "A safe canonical variant keeps the family batch-ready");
         assertTrue(uranium.hasFallbackCandidates());
+        assertEquals(HostKind.STONE, uranium.candidates().get(0).hostKind());
+        assertEquals(HostKind.REVIEW_REQUIRED, uranium.candidates().get(1).hostKind());
     }
 
     @Test
@@ -224,23 +247,191 @@ class OreImportDiscoveryTest {
                 requireNonNull(groups.get("delvefold:ores/quartz")).candidates().stream()
                         .map(Candidate::blockId)
                         .toList());
-        assertTrue(groups.values().stream().allMatch(Group::reviewRequired));
+        assertTrue(groups.values().stream().noneMatch(Group::reviewRequired));
     }
 
     @Test
-    void missingTagsStillGroupExactMaterialNamesButRequireReview() {
+    void missingTagsStillGroupCanonicalMaterialNamesWithoutReview() {
         FakeOreImportRegistry registry = FakeOreImportRegistry.of(
-                block("alpha:copper_ore"), block("beta:copper_ore"), block("beta:deepslate_copper_ore"));
+                block("alpha:copper_ore"),
+                block("beta:ore_copper"),
+                block("gamma:stone_copper_ore"),
+                block("gamma:deepslate_copper_ore"));
 
         Group copper = OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY)
                 .groups()
                 .getFirst();
 
         assertEquals("delvefold:ores/copper", copper.id());
-        assertEquals(List.of("alpha", "beta"), copper.providerNamespaces());
-        assertEquals(3, copper.candidates().size());
-        assertTrue(copper.reviewRequired());
+        assertEquals(List.of("alpha", "beta", "gamma"), copper.providerNamespaces());
+        assertEquals(4, copper.candidates().size());
+        assertFalse(copper.reviewRequired());
         assertTrue(copper.candidates().stream().allMatch(Candidate::identifiedByFallback));
+    }
+
+    @Test
+    void materialTaggedNetherAndEndAliasesJoinTheBaseMaterialWithPreciseHosts() {
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("example:garnet_ore", "c:ores/garnet"),
+                block("example:deepslate_garnet_ore", "c:ores/garnet"),
+                block("example:nether_garnet_ore", "c:ores/garnet"),
+                block("example:garnet_nether_ore", "c:ores/garnet"),
+                block("example:netherrack_garnet_ore", "c:ores/garnet"),
+                block("example:garnet_netherrack_ore", "c:ores/garnet"),
+                block("example:end_garnet_ore", "c:ores/garnet"),
+                block("example:garnet_end_ore", "c:ores/garnet"),
+                block("example:endstone_garnet_ore", "c:ores/garnet"),
+                block("example:garnet_endstone_ore", "c:ores/garnet"),
+                block("example:end_stone_garnet_ore", "c:ores/garnet"),
+                block("example:garnet_end_stone_ore", "c:ores/garnet"));
+
+        Group garnet = OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY)
+                .groups()
+                .getFirst();
+        Map<String, Candidate> candidates =
+                garnet.candidates().stream().collect(Collectors.toMap(Candidate::blockId, Function.identity()));
+
+        assertEquals("delvefold:ores/garnet", garnet.id());
+        assertEquals(12, garnet.candidates().size());
+        assertFalse(garnet.reviewRequired());
+        assertEquals(
+                HostKind.NETHERRACK,
+                requireNonNull(candidates.get("example:nether_garnet_ore")).hostKind());
+        assertEquals(
+                HostKind.NETHERRACK,
+                requireNonNull(candidates.get("example:netherrack_garnet_ore")).hostKind());
+        assertEquals(
+                HostKind.END_STONE,
+                requireNonNull(candidates.get("example:end_garnet_ore")).hostKind());
+        assertEquals(
+                HostKind.END_STONE,
+                requireNonNull(candidates.get("example:endstone_garnet_ore")).hostKind());
+        assertEquals(
+                HostKind.END_STONE,
+                requireNonNull(candidates.get("example:end_stone_garnet_ore")).hostKind());
+        assertTrue(candidates.values().stream()
+                .filter(candidate -> candidate.hostKind() == HostKind.NETHERRACK)
+                .allMatch(candidate -> candidate.replaceTag().equals("c:netherracks")));
+        assertTrue(candidates.values().stream()
+                .filter(candidate -> candidate.hostKind() == HostKind.END_STONE)
+                .allMatch(candidate -> candidate.replaceTag().equals("c:end_stones")));
+        assertEquals(
+                4,
+                candidates.values().stream()
+                        .filter(candidate -> candidate.hostKind() == HostKind.NETHERRACK)
+                        .count());
+        assertEquals(
+                6,
+                candidates.values().stream()
+                        .filter(candidate -> candidate.hostKind() == HostKind.END_STONE)
+                        .count());
+    }
+
+    @Test
+    void untaggedDimensionAliasesStayInSeparateReviewFamiliesWithoutGuessingMaterialIdentity() {
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("example:garnet_ore"), block("example:nether_garnet_ore"), block("example:garnet_end_stone_ore"));
+
+        Map<String, Group> groups =
+                OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY).groups().stream()
+                        .collect(Collectors.toMap(Group::id, Function.identity()));
+
+        assertEquals(
+                Set.of("delvefold:ores/garnet", "delvefold:ores/nether_garnet", "delvefold:ores/garnet_end_stone"),
+                groups.keySet());
+        Group garnet = requireNonNull(groups.get("delvefold:ores/garnet"));
+        assertFalse(garnet.reviewRequired(), "The canonical stone variant keeps the family batch-ready");
+        assertEquals(HostKind.STONE, garnet.candidates().getFirst().hostKind());
+        assertTrue(requireNonNull(groups.get("delvefold:ores/nether_garnet")).reviewRequired());
+        assertTrue(requireNonNull(groups.get("delvefold:ores/garnet_end_stone")).reviewRequired());
+    }
+
+    @Test
+    void untaggedMaterialNamesBeginningWithDimensionWordsNeverMergeIntoOtherMaterials() {
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("example:end_steel_ore"),
+                block("example:steel_ore"),
+                block("example:nether_star_ore"),
+                block("example:star_ore"));
+
+        Map<String, Group> groups =
+                OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY).groups().stream()
+                        .collect(Collectors.toMap(Group::id, Function.identity()));
+
+        assertEquals(
+                Set.of(
+                        "delvefold:ores/end_steel",
+                        "delvefold:ores/steel",
+                        "delvefold:ores/nether_star",
+                        "delvefold:ores/star"),
+                groups.keySet());
+        assertTrue(requireNonNull(groups.get("delvefold:ores/end_steel")).reviewRequired());
+        assertTrue(requireNonNull(groups.get("delvefold:ores/nether_star")).reviewRequired());
+        assertFalse(requireNonNull(groups.get("delvefold:ores/steel")).reviewRequired());
+        assertFalse(requireNonNull(groups.get("delvefold:ores/star")).reviewRequired());
+    }
+
+    @Test
+    void materialTagIdentityWinsWhenAMaterialNameStartsWithAHostWord() {
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("example:end_steel_ore", "c:ores/end_steel"),
+                block("example:end_end_steel_ore", "c:ores/end_steel"));
+
+        Group endSteel = OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY)
+                .groups()
+                .getFirst();
+        Map<String, Candidate> candidates =
+                endSteel.candidates().stream().collect(Collectors.toMap(Candidate::blockId, Function.identity()));
+
+        assertEquals("delvefold:ores/end_steel", endSteel.id());
+        assertEquals(
+                HostKind.STONE,
+                requireNonNull(candidates.get("example:end_steel_ore")).hostKind());
+        assertEquals(
+                HostKind.END_STONE,
+                requireNonNull(candidates.get("example:end_end_steel_ore")).hostKind());
+    }
+
+    @Test
+    void unusualHostPrefixesRemainExplicitCandidateReviewItems() {
+        List<String> prefixes = List.of(
+                "blackstone_", "basalt_", "soul_", "sand_", "gravel_", "tuff_", "granite_", "diorite_", "andesite_");
+        List<OreImportRegistry.BlockEntry> entries = prefixes.stream()
+                .flatMap(prefix -> java.util.stream.Stream.of(
+                        block("example:" + prefix + "tin_ore", "c:ores/tin"),
+                        block("example:tin_" + prefix + "ore", "c:ores/tin")))
+                .toList();
+
+        Group tin = OreImportDiscovery.discover(new FakeOreImportRegistry(entries), DiscoveryOptions.MODDED_ONLY)
+                .groups()
+                .getFirst();
+
+        assertTrue(tin.reviewRequired());
+        assertEquals(prefixes.size() * 2, tin.candidates().size());
+        assertTrue(tin.candidates().stream().allMatch(Candidate::reviewRequired));
+        assertTrue(tin.candidates().stream()
+                .allMatch(candidate -> candidate.replaceTag().isBlank()));
+    }
+
+    @Test
+    void untaggedUnusualHostAffixesNeverBecomeSafeStoneFallbacks() {
+        List<String> aliases =
+                List.of("blackstone", "basalt", "soul", "sand", "gravel", "tuff", "granite", "diorite", "andesite");
+        List<OreImportRegistry.BlockEntry> entries = aliases.stream()
+                .flatMap(alias -> java.util.stream.Stream.of(
+                        block("example:" + alias + "_tin_ore"), block("example:tin_" + alias + "_ore")))
+                .toList();
+
+        var result = OreImportDiscovery.discover(new FakeOreImportRegistry(entries), DiscoveryOptions.MODDED_ONLY);
+
+        assertEquals(aliases.size() * 2, result.groups().size());
+        assertTrue(result.groups().stream().allMatch(Group::reviewRequired));
+        assertTrue(result.groups().stream()
+                .flatMap(group -> group.candidates().stream())
+                .allMatch(candidate -> candidate.hostKind() == HostKind.REVIEW_REQUIRED));
+        assertTrue(result.groups().stream()
+                .flatMap(group -> group.candidates().stream())
+                .allMatch(candidate -> candidate.replaceTag().isBlank()));
     }
 
     @Test
@@ -258,9 +449,28 @@ class OreImportDiscoveryTest {
         Group mystery = requireNonNull(groups.get("delvefold:ores/mystery"));
         assertTrue(mystery.reviewRequired());
         assertEquals(Evidence.ORE_LIKE_NAME, mystery.evidence());
+        assertEquals(HostKind.REVIEW_REQUIRED, mystery.candidates().getFirst().hostKind());
+        assertEquals("", mystery.candidates().getFirst().replaceTag());
         assertEquals(
                 List.of("example:mystery_ore"),
                 mystery.candidates().stream().map(Candidate::blockId).toList());
+    }
+
+    @Test
+    void oneAmbiguousCandidateDoesNotMarkASafeMixedFamilyAsWhollyReviewRequired() {
+        FakeOreImportRegistry registry = FakeOreImportRegistry.of(
+                block("ambiguous:copper_ore", "c:ores/lead", "c:ores/tin"), block("safe:copper_ore"));
+
+        Group copper = OreImportDiscovery.discover(registry, DiscoveryOptions.MODDED_ONLY)
+                .groups()
+                .getFirst();
+        Map<String, Candidate> candidates =
+                copper.candidates().stream().collect(Collectors.toMap(Candidate::blockId, Function.identity()));
+
+        assertEquals("delvefold:ores/copper", copper.id());
+        assertFalse(copper.reviewRequired());
+        assertTrue(requireNonNull(candidates.get("ambiguous:copper_ore")).reviewRequired());
+        assertFalse(requireNonNull(candidates.get("safe:copper_ore")).reviewRequired());
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.nightsta69.delvefold.network.codec;
 
 import com.nightsta69.delvefold.config.importer.OreImportModels.Evidence;
+import com.nightsta69.delvefold.config.importer.OreImportModels.HostKind;
 import com.nightsta69.delvefold.network.ProtocolLimits;
 import com.nightsta69.delvefold.network.model.OreLibraryView;
 import com.nightsta69.delvefold.network.model.OreLibraryView.Family;
@@ -8,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 
-/** Strict protocol-13 codec for bounded Unified Ores library pages. */
+/** Strict protocol-14 codec for bounded Unified Ores library pages. */
 public final class OreLibraryStreamCodec {
     private OreLibraryStreamCodec() {}
 
@@ -34,6 +35,7 @@ public final class OreLibraryStreamCodec {
             writeId(buffer, family.material());
             writeId(buffer, family.suggestedRuleId());
             writeId(buffer, family.preferredBlockId());
+            buffer.writeVarInt(writeHostKind(family.preferredHostKind()));
             buffer.writeVarInt(family.providerCount());
             buffer.writeVarInt(family.candidateCount());
             buffer.writeVarInt(family.importableCandidateCount());
@@ -71,6 +73,7 @@ public final class OreLibraryStreamCodec {
             String material = readId(buffer);
             String suggestedRuleId = readId(buffer);
             String preferredBlock = readId(buffer);
+            HostKind preferredHost = readHostKind(buffer.readVarInt());
             int providers = buffer.readVarInt();
             int candidates = buffer.readVarInt();
             int importable = buffer.readVarInt();
@@ -80,6 +83,7 @@ public final class OreLibraryStreamCodec {
                     material,
                     suggestedRuleId,
                     preferredBlock,
+                    preferredHost,
                     providers,
                     candidates,
                     importable,
@@ -116,6 +120,14 @@ public final class OreLibraryStreamCodec {
             case 2 -> Evidence.CONVENTIONAL_TAG;
             default -> throw new IllegalArgumentException("Invalid ore library evidence value: " + encoded);
         };
+    }
+
+    private static int writeHostKind(HostKind hostKind) {
+        return hostKind.wireId();
+    }
+
+    private static HostKind readHostKind(int encoded) {
+        return HostKind.fromWireId(encoded);
     }
 
     private static void ensureBudget(int bytes) {

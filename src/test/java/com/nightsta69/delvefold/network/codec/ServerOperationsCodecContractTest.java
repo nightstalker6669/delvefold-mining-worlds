@@ -14,7 +14,7 @@ class ServerOperationsCodecContractTest {
         String codec = compact(source("network/codec/DelvefoldStreamCodecs.java"));
         String network = compact(source("network/DelvefoldNetwork.java"));
 
-        assertTrue(network.contains("PROTOCOL_VERSION=\"13\""));
+        assertTrue(network.contains("PROTOCOL_VERSION=\"14\""));
         assertTrue(codec.contains("writeEnum(buffer,portal.routingMode());"
                 + "buffer.writeInt(portal.hub().x());"
                 + "buffer.writeInt(portal.hub().z());"
@@ -44,7 +44,7 @@ class ServerOperationsCodecContractTest {
         String codec = compact(source("network/codec/DelvefoldStreamCodecs.java"));
         String network = compact(source("network/DelvefoldNetwork.java"));
 
-        assertTrue(network.contains("PROTOCOL_VERSION=\"13\""));
+        assertTrue(network.contains("PROTOCOL_VERSION=\"14\""));
         assertTrue(codec.contains("writeEnum(buffer,snapshot.pendingOperation());"));
         assertTrue(codec.contains("readEnum(buffer,AdminSnapshot.PendingOperation.class)"));
         assertTrue(
